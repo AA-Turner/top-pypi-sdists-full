@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "parametrize"
+version = "0.1.1"
+description = "Drop-in @pytest.mark.parametrize replacement working with unittest.TestCase"
+authors = ["MrMrRobat <appkiller16@gmail.com>"]
+license = "MIT"
+readme = "readme.md"
+repository = "https://github.com/MrMrRobat/parametrize/"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Unit",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+[tool.black]
+target_version = ["py36", "py37", "py38", "py39"]
+line-length = 100
+
+[tool.poetry-dynamic-versioning]
+vcs = "git"
+style = "semver"
+
+[tool.poetry.dependencies]
+python = "^3.6.2"
+
+[tool.poetry.dev-dependencies]
+black = "^21.4b2"
+isort = "^5.8.0"
+mypy = "^0.812"
+
+flake8 = "^3.9.1"
+flake8-use-fstring = "^1.1"
+flake8-comprehensions = "^3.4.0"
+flake8-bugbear = "^21.4.3"
+flake8-black = "^0.2.1"
+flake8-isort = "^4.0.0"
+
+pytest = "^6.2.3"
+pytest-cov = "^2.11.1"
+pytest-sugar = "^0.9.4"
+pytest-mock = "^3.6.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

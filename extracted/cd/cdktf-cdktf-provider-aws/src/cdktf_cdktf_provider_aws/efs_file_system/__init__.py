@@ -1,7 +1,7 @@
 r'''
 # `aws_efs_file_system`
 
-Refer to the Terraform Registry for docs: [`aws_efs_file_system`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system).
+Refer to the Terraform Registry for docs: [`aws_efs_file_system`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EfsFileSystem(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.efsFileSystem.EfsFileSystem",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system aws_efs_file_system}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system aws_efs_file_system}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class EfsFileSystem(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system aws_efs_file_system} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system aws_efs_file_system} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param availability_zone_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#availability_zone_name EfsFileSystem#availability_zone_name}.
-        :param creation_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#creation_token EfsFileSystem#creation_token}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#encrypted EfsFileSystem#encrypted}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#id EfsFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#kms_key_id EfsFileSystem#kms_key_id}.
-        :param lifecycle_policy: lifecycle_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#lifecycle_policy EfsFileSystem#lifecycle_policy}
-        :param performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#performance_mode EfsFileSystem#performance_mode}.
-        :param protection: protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#protection EfsFileSystem#protection}
-        :param provisioned_throughput_in_mibps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#provisioned_throughput_in_mibps EfsFileSystem#provisioned_throughput_in_mibps}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#tags EfsFileSystem#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#tags_all EfsFileSystem#tags_all}.
-        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#throughput_mode EfsFileSystem#throughput_mode}.
+        :param availability_zone_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#availability_zone_name EfsFileSystem#availability_zone_name}.
+        :param creation_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#creation_token EfsFileSystem#creation_token}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#encrypted EfsFileSystem#encrypted}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#id EfsFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#kms_key_id EfsFileSystem#kms_key_id}.
+        :param lifecycle_policy: lifecycle_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#lifecycle_policy EfsFileSystem#lifecycle_policy}
+        :param performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#performance_mode EfsFileSystem#performance_mode}.
+        :param protection: protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#protection EfsFileSystem#protection}
+        :param provisioned_throughput_in_mibps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#provisioned_throughput_in_mibps EfsFileSystem#provisioned_throughput_in_mibps}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#tags EfsFileSystem#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#tags_all EfsFileSystem#tags_all}.
+        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#throughput_mode EfsFileSystem#throughput_mode}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class EfsFileSystem(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EfsFileSystem to import.
-        :param import_from_id: The id of the existing EfsFileSystem that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EfsFileSystem that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EfsFileSystem to import is found.
         '''
         if __debug__:
@@ -167,7 +167,7 @@ class EfsFileSystem(
         replication_overwrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param replication_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#replication_overwrite EfsFileSystem#replication_overwrite}.
+        :param replication_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#replication_overwrite EfsFileSystem#replication_overwrite}.
         '''
         value = EfsFileSystemProtection(replication_overwrite=replication_overwrite)
 
@@ -526,18 +526,18 @@ class EfsFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param availability_zone_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#availability_zone_name EfsFileSystem#availability_zone_name}.
-        :param creation_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#creation_token EfsFileSystem#creation_token}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#encrypted EfsFileSystem#encrypted}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#id EfsFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#kms_key_id EfsFileSystem#kms_key_id}.
-        :param lifecycle_policy: lifecycle_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#lifecycle_policy EfsFileSystem#lifecycle_policy}
-        :param performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#performance_mode EfsFileSystem#performance_mode}.
-        :param protection: protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#protection EfsFileSystem#protection}
-        :param provisioned_throughput_in_mibps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#provisioned_throughput_in_mibps EfsFileSystem#provisioned_throughput_in_mibps}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#tags EfsFileSystem#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#tags_all EfsFileSystem#tags_all}.
-        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#throughput_mode EfsFileSystem#throughput_mode}.
+        :param availability_zone_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#availability_zone_name EfsFileSystem#availability_zone_name}.
+        :param creation_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#creation_token EfsFileSystem#creation_token}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#encrypted EfsFileSystem#encrypted}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#id EfsFileSystem#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#kms_key_id EfsFileSystem#kms_key_id}.
+        :param lifecycle_policy: lifecycle_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#lifecycle_policy EfsFileSystem#lifecycle_policy}
+        :param performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#performance_mode EfsFileSystem#performance_mode}.
+        :param protection: protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#protection EfsFileSystem#protection}
+        :param provisioned_throughput_in_mibps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#provisioned_throughput_in_mibps EfsFileSystem#provisioned_throughput_in_mibps}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#tags EfsFileSystem#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#tags_all EfsFileSystem#tags_all}.
+        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#throughput_mode EfsFileSystem#throughput_mode}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -670,13 +670,13 @@ class EfsFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def availability_zone_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#availability_zone_name EfsFileSystem#availability_zone_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#availability_zone_name EfsFileSystem#availability_zone_name}.'''
         result = self._values.get("availability_zone_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def creation_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#creation_token EfsFileSystem#creation_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#creation_token EfsFileSystem#creation_token}.'''
         result = self._values.get("creation_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -684,13 +684,13 @@ class EfsFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#encrypted EfsFileSystem#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#encrypted EfsFileSystem#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#id EfsFileSystem#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#id EfsFileSystem#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -700,7 +700,7 @@ class EfsFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#kms_key_id EfsFileSystem#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#kms_key_id EfsFileSystem#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -710,14 +710,14 @@ class EfsFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EfsFileSystemLifecyclePolicy"]]]:
         '''lifecycle_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#lifecycle_policy EfsFileSystem#lifecycle_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#lifecycle_policy EfsFileSystem#lifecycle_policy}
         '''
         result = self._values.get("lifecycle_policy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EfsFileSystemLifecyclePolicy"]]], result)
 
     @builtins.property
     def performance_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#performance_mode EfsFileSystem#performance_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#performance_mode EfsFileSystem#performance_mode}.'''
         result = self._values.get("performance_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -725,32 +725,32 @@ class EfsFileSystemConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def protection(self) -> typing.Optional["EfsFileSystemProtection"]:
         '''protection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#protection EfsFileSystem#protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#protection EfsFileSystem#protection}
         '''
         result = self._values.get("protection")
         return typing.cast(typing.Optional["EfsFileSystemProtection"], result)
 
     @builtins.property
     def provisioned_throughput_in_mibps(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#provisioned_throughput_in_mibps EfsFileSystem#provisioned_throughput_in_mibps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#provisioned_throughput_in_mibps EfsFileSystem#provisioned_throughput_in_mibps}.'''
         result = self._values.get("provisioned_throughput_in_mibps")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#tags EfsFileSystem#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#tags EfsFileSystem#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#tags_all EfsFileSystem#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#tags_all EfsFileSystem#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def throughput_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#throughput_mode EfsFileSystem#throughput_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#throughput_mode EfsFileSystem#throughput_mode}.'''
         result = self._values.get("throughput_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -784,9 +784,9 @@ class EfsFileSystemLifecyclePolicy:
         transition_to_primary_storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param transition_to_archive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#transition_to_archive EfsFileSystem#transition_to_archive}.
-        :param transition_to_ia: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#transition_to_ia EfsFileSystem#transition_to_ia}.
-        :param transition_to_primary_storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#transition_to_primary_storage_class EfsFileSystem#transition_to_primary_storage_class}.
+        :param transition_to_archive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#transition_to_archive EfsFileSystem#transition_to_archive}.
+        :param transition_to_ia: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#transition_to_ia EfsFileSystem#transition_to_ia}.
+        :param transition_to_primary_storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#transition_to_primary_storage_class EfsFileSystem#transition_to_primary_storage_class}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b43cf33d339927ad5e9b7df39a16f5bc747f1246118e15232825f76ce522cc6a)
@@ -803,19 +803,19 @@ class EfsFileSystemLifecyclePolicy:
 
     @builtins.property
     def transition_to_archive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#transition_to_archive EfsFileSystem#transition_to_archive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#transition_to_archive EfsFileSystem#transition_to_archive}.'''
         result = self._values.get("transition_to_archive")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transition_to_ia(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#transition_to_ia EfsFileSystem#transition_to_ia}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#transition_to_ia EfsFileSystem#transition_to_ia}.'''
         result = self._values.get("transition_to_ia")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transition_to_primary_storage_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#transition_to_primary_storage_class EfsFileSystem#transition_to_primary_storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#transition_to_primary_storage_class EfsFileSystem#transition_to_primary_storage_class}.'''
         result = self._values.get("transition_to_primary_storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1042,7 +1042,7 @@ class EfsFileSystemProtection:
         replication_overwrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param replication_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#replication_overwrite EfsFileSystem#replication_overwrite}.
+        :param replication_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#replication_overwrite EfsFileSystem#replication_overwrite}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__765fdcb1a91f33c625abfd676aeeb84ab0e45c9eb23fb991c724977f42735c8f)
@@ -1053,7 +1053,7 @@ class EfsFileSystemProtection:
 
     @builtins.property
     def replication_overwrite(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_file_system#replication_overwrite EfsFileSystem#replication_overwrite}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_file_system#replication_overwrite EfsFileSystem#replication_overwrite}.'''
         result = self._values.get("replication_overwrite")
         return typing.cast(typing.Optional[builtins.str], result)
 

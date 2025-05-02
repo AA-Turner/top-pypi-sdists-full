@@ -1,7 +1,7 @@
 r'''
 # `aws_lexv2models_slot_type`
 
-Refer to the Terraform Registry for docs: [`aws_lexv2models_slot_type`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type).
+Refer to the Terraform Registry for docs: [`aws_lexv2models_slot_type`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Lexv2ModelsSlotType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lexv2ModelsSlotType.Lexv2ModelsSlotType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type aws_lexv2models_slot_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type aws_lexv2models_slot_type}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class Lexv2ModelsSlotType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type aws_lexv2models_slot_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type aws_lexv2models_slot_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#bot_id Lexv2ModelsSlotType#bot_id}.
-        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#bot_version Lexv2ModelsSlotType#bot_version}.
-        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#locale_id Lexv2ModelsSlotType#locale_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.
-        :param composite_slot_type_setting: composite_slot_type_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#composite_slot_type_setting Lexv2ModelsSlotType#composite_slot_type_setting}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#description Lexv2ModelsSlotType#description}.
-        :param external_source_setting: external_source_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#external_source_setting Lexv2ModelsSlotType#external_source_setting}
-        :param parent_slot_type_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#parent_slot_type_signature Lexv2ModelsSlotType#parent_slot_type_signature}.
-        :param slot_type_values: slot_type_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#slot_type_values Lexv2ModelsSlotType#slot_type_values}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#timeouts Lexv2ModelsSlotType#timeouts}
-        :param value_selection_setting: value_selection_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value_selection_setting Lexv2ModelsSlotType#value_selection_setting}
+        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#bot_id Lexv2ModelsSlotType#bot_id}.
+        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#bot_version Lexv2ModelsSlotType#bot_version}.
+        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#locale_id Lexv2ModelsSlotType#locale_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.
+        :param composite_slot_type_setting: composite_slot_type_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#composite_slot_type_setting Lexv2ModelsSlotType#composite_slot_type_setting}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#description Lexv2ModelsSlotType#description}.
+        :param external_source_setting: external_source_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#external_source_setting Lexv2ModelsSlotType#external_source_setting}
+        :param parent_slot_type_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#parent_slot_type_signature Lexv2ModelsSlotType#parent_slot_type_signature}.
+        :param slot_type_values: slot_type_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#slot_type_values Lexv2ModelsSlotType#slot_type_values}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#timeouts Lexv2ModelsSlotType#timeouts}
+        :param value_selection_setting: value_selection_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value_selection_setting Lexv2ModelsSlotType#value_selection_setting}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class Lexv2ModelsSlotType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Lexv2ModelsSlotType to import.
-        :param import_from_id: The id of the existing Lexv2ModelsSlotType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Lexv2ModelsSlotType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Lexv2ModelsSlotType to import is found.
         '''
         if __debug__:
@@ -192,9 +192,9 @@ class Lexv2ModelsSlotType(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#create Lexv2ModelsSlotType#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#delete Lexv2ModelsSlotType#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#update Lexv2ModelsSlotType#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#create Lexv2ModelsSlotType#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#delete Lexv2ModelsSlotType#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#update Lexv2ModelsSlotType#update}
         '''
         value = Lexv2ModelsSlotTypeTimeouts(
             create=create, delete=delete, update=update
@@ -443,7 +443,7 @@ class Lexv2ModelsSlotTypeCompositeSlotTypeSetting:
         sub_slots: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotTypeCompositeSlotTypeSettingSubSlots", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param sub_slots: sub_slots block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#sub_slots Lexv2ModelsSlotType#sub_slots}
+        :param sub_slots: sub_slots block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#sub_slots Lexv2ModelsSlotType#sub_slots}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5301375b45a8006c87c7800a423550d4ded7a5ab0a41844c3e3ab6f4fe1d24c)
@@ -458,7 +458,7 @@ class Lexv2ModelsSlotTypeCompositeSlotTypeSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeCompositeSlotTypeSettingSubSlots"]]]:
         '''sub_slots block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#sub_slots Lexv2ModelsSlotType#sub_slots}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#sub_slots Lexv2ModelsSlotType#sub_slots}
         '''
         result = self._values.get("sub_slots")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeCompositeSlotTypeSettingSubSlots"]]], result)
@@ -649,8 +649,8 @@ class Lexv2ModelsSlotTypeCompositeSlotTypeSettingOutputReference(
 class Lexv2ModelsSlotTypeCompositeSlotTypeSettingSubSlots:
     def __init__(self, *, name: builtins.str, slot_type_id: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.
-        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#slot_type_id Lexv2ModelsSlotType#slot_type_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.
+        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#slot_type_id Lexv2ModelsSlotType#slot_type_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d69ff5250ba1ff77cca2713dbc0026d71e8b06af461a79a1c4e416717d87312e)
@@ -663,14 +663,14 @@ class Lexv2ModelsSlotTypeCompositeSlotTypeSettingSubSlots:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def slot_type_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#slot_type_id Lexv2ModelsSlotType#slot_type_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#slot_type_id Lexv2ModelsSlotType#slot_type_id}.'''
         result = self._values.get("slot_type_id")
         assert result is not None, "Required property 'slot_type_id' is missing"
         return typing.cast(builtins.str, result)
@@ -913,17 +913,17 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#bot_id Lexv2ModelsSlotType#bot_id}.
-        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#bot_version Lexv2ModelsSlotType#bot_version}.
-        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#locale_id Lexv2ModelsSlotType#locale_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.
-        :param composite_slot_type_setting: composite_slot_type_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#composite_slot_type_setting Lexv2ModelsSlotType#composite_slot_type_setting}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#description Lexv2ModelsSlotType#description}.
-        :param external_source_setting: external_source_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#external_source_setting Lexv2ModelsSlotType#external_source_setting}
-        :param parent_slot_type_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#parent_slot_type_signature Lexv2ModelsSlotType#parent_slot_type_signature}.
-        :param slot_type_values: slot_type_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#slot_type_values Lexv2ModelsSlotType#slot_type_values}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#timeouts Lexv2ModelsSlotType#timeouts}
-        :param value_selection_setting: value_selection_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value_selection_setting Lexv2ModelsSlotType#value_selection_setting}
+        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#bot_id Lexv2ModelsSlotType#bot_id}.
+        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#bot_version Lexv2ModelsSlotType#bot_version}.
+        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#locale_id Lexv2ModelsSlotType#locale_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.
+        :param composite_slot_type_setting: composite_slot_type_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#composite_slot_type_setting Lexv2ModelsSlotType#composite_slot_type_setting}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#description Lexv2ModelsSlotType#description}.
+        :param external_source_setting: external_source_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#external_source_setting Lexv2ModelsSlotType#external_source_setting}
+        :param parent_slot_type_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#parent_slot_type_signature Lexv2ModelsSlotType#parent_slot_type_signature}.
+        :param slot_type_values: slot_type_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#slot_type_values Lexv2ModelsSlotType#slot_type_values}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#timeouts Lexv2ModelsSlotType#timeouts}
+        :param value_selection_setting: value_selection_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value_selection_setting Lexv2ModelsSlotType#value_selection_setting}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1050,28 +1050,28 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bot_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#bot_id Lexv2ModelsSlotType#bot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#bot_id Lexv2ModelsSlotType#bot_id}.'''
         result = self._values.get("bot_id")
         assert result is not None, "Required property 'bot_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bot_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#bot_version Lexv2ModelsSlotType#bot_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#bot_version Lexv2ModelsSlotType#bot_version}.'''
         result = self._values.get("bot_version")
         assert result is not None, "Required property 'bot_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def locale_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#locale_id Lexv2ModelsSlotType#locale_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#locale_id Lexv2ModelsSlotType#locale_id}.'''
         result = self._values.get("locale_id")
         assert result is not None, "Required property 'locale_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#name Lexv2ModelsSlotType#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1082,14 +1082,14 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[Lexv2ModelsSlotTypeCompositeSlotTypeSetting]]]:
         '''composite_slot_type_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#composite_slot_type_setting Lexv2ModelsSlotType#composite_slot_type_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#composite_slot_type_setting Lexv2ModelsSlotType#composite_slot_type_setting}
         '''
         result = self._values.get("composite_slot_type_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[Lexv2ModelsSlotTypeCompositeSlotTypeSetting]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#description Lexv2ModelsSlotType#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#description Lexv2ModelsSlotType#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1099,14 +1099,14 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeExternalSourceSetting"]]]:
         '''external_source_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#external_source_setting Lexv2ModelsSlotType#external_source_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#external_source_setting Lexv2ModelsSlotType#external_source_setting}
         '''
         result = self._values.get("external_source_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeExternalSourceSetting"]]], result)
 
     @builtins.property
     def parent_slot_type_signature(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#parent_slot_type_signature Lexv2ModelsSlotType#parent_slot_type_signature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#parent_slot_type_signature Lexv2ModelsSlotType#parent_slot_type_signature}.'''
         result = self._values.get("parent_slot_type_signature")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1116,7 +1116,7 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeSlotTypeValues"]]]:
         '''slot_type_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#slot_type_values Lexv2ModelsSlotType#slot_type_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#slot_type_values Lexv2ModelsSlotType#slot_type_values}
         '''
         result = self._values.get("slot_type_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeSlotTypeValues"]]], result)
@@ -1125,7 +1125,7 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Lexv2ModelsSlotTypeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#timeouts Lexv2ModelsSlotType#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#timeouts Lexv2ModelsSlotType#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Lexv2ModelsSlotTypeTimeouts"], result)
@@ -1136,7 +1136,7 @@ class Lexv2ModelsSlotTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeValueSelectionSetting"]]]:
         '''value_selection_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value_selection_setting Lexv2ModelsSlotType#value_selection_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value_selection_setting Lexv2ModelsSlotType#value_selection_setting}
         '''
         result = self._values.get("value_selection_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeValueSelectionSetting"]]], result)
@@ -1165,7 +1165,7 @@ class Lexv2ModelsSlotTypeExternalSourceSetting:
         grammar_slot_type_setting: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSetting", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param grammar_slot_type_setting: grammar_slot_type_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#grammar_slot_type_setting Lexv2ModelsSlotType#grammar_slot_type_setting}
+        :param grammar_slot_type_setting: grammar_slot_type_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#grammar_slot_type_setting Lexv2ModelsSlotType#grammar_slot_type_setting}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__363e76fc2992b570d749e9d449b9aec90192bae75d13ddb7c8e59323f77b5261)
@@ -1180,7 +1180,7 @@ class Lexv2ModelsSlotTypeExternalSourceSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSetting"]]]:
         '''grammar_slot_type_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#grammar_slot_type_setting Lexv2ModelsSlotType#grammar_slot_type_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#grammar_slot_type_setting Lexv2ModelsSlotType#grammar_slot_type_setting}
         '''
         result = self._values.get("grammar_slot_type_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSetting"]]], result)
@@ -1209,7 +1209,7 @@ class Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSetting:
         source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSettingSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#source Lexv2ModelsSlotType#source}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#source Lexv2ModelsSlotType#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53f76107c863db5cfc5464953e67c3581e7ba77a1e69aec349badf03e9121484)
@@ -1224,7 +1224,7 @@ class Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSettingSource"]]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#source Lexv2ModelsSlotType#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#source Lexv2ModelsSlotType#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSettingSource"]]], result)
@@ -1427,9 +1427,9 @@ class Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSettingSource:
         s3_object_key: builtins.str,
     ) -> None:
         '''
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#kms_key_arn Lexv2ModelsSlotType#kms_key_arn}.
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#s3_bucket_name Lexv2ModelsSlotType#s3_bucket_name}.
-        :param s3_object_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#s3_object_key Lexv2ModelsSlotType#s3_object_key}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#kms_key_arn Lexv2ModelsSlotType#kms_key_arn}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#s3_bucket_name Lexv2ModelsSlotType#s3_bucket_name}.
+        :param s3_object_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#s3_object_key Lexv2ModelsSlotType#s3_object_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4862cfcac4d8f7bb9386a76c4811cabbb3b799023307dad2df923d24bb372c13)
@@ -1444,21 +1444,21 @@ class Lexv2ModelsSlotTypeExternalSourceSettingGrammarSlotTypeSettingSource:
 
     @builtins.property
     def kms_key_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#kms_key_arn Lexv2ModelsSlotType#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#kms_key_arn Lexv2ModelsSlotType#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         assert result is not None, "Required property 'kms_key_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#s3_bucket_name Lexv2ModelsSlotType#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#s3_bucket_name Lexv2ModelsSlotType#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_object_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#s3_object_key Lexv2ModelsSlotType#s3_object_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#s3_object_key Lexv2ModelsSlotType#s3_object_key}.'''
         result = self._values.get("s3_object_key")
         assert result is not None, "Required property 's3_object_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1844,8 +1844,8 @@ class Lexv2ModelsSlotTypeSlotTypeValues:
         synonyms: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotTypeSlotTypeValuesSynonyms", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param sample_value: sample_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#sample_value Lexv2ModelsSlotType#sample_value}
-        :param synonyms: synonyms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#synonyms Lexv2ModelsSlotType#synonyms}
+        :param sample_value: sample_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#sample_value Lexv2ModelsSlotType#sample_value}
+        :param synonyms: synonyms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#synonyms Lexv2ModelsSlotType#synonyms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9460e26faad35f58fd9f6e1de416e8d89d07462cd2154b3c85cd6b5e347b8f0)
@@ -1863,7 +1863,7 @@ class Lexv2ModelsSlotTypeSlotTypeValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeSlotTypeValuesSampleValue"]]]:
         '''sample_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#sample_value Lexv2ModelsSlotType#sample_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#sample_value Lexv2ModelsSlotType#sample_value}
         '''
         result = self._values.get("sample_value")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeSlotTypeValuesSampleValue"]]], result)
@@ -1874,7 +1874,7 @@ class Lexv2ModelsSlotTypeSlotTypeValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeSlotTypeValuesSynonyms"]]]:
         '''synonyms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#synonyms Lexv2ModelsSlotType#synonyms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#synonyms Lexv2ModelsSlotType#synonyms}
         '''
         result = self._values.get("synonyms")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeSlotTypeValuesSynonyms"]]], result)
@@ -2094,7 +2094,7 @@ class Lexv2ModelsSlotTypeSlotTypeValuesOutputReference(
 class Lexv2ModelsSlotTypeSlotTypeValuesSampleValue:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5016e85d7ec4603205ad0c9826739d8c132685170cd33fb8fa90995c6d61f9b6)
@@ -2105,7 +2105,7 @@ class Lexv2ModelsSlotTypeSlotTypeValuesSampleValue:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2284,7 +2284,7 @@ class Lexv2ModelsSlotTypeSlotTypeValuesSampleValueOutputReference(
 class Lexv2ModelsSlotTypeSlotTypeValuesSynonyms:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b30ce6ab6cec792d4e0033da892fd93530d9f29b96fee460f5f9227d5d2ef0e8)
@@ -2295,7 +2295,7 @@ class Lexv2ModelsSlotTypeSlotTypeValuesSynonyms:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#value Lexv2ModelsSlotType#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2480,9 +2480,9 @@ class Lexv2ModelsSlotTypeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#create Lexv2ModelsSlotType#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#delete Lexv2ModelsSlotType#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#update Lexv2ModelsSlotType#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#create Lexv2ModelsSlotType#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#delete Lexv2ModelsSlotType#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#update Lexv2ModelsSlotType#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e41b7560715127589f54b45a97706f3c540306ba20d0e0d6b055285cd5c771c)
@@ -2501,7 +2501,7 @@ class Lexv2ModelsSlotTypeTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#create Lexv2ModelsSlotType#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#create Lexv2ModelsSlotType#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2510,7 +2510,7 @@ class Lexv2ModelsSlotTypeTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#delete Lexv2ModelsSlotType#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#delete Lexv2ModelsSlotType#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2519,7 +2519,7 @@ class Lexv2ModelsSlotTypeTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#update Lexv2ModelsSlotType#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#update Lexv2ModelsSlotType#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2655,9 +2655,9 @@ class Lexv2ModelsSlotTypeValueSelectionSetting:
         regex_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotTypeValueSelectionSettingRegexFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param resolution_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#resolution_strategy Lexv2ModelsSlotType#resolution_strategy}.
-        :param advanced_recognition_setting: advanced_recognition_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#advanced_recognition_setting Lexv2ModelsSlotType#advanced_recognition_setting}
-        :param regex_filter: regex_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#regex_filter Lexv2ModelsSlotType#regex_filter}
+        :param resolution_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#resolution_strategy Lexv2ModelsSlotType#resolution_strategy}.
+        :param advanced_recognition_setting: advanced_recognition_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#advanced_recognition_setting Lexv2ModelsSlotType#advanced_recognition_setting}
+        :param regex_filter: regex_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#regex_filter Lexv2ModelsSlotType#regex_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b57abaf1b740abd4b4b864b1847facd94964c98fe8228f30151fd482357de07)
@@ -2674,7 +2674,7 @@ class Lexv2ModelsSlotTypeValueSelectionSetting:
 
     @builtins.property
     def resolution_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#resolution_strategy Lexv2ModelsSlotType#resolution_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#resolution_strategy Lexv2ModelsSlotType#resolution_strategy}.'''
         result = self._values.get("resolution_strategy")
         assert result is not None, "Required property 'resolution_strategy' is missing"
         return typing.cast(builtins.str, result)
@@ -2685,7 +2685,7 @@ class Lexv2ModelsSlotTypeValueSelectionSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeValueSelectionSettingAdvancedRecognitionSetting"]]]:
         '''advanced_recognition_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#advanced_recognition_setting Lexv2ModelsSlotType#advanced_recognition_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#advanced_recognition_setting Lexv2ModelsSlotType#advanced_recognition_setting}
         '''
         result = self._values.get("advanced_recognition_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeValueSelectionSettingAdvancedRecognitionSetting"]]], result)
@@ -2696,7 +2696,7 @@ class Lexv2ModelsSlotTypeValueSelectionSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeValueSelectionSettingRegexFilter"]]]:
         '''regex_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#regex_filter Lexv2ModelsSlotType#regex_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#regex_filter Lexv2ModelsSlotType#regex_filter}
         '''
         result = self._values.get("regex_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotTypeValueSelectionSettingRegexFilter"]]], result)
@@ -2725,7 +2725,7 @@ class Lexv2ModelsSlotTypeValueSelectionSettingAdvancedRecognitionSetting:
         audio_recognition_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audio_recognition_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#audio_recognition_strategy Lexv2ModelsSlotType#audio_recognition_strategy}.
+        :param audio_recognition_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#audio_recognition_strategy Lexv2ModelsSlotType#audio_recognition_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f062b4f0ca94ca568a583256122dac53968f9b77d46eef316b12e969a323156)
@@ -2736,7 +2736,7 @@ class Lexv2ModelsSlotTypeValueSelectionSettingAdvancedRecognitionSetting:
 
     @builtins.property
     def audio_recognition_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#audio_recognition_strategy Lexv2ModelsSlotType#audio_recognition_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#audio_recognition_strategy Lexv2ModelsSlotType#audio_recognition_strategy}.'''
         result = self._values.get("audio_recognition_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3132,7 +3132,7 @@ class Lexv2ModelsSlotTypeValueSelectionSettingOutputReference(
 class Lexv2ModelsSlotTypeValueSelectionSettingRegexFilter:
     def __init__(self, *, pattern: builtins.str) -> None:
         '''
-        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#pattern Lexv2ModelsSlotType#pattern}.
+        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#pattern Lexv2ModelsSlotType#pattern}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a10d8e4b7825d333b51533c041b06e042bf85332f64713841de217291599b543)
@@ -3143,7 +3143,7 @@ class Lexv2ModelsSlotTypeValueSelectionSettingRegexFilter:
 
     @builtins.property
     def pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot_type#pattern Lexv2ModelsSlotType#pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot_type#pattern Lexv2ModelsSlotType#pattern}.'''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
         return typing.cast(builtins.str, result)

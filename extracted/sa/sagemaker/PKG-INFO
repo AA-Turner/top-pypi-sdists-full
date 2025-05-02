@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sagemaker
-Version: 2.243.3
+Version: 2.244.0
 Summary: Open source library for training and deploying models on Amazon SageMaker.
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
 Author: Amazon Web Services

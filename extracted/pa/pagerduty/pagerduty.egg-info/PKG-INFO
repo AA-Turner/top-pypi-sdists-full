@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: pagerduty
+Version: 2.0.0
+Summary: Clients for PagerDuty's Public APIs
+Maintainer-email: Demitri Morgan <demitri@pagerduty.com>, Mandi Walls <mwalls@pagerduty.com>, PagerDuty Customer Support <support@pagerduty.com>
+Project-URL: Documentation, https://pagerduty.github.io/python-pagerduty
+Project-URL: Repository, https://github.com/PagerDuty/python-pagerduty
+Project-URL: PyPI, https://pypi.org/project/pagerduty
+Requires-Python: >=3.6
+License-File: LICENSE
+Requires-Dist: certifi
+Requires-Dist: requests
+Requires-Dist: urllib3
+Dynamic: license-file

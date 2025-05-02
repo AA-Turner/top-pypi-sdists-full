@@ -1,7 +1,7 @@
 r'''
 # `data_aws_organizations_organizational_unit`
 
-Refer to the Terraform Registry for docs: [`data_aws_organizations_organizational_unit`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit).
+Refer to the Terraform Registry for docs: [`data_aws_organizations_organizational_unit`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsOrganizationsOrganizationalUnit(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsOrganizationsOrganizationalUnit.DataAwsOrganizationsOrganizationalUnit",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit aws_organizations_organizational_unit}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit aws_organizations_organizational_unit}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAwsOrganizationsOrganizationalUnit(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit aws_organizations_organizational_unit} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit aws_organizations_organizational_unit} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#name DataAwsOrganizationsOrganizationalUnit#name}.
-        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#parent_id DataAwsOrganizationsOrganizationalUnit#parent_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#id DataAwsOrganizationsOrganizationalUnit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#name DataAwsOrganizationsOrganizationalUnit#name}.
+        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#parent_id DataAwsOrganizationsOrganizationalUnit#parent_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#id DataAwsOrganizationsOrganizationalUnit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAwsOrganizationsOrganizationalUnit(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsOrganizationsOrganizationalUnit to import.
-        :param import_from_id: The id of the existing DataAwsOrganizationsOrganizationalUnit that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsOrganizationsOrganizationalUnit that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsOrganizationsOrganizationalUnit to import is found.
         '''
         if __debug__:
@@ -235,9 +235,9 @@ class DataAwsOrganizationsOrganizationalUnitConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#name DataAwsOrganizationsOrganizationalUnit#name}.
-        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#parent_id DataAwsOrganizationsOrganizationalUnit#parent_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#id DataAwsOrganizationsOrganizationalUnit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#name DataAwsOrganizationsOrganizationalUnit#name}.
+        :param parent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#parent_id DataAwsOrganizationsOrganizationalUnit#parent_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#id DataAwsOrganizationsOrganizationalUnit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,21 +340,21 @@ class DataAwsOrganizationsOrganizationalUnitConfig(
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#name DataAwsOrganizationsOrganizationalUnit#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#name DataAwsOrganizationsOrganizationalUnit#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parent_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#parent_id DataAwsOrganizationsOrganizationalUnit#parent_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#parent_id DataAwsOrganizationsOrganizationalUnit#parent_id}.'''
         result = self._values.get("parent_id")
         assert result is not None, "Required property 'parent_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/organizations_organizational_unit#id DataAwsOrganizationsOrganizationalUnit#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/organizations_organizational_unit#id DataAwsOrganizationsOrganizationalUnit#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

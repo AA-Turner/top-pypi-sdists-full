@@ -1,7 +1,7 @@
 r'''
 # `aws_appconfig_environment`
 
-Refer to the Terraform Registry for docs: [`aws_appconfig_environment`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment).
+Refer to the Terraform Registry for docs: [`aws_appconfig_environment`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppconfigEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appconfigEnvironment.AppconfigEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment aws_appconfig_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment aws_appconfig_environment}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AppconfigEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment aws_appconfig_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment aws_appconfig_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#application_id AppconfigEnvironment#application_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#name AppconfigEnvironment#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#description AppconfigEnvironment#description}.
-        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#monitor AppconfigEnvironment#monitor}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#tags AppconfigEnvironment#tags}.
+        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#application_id AppconfigEnvironment#application_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#name AppconfigEnvironment#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#description AppconfigEnvironment#description}.
+        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#monitor AppconfigEnvironment#monitor}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#tags AppconfigEnvironment#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AppconfigEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppconfigEnvironment to import.
-        :param import_from_id: The id of the existing AppconfigEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppconfigEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppconfigEnvironment to import is found.
         '''
         if __debug__:
@@ -313,11 +313,11 @@ class AppconfigEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#application_id AppconfigEnvironment#application_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#name AppconfigEnvironment#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#description AppconfigEnvironment#description}.
-        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#monitor AppconfigEnvironment#monitor}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#tags AppconfigEnvironment#tags}.
+        :param application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#application_id AppconfigEnvironment#application_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#name AppconfigEnvironment#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#description AppconfigEnvironment#description}.
+        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#monitor AppconfigEnvironment#monitor}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#tags AppconfigEnvironment#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -426,21 +426,21 @@ class AppconfigEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def application_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#application_id AppconfigEnvironment#application_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#application_id AppconfigEnvironment#application_id}.'''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#name AppconfigEnvironment#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#name AppconfigEnvironment#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#description AppconfigEnvironment#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#description AppconfigEnvironment#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -450,14 +450,14 @@ class AppconfigEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppconfigEnvironmentMonitor"]]]:
         '''monitor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#monitor AppconfigEnvironment#monitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#monitor AppconfigEnvironment#monitor}
         '''
         result = self._values.get("monitor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppconfigEnvironmentMonitor"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#tags AppconfigEnvironment#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#tags AppconfigEnvironment#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -486,8 +486,8 @@ class AppconfigEnvironmentMonitor:
         alarm_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param alarm_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#alarm_arn AppconfigEnvironment#alarm_arn}.
-        :param alarm_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#alarm_role_arn AppconfigEnvironment#alarm_role_arn}.
+        :param alarm_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#alarm_arn AppconfigEnvironment#alarm_arn}.
+        :param alarm_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#alarm_role_arn AppconfigEnvironment#alarm_role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd7d9b3bf5824a6659630f225fa4e642a0d79dfd3681e455ad6837bf0d00bac9)
@@ -501,14 +501,14 @@ class AppconfigEnvironmentMonitor:
 
     @builtins.property
     def alarm_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#alarm_arn AppconfigEnvironment#alarm_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#alarm_arn AppconfigEnvironment#alarm_arn}.'''
         result = self._values.get("alarm_arn")
         assert result is not None, "Required property 'alarm_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def alarm_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appconfig_environment#alarm_role_arn AppconfigEnvironment#alarm_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appconfig_environment#alarm_role_arn AppconfigEnvironment#alarm_role_arn}.'''
         result = self._values.get("alarm_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 

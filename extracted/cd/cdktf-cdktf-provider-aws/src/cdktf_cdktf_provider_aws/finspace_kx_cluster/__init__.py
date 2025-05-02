@@ -1,7 +1,7 @@
 r'''
 # `aws_finspace_kx_cluster`
 
-Refer to the Terraform Registry for docs: [`aws_finspace_kx_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster).
+Refer to the Terraform Registry for docs: [`aws_finspace_kx_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FinspaceKxCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.finspaceKxCluster.FinspaceKxCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster aws_finspace_kx_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster aws_finspace_kx_cluster}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class FinspaceKxCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster aws_finspace_kx_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster aws_finspace_kx_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param az_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#az_mode FinspaceKxCluster#az_mode}.
-        :param environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#environment_id FinspaceKxCluster#environment_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#name FinspaceKxCluster#name}.
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#release_label FinspaceKxCluster#release_label}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
-        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#vpc_configuration FinspaceKxCluster#vpc_configuration}
-        :param auto_scaling_configuration: auto_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#auto_scaling_configuration FinspaceKxCluster#auto_scaling_configuration}
-        :param availability_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#availability_zone_id FinspaceKxCluster#availability_zone_id}.
-        :param cache_storage_configurations: cache_storage_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_storage_configurations FinspaceKxCluster#cache_storage_configurations}
-        :param capacity_configuration: capacity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#capacity_configuration FinspaceKxCluster#capacity_configuration}
-        :param code: code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#code FinspaceKxCluster#code}
-        :param command_line_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#command_line_arguments FinspaceKxCluster#command_line_arguments}.
-        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#database FinspaceKxCluster#database}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#description FinspaceKxCluster#description}.
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#execution_role FinspaceKxCluster#execution_role}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#id FinspaceKxCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initialization_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#initialization_script FinspaceKxCluster#initialization_script}.
-        :param savedown_storage_configuration: savedown_storage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#savedown_storage_configuration FinspaceKxCluster#savedown_storage_configuration}
-        :param scaling_group_configuration: scaling_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scaling_group_configuration FinspaceKxCluster#scaling_group_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tags FinspaceKxCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tags_all FinspaceKxCluster#tags_all}.
-        :param tickerplant_log_configuration: tickerplant_log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tickerplant_log_configuration FinspaceKxCluster#tickerplant_log_configuration}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#timeouts FinspaceKxCluster#timeouts}
+        :param az_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#az_mode FinspaceKxCluster#az_mode}.
+        :param environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#environment_id FinspaceKxCluster#environment_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#name FinspaceKxCluster#name}.
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#release_label FinspaceKxCluster#release_label}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
+        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#vpc_configuration FinspaceKxCluster#vpc_configuration}
+        :param auto_scaling_configuration: auto_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#auto_scaling_configuration FinspaceKxCluster#auto_scaling_configuration}
+        :param availability_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#availability_zone_id FinspaceKxCluster#availability_zone_id}.
+        :param cache_storage_configurations: cache_storage_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_storage_configurations FinspaceKxCluster#cache_storage_configurations}
+        :param capacity_configuration: capacity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#capacity_configuration FinspaceKxCluster#capacity_configuration}
+        :param code: code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#code FinspaceKxCluster#code}
+        :param command_line_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#command_line_arguments FinspaceKxCluster#command_line_arguments}.
+        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#database FinspaceKxCluster#database}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#description FinspaceKxCluster#description}.
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#execution_role FinspaceKxCluster#execution_role}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#id FinspaceKxCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initialization_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#initialization_script FinspaceKxCluster#initialization_script}.
+        :param savedown_storage_configuration: savedown_storage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#savedown_storage_configuration FinspaceKxCluster#savedown_storage_configuration}
+        :param scaling_group_configuration: scaling_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scaling_group_configuration FinspaceKxCluster#scaling_group_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tags FinspaceKxCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tags_all FinspaceKxCluster#tags_all}.
+        :param tickerplant_log_configuration: tickerplant_log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tickerplant_log_configuration FinspaceKxCluster#tickerplant_log_configuration}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#timeouts FinspaceKxCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class FinspaceKxCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FinspaceKxCluster to import.
-        :param import_from_id: The id of the existing FinspaceKxCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FinspaceKxCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FinspaceKxCluster to import is found.
         '''
         if __debug__:
@@ -192,12 +192,12 @@ class FinspaceKxCluster(
         scale_out_cooldown_seconds: jsii.Number,
     ) -> None:
         '''
-        :param auto_scaling_metric: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#auto_scaling_metric FinspaceKxCluster#auto_scaling_metric}.
-        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#max_node_count FinspaceKxCluster#max_node_count}.
-        :param metric_target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#metric_target FinspaceKxCluster#metric_target}.
-        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#min_node_count FinspaceKxCluster#min_node_count}.
-        :param scale_in_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scale_in_cooldown_seconds FinspaceKxCluster#scale_in_cooldown_seconds}.
-        :param scale_out_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scale_out_cooldown_seconds FinspaceKxCluster#scale_out_cooldown_seconds}.
+        :param auto_scaling_metric: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#auto_scaling_metric FinspaceKxCluster#auto_scaling_metric}.
+        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#max_node_count FinspaceKxCluster#max_node_count}.
+        :param metric_target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#metric_target FinspaceKxCluster#metric_target}.
+        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#min_node_count FinspaceKxCluster#min_node_count}.
+        :param scale_in_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scale_in_cooldown_seconds FinspaceKxCluster#scale_in_cooldown_seconds}.
+        :param scale_out_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scale_out_cooldown_seconds FinspaceKxCluster#scale_out_cooldown_seconds}.
         '''
         value = FinspaceKxClusterAutoScalingConfiguration(
             auto_scaling_metric=auto_scaling_metric,
@@ -231,8 +231,8 @@ class FinspaceKxCluster(
         node_type: builtins.str,
     ) -> None:
         '''
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_type FinspaceKxCluster#node_type}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_type FinspaceKxCluster#node_type}.
         '''
         value = FinspaceKxClusterCapacityConfiguration(
             node_count=node_count, node_type=node_type
@@ -249,9 +249,9 @@ class FinspaceKxCluster(
         s3_object_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_bucket FinspaceKxCluster#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_key FinspaceKxCluster#s3_key}.
-        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_object_version FinspaceKxCluster#s3_object_version}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_bucket FinspaceKxCluster#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_key FinspaceKxCluster#s3_key}.
+        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_object_version FinspaceKxCluster#s3_object_version}.
         '''
         value = FinspaceKxClusterCode(
             s3_bucket=s3_bucket, s3_key=s3_key, s3_object_version=s3_object_version
@@ -281,9 +281,9 @@ class FinspaceKxCluster(
         volume_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
-        :param volume_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#volume_name FinspaceKxCluster#volume_name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
+        :param volume_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#volume_name FinspaceKxCluster#volume_name}.
         '''
         value = FinspaceKxClusterSavedownStorageConfiguration(
             size=size, type=type, volume_name=volume_name
@@ -302,11 +302,11 @@ class FinspaceKxCluster(
         memory_limit: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param memory_reservation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#memory_reservation FinspaceKxCluster#memory_reservation}.
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
-        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scaling_group_name FinspaceKxCluster#scaling_group_name}.
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cpu FinspaceKxCluster#cpu}.
-        :param memory_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#memory_limit FinspaceKxCluster#memory_limit}.
+        :param memory_reservation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#memory_reservation FinspaceKxCluster#memory_reservation}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
+        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scaling_group_name FinspaceKxCluster#scaling_group_name}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cpu FinspaceKxCluster#cpu}.
+        :param memory_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#memory_limit FinspaceKxCluster#memory_limit}.
         '''
         value = FinspaceKxClusterScalingGroupConfiguration(
             memory_reservation=memory_reservation,
@@ -340,9 +340,9 @@ class FinspaceKxCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#create FinspaceKxCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#delete FinspaceKxCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#update FinspaceKxCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#create FinspaceKxCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#delete FinspaceKxCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#update FinspaceKxCluster#update}.
         '''
         value = FinspaceKxClusterTimeouts(create=create, delete=delete, update=update)
 
@@ -358,10 +358,10 @@ class FinspaceKxCluster(
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#ip_address_type FinspaceKxCluster#ip_address_type}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#security_group_ids FinspaceKxCluster#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#subnet_ids FinspaceKxCluster#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#vpc_id FinspaceKxCluster#vpc_id}.
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#ip_address_type FinspaceKxCluster#ip_address_type}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#security_group_ids FinspaceKxCluster#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#subnet_ids FinspaceKxCluster#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#vpc_id FinspaceKxCluster#vpc_id}.
         '''
         value = FinspaceKxClusterVpcConfiguration(
             ip_address_type=ip_address_type,
@@ -861,12 +861,12 @@ class FinspaceKxClusterAutoScalingConfiguration:
         scale_out_cooldown_seconds: jsii.Number,
     ) -> None:
         '''
-        :param auto_scaling_metric: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#auto_scaling_metric FinspaceKxCluster#auto_scaling_metric}.
-        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#max_node_count FinspaceKxCluster#max_node_count}.
-        :param metric_target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#metric_target FinspaceKxCluster#metric_target}.
-        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#min_node_count FinspaceKxCluster#min_node_count}.
-        :param scale_in_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scale_in_cooldown_seconds FinspaceKxCluster#scale_in_cooldown_seconds}.
-        :param scale_out_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scale_out_cooldown_seconds FinspaceKxCluster#scale_out_cooldown_seconds}.
+        :param auto_scaling_metric: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#auto_scaling_metric FinspaceKxCluster#auto_scaling_metric}.
+        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#max_node_count FinspaceKxCluster#max_node_count}.
+        :param metric_target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#metric_target FinspaceKxCluster#metric_target}.
+        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#min_node_count FinspaceKxCluster#min_node_count}.
+        :param scale_in_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scale_in_cooldown_seconds FinspaceKxCluster#scale_in_cooldown_seconds}.
+        :param scale_out_cooldown_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scale_out_cooldown_seconds FinspaceKxCluster#scale_out_cooldown_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__083c76f32308f4832bfb5906aea14eac673127f8fb65e26c641e0f9a0facac1b)
@@ -887,42 +887,42 @@ class FinspaceKxClusterAutoScalingConfiguration:
 
     @builtins.property
     def auto_scaling_metric(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#auto_scaling_metric FinspaceKxCluster#auto_scaling_metric}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#auto_scaling_metric FinspaceKxCluster#auto_scaling_metric}.'''
         result = self._values.get("auto_scaling_metric")
         assert result is not None, "Required property 'auto_scaling_metric' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def max_node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#max_node_count FinspaceKxCluster#max_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#max_node_count FinspaceKxCluster#max_node_count}.'''
         result = self._values.get("max_node_count")
         assert result is not None, "Required property 'max_node_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def metric_target(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#metric_target FinspaceKxCluster#metric_target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#metric_target FinspaceKxCluster#metric_target}.'''
         result = self._values.get("metric_target")
         assert result is not None, "Required property 'metric_target' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def min_node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#min_node_count FinspaceKxCluster#min_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#min_node_count FinspaceKxCluster#min_node_count}.'''
         result = self._values.get("min_node_count")
         assert result is not None, "Required property 'min_node_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def scale_in_cooldown_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scale_in_cooldown_seconds FinspaceKxCluster#scale_in_cooldown_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scale_in_cooldown_seconds FinspaceKxCluster#scale_in_cooldown_seconds}.'''
         result = self._values.get("scale_in_cooldown_seconds")
         assert result is not None, "Required property 'scale_in_cooldown_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def scale_out_cooldown_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scale_out_cooldown_seconds FinspaceKxCluster#scale_out_cooldown_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scale_out_cooldown_seconds FinspaceKxCluster#scale_out_cooldown_seconds}.'''
         result = self._values.get("scale_out_cooldown_seconds")
         assert result is not None, "Required property 'scale_out_cooldown_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -1087,8 +1087,8 @@ class FinspaceKxClusterAutoScalingConfigurationOutputReference(
 class FinspaceKxClusterCacheStorageConfigurations:
     def __init__(self, *, size: jsii.Number, type: builtins.str) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e95da793ace29581981210883040441f10288a39b609bc07c52f668255d2de5)
@@ -1101,14 +1101,14 @@ class FinspaceKxClusterCacheStorageConfigurations:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1304,8 +1304,8 @@ class FinspaceKxClusterCacheStorageConfigurationsOutputReference(
 class FinspaceKxClusterCapacityConfiguration:
     def __init__(self, *, node_count: jsii.Number, node_type: builtins.str) -> None:
         '''
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_type FinspaceKxCluster#node_type}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_type FinspaceKxCluster#node_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d32e66e6561366e993f032d799d90e6aa67802d220b6ab7456cc9efbf6d8b30)
@@ -1318,14 +1318,14 @@ class FinspaceKxClusterCapacityConfiguration:
 
     @builtins.property
     def node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.'''
         result = self._values.get("node_count")
         assert result is not None, "Required property 'node_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def node_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_type FinspaceKxCluster#node_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_type FinspaceKxCluster#node_type}.'''
         result = self._values.get("node_type")
         assert result is not None, "Required property 'node_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1430,9 +1430,9 @@ class FinspaceKxClusterCode:
         s3_object_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_bucket FinspaceKxCluster#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_key FinspaceKxCluster#s3_key}.
-        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_object_version FinspaceKxCluster#s3_object_version}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_bucket FinspaceKxCluster#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_key FinspaceKxCluster#s3_key}.
+        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_object_version FinspaceKxCluster#s3_object_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46748046262376983270e454194308f61a38f1e9b3af0d05ba2d3ebe1bb25bcd)
@@ -1448,21 +1448,21 @@ class FinspaceKxClusterCode:
 
     @builtins.property
     def s3_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_bucket FinspaceKxCluster#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_bucket FinspaceKxCluster#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_key FinspaceKxCluster#s3_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_key FinspaceKxCluster#s3_key}.'''
         result = self._values.get("s3_key")
         assert result is not None, "Required property 's3_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_object_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#s3_object_version FinspaceKxCluster#s3_object_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#s3_object_version FinspaceKxCluster#s3_object_version}.'''
         result = self._values.get("s3_object_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1645,29 +1645,29 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param az_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#az_mode FinspaceKxCluster#az_mode}.
-        :param environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#environment_id FinspaceKxCluster#environment_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#name FinspaceKxCluster#name}.
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#release_label FinspaceKxCluster#release_label}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
-        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#vpc_configuration FinspaceKxCluster#vpc_configuration}
-        :param auto_scaling_configuration: auto_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#auto_scaling_configuration FinspaceKxCluster#auto_scaling_configuration}
-        :param availability_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#availability_zone_id FinspaceKxCluster#availability_zone_id}.
-        :param cache_storage_configurations: cache_storage_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_storage_configurations FinspaceKxCluster#cache_storage_configurations}
-        :param capacity_configuration: capacity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#capacity_configuration FinspaceKxCluster#capacity_configuration}
-        :param code: code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#code FinspaceKxCluster#code}
-        :param command_line_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#command_line_arguments FinspaceKxCluster#command_line_arguments}.
-        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#database FinspaceKxCluster#database}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#description FinspaceKxCluster#description}.
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#execution_role FinspaceKxCluster#execution_role}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#id FinspaceKxCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initialization_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#initialization_script FinspaceKxCluster#initialization_script}.
-        :param savedown_storage_configuration: savedown_storage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#savedown_storage_configuration FinspaceKxCluster#savedown_storage_configuration}
-        :param scaling_group_configuration: scaling_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scaling_group_configuration FinspaceKxCluster#scaling_group_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tags FinspaceKxCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tags_all FinspaceKxCluster#tags_all}.
-        :param tickerplant_log_configuration: tickerplant_log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tickerplant_log_configuration FinspaceKxCluster#tickerplant_log_configuration}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#timeouts FinspaceKxCluster#timeouts}
+        :param az_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#az_mode FinspaceKxCluster#az_mode}.
+        :param environment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#environment_id FinspaceKxCluster#environment_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#name FinspaceKxCluster#name}.
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#release_label FinspaceKxCluster#release_label}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
+        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#vpc_configuration FinspaceKxCluster#vpc_configuration}
+        :param auto_scaling_configuration: auto_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#auto_scaling_configuration FinspaceKxCluster#auto_scaling_configuration}
+        :param availability_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#availability_zone_id FinspaceKxCluster#availability_zone_id}.
+        :param cache_storage_configurations: cache_storage_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_storage_configurations FinspaceKxCluster#cache_storage_configurations}
+        :param capacity_configuration: capacity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#capacity_configuration FinspaceKxCluster#capacity_configuration}
+        :param code: code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#code FinspaceKxCluster#code}
+        :param command_line_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#command_line_arguments FinspaceKxCluster#command_line_arguments}.
+        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#database FinspaceKxCluster#database}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#description FinspaceKxCluster#description}.
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#execution_role FinspaceKxCluster#execution_role}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#id FinspaceKxCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initialization_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#initialization_script FinspaceKxCluster#initialization_script}.
+        :param savedown_storage_configuration: savedown_storage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#savedown_storage_configuration FinspaceKxCluster#savedown_storage_configuration}
+        :param scaling_group_configuration: scaling_group_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scaling_group_configuration FinspaceKxCluster#scaling_group_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tags FinspaceKxCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tags_all FinspaceKxCluster#tags_all}.
+        :param tickerplant_log_configuration: tickerplant_log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tickerplant_log_configuration FinspaceKxCluster#tickerplant_log_configuration}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#timeouts FinspaceKxCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1840,35 +1840,35 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def az_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#az_mode FinspaceKxCluster#az_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#az_mode FinspaceKxCluster#az_mode}.'''
         result = self._values.get("az_mode")
         assert result is not None, "Required property 'az_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def environment_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#environment_id FinspaceKxCluster#environment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#environment_id FinspaceKxCluster#environment_id}.'''
         result = self._values.get("environment_id")
         assert result is not None, "Required property 'environment_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#name FinspaceKxCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#name FinspaceKxCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def release_label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#release_label FinspaceKxCluster#release_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#release_label FinspaceKxCluster#release_label}.'''
         result = self._values.get("release_label")
         assert result is not None, "Required property 'release_label' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1877,7 +1877,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_configuration(self) -> "FinspaceKxClusterVpcConfiguration":
         '''vpc_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#vpc_configuration FinspaceKxCluster#vpc_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#vpc_configuration FinspaceKxCluster#vpc_configuration}
         '''
         result = self._values.get("vpc_configuration")
         assert result is not None, "Required property 'vpc_configuration' is missing"
@@ -1889,14 +1889,14 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[FinspaceKxClusterAutoScalingConfiguration]:
         '''auto_scaling_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#auto_scaling_configuration FinspaceKxCluster#auto_scaling_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#auto_scaling_configuration FinspaceKxCluster#auto_scaling_configuration}
         '''
         result = self._values.get("auto_scaling_configuration")
         return typing.cast(typing.Optional[FinspaceKxClusterAutoScalingConfiguration], result)
 
     @builtins.property
     def availability_zone_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#availability_zone_id FinspaceKxCluster#availability_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#availability_zone_id FinspaceKxCluster#availability_zone_id}.'''
         result = self._values.get("availability_zone_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1906,7 +1906,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FinspaceKxClusterCacheStorageConfigurations]]]:
         '''cache_storage_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_storage_configurations FinspaceKxCluster#cache_storage_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_storage_configurations FinspaceKxCluster#cache_storage_configurations}
         '''
         result = self._values.get("cache_storage_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FinspaceKxClusterCacheStorageConfigurations]]], result)
@@ -1917,7 +1917,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[FinspaceKxClusterCapacityConfiguration]:
         '''capacity_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#capacity_configuration FinspaceKxCluster#capacity_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#capacity_configuration FinspaceKxCluster#capacity_configuration}
         '''
         result = self._values.get("capacity_configuration")
         return typing.cast(typing.Optional[FinspaceKxClusterCapacityConfiguration], result)
@@ -1926,7 +1926,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def code(self) -> typing.Optional[FinspaceKxClusterCode]:
         '''code block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#code FinspaceKxCluster#code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#code FinspaceKxCluster#code}
         '''
         result = self._values.get("code")
         return typing.cast(typing.Optional[FinspaceKxClusterCode], result)
@@ -1935,7 +1935,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def command_line_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#command_line_arguments FinspaceKxCluster#command_line_arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#command_line_arguments FinspaceKxCluster#command_line_arguments}.'''
         result = self._values.get("command_line_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1945,26 +1945,26 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FinspaceKxClusterDatabase"]]]:
         '''database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#database FinspaceKxCluster#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#database FinspaceKxCluster#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FinspaceKxClusterDatabase"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#description FinspaceKxCluster#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#description FinspaceKxCluster#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def execution_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#execution_role FinspaceKxCluster#execution_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#execution_role FinspaceKxCluster#execution_role}.'''
         result = self._values.get("execution_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#id FinspaceKxCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#id FinspaceKxCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1974,7 +1974,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def initialization_script(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#initialization_script FinspaceKxCluster#initialization_script}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#initialization_script FinspaceKxCluster#initialization_script}.'''
         result = self._values.get("initialization_script")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1984,7 +1984,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["FinspaceKxClusterSavedownStorageConfiguration"]:
         '''savedown_storage_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#savedown_storage_configuration FinspaceKxCluster#savedown_storage_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#savedown_storage_configuration FinspaceKxCluster#savedown_storage_configuration}
         '''
         result = self._values.get("savedown_storage_configuration")
         return typing.cast(typing.Optional["FinspaceKxClusterSavedownStorageConfiguration"], result)
@@ -1995,20 +1995,20 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["FinspaceKxClusterScalingGroupConfiguration"]:
         '''scaling_group_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scaling_group_configuration FinspaceKxCluster#scaling_group_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scaling_group_configuration FinspaceKxCluster#scaling_group_configuration}
         '''
         result = self._values.get("scaling_group_configuration")
         return typing.cast(typing.Optional["FinspaceKxClusterScalingGroupConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tags FinspaceKxCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tags FinspaceKxCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tags_all FinspaceKxCluster#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tags_all FinspaceKxCluster#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2018,7 +2018,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FinspaceKxClusterTickerplantLogConfiguration"]]]:
         '''tickerplant_log_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tickerplant_log_configuration FinspaceKxCluster#tickerplant_log_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tickerplant_log_configuration FinspaceKxCluster#tickerplant_log_configuration}
         '''
         result = self._values.get("tickerplant_log_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FinspaceKxClusterTickerplantLogConfiguration"]]], result)
@@ -2027,7 +2027,7 @@ class FinspaceKxClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FinspaceKxClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#timeouts FinspaceKxCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#timeouts FinspaceKxCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FinspaceKxClusterTimeouts"], result)
@@ -2064,10 +2064,10 @@ class FinspaceKxClusterDatabase:
         dataview_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#database_name FinspaceKxCluster#database_name}.
-        :param cache_configurations: cache_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_configurations FinspaceKxCluster#cache_configurations}
-        :param changeset_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#changeset_id FinspaceKxCluster#changeset_id}.
-        :param dataview_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#dataview_name FinspaceKxCluster#dataview_name}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#database_name FinspaceKxCluster#database_name}.
+        :param cache_configurations: cache_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_configurations FinspaceKxCluster#cache_configurations}
+        :param changeset_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#changeset_id FinspaceKxCluster#changeset_id}.
+        :param dataview_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#dataview_name FinspaceKxCluster#dataview_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__431b88d1dd481c06e7a6d029a851aa8f0daef458c276aa991c995b54f35a5cb4)
@@ -2087,7 +2087,7 @@ class FinspaceKxClusterDatabase:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#database_name FinspaceKxCluster#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#database_name FinspaceKxCluster#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2098,20 +2098,20 @@ class FinspaceKxClusterDatabase:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FinspaceKxClusterDatabaseCacheConfigurations"]]]:
         '''cache_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_configurations FinspaceKxCluster#cache_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_configurations FinspaceKxCluster#cache_configurations}
         '''
         result = self._values.get("cache_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FinspaceKxClusterDatabaseCacheConfigurations"]]], result)
 
     @builtins.property
     def changeset_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#changeset_id FinspaceKxCluster#changeset_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#changeset_id FinspaceKxCluster#changeset_id}.'''
         result = self._values.get("changeset_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dataview_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#dataview_name FinspaceKxCluster#dataview_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#dataview_name FinspaceKxCluster#dataview_name}.'''
         result = self._values.get("dataview_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2140,8 +2140,8 @@ class FinspaceKxClusterDatabaseCacheConfigurations:
         db_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cache_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_type FinspaceKxCluster#cache_type}.
-        :param db_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#db_paths FinspaceKxCluster#db_paths}.
+        :param cache_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_type FinspaceKxCluster#cache_type}.
+        :param db_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#db_paths FinspaceKxCluster#db_paths}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8afa4d97e8d7e3e08d5ea01ce33f27741fa07dd2163e884c84d848a2ccc7f50a)
@@ -2155,14 +2155,14 @@ class FinspaceKxClusterDatabaseCacheConfigurations:
 
     @builtins.property
     def cache_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cache_type FinspaceKxCluster#cache_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cache_type FinspaceKxCluster#cache_type}.'''
         result = self._values.get("cache_type")
         assert result is not None, "Required property 'cache_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def db_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#db_paths FinspaceKxCluster#db_paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#db_paths FinspaceKxCluster#db_paths}.'''
         result = self._values.get("db_paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2589,9 +2589,9 @@ class FinspaceKxClusterSavedownStorageConfiguration:
         volume_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
-        :param volume_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#volume_name FinspaceKxCluster#volume_name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.
+        :param volume_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#volume_name FinspaceKxCluster#volume_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98fcb1daff0b6d741c7d4288fb79c6215ba471fa8caf4cb9263bd542ab873159)
@@ -2608,19 +2608,19 @@ class FinspaceKxClusterSavedownStorageConfiguration:
 
     @builtins.property
     def size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#size FinspaceKxCluster#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#type FinspaceKxCluster#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def volume_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#volume_name FinspaceKxCluster#volume_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#volume_name FinspaceKxCluster#volume_name}.'''
         result = self._values.get("volume_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2759,11 +2759,11 @@ class FinspaceKxClusterScalingGroupConfiguration:
         memory_limit: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param memory_reservation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#memory_reservation FinspaceKxCluster#memory_reservation}.
-        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
-        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scaling_group_name FinspaceKxCluster#scaling_group_name}.
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cpu FinspaceKxCluster#cpu}.
-        :param memory_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#memory_limit FinspaceKxCluster#memory_limit}.
+        :param memory_reservation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#memory_reservation FinspaceKxCluster#memory_reservation}.
+        :param node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.
+        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scaling_group_name FinspaceKxCluster#scaling_group_name}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cpu FinspaceKxCluster#cpu}.
+        :param memory_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#memory_limit FinspaceKxCluster#memory_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3e74bc3ac43e644edb1362d7ee693a5cfe497565ed5ef1de34e7727dc93e1b5)
@@ -2784,34 +2784,34 @@ class FinspaceKxClusterScalingGroupConfiguration:
 
     @builtins.property
     def memory_reservation(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#memory_reservation FinspaceKxCluster#memory_reservation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#memory_reservation FinspaceKxCluster#memory_reservation}.'''
         result = self._values.get("memory_reservation")
         assert result is not None, "Required property 'memory_reservation' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#node_count FinspaceKxCluster#node_count}.'''
         result = self._values.get("node_count")
         assert result is not None, "Required property 'node_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def scaling_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#scaling_group_name FinspaceKxCluster#scaling_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#scaling_group_name FinspaceKxCluster#scaling_group_name}.'''
         result = self._values.get("scaling_group_name")
         assert result is not None, "Required property 'scaling_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#cpu FinspaceKxCluster#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#cpu FinspaceKxCluster#cpu}.'''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def memory_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#memory_limit FinspaceKxCluster#memory_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#memory_limit FinspaceKxCluster#memory_limit}.'''
         result = self._values.get("memory_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2970,7 +2970,7 @@ class FinspaceKxClusterTickerplantLogConfiguration:
         tickerplant_log_volumes: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param tickerplant_log_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tickerplant_log_volumes FinspaceKxCluster#tickerplant_log_volumes}.
+        :param tickerplant_log_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tickerplant_log_volumes FinspaceKxCluster#tickerplant_log_volumes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18e46c226aebeae8542e793bc01808f67de4646c2cec4f412085727bd6b10095)
@@ -2981,7 +2981,7 @@ class FinspaceKxClusterTickerplantLogConfiguration:
 
     @builtins.property
     def tickerplant_log_volumes(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#tickerplant_log_volumes FinspaceKxCluster#tickerplant_log_volumes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#tickerplant_log_volumes FinspaceKxCluster#tickerplant_log_volumes}.'''
         result = self._values.get("tickerplant_log_volumes")
         assert result is not None, "Required property 'tickerplant_log_volumes' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3168,9 +3168,9 @@ class FinspaceKxClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#create FinspaceKxCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#delete FinspaceKxCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#update FinspaceKxCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#create FinspaceKxCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#delete FinspaceKxCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#update FinspaceKxCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__833bea7cfee6c27f5dd66ed9658868d3f22692184641032b78e0689c43405bf3)
@@ -3187,19 +3187,19 @@ class FinspaceKxClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#create FinspaceKxCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#create FinspaceKxCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#delete FinspaceKxCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#delete FinspaceKxCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#update FinspaceKxCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#update FinspaceKxCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3336,10 +3336,10 @@ class FinspaceKxClusterVpcConfiguration:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#ip_address_type FinspaceKxCluster#ip_address_type}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#security_group_ids FinspaceKxCluster#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#subnet_ids FinspaceKxCluster#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#vpc_id FinspaceKxCluster#vpc_id}.
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#ip_address_type FinspaceKxCluster#ip_address_type}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#security_group_ids FinspaceKxCluster#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#subnet_ids FinspaceKxCluster#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#vpc_id FinspaceKxCluster#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e648710377e766c35013f1a0f4029fea9a01870da2d2da1a4c17ddb69e99d3f)
@@ -3356,28 +3356,28 @@ class FinspaceKxClusterVpcConfiguration:
 
     @builtins.property
     def ip_address_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#ip_address_type FinspaceKxCluster#ip_address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#ip_address_type FinspaceKxCluster#ip_address_type}.'''
         result = self._values.get("ip_address_type")
         assert result is not None, "Required property 'ip_address_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#security_group_ids FinspaceKxCluster#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#security_group_ids FinspaceKxCluster#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#subnet_ids FinspaceKxCluster#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#subnet_ids FinspaceKxCluster#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/finspace_kx_cluster#vpc_id FinspaceKxCluster#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/finspace_kx_cluster#vpc_id FinspaceKxCluster#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)

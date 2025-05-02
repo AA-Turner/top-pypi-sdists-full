@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_device`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_device`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_device`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerDevice(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerDevice.SagemakerDevice",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device aws_sagemaker_device}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device aws_sagemaker_device}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class SagemakerDevice(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device aws_sagemaker_device} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device aws_sagemaker_device} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param device: device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device SagemakerDevice#device}
-        :param device_fleet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device_fleet_name SagemakerDevice#device_fleet_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#id SagemakerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param device: device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device SagemakerDevice#device}
+        :param device_fleet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device_fleet_name SagemakerDevice#device_fleet_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#id SagemakerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class SagemakerDevice(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerDevice to import.
-        :param import_from_id: The id of the existing SagemakerDevice that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerDevice that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerDevice to import is found.
         '''
         if __debug__:
@@ -129,9 +129,9 @@ class SagemakerDevice(
         iot_thing_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device_name SagemakerDevice#device_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#description SagemakerDevice#description}.
-        :param iot_thing_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#iot_thing_name SagemakerDevice#iot_thing_name}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device_name SagemakerDevice#device_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#description SagemakerDevice#description}.
+        :param iot_thing_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#iot_thing_name SagemakerDevice#iot_thing_name}.
         '''
         value = SagemakerDeviceDevice(
             device_name=device_name,
@@ -252,9 +252,9 @@ class SagemakerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param device: device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device SagemakerDevice#device}
-        :param device_fleet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device_fleet_name SagemakerDevice#device_fleet_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#id SagemakerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param device: device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device SagemakerDevice#device}
+        :param device_fleet_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device_fleet_name SagemakerDevice#device_fleet_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#id SagemakerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -361,7 +361,7 @@ class SagemakerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def device(self) -> "SagemakerDeviceDevice":
         '''device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device SagemakerDevice#device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device SagemakerDevice#device}
         '''
         result = self._values.get("device")
         assert result is not None, "Required property 'device' is missing"
@@ -369,14 +369,14 @@ class SagemakerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def device_fleet_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device_fleet_name SagemakerDevice#device_fleet_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device_fleet_name SagemakerDevice#device_fleet_name}.'''
         result = self._values.get("device_fleet_name")
         assert result is not None, "Required property 'device_fleet_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#id SagemakerDevice#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#id SagemakerDevice#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -414,9 +414,9 @@ class SagemakerDeviceDevice:
         iot_thing_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device_name SagemakerDevice#device_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#description SagemakerDevice#description}.
-        :param iot_thing_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#iot_thing_name SagemakerDevice#iot_thing_name}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device_name SagemakerDevice#device_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#description SagemakerDevice#description}.
+        :param iot_thing_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#iot_thing_name SagemakerDevice#iot_thing_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e6e2dc483ca8f7ff5f3c42f98183498c9734fe910d0b591fb1da08ddaffc3d5)
@@ -433,20 +433,20 @@ class SagemakerDeviceDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#device_name SagemakerDevice#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#device_name SagemakerDevice#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#description SagemakerDevice#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#description SagemakerDevice#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iot_thing_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_device#iot_thing_name SagemakerDevice#iot_thing_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_device#iot_thing_name SagemakerDevice#iot_thing_name}.'''
         result = self._values.get("iot_thing_name")
         return typing.cast(typing.Optional[builtins.str], result)
 

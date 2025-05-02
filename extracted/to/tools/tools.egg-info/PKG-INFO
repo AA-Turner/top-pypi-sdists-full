@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tools
-Version: 1.0
+Version: 1.0.1
 Summary: python syntax tool
 Home-page: https://github.com/jsyoo61/tools
 Author: JaeSung Yoo
@@ -25,13 +25,14 @@ jsyoo61@unc.edu
     T.save_pickle(data, 'data.p')
     data = T.load_pickle('data.p')
 
-Most useful functions are in `tools.tools`\
+Most useful functions are in `tools.tools` which is loaded to the main module by default. \
 API dependent tools are in their corresponding folders: `tools.API_name` (i.e. `tools.torch.optim`)
 
 Planning to document using chatGPT,
 Not documented yet, so you'll have to look at documents written inside the codes. (Most codes contain explanation)
 
-I'm open to using my tools for any purpose, and I would appreciate it if the users let me know.
-Please email me before using it.
+I'm happy to discuss questions or suggestions, please contact me via email. :)
 
-I'm happy to discuss questions or suggestions, please contact me via email. :) \
+1.0.1. (2025.5.1.)
+
+- `tools.sklearn.metrics.r2_score()` `multioutput` argument fixed

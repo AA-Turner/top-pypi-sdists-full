@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_databricks
-Version: 1.68.0
+Version: 1.69.0
 Summary: A Pulumi package for creating and managing databricks cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com

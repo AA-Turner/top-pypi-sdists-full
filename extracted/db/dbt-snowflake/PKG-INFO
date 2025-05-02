@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-snowflake
-Version: 1.9.3
+Version: 1.9.2
 Summary: The Snowflake adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-snowflake
 Project-URL: Documentation, https://docs.getdbt.com
@@ -22,7 +22,6 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9.0
 Requires-Dist: agate
-Requires-Dist: certifi<2025.4.26
 Requires-Dist: dbt-adapters<2.0,>=1.10.4
 Requires-Dist: dbt-common<2.0,>=1.10
 Requires-Dist: dbt-core>=1.8.0

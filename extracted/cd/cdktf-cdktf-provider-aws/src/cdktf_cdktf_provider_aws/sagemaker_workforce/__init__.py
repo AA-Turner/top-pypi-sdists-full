@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_workforce`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_workforce`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_workforce`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerWorkforce(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerWorkforce.SagemakerWorkforce",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce aws_sagemaker_workforce}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce aws_sagemaker_workforce}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SagemakerWorkforce(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce aws_sagemaker_workforce} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce aws_sagemaker_workforce} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#workforce_name SagemakerWorkforce#workforce_name}.
-        :param cognito_config: cognito_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#cognito_config SagemakerWorkforce#cognito_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#id SagemakerWorkforce#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#oidc_config SagemakerWorkforce#oidc_config}
-        :param source_ip_config: source_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#source_ip_config SagemakerWorkforce#source_ip_config}
-        :param workforce_vpc_config: workforce_vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#workforce_vpc_config SagemakerWorkforce#workforce_vpc_config}
+        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#workforce_name SagemakerWorkforce#workforce_name}.
+        :param cognito_config: cognito_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#cognito_config SagemakerWorkforce#cognito_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#id SagemakerWorkforce#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#oidc_config SagemakerWorkforce#oidc_config}
+        :param source_ip_config: source_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#source_ip_config SagemakerWorkforce#source_ip_config}
+        :param workforce_vpc_config: workforce_vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#workforce_vpc_config SagemakerWorkforce#workforce_vpc_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SagemakerWorkforce(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerWorkforce to import.
-        :param import_from_id: The id of the existing SagemakerWorkforce that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerWorkforce that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerWorkforce to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class SagemakerWorkforce(
         user_pool: builtins.str,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
-        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#user_pool SagemakerWorkforce#user_pool}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
+        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#user_pool SagemakerWorkforce#user_pool}.
         '''
         value = SagemakerWorkforceCognitoConfig(
             client_id=client_id, user_pool=user_pool
@@ -162,16 +162,16 @@ class SagemakerWorkforce(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#authorization_endpoint SagemakerWorkforce#authorization_endpoint}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_secret SagemakerWorkforce#client_secret}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#issuer SagemakerWorkforce#issuer}.
-        :param jwks_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#jwks_uri SagemakerWorkforce#jwks_uri}.
-        :param logout_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#logout_endpoint SagemakerWorkforce#logout_endpoint}.
-        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#token_endpoint SagemakerWorkforce#token_endpoint}.
-        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#user_info_endpoint SagemakerWorkforce#user_info_endpoint}.
-        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#authentication_request_extra_params SagemakerWorkforce#authentication_request_extra_params}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#scope SagemakerWorkforce#scope}.
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#authorization_endpoint SagemakerWorkforce#authorization_endpoint}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_secret SagemakerWorkforce#client_secret}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#issuer SagemakerWorkforce#issuer}.
+        :param jwks_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#jwks_uri SagemakerWorkforce#jwks_uri}.
+        :param logout_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#logout_endpoint SagemakerWorkforce#logout_endpoint}.
+        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#token_endpoint SagemakerWorkforce#token_endpoint}.
+        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#user_info_endpoint SagemakerWorkforce#user_info_endpoint}.
+        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#authentication_request_extra_params SagemakerWorkforce#authentication_request_extra_params}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#scope SagemakerWorkforce#scope}.
         '''
         value = SagemakerWorkforceOidcConfig(
             authorization_endpoint=authorization_endpoint,
@@ -191,7 +191,7 @@ class SagemakerWorkforce(
     @jsii.member(jsii_name="putSourceIpConfig")
     def put_source_ip_config(self, *, cidrs: typing.Sequence[builtins.str]) -> None:
         '''
-        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#cidrs SagemakerWorkforce#cidrs}.
+        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#cidrs SagemakerWorkforce#cidrs}.
         '''
         value = SagemakerWorkforceSourceIpConfig(cidrs=cidrs)
 
@@ -206,9 +206,9 @@ class SagemakerWorkforce(
         vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#security_group_ids SagemakerWorkforce#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#subnets SagemakerWorkforce#subnets}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#vpc_id SagemakerWorkforce#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#security_group_ids SagemakerWorkforce#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#subnets SagemakerWorkforce#subnets}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#vpc_id SagemakerWorkforce#vpc_id}.
         '''
         value = SagemakerWorkforceWorkforceVpcConfig(
             security_group_ids=security_group_ids, subnets=subnets, vpc_id=vpc_id
@@ -350,8 +350,8 @@ class SagemakerWorkforce(
 class SagemakerWorkforceCognitoConfig:
     def __init__(self, *, client_id: builtins.str, user_pool: builtins.str) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
-        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#user_pool SagemakerWorkforce#user_pool}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
+        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#user_pool SagemakerWorkforce#user_pool}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b15865b885d70e0353fd25a8569d62866a32d60b8f5a7835e826e9b1beaa87d)
@@ -364,14 +364,14 @@ class SagemakerWorkforceCognitoConfig:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pool(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#user_pool SagemakerWorkforce#user_pool}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#user_pool SagemakerWorkforce#user_pool}.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
         return typing.cast(builtins.str, result)
@@ -503,12 +503,12 @@ class SagemakerWorkforceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#workforce_name SagemakerWorkforce#workforce_name}.
-        :param cognito_config: cognito_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#cognito_config SagemakerWorkforce#cognito_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#id SagemakerWorkforce#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#oidc_config SagemakerWorkforce#oidc_config}
-        :param source_ip_config: source_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#source_ip_config SagemakerWorkforce#source_ip_config}
-        :param workforce_vpc_config: workforce_vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#workforce_vpc_config SagemakerWorkforce#workforce_vpc_config}
+        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#workforce_name SagemakerWorkforce#workforce_name}.
+        :param cognito_config: cognito_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#cognito_config SagemakerWorkforce#cognito_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#id SagemakerWorkforce#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#oidc_config SagemakerWorkforce#oidc_config}
+        :param source_ip_config: source_ip_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#source_ip_config SagemakerWorkforce#source_ip_config}
+        :param workforce_vpc_config: workforce_vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#workforce_vpc_config SagemakerWorkforce#workforce_vpc_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,7 +629,7 @@ class SagemakerWorkforceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def workforce_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#workforce_name SagemakerWorkforce#workforce_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#workforce_name SagemakerWorkforce#workforce_name}.'''
         result = self._values.get("workforce_name")
         assert result is not None, "Required property 'workforce_name' is missing"
         return typing.cast(builtins.str, result)
@@ -638,14 +638,14 @@ class SagemakerWorkforceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cognito_config(self) -> typing.Optional[SagemakerWorkforceCognitoConfig]:
         '''cognito_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#cognito_config SagemakerWorkforce#cognito_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#cognito_config SagemakerWorkforce#cognito_config}
         '''
         result = self._values.get("cognito_config")
         return typing.cast(typing.Optional[SagemakerWorkforceCognitoConfig], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#id SagemakerWorkforce#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#id SagemakerWorkforce#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -657,7 +657,7 @@ class SagemakerWorkforceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oidc_config(self) -> typing.Optional["SagemakerWorkforceOidcConfig"]:
         '''oidc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#oidc_config SagemakerWorkforce#oidc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#oidc_config SagemakerWorkforce#oidc_config}
         '''
         result = self._values.get("oidc_config")
         return typing.cast(typing.Optional["SagemakerWorkforceOidcConfig"], result)
@@ -666,7 +666,7 @@ class SagemakerWorkforceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_ip_config(self) -> typing.Optional["SagemakerWorkforceSourceIpConfig"]:
         '''source_ip_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#source_ip_config SagemakerWorkforce#source_ip_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#source_ip_config SagemakerWorkforce#source_ip_config}
         '''
         result = self._values.get("source_ip_config")
         return typing.cast(typing.Optional["SagemakerWorkforceSourceIpConfig"], result)
@@ -677,7 +677,7 @@ class SagemakerWorkforceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerWorkforceWorkforceVpcConfig"]:
         '''workforce_vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#workforce_vpc_config SagemakerWorkforce#workforce_vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#workforce_vpc_config SagemakerWorkforce#workforce_vpc_config}
         '''
         result = self._values.get("workforce_vpc_config")
         return typing.cast(typing.Optional["SagemakerWorkforceWorkforceVpcConfig"], result)
@@ -726,16 +726,16 @@ class SagemakerWorkforceOidcConfig:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#authorization_endpoint SagemakerWorkforce#authorization_endpoint}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_secret SagemakerWorkforce#client_secret}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#issuer SagemakerWorkforce#issuer}.
-        :param jwks_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#jwks_uri SagemakerWorkforce#jwks_uri}.
-        :param logout_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#logout_endpoint SagemakerWorkforce#logout_endpoint}.
-        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#token_endpoint SagemakerWorkforce#token_endpoint}.
-        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#user_info_endpoint SagemakerWorkforce#user_info_endpoint}.
-        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#authentication_request_extra_params SagemakerWorkforce#authentication_request_extra_params}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#scope SagemakerWorkforce#scope}.
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#authorization_endpoint SagemakerWorkforce#authorization_endpoint}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_secret SagemakerWorkforce#client_secret}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#issuer SagemakerWorkforce#issuer}.
+        :param jwks_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#jwks_uri SagemakerWorkforce#jwks_uri}.
+        :param logout_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#logout_endpoint SagemakerWorkforce#logout_endpoint}.
+        :param token_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#token_endpoint SagemakerWorkforce#token_endpoint}.
+        :param user_info_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#user_info_endpoint SagemakerWorkforce#user_info_endpoint}.
+        :param authentication_request_extra_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#authentication_request_extra_params SagemakerWorkforce#authentication_request_extra_params}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#scope SagemakerWorkforce#scope}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4d8ee8b1a132aec02ba90932891ffe543548178856f75beb38cd9ecbb75e7b7)
@@ -766,56 +766,56 @@ class SagemakerWorkforceOidcConfig:
 
     @builtins.property
     def authorization_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#authorization_endpoint SagemakerWorkforce#authorization_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#authorization_endpoint SagemakerWorkforce#authorization_endpoint}.'''
         result = self._values.get("authorization_endpoint")
         assert result is not None, "Required property 'authorization_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_id SagemakerWorkforce#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#client_secret SagemakerWorkforce#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#client_secret SagemakerWorkforce#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#issuer SagemakerWorkforce#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#issuer SagemakerWorkforce#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def jwks_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#jwks_uri SagemakerWorkforce#jwks_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#jwks_uri SagemakerWorkforce#jwks_uri}.'''
         result = self._values.get("jwks_uri")
         assert result is not None, "Required property 'jwks_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def logout_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#logout_endpoint SagemakerWorkforce#logout_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#logout_endpoint SagemakerWorkforce#logout_endpoint}.'''
         result = self._values.get("logout_endpoint")
         assert result is not None, "Required property 'logout_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#token_endpoint SagemakerWorkforce#token_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#token_endpoint SagemakerWorkforce#token_endpoint}.'''
         result = self._values.get("token_endpoint")
         assert result is not None, "Required property 'token_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_info_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#user_info_endpoint SagemakerWorkforce#user_info_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#user_info_endpoint SagemakerWorkforce#user_info_endpoint}.'''
         result = self._values.get("user_info_endpoint")
         assert result is not None, "Required property 'user_info_endpoint' is missing"
         return typing.cast(builtins.str, result)
@@ -824,13 +824,13 @@ class SagemakerWorkforceOidcConfig:
     def authentication_request_extra_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#authentication_request_extra_params SagemakerWorkforce#authentication_request_extra_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#authentication_request_extra_params SagemakerWorkforce#authentication_request_extra_params}.'''
         result = self._values.get("authentication_request_extra_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#scope SagemakerWorkforce#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#scope SagemakerWorkforce#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1075,7 +1075,7 @@ class SagemakerWorkforceOidcConfigOutputReference(
 class SagemakerWorkforceSourceIpConfig:
     def __init__(self, *, cidrs: typing.Sequence[builtins.str]) -> None:
         '''
-        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#cidrs SagemakerWorkforce#cidrs}.
+        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#cidrs SagemakerWorkforce#cidrs}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d75486ab84d8942c7b60c6b90a62faeca1a35a09844c5a0eed44cbf270da2783)
@@ -1086,7 +1086,7 @@ class SagemakerWorkforceSourceIpConfig:
 
     @builtins.property
     def cidrs(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#cidrs SagemakerWorkforce#cidrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#cidrs SagemakerWorkforce#cidrs}.'''
         result = self._values.get("cidrs")
         assert result is not None, "Required property 'cidrs' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1174,9 +1174,9 @@ class SagemakerWorkforceWorkforceVpcConfig:
         vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#security_group_ids SagemakerWorkforce#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#subnets SagemakerWorkforce#subnets}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#vpc_id SagemakerWorkforce#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#security_group_ids SagemakerWorkforce#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#subnets SagemakerWorkforce#subnets}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#vpc_id SagemakerWorkforce#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c85793879498bbd96c8e816de5e20f2a090b6f0532f5685e7e36c2a683a6abaf)
@@ -1193,19 +1193,19 @@ class SagemakerWorkforceWorkforceVpcConfig:
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#security_group_ids SagemakerWorkforce#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#security_group_ids SagemakerWorkforce#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#subnets SagemakerWorkforce#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#subnets SagemakerWorkforce#subnets}.'''
         result = self._values.get("subnets")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workforce#vpc_id SagemakerWorkforce#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workforce#vpc_id SagemakerWorkforce#vpc_id}.'''
         result = self._values.get("vpc_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

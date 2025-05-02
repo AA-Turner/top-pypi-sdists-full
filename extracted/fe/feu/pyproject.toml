@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "feu"
-version = "0.3.2"
+version = "0.3.3"
 description = "A light library to help to manage packages"
 readme = "README.md"
 authors = ["Thibaut Durand <durand.tibo+gh@gmail.com>"]
@@ -32,14 +32,16 @@ packages = [
 [tool.poetry.dependencies]
 # Core dependencies
 python = ">=3.9,<3.14"
-packaging = ">=21.0,<25.0"
+packaging = ">=21.0,<26.0"
 
 # Optional dependencies
 click = { version = ">=8.1,<9.0", optional = true }
+gitpython = { version = ">=3.1.41,<4.0", optional = true }
 
 [tool.poetry.extras]
-all = ["click"]
+all = ["click", "git"]
 cli = ["click"]
+git = ["gitpython"]
 
 [tool.poetry.group.docs]
 optional = true
@@ -47,18 +49,18 @@ optional = true
 [tool.poetry.group.docs.dependencies]
 mike = "^2.1"
 mkdocs-material = "^9.5"
-mkdocstrings = { extras = ["python"], version = ">=0.26,<1.0" }
+mkdocstrings = { extras = ["python"], version = ">=0.29,<1.0" }
 
 [tool.poetry.group.dev.dependencies]
 black = ">=25.1"
-coverage = { extras = ["toml"], version = "^7.6" }
+coverage = { extras = ["toml"], version = "^7.8" }
 docformatter = { extras = ["tomli"], version = "^1.7" }
-pre-commit = "^4.1"
+pre-commit = "^4.2"
 pygments = "^2.19"
 pytest = "^8.3"
-pytest-cov = ">=5,<7"
+pytest-cov = ">=6,<7"
 pytest-timeout = "^2.3"
-ruff = ">=0.9,<1.0"
+ruff = ">=0.11,<1.0"
 xdoctest = "^1.2"
 
 [build-system]
@@ -152,8 +154,6 @@ lint.select = [
 ]
 lint.ignore = [
     "A003", # Class attribute `{name}` is shadowing a python builtin
-    "ANN101", # Missing type annotation for `self` in method
-    "ANN102", # Missing type annotation for `cls` in classmethod
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed.
     "B905", # `zip()` without an explicit strict= parameter set. The `strict=` argument was added in Python 3.10
     "E501", # Line lengths are recommended to be no greater than 79 characters.

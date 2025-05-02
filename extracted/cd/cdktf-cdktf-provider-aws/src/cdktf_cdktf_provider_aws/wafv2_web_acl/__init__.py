@@ -1,7 +1,7 @@
 r'''
 # `aws_wafv2_web_acl`
 
-Refer to the Terraform Registry for docs: [`aws_wafv2_web_acl`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl).
+Refer to the Terraform Registry for docs: [`aws_wafv2_web_acl`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Wafv2WebAcl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafv2WebAcl.Wafv2WebAcl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl aws_wafv2_web_acl}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl aws_wafv2_web_acl}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class Wafv2WebAcl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl aws_wafv2_web_acl} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl aws_wafv2_web_acl} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_action Wafv2WebAcl#default_action}
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#scope Wafv2WebAcl#scope}.
-        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
-        :param association_config: association_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#association_config Wafv2WebAcl#association_config}
-        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
-        :param challenge_config: challenge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
-        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body Wafv2WebAcl#custom_response_body}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#description Wafv2WebAcl#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#id Wafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name_prefix Wafv2WebAcl#name_prefix}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule Wafv2WebAcl#rule}
-        :param rule_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule_json Wafv2WebAcl#rule_json}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#tags Wafv2WebAcl#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#tags_all Wafv2WebAcl#tags_all}.
-        :param token_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#token_domains Wafv2WebAcl#token_domains}.
+        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_action Wafv2WebAcl#default_action}
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#scope Wafv2WebAcl#scope}.
+        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
+        :param association_config: association_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#association_config Wafv2WebAcl#association_config}
+        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
+        :param challenge_config: challenge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
+        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body Wafv2WebAcl#custom_response_body}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#description Wafv2WebAcl#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#id Wafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name_prefix Wafv2WebAcl#name_prefix}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule Wafv2WebAcl#rule}
+        :param rule_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule_json Wafv2WebAcl#rule_json}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#tags Wafv2WebAcl#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#tags_all Wafv2WebAcl#tags_all}.
+        :param token_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#token_domains Wafv2WebAcl#token_domains}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class Wafv2WebAcl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Wafv2WebAcl to import.
-        :param import_from_id: The id of the existing Wafv2WebAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Wafv2WebAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Wafv2WebAcl to import is found.
         '''
         if __debug__:
@@ -166,7 +166,7 @@ class Wafv2WebAcl(
         request_body: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclAssociationConfigRequestBody", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param request_body: request_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#request_body Wafv2WebAcl#request_body}
+        :param request_body: request_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#request_body Wafv2WebAcl#request_body}
         '''
         value = Wafv2WebAclAssociationConfig(request_body=request_body)
 
@@ -179,7 +179,7 @@ class Wafv2WebAcl(
         immunity_time_property: typing.Optional[typing.Union["Wafv2WebAclCaptchaConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         value = Wafv2WebAclCaptchaConfig(immunity_time_property=immunity_time_property)
 
@@ -192,7 +192,7 @@ class Wafv2WebAcl(
         immunity_time_property: typing.Optional[typing.Union["Wafv2WebAclChallengeConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         value = Wafv2WebAclChallengeConfig(
             immunity_time_property=immunity_time_property
@@ -221,8 +221,8 @@ class Wafv2WebAcl(
         block: typing.Optional[typing.Union["Wafv2WebAclDefaultActionBlock", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
-        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
+        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
         '''
         value = Wafv2WebAclDefaultAction(allow=allow, block=block)
 
@@ -250,9 +250,9 @@ class Wafv2WebAcl(
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
         '''
         value = Wafv2WebAclVisibilityConfig(
             cloudwatch_metrics_enabled=cloudwatch_metrics_enabled,
@@ -591,7 +591,7 @@ class Wafv2WebAclAssociationConfig:
         request_body: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclAssociationConfigRequestBody", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param request_body: request_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#request_body Wafv2WebAcl#request_body}
+        :param request_body: request_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#request_body Wafv2WebAcl#request_body}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4120d8906c0071d32ace765b8761d85f2cf9fefbf2475e704b17454f1a7a2529)
@@ -606,7 +606,7 @@ class Wafv2WebAclAssociationConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclAssociationConfigRequestBody"]]]:
         '''request_body block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#request_body Wafv2WebAcl#request_body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#request_body Wafv2WebAcl#request_body}
         '''
         result = self._values.get("request_body")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclAssociationConfigRequestBody"]]], result)
@@ -710,11 +710,11 @@ class Wafv2WebAclAssociationConfigRequestBody:
         verified_access_instance: typing.Optional[typing.Union["Wafv2WebAclAssociationConfigRequestBodyVerifiedAccessInstance", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_gateway: api_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#api_gateway Wafv2WebAcl#api_gateway}
-        :param app_runner_service: app_runner_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#app_runner_service Wafv2WebAcl#app_runner_service}
-        :param cloudfront: cloudfront block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudfront Wafv2WebAcl#cloudfront}
-        :param cognito_user_pool: cognito_user_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cognito_user_pool Wafv2WebAcl#cognito_user_pool}
-        :param verified_access_instance: verified_access_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#verified_access_instance Wafv2WebAcl#verified_access_instance}
+        :param api_gateway: api_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#api_gateway Wafv2WebAcl#api_gateway}
+        :param app_runner_service: app_runner_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#app_runner_service Wafv2WebAcl#app_runner_service}
+        :param cloudfront: cloudfront block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudfront Wafv2WebAcl#cloudfront}
+        :param cognito_user_pool: cognito_user_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cognito_user_pool Wafv2WebAcl#cognito_user_pool}
+        :param verified_access_instance: verified_access_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#verified_access_instance Wafv2WebAcl#verified_access_instance}
         '''
         if isinstance(api_gateway, dict):
             api_gateway = Wafv2WebAclAssociationConfigRequestBodyApiGateway(**api_gateway)
@@ -751,7 +751,7 @@ class Wafv2WebAclAssociationConfigRequestBody:
     ) -> typing.Optional["Wafv2WebAclAssociationConfigRequestBodyApiGateway"]:
         '''api_gateway block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#api_gateway Wafv2WebAcl#api_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#api_gateway Wafv2WebAcl#api_gateway}
         '''
         result = self._values.get("api_gateway")
         return typing.cast(typing.Optional["Wafv2WebAclAssociationConfigRequestBodyApiGateway"], result)
@@ -762,7 +762,7 @@ class Wafv2WebAclAssociationConfigRequestBody:
     ) -> typing.Optional["Wafv2WebAclAssociationConfigRequestBodyAppRunnerService"]:
         '''app_runner_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#app_runner_service Wafv2WebAcl#app_runner_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#app_runner_service Wafv2WebAcl#app_runner_service}
         '''
         result = self._values.get("app_runner_service")
         return typing.cast(typing.Optional["Wafv2WebAclAssociationConfigRequestBodyAppRunnerService"], result)
@@ -773,7 +773,7 @@ class Wafv2WebAclAssociationConfigRequestBody:
     ) -> typing.Optional["Wafv2WebAclAssociationConfigRequestBodyCloudfront"]:
         '''cloudfront block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudfront Wafv2WebAcl#cloudfront}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudfront Wafv2WebAcl#cloudfront}
         '''
         result = self._values.get("cloudfront")
         return typing.cast(typing.Optional["Wafv2WebAclAssociationConfigRequestBodyCloudfront"], result)
@@ -784,7 +784,7 @@ class Wafv2WebAclAssociationConfigRequestBody:
     ) -> typing.Optional["Wafv2WebAclAssociationConfigRequestBodyCognitoUserPool"]:
         '''cognito_user_pool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cognito_user_pool Wafv2WebAcl#cognito_user_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cognito_user_pool Wafv2WebAcl#cognito_user_pool}
         '''
         result = self._values.get("cognito_user_pool")
         return typing.cast(typing.Optional["Wafv2WebAclAssociationConfigRequestBodyCognitoUserPool"], result)
@@ -795,7 +795,7 @@ class Wafv2WebAclAssociationConfigRequestBody:
     ) -> typing.Optional["Wafv2WebAclAssociationConfigRequestBodyVerifiedAccessInstance"]:
         '''verified_access_instance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#verified_access_instance Wafv2WebAcl#verified_access_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#verified_access_instance Wafv2WebAcl#verified_access_instance}
         '''
         result = self._values.get("verified_access_instance")
         return typing.cast(typing.Optional["Wafv2WebAclAssociationConfigRequestBodyVerifiedAccessInstance"], result)
@@ -820,7 +820,7 @@ class Wafv2WebAclAssociationConfigRequestBody:
 class Wafv2WebAclAssociationConfigRequestBodyApiGateway:
     def __init__(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__141f8914ba7b2c2e4bd23c532b7e1714c6897e9d81cd5f36877768876e4fab7a)
@@ -831,7 +831,7 @@ class Wafv2WebAclAssociationConfigRequestBodyApiGateway:
 
     @builtins.property
     def default_size_inspection_limit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
         result = self._values.get("default_size_inspection_limit")
         assert result is not None, "Required property 'default_size_inspection_limit' is missing"
         return typing.cast(builtins.str, result)
@@ -911,7 +911,7 @@ class Wafv2WebAclAssociationConfigRequestBodyApiGatewayOutputReference(
 class Wafv2WebAclAssociationConfigRequestBodyAppRunnerService:
     def __init__(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30fdf82cd3ad41f26d90361eaf79ff889e0a75bca96bce8de052bf61200cbe81)
@@ -922,7 +922,7 @@ class Wafv2WebAclAssociationConfigRequestBodyAppRunnerService:
 
     @builtins.property
     def default_size_inspection_limit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
         result = self._values.get("default_size_inspection_limit")
         assert result is not None, "Required property 'default_size_inspection_limit' is missing"
         return typing.cast(builtins.str, result)
@@ -1002,7 +1002,7 @@ class Wafv2WebAclAssociationConfigRequestBodyAppRunnerServiceOutputReference(
 class Wafv2WebAclAssociationConfigRequestBodyCloudfront:
     def __init__(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbeef024e993e4f191c1a37445e42e190ef454d8607cb5742710bf82818dd233)
@@ -1013,7 +1013,7 @@ class Wafv2WebAclAssociationConfigRequestBodyCloudfront:
 
     @builtins.property
     def default_size_inspection_limit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
         result = self._values.get("default_size_inspection_limit")
         assert result is not None, "Required property 'default_size_inspection_limit' is missing"
         return typing.cast(builtins.str, result)
@@ -1093,7 +1093,7 @@ class Wafv2WebAclAssociationConfigRequestBodyCloudfrontOutputReference(
 class Wafv2WebAclAssociationConfigRequestBodyCognitoUserPool:
     def __init__(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63d897a28d57b547bfbe7310525ceebf7617ed865bc72126f2dbaee74d10c2ff)
@@ -1104,7 +1104,7 @@ class Wafv2WebAclAssociationConfigRequestBodyCognitoUserPool:
 
     @builtins.property
     def default_size_inspection_limit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
         result = self._values.get("default_size_inspection_limit")
         assert result is not None, "Required property 'default_size_inspection_limit' is missing"
         return typing.cast(builtins.str, result)
@@ -1298,7 +1298,7 @@ class Wafv2WebAclAssociationConfigRequestBodyOutputReference(
     @jsii.member(jsii_name="putApiGateway")
     def put_api_gateway(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         value = Wafv2WebAclAssociationConfigRequestBodyApiGateway(
             default_size_inspection_limit=default_size_inspection_limit
@@ -1313,7 +1313,7 @@ class Wafv2WebAclAssociationConfigRequestBodyOutputReference(
         default_size_inspection_limit: builtins.str,
     ) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         value = Wafv2WebAclAssociationConfigRequestBodyAppRunnerService(
             default_size_inspection_limit=default_size_inspection_limit
@@ -1324,7 +1324,7 @@ class Wafv2WebAclAssociationConfigRequestBodyOutputReference(
     @jsii.member(jsii_name="putCloudfront")
     def put_cloudfront(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         value = Wafv2WebAclAssociationConfigRequestBodyCloudfront(
             default_size_inspection_limit=default_size_inspection_limit
@@ -1339,7 +1339,7 @@ class Wafv2WebAclAssociationConfigRequestBodyOutputReference(
         default_size_inspection_limit: builtins.str,
     ) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         value = Wafv2WebAclAssociationConfigRequestBodyCognitoUserPool(
             default_size_inspection_limit=default_size_inspection_limit
@@ -1354,7 +1354,7 @@ class Wafv2WebAclAssociationConfigRequestBodyOutputReference(
         default_size_inspection_limit: builtins.str,
     ) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         value = Wafv2WebAclAssociationConfigRequestBodyVerifiedAccessInstance(
             default_size_inspection_limit=default_size_inspection_limit
@@ -1478,7 +1478,7 @@ class Wafv2WebAclAssociationConfigRequestBodyOutputReference(
 class Wafv2WebAclAssociationConfigRequestBodyVerifiedAccessInstance:
     def __init__(self, *, default_size_inspection_limit: builtins.str) -> None:
         '''
-        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
+        :param default_size_inspection_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d065ca76b4c36ad4cf11aa0e7eb12369028b98328268d80be520e26865c4ea6)
@@ -1489,7 +1489,7 @@ class Wafv2WebAclAssociationConfigRequestBodyVerifiedAccessInstance:
 
     @builtins.property
     def default_size_inspection_limit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_size_inspection_limit Wafv2WebAcl#default_size_inspection_limit}.'''
         result = self._values.get("default_size_inspection_limit")
         assert result is not None, "Required property 'default_size_inspection_limit' is missing"
         return typing.cast(builtins.str, result)
@@ -1573,7 +1573,7 @@ class Wafv2WebAclCaptchaConfig:
         immunity_time_property: typing.Optional[typing.Union["Wafv2WebAclCaptchaConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         if isinstance(immunity_time_property, dict):
             immunity_time_property = Wafv2WebAclCaptchaConfigImmunityTimeProperty(**immunity_time_property)
@@ -1590,7 +1590,7 @@ class Wafv2WebAclCaptchaConfig:
     ) -> typing.Optional["Wafv2WebAclCaptchaConfigImmunityTimeProperty"]:
         '''immunity_time_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         result = self._values.get("immunity_time_property")
         return typing.cast(typing.Optional["Wafv2WebAclCaptchaConfigImmunityTimeProperty"], result)
@@ -1615,7 +1615,7 @@ class Wafv2WebAclCaptchaConfig:
 class Wafv2WebAclCaptchaConfigImmunityTimeProperty:
     def __init__(self, *, immunity_time: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b45fcc898d979b4943a81df177eef639112cdadeae4a26d36715cedfb0b0ba95)
@@ -1626,7 +1626,7 @@ class Wafv2WebAclCaptchaConfigImmunityTimeProperty:
 
     @builtins.property
     def immunity_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
         result = self._values.get("immunity_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1728,7 +1728,7 @@ class Wafv2WebAclCaptchaConfigOutputReference(
         immunity_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         value = Wafv2WebAclCaptchaConfigImmunityTimeProperty(
             immunity_time=immunity_time
@@ -1779,7 +1779,7 @@ class Wafv2WebAclChallengeConfig:
         immunity_time_property: typing.Optional[typing.Union["Wafv2WebAclChallengeConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         if isinstance(immunity_time_property, dict):
             immunity_time_property = Wafv2WebAclChallengeConfigImmunityTimeProperty(**immunity_time_property)
@@ -1796,7 +1796,7 @@ class Wafv2WebAclChallengeConfig:
     ) -> typing.Optional["Wafv2WebAclChallengeConfigImmunityTimeProperty"]:
         '''immunity_time_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         result = self._values.get("immunity_time_property")
         return typing.cast(typing.Optional["Wafv2WebAclChallengeConfigImmunityTimeProperty"], result)
@@ -1821,7 +1821,7 @@ class Wafv2WebAclChallengeConfig:
 class Wafv2WebAclChallengeConfigImmunityTimeProperty:
     def __init__(self, *, immunity_time: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee57ddc270a2873af92df4b9aea575ddb522cfd396c15ab571d2a0f6d960c552)
@@ -1832,7 +1832,7 @@ class Wafv2WebAclChallengeConfigImmunityTimeProperty:
 
     @builtins.property
     def immunity_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
         result = self._values.get("immunity_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1934,7 +1934,7 @@ class Wafv2WebAclChallengeConfigOutputReference(
         immunity_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         value = Wafv2WebAclChallengeConfigImmunityTimeProperty(
             immunity_time=immunity_time
@@ -2041,22 +2041,22 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_action Wafv2WebAcl#default_action}
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#scope Wafv2WebAcl#scope}.
-        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
-        :param association_config: association_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#association_config Wafv2WebAcl#association_config}
-        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
-        :param challenge_config: challenge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
-        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body Wafv2WebAcl#custom_response_body}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#description Wafv2WebAcl#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#id Wafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name_prefix Wafv2WebAcl#name_prefix}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule Wafv2WebAcl#rule}
-        :param rule_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule_json Wafv2WebAcl#rule_json}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#tags Wafv2WebAcl#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#tags_all Wafv2WebAcl#tags_all}.
-        :param token_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#token_domains Wafv2WebAcl#token_domains}.
+        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_action Wafv2WebAcl#default_action}
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#scope Wafv2WebAcl#scope}.
+        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
+        :param association_config: association_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#association_config Wafv2WebAcl#association_config}
+        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
+        :param challenge_config: challenge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
+        :param custom_response_body: custom_response_body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body Wafv2WebAcl#custom_response_body}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#description Wafv2WebAcl#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#id Wafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name_prefix Wafv2WebAcl#name_prefix}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule Wafv2WebAcl#rule}
+        :param rule_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule_json Wafv2WebAcl#rule_json}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#tags Wafv2WebAcl#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#tags_all Wafv2WebAcl#tags_all}.
+        :param token_domains: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#token_domains Wafv2WebAcl#token_domains}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2209,7 +2209,7 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_action(self) -> "Wafv2WebAclDefaultAction":
         '''default_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#default_action Wafv2WebAcl#default_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#default_action Wafv2WebAcl#default_action}
         '''
         result = self._values.get("default_action")
         assert result is not None, "Required property 'default_action' is missing"
@@ -2217,7 +2217,7 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#scope Wafv2WebAcl#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#scope Wafv2WebAcl#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
@@ -2226,7 +2226,7 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def visibility_config(self) -> "Wafv2WebAclVisibilityConfig":
         '''visibility_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
         '''
         result = self._values.get("visibility_config")
         assert result is not None, "Required property 'visibility_config' is missing"
@@ -2236,7 +2236,7 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def association_config(self) -> typing.Optional[Wafv2WebAclAssociationConfig]:
         '''association_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#association_config Wafv2WebAcl#association_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#association_config Wafv2WebAcl#association_config}
         '''
         result = self._values.get("association_config")
         return typing.cast(typing.Optional[Wafv2WebAclAssociationConfig], result)
@@ -2245,7 +2245,7 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def captcha_config(self) -> typing.Optional[Wafv2WebAclCaptchaConfig]:
         '''captcha_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
         '''
         result = self._values.get("captcha_config")
         return typing.cast(typing.Optional[Wafv2WebAclCaptchaConfig], result)
@@ -2254,7 +2254,7 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def challenge_config(self) -> typing.Optional[Wafv2WebAclChallengeConfig]:
         '''challenge_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
         '''
         result = self._values.get("challenge_config")
         return typing.cast(typing.Optional[Wafv2WebAclChallengeConfig], result)
@@ -2265,20 +2265,20 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclCustomResponseBody"]]]:
         '''custom_response_body block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body Wafv2WebAcl#custom_response_body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body Wafv2WebAcl#custom_response_body}
         '''
         result = self._values.get("custom_response_body")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclCustomResponseBody"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#description Wafv2WebAcl#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#description Wafv2WebAcl#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#id Wafv2WebAcl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#id Wafv2WebAcl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2288,13 +2288,13 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name_prefix Wafv2WebAcl#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name_prefix Wafv2WebAcl#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2304,32 +2304,32 @@ class Wafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule Wafv2WebAcl#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule Wafv2WebAcl#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRule"]]], result)
 
     @builtins.property
     def rule_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule_json Wafv2WebAcl#rule_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule_json Wafv2WebAcl#rule_json}.'''
         result = self._values.get("rule_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#tags Wafv2WebAcl#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#tags Wafv2WebAcl#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#tags_all Wafv2WebAcl#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#tags_all Wafv2WebAcl#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def token_domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#token_domains Wafv2WebAcl#token_domains}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#token_domains Wafv2WebAcl#token_domains}.'''
         result = self._values.get("token_domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2359,9 +2359,9 @@ class Wafv2WebAclCustomResponseBody:
         key: builtins.str,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#content Wafv2WebAcl#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#content_type Wafv2WebAcl#content_type}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#key Wafv2WebAcl#key}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#content Wafv2WebAcl#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#content_type Wafv2WebAcl#content_type}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#key Wafv2WebAcl#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d96c2dc61ddd83404acb5f2630051ef91abe0a7268ac5aa56ccf04a93f21406)
@@ -2376,21 +2376,21 @@ class Wafv2WebAclCustomResponseBody:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#content Wafv2WebAcl#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#content Wafv2WebAcl#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#content_type Wafv2WebAcl#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#content_type Wafv2WebAcl#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#key Wafv2WebAcl#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#key Wafv2WebAcl#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -2605,8 +2605,8 @@ class Wafv2WebAclDefaultAction:
         block: typing.Optional[typing.Union["Wafv2WebAclDefaultActionBlock", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
-        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
+        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
         '''
         if isinstance(allow, dict):
             allow = Wafv2WebAclDefaultActionAllow(**allow)
@@ -2626,7 +2626,7 @@ class Wafv2WebAclDefaultAction:
     def allow(self) -> typing.Optional["Wafv2WebAclDefaultActionAllow"]:
         '''allow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
         '''
         result = self._values.get("allow")
         return typing.cast(typing.Optional["Wafv2WebAclDefaultActionAllow"], result)
@@ -2635,7 +2635,7 @@ class Wafv2WebAclDefaultAction:
     def block(self) -> typing.Optional["Wafv2WebAclDefaultActionBlock"]:
         '''block block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
         '''
         result = self._values.get("block")
         return typing.cast(typing.Optional["Wafv2WebAclDefaultActionBlock"], result)
@@ -2664,7 +2664,7 @@ class Wafv2WebAclDefaultActionAllow:
         custom_request_handling: typing.Optional[typing.Union["Wafv2WebAclDefaultActionAllowCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2WebAclDefaultActionAllowCustomRequestHandling(**custom_request_handling)
@@ -2681,7 +2681,7 @@ class Wafv2WebAclDefaultActionAllow:
     ) -> typing.Optional["Wafv2WebAclDefaultActionAllowCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2WebAclDefaultActionAllowCustomRequestHandling"], result)
@@ -2710,7 +2710,7 @@ class Wafv2WebAclDefaultActionAllowCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclDefaultActionAllowCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f69c3159fa9c02ba483d2d0a5b00bd777f4143e5cfce8eb40b3b1fc0c2b8ac77)
@@ -2725,7 +2725,7 @@ class Wafv2WebAclDefaultActionAllowCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclDefaultActionAllowCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -2751,8 +2751,8 @@ class Wafv2WebAclDefaultActionAllowCustomRequestHandling:
 class Wafv2WebAclDefaultActionAllowCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__270ad05b087820f9fbc7a579f7b568f83ac4c62a049eef8d46f3d38190459e5f)
@@ -2765,14 +2765,14 @@ class Wafv2WebAclDefaultActionAllowCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3052,7 +3052,7 @@ class Wafv2WebAclDefaultActionAllowOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclDefaultActionAllowCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         value = Wafv2WebAclDefaultActionAllowCustomRequestHandling(
             insert_header=insert_header
@@ -3106,7 +3106,7 @@ class Wafv2WebAclDefaultActionBlock:
         custom_response: typing.Optional[typing.Union["Wafv2WebAclDefaultActionBlockCustomResponse", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
+        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
         '''
         if isinstance(custom_response, dict):
             custom_response = Wafv2WebAclDefaultActionBlockCustomResponse(**custom_response)
@@ -3123,7 +3123,7 @@ class Wafv2WebAclDefaultActionBlock:
     ) -> typing.Optional["Wafv2WebAclDefaultActionBlockCustomResponse"]:
         '''custom_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
         '''
         result = self._values.get("custom_response")
         return typing.cast(typing.Optional["Wafv2WebAclDefaultActionBlockCustomResponse"], result)
@@ -3158,9 +3158,9 @@ class Wafv2WebAclDefaultActionBlockCustomResponse:
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclDefaultActionBlockCustomResponseResponseHeader", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
-        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
+        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bcee6d8826ca56307d435f05986c3969f55d6b8a58acbf8a684b9dee016e1f9)
@@ -3177,14 +3177,14 @@ class Wafv2WebAclDefaultActionBlockCustomResponse:
 
     @builtins.property
     def response_code(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.'''
         result = self._values.get("response_code")
         assert result is not None, "Required property 'response_code' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def custom_response_body_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.'''
         result = self._values.get("custom_response_body_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3194,7 +3194,7 @@ class Wafv2WebAclDefaultActionBlockCustomResponse:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclDefaultActionBlockCustomResponseResponseHeader"]]]:
         '''response_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
         '''
         result = self._values.get("response_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclDefaultActionBlockCustomResponseResponseHeader"]]], result)
@@ -3326,8 +3326,8 @@ class Wafv2WebAclDefaultActionBlockCustomResponseOutputReference(
 class Wafv2WebAclDefaultActionBlockCustomResponseResponseHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__965cce856ca251c9a65d2db4f7422695a0fb006491fc5020cfae31d1cbe3d560)
@@ -3340,14 +3340,14 @@ class Wafv2WebAclDefaultActionBlockCustomResponseResponseHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3564,9 +3564,9 @@ class Wafv2WebAclDefaultActionBlockOutputReference(
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclDefaultActionBlockCustomResponseResponseHeader, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
-        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
+        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
         '''
         value = Wafv2WebAclDefaultActionBlockCustomResponse(
             response_code=response_code,
@@ -3637,7 +3637,7 @@ class Wafv2WebAclDefaultActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2WebAclDefaultActionAllowCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         value = Wafv2WebAclDefaultActionAllow(
             custom_request_handling=custom_request_handling
@@ -3652,7 +3652,7 @@ class Wafv2WebAclDefaultActionOutputReference(
         custom_response: typing.Optional[typing.Union[Wafv2WebAclDefaultActionBlockCustomResponse, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
+        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
         '''
         value = Wafv2WebAclDefaultActionBlock(custom_response=custom_response)
 
@@ -3729,15 +3729,15 @@ class Wafv2WebAclRule:
         statement: typing.Any = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#priority Wafv2WebAcl#priority}.
-        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#action Wafv2WebAcl#action}
-        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
-        :param challenge_config: challenge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
-        :param override_action: override_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#override_action Wafv2WebAcl#override_action}
-        :param rule_label: rule_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule_label Wafv2WebAcl#rule_label}
-        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#statement Wafv2WebAcl#statement}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#priority Wafv2WebAcl#priority}.
+        :param visibility_config: visibility_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#action Wafv2WebAcl#action}
+        :param captcha_config: captcha_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
+        :param challenge_config: challenge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
+        :param override_action: override_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#override_action Wafv2WebAcl#override_action}
+        :param rule_label: rule_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule_label Wafv2WebAcl#rule_label}
+        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#statement Wafv2WebAcl#statement}
         '''
         if isinstance(visibility_config, dict):
             visibility_config = Wafv2WebAclRuleVisibilityConfig(**visibility_config)
@@ -3780,14 +3780,14 @@ class Wafv2WebAclRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#priority Wafv2WebAcl#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#priority Wafv2WebAcl#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
@@ -3796,7 +3796,7 @@ class Wafv2WebAclRule:
     def visibility_config(self) -> "Wafv2WebAclRuleVisibilityConfig":
         '''visibility_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#visibility_config Wafv2WebAcl#visibility_config}
         '''
         result = self._values.get("visibility_config")
         assert result is not None, "Required property 'visibility_config' is missing"
@@ -3806,7 +3806,7 @@ class Wafv2WebAclRule:
     def action(self) -> typing.Optional["Wafv2WebAclRuleAction"]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#action Wafv2WebAcl#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#action Wafv2WebAcl#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional["Wafv2WebAclRuleAction"], result)
@@ -3815,7 +3815,7 @@ class Wafv2WebAclRule:
     def captcha_config(self) -> typing.Optional["Wafv2WebAclRuleCaptchaConfig"]:
         '''captcha_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha_config Wafv2WebAcl#captcha_config}
         '''
         result = self._values.get("captcha_config")
         return typing.cast(typing.Optional["Wafv2WebAclRuleCaptchaConfig"], result)
@@ -3824,7 +3824,7 @@ class Wafv2WebAclRule:
     def challenge_config(self) -> typing.Optional["Wafv2WebAclRuleChallengeConfig"]:
         '''challenge_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge_config Wafv2WebAcl#challenge_config}
         '''
         result = self._values.get("challenge_config")
         return typing.cast(typing.Optional["Wafv2WebAclRuleChallengeConfig"], result)
@@ -3833,7 +3833,7 @@ class Wafv2WebAclRule:
     def override_action(self) -> typing.Optional["Wafv2WebAclRuleOverrideAction"]:
         '''override_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#override_action Wafv2WebAcl#override_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#override_action Wafv2WebAcl#override_action}
         '''
         result = self._values.get("override_action")
         return typing.cast(typing.Optional["Wafv2WebAclRuleOverrideAction"], result)
@@ -3844,7 +3844,7 @@ class Wafv2WebAclRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleRuleLabel"]]]:
         '''rule_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#rule_label Wafv2WebAcl#rule_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#rule_label Wafv2WebAcl#rule_label}
         '''
         result = self._values.get("rule_label")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleRuleLabel"]]], result)
@@ -3853,7 +3853,7 @@ class Wafv2WebAclRule:
     def statement(self) -> typing.Any:
         '''statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#statement Wafv2WebAcl#statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#statement Wafv2WebAcl#statement}
         '''
         result = self._values.get("statement")
         return typing.cast(typing.Any, result)
@@ -3892,11 +3892,11 @@ class Wafv2WebAclRuleAction:
         count: typing.Optional[typing.Union["Wafv2WebAclRuleActionCount", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
-        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
-        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha Wafv2WebAcl#captcha}
-        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge Wafv2WebAcl#challenge}
-        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
+        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
+        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha Wafv2WebAcl#captcha}
+        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge Wafv2WebAcl#challenge}
+        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
         '''
         if isinstance(allow, dict):
             allow = Wafv2WebAclRuleActionAllow(**allow)
@@ -3931,7 +3931,7 @@ class Wafv2WebAclRuleAction:
     def allow(self) -> typing.Optional["Wafv2WebAclRuleActionAllow"]:
         '''allow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
         '''
         result = self._values.get("allow")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionAllow"], result)
@@ -3940,7 +3940,7 @@ class Wafv2WebAclRuleAction:
     def block(self) -> typing.Optional["Wafv2WebAclRuleActionBlock"]:
         '''block block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
         '''
         result = self._values.get("block")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionBlock"], result)
@@ -3949,7 +3949,7 @@ class Wafv2WebAclRuleAction:
     def captcha(self) -> typing.Optional["Wafv2WebAclRuleActionCaptcha"]:
         '''captcha block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha Wafv2WebAcl#captcha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha Wafv2WebAcl#captcha}
         '''
         result = self._values.get("captcha")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionCaptcha"], result)
@@ -3958,7 +3958,7 @@ class Wafv2WebAclRuleAction:
     def challenge(self) -> typing.Optional["Wafv2WebAclRuleActionChallenge"]:
         '''challenge block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge Wafv2WebAcl#challenge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge Wafv2WebAcl#challenge}
         '''
         result = self._values.get("challenge")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionChallenge"], result)
@@ -3967,7 +3967,7 @@ class Wafv2WebAclRuleAction:
     def count(self) -> typing.Optional["Wafv2WebAclRuleActionCount"]:
         '''count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionCount"], result)
@@ -3996,7 +3996,7 @@ class Wafv2WebAclRuleActionAllow:
         custom_request_handling: typing.Optional[typing.Union["Wafv2WebAclRuleActionAllowCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2WebAclRuleActionAllowCustomRequestHandling(**custom_request_handling)
@@ -4013,7 +4013,7 @@ class Wafv2WebAclRuleActionAllow:
     ) -> typing.Optional["Wafv2WebAclRuleActionAllowCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionAllowCustomRequestHandling"], result)
@@ -4042,7 +4042,7 @@ class Wafv2WebAclRuleActionAllowCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclRuleActionAllowCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc0a457e92c8f2c88065a033c889cfe04951e186f85dd95c6f4dea67c5f15787)
@@ -4057,7 +4057,7 @@ class Wafv2WebAclRuleActionAllowCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleActionAllowCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -4083,8 +4083,8 @@ class Wafv2WebAclRuleActionAllowCustomRequestHandling:
 class Wafv2WebAclRuleActionAllowCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__443298fb23b89aca251ca0777d6e5a6b27fe7791fe88397aa4ac3258b2a90f01)
@@ -4097,14 +4097,14 @@ class Wafv2WebAclRuleActionAllowCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4384,7 +4384,7 @@ class Wafv2WebAclRuleActionAllowOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclRuleActionAllowCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         value = Wafv2WebAclRuleActionAllowCustomRequestHandling(
             insert_header=insert_header
@@ -4438,7 +4438,7 @@ class Wafv2WebAclRuleActionBlock:
         custom_response: typing.Optional[typing.Union["Wafv2WebAclRuleActionBlockCustomResponse", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
+        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
         '''
         if isinstance(custom_response, dict):
             custom_response = Wafv2WebAclRuleActionBlockCustomResponse(**custom_response)
@@ -4455,7 +4455,7 @@ class Wafv2WebAclRuleActionBlock:
     ) -> typing.Optional["Wafv2WebAclRuleActionBlockCustomResponse"]:
         '''custom_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
         '''
         result = self._values.get("custom_response")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionBlockCustomResponse"], result)
@@ -4490,9 +4490,9 @@ class Wafv2WebAclRuleActionBlockCustomResponse:
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclRuleActionBlockCustomResponseResponseHeader", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
-        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
+        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60d7c1f0da3c77e50f78a9bdcd2fe34f315881af421047b3eed215e99c8f9fa5)
@@ -4509,14 +4509,14 @@ class Wafv2WebAclRuleActionBlockCustomResponse:
 
     @builtins.property
     def response_code(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.'''
         result = self._values.get("response_code")
         assert result is not None, "Required property 'response_code' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def custom_response_body_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.'''
         result = self._values.get("custom_response_body_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4526,7 +4526,7 @@ class Wafv2WebAclRuleActionBlockCustomResponse:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleActionBlockCustomResponseResponseHeader"]]]:
         '''response_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
         '''
         result = self._values.get("response_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleActionBlockCustomResponseResponseHeader"]]], result)
@@ -4658,8 +4658,8 @@ class Wafv2WebAclRuleActionBlockCustomResponseOutputReference(
 class Wafv2WebAclRuleActionBlockCustomResponseResponseHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21fff54748eeb5dc7697ff5a34d376c5b8cfb3d5060d4c1a33b447da57af4c0b)
@@ -4672,14 +4672,14 @@ class Wafv2WebAclRuleActionBlockCustomResponseResponseHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4896,9 +4896,9 @@ class Wafv2WebAclRuleActionBlockOutputReference(
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclRuleActionBlockCustomResponseResponseHeader, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
-        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_code Wafv2WebAcl#response_code}.
+        :param custom_response_body_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response_body_key Wafv2WebAcl#custom_response_body_key}.
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#response_header Wafv2WebAcl#response_header}
         '''
         value = Wafv2WebAclRuleActionBlockCustomResponse(
             response_code=response_code,
@@ -4954,7 +4954,7 @@ class Wafv2WebAclRuleActionCaptcha:
         custom_request_handling: typing.Optional[typing.Union["Wafv2WebAclRuleActionCaptchaCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2WebAclRuleActionCaptchaCustomRequestHandling(**custom_request_handling)
@@ -4971,7 +4971,7 @@ class Wafv2WebAclRuleActionCaptcha:
     ) -> typing.Optional["Wafv2WebAclRuleActionCaptchaCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionCaptchaCustomRequestHandling"], result)
@@ -5000,7 +5000,7 @@ class Wafv2WebAclRuleActionCaptchaCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclRuleActionCaptchaCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7d4cba5d5445591901179e1620e85b7a21f6fecb37680573290090d3197fc50)
@@ -5015,7 +5015,7 @@ class Wafv2WebAclRuleActionCaptchaCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleActionCaptchaCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -5041,8 +5041,8 @@ class Wafv2WebAclRuleActionCaptchaCustomRequestHandling:
 class Wafv2WebAclRuleActionCaptchaCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25d5f1cf5002c0ccdd43c755bbce6259dbece409d1c01478457a4134b0c4197e)
@@ -5055,14 +5055,14 @@ class Wafv2WebAclRuleActionCaptchaCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5342,7 +5342,7 @@ class Wafv2WebAclRuleActionCaptchaOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclRuleActionCaptchaCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         value = Wafv2WebAclRuleActionCaptchaCustomRequestHandling(
             insert_header=insert_header
@@ -5396,7 +5396,7 @@ class Wafv2WebAclRuleActionChallenge:
         custom_request_handling: typing.Optional[typing.Union["Wafv2WebAclRuleActionChallengeCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2WebAclRuleActionChallengeCustomRequestHandling(**custom_request_handling)
@@ -5413,7 +5413,7 @@ class Wafv2WebAclRuleActionChallenge:
     ) -> typing.Optional["Wafv2WebAclRuleActionChallengeCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionChallengeCustomRequestHandling"], result)
@@ -5442,7 +5442,7 @@ class Wafv2WebAclRuleActionChallengeCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclRuleActionChallengeCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb9dc5099f91eadf980c2e779f177f187088bcd0a786c89a88589435b7fdb599)
@@ -5457,7 +5457,7 @@ class Wafv2WebAclRuleActionChallengeCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleActionChallengeCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -5483,8 +5483,8 @@ class Wafv2WebAclRuleActionChallengeCustomRequestHandling:
 class Wafv2WebAclRuleActionChallengeCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b7252250b24f1cce2111e4bd3763a3e9f9ebe99172e7acb3c967282d004e342)
@@ -5497,14 +5497,14 @@ class Wafv2WebAclRuleActionChallengeCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5784,7 +5784,7 @@ class Wafv2WebAclRuleActionChallengeOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclRuleActionChallengeCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         value = Wafv2WebAclRuleActionChallengeCustomRequestHandling(
             insert_header=insert_header
@@ -5838,7 +5838,7 @@ class Wafv2WebAclRuleActionCount:
         custom_request_handling: typing.Optional[typing.Union["Wafv2WebAclRuleActionCountCustomRequestHandling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         if isinstance(custom_request_handling, dict):
             custom_request_handling = Wafv2WebAclRuleActionCountCustomRequestHandling(**custom_request_handling)
@@ -5855,7 +5855,7 @@ class Wafv2WebAclRuleActionCount:
     ) -> typing.Optional["Wafv2WebAclRuleActionCountCustomRequestHandling"]:
         '''custom_request_handling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         result = self._values.get("custom_request_handling")
         return typing.cast(typing.Optional["Wafv2WebAclRuleActionCountCustomRequestHandling"], result)
@@ -5884,7 +5884,7 @@ class Wafv2WebAclRuleActionCountCustomRequestHandling:
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Wafv2WebAclRuleActionCountCustomRequestHandlingInsertHeader", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__339b9d8f8a1de3c3f7d790284e36e2bd01a2d4deb02ea533776418bfef95a933)
@@ -5899,7 +5899,7 @@ class Wafv2WebAclRuleActionCountCustomRequestHandling:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Wafv2WebAclRuleActionCountCustomRequestHandlingInsertHeader"]]:
         '''insert_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         result = self._values.get("insert_header")
         assert result is not None, "Required property 'insert_header' is missing"
@@ -5925,8 +5925,8 @@ class Wafv2WebAclRuleActionCountCustomRequestHandling:
 class Wafv2WebAclRuleActionCountCustomRequestHandlingInsertHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__290ac19bc24c07bd413d094554417f9e8a4a46aa88a1bbfee612fccd27a1234e)
@@ -5939,14 +5939,14 @@ class Wafv2WebAclRuleActionCountCustomRequestHandlingInsertHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#value Wafv2WebAcl#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6226,7 +6226,7 @@ class Wafv2WebAclRuleActionCountOutputReference(
         insert_header: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Wafv2WebAclRuleActionCountCustomRequestHandlingInsertHeader, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
+        :param insert_header: insert_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#insert_header Wafv2WebAcl#insert_header}
         '''
         value = Wafv2WebAclRuleActionCountCustomRequestHandling(
             insert_header=insert_header
@@ -6295,7 +6295,7 @@ class Wafv2WebAclRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2WebAclRuleActionAllowCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         value = Wafv2WebAclRuleActionAllow(
             custom_request_handling=custom_request_handling
@@ -6310,7 +6310,7 @@ class Wafv2WebAclRuleActionOutputReference(
         custom_response: typing.Optional[typing.Union[Wafv2WebAclRuleActionBlockCustomResponse, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
+        :param custom_response: custom_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_response Wafv2WebAcl#custom_response}
         '''
         value = Wafv2WebAclRuleActionBlock(custom_response=custom_response)
 
@@ -6323,7 +6323,7 @@ class Wafv2WebAclRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2WebAclRuleActionCaptchaCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         value = Wafv2WebAclRuleActionCaptcha(
             custom_request_handling=custom_request_handling
@@ -6338,7 +6338,7 @@ class Wafv2WebAclRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2WebAclRuleActionChallengeCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         value = Wafv2WebAclRuleActionChallenge(
             custom_request_handling=custom_request_handling
@@ -6353,7 +6353,7 @@ class Wafv2WebAclRuleActionOutputReference(
         custom_request_handling: typing.Optional[typing.Union[Wafv2WebAclRuleActionCountCustomRequestHandling, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
+        :param custom_request_handling: custom_request_handling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#custom_request_handling Wafv2WebAcl#custom_request_handling}
         '''
         value = Wafv2WebAclRuleActionCount(
             custom_request_handling=custom_request_handling
@@ -6456,7 +6456,7 @@ class Wafv2WebAclRuleCaptchaConfig:
         immunity_time_property: typing.Optional[typing.Union["Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         if isinstance(immunity_time_property, dict):
             immunity_time_property = Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty(**immunity_time_property)
@@ -6473,7 +6473,7 @@ class Wafv2WebAclRuleCaptchaConfig:
     ) -> typing.Optional["Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty"]:
         '''immunity_time_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         result = self._values.get("immunity_time_property")
         return typing.cast(typing.Optional["Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty"], result)
@@ -6498,7 +6498,7 @@ class Wafv2WebAclRuleCaptchaConfig:
 class Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty:
     def __init__(self, *, immunity_time: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a938575bb2f8f8f70acc58f804dd9ad16cb0fdb70c27dc998c86e65eec39bf5)
@@ -6509,7 +6509,7 @@ class Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty:
 
     @builtins.property
     def immunity_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
         result = self._values.get("immunity_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6611,7 +6611,7 @@ class Wafv2WebAclRuleCaptchaConfigOutputReference(
         immunity_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         value = Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty(
             immunity_time=immunity_time
@@ -6665,7 +6665,7 @@ class Wafv2WebAclRuleChallengeConfig:
         immunity_time_property: typing.Optional[typing.Union["Wafv2WebAclRuleChallengeConfigImmunityTimeProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         if isinstance(immunity_time_property, dict):
             immunity_time_property = Wafv2WebAclRuleChallengeConfigImmunityTimeProperty(**immunity_time_property)
@@ -6682,7 +6682,7 @@ class Wafv2WebAclRuleChallengeConfig:
     ) -> typing.Optional["Wafv2WebAclRuleChallengeConfigImmunityTimeProperty"]:
         '''immunity_time_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         result = self._values.get("immunity_time_property")
         return typing.cast(typing.Optional["Wafv2WebAclRuleChallengeConfigImmunityTimeProperty"], result)
@@ -6707,7 +6707,7 @@ class Wafv2WebAclRuleChallengeConfig:
 class Wafv2WebAclRuleChallengeConfigImmunityTimeProperty:
     def __init__(self, *, immunity_time: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99825cc6b233e374d06de8010df6b80c90fb0bc736031c27f4351ac64378d401)
@@ -6718,7 +6718,7 @@ class Wafv2WebAclRuleChallengeConfigImmunityTimeProperty:
 
     @builtins.property
     def immunity_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.'''
         result = self._values.get("immunity_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6820,7 +6820,7 @@ class Wafv2WebAclRuleChallengeConfigOutputReference(
         immunity_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
+        :param immunity_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time Wafv2WebAcl#immunity_time}.
         '''
         value = Wafv2WebAclRuleChallengeConfigImmunityTimeProperty(
             immunity_time=immunity_time
@@ -6989,11 +6989,11 @@ class Wafv2WebAclRuleOutputReference(
         count: typing.Optional[typing.Union[Wafv2WebAclRuleActionCount, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
-        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
-        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#captcha Wafv2WebAcl#captcha}
-        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#challenge Wafv2WebAcl#challenge}
-        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#allow Wafv2WebAcl#allow}
+        :param block: block block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#block Wafv2WebAcl#block}
+        :param captcha: captcha block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#captcha Wafv2WebAcl#captcha}
+        :param challenge: challenge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#challenge Wafv2WebAcl#challenge}
+        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
         '''
         value = Wafv2WebAclRuleAction(
             allow=allow, block=block, captcha=captcha, challenge=challenge, count=count
@@ -7008,7 +7008,7 @@ class Wafv2WebAclRuleOutputReference(
         immunity_time_property: typing.Optional[typing.Union[Wafv2WebAclRuleCaptchaConfigImmunityTimeProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         value = Wafv2WebAclRuleCaptchaConfig(
             immunity_time_property=immunity_time_property
@@ -7023,7 +7023,7 @@ class Wafv2WebAclRuleOutputReference(
         immunity_time_property: typing.Optional[typing.Union[Wafv2WebAclRuleChallengeConfigImmunityTimeProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
+        :param immunity_time_property: immunity_time_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#immunity_time_property Wafv2WebAcl#immunity_time_property}
         '''
         value = Wafv2WebAclRuleChallengeConfig(
             immunity_time_property=immunity_time_property
@@ -7039,8 +7039,8 @@ class Wafv2WebAclRuleOutputReference(
         none: typing.Optional[typing.Union["Wafv2WebAclRuleOverrideActionNone", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
-        :param none: none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#none Wafv2WebAcl#none}
+        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
+        :param none: none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#none Wafv2WebAcl#none}
         '''
         value = Wafv2WebAclRuleOverrideAction(count=count, none=none)
 
@@ -7068,9 +7068,9 @@ class Wafv2WebAclRuleOutputReference(
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
         '''
         value = Wafv2WebAclRuleVisibilityConfig(
             cloudwatch_metrics_enabled=cloudwatch_metrics_enabled,
@@ -7250,8 +7250,8 @@ class Wafv2WebAclRuleOverrideAction:
         none: typing.Optional[typing.Union["Wafv2WebAclRuleOverrideActionNone", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
-        :param none: none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#none Wafv2WebAcl#none}
+        :param count: count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
+        :param none: none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#none Wafv2WebAcl#none}
         '''
         if isinstance(count, dict):
             count = Wafv2WebAclRuleOverrideActionCount(**count)
@@ -7271,7 +7271,7 @@ class Wafv2WebAclRuleOverrideAction:
     def count(self) -> typing.Optional["Wafv2WebAclRuleOverrideActionCount"]:
         '''count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#count Wafv2WebAcl#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional["Wafv2WebAclRuleOverrideActionCount"], result)
@@ -7280,7 +7280,7 @@ class Wafv2WebAclRuleOverrideAction:
     def none(self) -> typing.Optional["Wafv2WebAclRuleOverrideActionNone"]:
         '''none block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#none Wafv2WebAcl#none}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#none Wafv2WebAcl#none}
         '''
         result = self._values.get("none")
         return typing.cast(typing.Optional["Wafv2WebAclRuleOverrideActionNone"], result)
@@ -7495,7 +7495,7 @@ class Wafv2WebAclRuleOverrideActionOutputReference(
 class Wafv2WebAclRuleRuleLabel:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc36a604ec3ddba13d8f8074f7791b915ff9ebe7880d8d613163a087b6529ed7)
@@ -7506,7 +7506,7 @@ class Wafv2WebAclRuleRuleLabel:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#name Wafv2WebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -7692,9 +7692,9 @@ class Wafv2WebAclRuleVisibilityConfig:
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f13dcd07320ba6d6e91cf660237bcfe3cb5d8987abc1b500dd0056f9b39f369)
@@ -7711,14 +7711,14 @@ class Wafv2WebAclRuleVisibilityConfig:
     def cloudwatch_metrics_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.'''
         result = self._values.get("cloudwatch_metrics_enabled")
         assert result is not None, "Required property 'cloudwatch_metrics_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
@@ -7727,7 +7727,7 @@ class Wafv2WebAclRuleVisibilityConfig:
     def sampled_requests_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.'''
         result = self._values.get("sampled_requests_enabled")
         assert result is not None, "Required property 'sampled_requests_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -7863,9 +7863,9 @@ class Wafv2WebAclVisibilityConfig:
         sampled_requests_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
-        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
+        :param cloudwatch_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.
+        :param sampled_requests_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c45686c79e3aaf98eb37dcdba7283bcb76594d1ebdf675fa479978397b900aa1)
@@ -7882,14 +7882,14 @@ class Wafv2WebAclVisibilityConfig:
     def cloudwatch_metrics_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#cloudwatch_metrics_enabled Wafv2WebAcl#cloudwatch_metrics_enabled}.'''
         result = self._values.get("cloudwatch_metrics_enabled")
         assert result is not None, "Required property 'cloudwatch_metrics_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#metric_name Wafv2WebAcl#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
@@ -7898,7 +7898,7 @@ class Wafv2WebAclVisibilityConfig:
     def sampled_requests_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafv2_web_acl#sampled_requests_enabled Wafv2WebAcl#sampled_requests_enabled}.'''
         result = self._values.get("sampled_requests_enabled")
         assert result is not None, "Required property 'sampled_requests_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)

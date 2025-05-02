@@ -259,7 +259,7 @@ extra-dependencies = [
     "pyiceberg>=0.9.0",
     # For testing clickhouse
     "chdb>=3; platform_system != 'Windows'", # there is no suitable wheel for windows
-    "clickhouse-connect>=0.8.16",
+    "clickhouse-connect>=0.8.17",
     "pandas>=1.5.3",
     "hvplot~=0.11.2",
     # Causes issues installing `shapely` (v2.0.7)
@@ -273,7 +273,7 @@ extra-dependencies = [
     # testing gen ai
     "openai>=1.55.3",
     "anthropic==0.34.1",
-    "google-generativeai==0.8.4",
+    "google-generativeai==0.8.5",
     # exporting as ipynb
     "nbformat >=5.10.4",
     "sympy>=1.13.3",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster-airbyte
-Version: 0.26.12
+Version: 0.26.13
 Summary: Package for integrating Airbyte with Dagster.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-airbyte
 Author: Dagster Labs
@@ -13,6 +13,21 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
-Provides-Extra: test
-Provides-Extra: managed
 License-File: LICENSE
+Requires-Dist: dagster==1.10.13
+Requires-Dist: requests
+Provides-Extra: test
+Requires-Dist: requests-mock; extra == "test"
+Requires-Dist: flaky; extra == "test"
+Provides-Extra: managed
+Requires-Dist: dagster-managed-elements==0.26.13; extra == "managed"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

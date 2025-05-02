@@ -96,6 +96,9 @@ class _ServicePrincipalRoleState:
 
 
 class ServicePrincipalRole(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/servicePrincipalRole:ServicePrincipalRole"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -105,6 +108,8 @@ class ServicePrincipalRole(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to attach a role or InstanceProfile (AWS) to a databricks_service_principal.
+
+        > This resource can be used with an account or workspace-level provider.
 
         ## Example Usage
 
@@ -148,6 +153,8 @@ class ServicePrincipalRole(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to attach a role or InstanceProfile (AWS) to a databricks_service_principal.
+
+        > This resource can be used with an account or workspace-level provider.
 
         ## Example Usage
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_oci
-Version: 2.32.0
+Version: 2.33.0
 Summary: A Pulumi package for creating and managing Oracle Cloud Infrastructure resources.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com

@@ -1,7 +1,7 @@
 r'''
 # `aws_appmesh_mesh`
 
-Refer to the Terraform Registry for docs: [`aws_appmesh_mesh`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh).
+Refer to the Terraform Registry for docs: [`aws_appmesh_mesh`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppmeshMesh(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appmeshMesh.AppmeshMesh",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh aws_appmesh_mesh}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh aws_appmesh_mesh}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AppmeshMesh(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh aws_appmesh_mesh} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh aws_appmesh_mesh} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#name AppmeshMesh#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#id AppmeshMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#spec AppmeshMesh#spec}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#tags AppmeshMesh#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#tags_all AppmeshMesh#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#name AppmeshMesh#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#id AppmeshMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#spec AppmeshMesh#spec}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#tags AppmeshMesh#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#tags_all AppmeshMesh#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AppmeshMesh(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppmeshMesh to import.
-        :param import_from_id: The id of the existing AppmeshMesh that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppmeshMesh that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppmeshMesh to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class AppmeshMesh(
         service_discovery: typing.Optional[typing.Union["AppmeshMeshSpecServiceDiscovery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param egress_filter: egress_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#egress_filter AppmeshMesh#egress_filter}
-        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#service_discovery AppmeshMesh#service_discovery}
+        :param egress_filter: egress_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#egress_filter AppmeshMesh#egress_filter}
+        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#service_discovery AppmeshMesh#service_discovery}
         '''
         value = AppmeshMeshSpec(
             egress_filter=egress_filter, service_discovery=service_discovery
@@ -321,11 +321,11 @@ class AppmeshMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#name AppmeshMesh#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#id AppmeshMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#spec AppmeshMesh#spec}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#tags AppmeshMesh#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#tags_all AppmeshMesh#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#name AppmeshMesh#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#id AppmeshMesh#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#spec AppmeshMesh#spec}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#tags AppmeshMesh#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#tags_all AppmeshMesh#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -437,14 +437,14 @@ class AppmeshMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#name AppmeshMesh#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#name AppmeshMesh#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#id AppmeshMesh#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#id AppmeshMesh#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -456,20 +456,20 @@ class AppmeshMeshConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> typing.Optional["AppmeshMeshSpec"]:
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#spec AppmeshMesh#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#spec AppmeshMesh#spec}
         '''
         result = self._values.get("spec")
         return typing.cast(typing.Optional["AppmeshMeshSpec"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#tags AppmeshMesh#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#tags AppmeshMesh#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#tags_all AppmeshMesh#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#tags_all AppmeshMesh#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -501,8 +501,8 @@ class AppmeshMeshSpec:
         service_discovery: typing.Optional[typing.Union["AppmeshMeshSpecServiceDiscovery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param egress_filter: egress_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#egress_filter AppmeshMesh#egress_filter}
-        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#service_discovery AppmeshMesh#service_discovery}
+        :param egress_filter: egress_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#egress_filter AppmeshMesh#egress_filter}
+        :param service_discovery: service_discovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#service_discovery AppmeshMesh#service_discovery}
         '''
         if isinstance(egress_filter, dict):
             egress_filter = AppmeshMeshSpecEgressFilter(**egress_filter)
@@ -522,7 +522,7 @@ class AppmeshMeshSpec:
     def egress_filter(self) -> typing.Optional["AppmeshMeshSpecEgressFilter"]:
         '''egress_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#egress_filter AppmeshMesh#egress_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#egress_filter AppmeshMesh#egress_filter}
         '''
         result = self._values.get("egress_filter")
         return typing.cast(typing.Optional["AppmeshMeshSpecEgressFilter"], result)
@@ -531,7 +531,7 @@ class AppmeshMeshSpec:
     def service_discovery(self) -> typing.Optional["AppmeshMeshSpecServiceDiscovery"]:
         '''service_discovery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#service_discovery AppmeshMesh#service_discovery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#service_discovery AppmeshMesh#service_discovery}
         '''
         result = self._values.get("service_discovery")
         return typing.cast(typing.Optional["AppmeshMeshSpecServiceDiscovery"], result)
@@ -556,7 +556,7 @@ class AppmeshMeshSpec:
 class AppmeshMeshSpecEgressFilter:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#type AppmeshMesh#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#type AppmeshMesh#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__600a33994aeeac2613e7575e70bae9b14c621f7717970fd2c1511602c6cea919)
@@ -567,7 +567,7 @@ class AppmeshMeshSpecEgressFilter:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#type AppmeshMesh#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#type AppmeshMesh#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -663,7 +663,7 @@ class AppmeshMeshSpecOutputReference(
     @jsii.member(jsii_name="putEgressFilter")
     def put_egress_filter(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#type AppmeshMesh#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#type AppmeshMesh#type}.
         '''
         value = AppmeshMeshSpecEgressFilter(type=type)
 
@@ -676,7 +676,7 @@ class AppmeshMeshSpecOutputReference(
         ip_preference: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#ip_preference AppmeshMesh#ip_preference}.
+        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#ip_preference AppmeshMesh#ip_preference}.
         '''
         value = AppmeshMeshSpecServiceDiscovery(ip_preference=ip_preference)
 
@@ -733,7 +733,7 @@ class AppmeshMeshSpecOutputReference(
 class AppmeshMeshSpecServiceDiscovery:
     def __init__(self, *, ip_preference: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#ip_preference AppmeshMesh#ip_preference}.
+        :param ip_preference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#ip_preference AppmeshMesh#ip_preference}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efea7c7f490bea9553a11bbcf9ecbe30bb604c88db45c8152fed6f32ff3a663d)
@@ -744,7 +744,7 @@ class AppmeshMeshSpecServiceDiscovery:
 
     @builtins.property
     def ip_preference(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_mesh#ip_preference AppmeshMesh#ip_preference}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_mesh#ip_preference AppmeshMesh#ip_preference}.'''
         result = self._values.get("ip_preference")
         return typing.cast(typing.Optional[builtins.str], result)
 

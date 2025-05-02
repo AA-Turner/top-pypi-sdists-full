@@ -34,8 +34,8 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.13",
     install_requires=[
-        "dagster==1.10.12",
-        "dagster_spark==0.26.12",
+        "dagster==1.10.13",
+        "dagster_spark==0.26.13",
         "pyspark>=3",
     ],
     zip_safe=False,

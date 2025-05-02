@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_alias`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_alias`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias).
+Refer to the Terraform Registry for docs: [`aws_lambda_alias`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaAlias(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaAlias.LambdaAlias",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias aws_lambda_alias}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias aws_lambda_alias}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class LambdaAlias(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias aws_lambda_alias} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias aws_lambda_alias} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#function_name LambdaAlias#function_name}.
-        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#function_version LambdaAlias#function_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#name LambdaAlias#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#description LambdaAlias#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#id LambdaAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#routing_config LambdaAlias#routing_config}
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#function_name LambdaAlias#function_name}.
+        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#function_version LambdaAlias#function_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#name LambdaAlias#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#description LambdaAlias#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#id LambdaAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#routing_config LambdaAlias#routing_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class LambdaAlias(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaAlias to import.
-        :param import_from_id: The id of the existing LambdaAlias that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaAlias that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaAlias to import is found.
         '''
         if __debug__:
@@ -136,7 +136,7 @@ class LambdaAlias(
         additional_version_weights: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     ) -> None:
         '''
-        :param additional_version_weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#additional_version_weights LambdaAlias#additional_version_weights}.
+        :param additional_version_weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#additional_version_weights LambdaAlias#additional_version_weights}.
         '''
         value = LambdaAliasRoutingConfig(
             additional_version_weights=additional_version_weights
@@ -320,12 +320,12 @@ class LambdaAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#function_name LambdaAlias#function_name}.
-        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#function_version LambdaAlias#function_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#name LambdaAlias#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#description LambdaAlias#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#id LambdaAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#routing_config LambdaAlias#routing_config}
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#function_name LambdaAlias#function_name}.
+        :param function_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#function_version LambdaAlias#function_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#name LambdaAlias#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#description LambdaAlias#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#id LambdaAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#routing_config LambdaAlias#routing_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -438,34 +438,34 @@ class LambdaAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#function_name LambdaAlias#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#function_name LambdaAlias#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def function_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#function_version LambdaAlias#function_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#function_version LambdaAlias#function_version}.'''
         result = self._values.get("function_version")
         assert result is not None, "Required property 'function_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#name LambdaAlias#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#name LambdaAlias#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#description LambdaAlias#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#description LambdaAlias#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#id LambdaAlias#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#id LambdaAlias#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -477,7 +477,7 @@ class LambdaAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def routing_config(self) -> typing.Optional["LambdaAliasRoutingConfig"]:
         '''routing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#routing_config LambdaAlias#routing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#routing_config LambdaAlias#routing_config}
         '''
         result = self._values.get("routing_config")
         return typing.cast(typing.Optional["LambdaAliasRoutingConfig"], result)
@@ -506,7 +506,7 @@ class LambdaAliasRoutingConfig:
         additional_version_weights: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     ) -> None:
         '''
-        :param additional_version_weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#additional_version_weights LambdaAlias#additional_version_weights}.
+        :param additional_version_weights: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#additional_version_weights LambdaAlias#additional_version_weights}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b440e6025de75549fef8f4f661a63cf03b906c90183e448149829a0d06fc489e)
@@ -519,7 +519,7 @@ class LambdaAliasRoutingConfig:
     def additional_version_weights(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_alias#additional_version_weights LambdaAlias#additional_version_weights}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_alias#additional_version_weights LambdaAlias#additional_version_weights}.'''
         result = self._values.get("additional_version_weights")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, jsii.Number]], result)
 

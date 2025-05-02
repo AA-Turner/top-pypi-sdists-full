@@ -1659,8 +1659,8 @@ class DescribeUserImportJobResponseTypeDef(TypedDict):
 
 class ListUserImportJobsResponseTypeDef(TypedDict):
     UserImportJobs: List[UserImportJobTypeTypeDef]
-    PaginationToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+    PaginationToken: NotRequired[str]
 
 
 class StartUserImportJobResponseTypeDef(TypedDict):
@@ -1886,8 +1886,8 @@ class AdminGetDeviceResponseTypeDef(TypedDict):
 
 class AdminListDevicesResponseTypeDef(TypedDict):
     Devices: List[DeviceTypeTypeDef]
-    PaginationToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+    PaginationToken: NotRequired[str]
 
 
 class GetDeviceResponseTypeDef(TypedDict):
@@ -1897,8 +1897,8 @@ class GetDeviceResponseTypeDef(TypedDict):
 
 class ListDevicesResponseTypeDef(TypedDict):
     Devices: List[DeviceTypeTypeDef]
-    PaginationToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+    PaginationToken: NotRequired[str]
 
 
 class AdminCreateUserResponseTypeDef(TypedDict):
@@ -1914,8 +1914,8 @@ class ListUsersInGroupResponseTypeDef(TypedDict):
 
 class ListUsersResponseTypeDef(TypedDict):
     Users: List[UserTypeTypeDef]
-    PaginationToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+    PaginationToken: NotRequired[str]
 
 
 class CreateManagedLoginBrandingResponseTypeDef(TypedDict):

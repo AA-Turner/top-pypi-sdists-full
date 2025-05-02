@@ -1,7 +1,7 @@
 r'''
 # `aws_opsworks_instance`
 
-Refer to the Terraform Registry for docs: [`aws_opsworks_instance`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance).
+Refer to the Terraform Registry for docs: [`aws_opsworks_instance`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpsworksInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.opsworksInstance.OpsworksInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance aws_opsworks_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance aws_opsworks_instance}.'''
 
     def __init__(
         self,
@@ -91,42 +91,42 @@ class OpsworksInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance aws_opsworks_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance aws_opsworks_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param layer_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#layer_ids OpsworksInstance#layer_ids}.
-        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#stack_id OpsworksInstance#stack_id}.
-        :param agent_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#agent_version OpsworksInstance#agent_version}.
-        :param ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ami_id OpsworksInstance#ami_id}.
-        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#architecture OpsworksInstance#architecture}.
-        :param auto_scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#auto_scaling_type OpsworksInstance#auto_scaling_type}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#availability_zone OpsworksInstance#availability_zone}.
-        :param created_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#created_at OpsworksInstance#created_at}.
-        :param delete_ebs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_ebs OpsworksInstance#delete_ebs}.
-        :param delete_eip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_eip OpsworksInstance#delete_eip}.
-        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ebs_block_device OpsworksInstance#ebs_block_device}
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ebs_optimized OpsworksInstance#ebs_optimized}.
-        :param ecs_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ecs_cluster_arn OpsworksInstance#ecs_cluster_arn}.
-        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#elastic_ip OpsworksInstance#elastic_ip}.
-        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ephemeral_block_device OpsworksInstance#ephemeral_block_device}
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#hostname OpsworksInstance#hostname}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#id OpsworksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param infrastructure_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#infrastructure_class OpsworksInstance#infrastructure_class}.
-        :param install_updates_on_boot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#install_updates_on_boot OpsworksInstance#install_updates_on_boot}.
-        :param instance_profile_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#instance_profile_arn OpsworksInstance#instance_profile_arn}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#instance_type OpsworksInstance#instance_type}.
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#os OpsworksInstance#os}.
-        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#root_block_device OpsworksInstance#root_block_device}
-        :param root_device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#root_device_type OpsworksInstance#root_device_type}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#security_group_ids OpsworksInstance#security_group_ids}.
-        :param ssh_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ssh_key_name OpsworksInstance#ssh_key_name}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#state OpsworksInstance#state}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#status OpsworksInstance#status}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#subnet_id OpsworksInstance#subnet_id}.
-        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#tenancy OpsworksInstance#tenancy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#timeouts OpsworksInstance#timeouts}
-        :param virtualization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#virtualization_type OpsworksInstance#virtualization_type}.
+        :param layer_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#layer_ids OpsworksInstance#layer_ids}.
+        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#stack_id OpsworksInstance#stack_id}.
+        :param agent_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#agent_version OpsworksInstance#agent_version}.
+        :param ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ami_id OpsworksInstance#ami_id}.
+        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#architecture OpsworksInstance#architecture}.
+        :param auto_scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#auto_scaling_type OpsworksInstance#auto_scaling_type}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#availability_zone OpsworksInstance#availability_zone}.
+        :param created_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#created_at OpsworksInstance#created_at}.
+        :param delete_ebs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_ebs OpsworksInstance#delete_ebs}.
+        :param delete_eip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_eip OpsworksInstance#delete_eip}.
+        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ebs_block_device OpsworksInstance#ebs_block_device}
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ebs_optimized OpsworksInstance#ebs_optimized}.
+        :param ecs_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ecs_cluster_arn OpsworksInstance#ecs_cluster_arn}.
+        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#elastic_ip OpsworksInstance#elastic_ip}.
+        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ephemeral_block_device OpsworksInstance#ephemeral_block_device}
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#hostname OpsworksInstance#hostname}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#id OpsworksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param infrastructure_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#infrastructure_class OpsworksInstance#infrastructure_class}.
+        :param install_updates_on_boot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#install_updates_on_boot OpsworksInstance#install_updates_on_boot}.
+        :param instance_profile_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#instance_profile_arn OpsworksInstance#instance_profile_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#instance_type OpsworksInstance#instance_type}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#os OpsworksInstance#os}.
+        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#root_block_device OpsworksInstance#root_block_device}
+        :param root_device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#root_device_type OpsworksInstance#root_device_type}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#security_group_ids OpsworksInstance#security_group_ids}.
+        :param ssh_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ssh_key_name OpsworksInstance#ssh_key_name}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#state OpsworksInstance#state}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#status OpsworksInstance#status}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#subnet_id OpsworksInstance#subnet_id}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#tenancy OpsworksInstance#tenancy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#timeouts OpsworksInstance#timeouts}
+        :param virtualization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#virtualization_type OpsworksInstance#virtualization_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -196,7 +196,7 @@ class OpsworksInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpsworksInstance to import.
-        :param import_from_id: The id of the existing OpsworksInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpsworksInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpsworksInstance to import is found.
         '''
         if __debug__:
@@ -255,9 +255,9 @@ class OpsworksInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#create OpsworksInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete OpsworksInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#update OpsworksInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#create OpsworksInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete OpsworksInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#update OpsworksInstance#update}.
         '''
         value = OpsworksInstanceTimeouts(create=create, delete=delete, update=update)
 
@@ -1115,38 +1115,38 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param layer_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#layer_ids OpsworksInstance#layer_ids}.
-        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#stack_id OpsworksInstance#stack_id}.
-        :param agent_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#agent_version OpsworksInstance#agent_version}.
-        :param ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ami_id OpsworksInstance#ami_id}.
-        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#architecture OpsworksInstance#architecture}.
-        :param auto_scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#auto_scaling_type OpsworksInstance#auto_scaling_type}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#availability_zone OpsworksInstance#availability_zone}.
-        :param created_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#created_at OpsworksInstance#created_at}.
-        :param delete_ebs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_ebs OpsworksInstance#delete_ebs}.
-        :param delete_eip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_eip OpsworksInstance#delete_eip}.
-        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ebs_block_device OpsworksInstance#ebs_block_device}
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ebs_optimized OpsworksInstance#ebs_optimized}.
-        :param ecs_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ecs_cluster_arn OpsworksInstance#ecs_cluster_arn}.
-        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#elastic_ip OpsworksInstance#elastic_ip}.
-        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ephemeral_block_device OpsworksInstance#ephemeral_block_device}
-        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#hostname OpsworksInstance#hostname}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#id OpsworksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param infrastructure_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#infrastructure_class OpsworksInstance#infrastructure_class}.
-        :param install_updates_on_boot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#install_updates_on_boot OpsworksInstance#install_updates_on_boot}.
-        :param instance_profile_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#instance_profile_arn OpsworksInstance#instance_profile_arn}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#instance_type OpsworksInstance#instance_type}.
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#os OpsworksInstance#os}.
-        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#root_block_device OpsworksInstance#root_block_device}
-        :param root_device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#root_device_type OpsworksInstance#root_device_type}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#security_group_ids OpsworksInstance#security_group_ids}.
-        :param ssh_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ssh_key_name OpsworksInstance#ssh_key_name}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#state OpsworksInstance#state}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#status OpsworksInstance#status}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#subnet_id OpsworksInstance#subnet_id}.
-        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#tenancy OpsworksInstance#tenancy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#timeouts OpsworksInstance#timeouts}
-        :param virtualization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#virtualization_type OpsworksInstance#virtualization_type}.
+        :param layer_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#layer_ids OpsworksInstance#layer_ids}.
+        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#stack_id OpsworksInstance#stack_id}.
+        :param agent_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#agent_version OpsworksInstance#agent_version}.
+        :param ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ami_id OpsworksInstance#ami_id}.
+        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#architecture OpsworksInstance#architecture}.
+        :param auto_scaling_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#auto_scaling_type OpsworksInstance#auto_scaling_type}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#availability_zone OpsworksInstance#availability_zone}.
+        :param created_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#created_at OpsworksInstance#created_at}.
+        :param delete_ebs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_ebs OpsworksInstance#delete_ebs}.
+        :param delete_eip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_eip OpsworksInstance#delete_eip}.
+        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ebs_block_device OpsworksInstance#ebs_block_device}
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ebs_optimized OpsworksInstance#ebs_optimized}.
+        :param ecs_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ecs_cluster_arn OpsworksInstance#ecs_cluster_arn}.
+        :param elastic_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#elastic_ip OpsworksInstance#elastic_ip}.
+        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ephemeral_block_device OpsworksInstance#ephemeral_block_device}
+        :param hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#hostname OpsworksInstance#hostname}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#id OpsworksInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param infrastructure_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#infrastructure_class OpsworksInstance#infrastructure_class}.
+        :param install_updates_on_boot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#install_updates_on_boot OpsworksInstance#install_updates_on_boot}.
+        :param instance_profile_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#instance_profile_arn OpsworksInstance#instance_profile_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#instance_type OpsworksInstance#instance_type}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#os OpsworksInstance#os}.
+        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#root_block_device OpsworksInstance#root_block_device}
+        :param root_device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#root_device_type OpsworksInstance#root_device_type}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#security_group_ids OpsworksInstance#security_group_ids}.
+        :param ssh_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ssh_key_name OpsworksInstance#ssh_key_name}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#state OpsworksInstance#state}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#status OpsworksInstance#status}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#subnet_id OpsworksInstance#subnet_id}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#tenancy OpsworksInstance#tenancy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#timeouts OpsworksInstance#timeouts}
+        :param virtualization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#virtualization_type OpsworksInstance#virtualization_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1338,51 +1338,51 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def layer_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#layer_ids OpsworksInstance#layer_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#layer_ids OpsworksInstance#layer_ids}.'''
         result = self._values.get("layer_ids")
         assert result is not None, "Required property 'layer_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def stack_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#stack_id OpsworksInstance#stack_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#stack_id OpsworksInstance#stack_id}.'''
         result = self._values.get("stack_id")
         assert result is not None, "Required property 'stack_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def agent_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#agent_version OpsworksInstance#agent_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#agent_version OpsworksInstance#agent_version}.'''
         result = self._values.get("agent_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ami_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ami_id OpsworksInstance#ami_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ami_id OpsworksInstance#ami_id}.'''
         result = self._values.get("ami_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def architecture(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#architecture OpsworksInstance#architecture}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#architecture OpsworksInstance#architecture}.'''
         result = self._values.get("architecture")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auto_scaling_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#auto_scaling_type OpsworksInstance#auto_scaling_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#auto_scaling_type OpsworksInstance#auto_scaling_type}.'''
         result = self._values.get("auto_scaling_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#availability_zone OpsworksInstance#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#availability_zone OpsworksInstance#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def created_at(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#created_at OpsworksInstance#created_at}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#created_at OpsworksInstance#created_at}.'''
         result = self._values.get("created_at")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1390,7 +1390,7 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_ebs(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_ebs OpsworksInstance#delete_ebs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_ebs OpsworksInstance#delete_ebs}.'''
         result = self._values.get("delete_ebs")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1398,7 +1398,7 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_eip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_eip OpsworksInstance#delete_eip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_eip OpsworksInstance#delete_eip}.'''
         result = self._values.get("delete_eip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1408,7 +1408,7 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpsworksInstanceEbsBlockDevice"]]]:
         '''ebs_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ebs_block_device OpsworksInstance#ebs_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ebs_block_device OpsworksInstance#ebs_block_device}
         '''
         result = self._values.get("ebs_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpsworksInstanceEbsBlockDevice"]]], result)
@@ -1417,19 +1417,19 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ebs_optimized(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ebs_optimized OpsworksInstance#ebs_optimized}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ebs_optimized OpsworksInstance#ebs_optimized}.'''
         result = self._values.get("ebs_optimized")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ecs_cluster_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ecs_cluster_arn OpsworksInstance#ecs_cluster_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ecs_cluster_arn OpsworksInstance#ecs_cluster_arn}.'''
         result = self._values.get("ecs_cluster_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def elastic_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#elastic_ip OpsworksInstance#elastic_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#elastic_ip OpsworksInstance#elastic_ip}.'''
         result = self._values.get("elastic_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1439,20 +1439,20 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpsworksInstanceEphemeralBlockDevice"]]]:
         '''ephemeral_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ephemeral_block_device OpsworksInstance#ephemeral_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ephemeral_block_device OpsworksInstance#ephemeral_block_device}
         '''
         result = self._values.get("ephemeral_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpsworksInstanceEphemeralBlockDevice"]]], result)
 
     @builtins.property
     def hostname(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#hostname OpsworksInstance#hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#hostname OpsworksInstance#hostname}.'''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#id OpsworksInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#id OpsworksInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1462,7 +1462,7 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def infrastructure_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#infrastructure_class OpsworksInstance#infrastructure_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#infrastructure_class OpsworksInstance#infrastructure_class}.'''
         result = self._values.get("infrastructure_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1470,25 +1470,25 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def install_updates_on_boot(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#install_updates_on_boot OpsworksInstance#install_updates_on_boot}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#install_updates_on_boot OpsworksInstance#install_updates_on_boot}.'''
         result = self._values.get("install_updates_on_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def instance_profile_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#instance_profile_arn OpsworksInstance#instance_profile_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#instance_profile_arn OpsworksInstance#instance_profile_arn}.'''
         result = self._values.get("instance_profile_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#instance_type OpsworksInstance#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#instance_type OpsworksInstance#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def os(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#os OpsworksInstance#os}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#os OpsworksInstance#os}.'''
         result = self._values.get("os")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1498,50 +1498,50 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpsworksInstanceRootBlockDevice"]]]:
         '''root_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#root_block_device OpsworksInstance#root_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#root_block_device OpsworksInstance#root_block_device}
         '''
         result = self._values.get("root_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpsworksInstanceRootBlockDevice"]]], result)
 
     @builtins.property
     def root_device_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#root_device_type OpsworksInstance#root_device_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#root_device_type OpsworksInstance#root_device_type}.'''
         result = self._values.get("root_device_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#security_group_ids OpsworksInstance#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#security_group_ids OpsworksInstance#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ssh_key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#ssh_key_name OpsworksInstance#ssh_key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#ssh_key_name OpsworksInstance#ssh_key_name}.'''
         result = self._values.get("ssh_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#state OpsworksInstance#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#state OpsworksInstance#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#status OpsworksInstance#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#status OpsworksInstance#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#subnet_id OpsworksInstance#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#subnet_id OpsworksInstance#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tenancy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#tenancy OpsworksInstance#tenancy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#tenancy OpsworksInstance#tenancy}.'''
         result = self._values.get("tenancy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1549,14 +1549,14 @@ class OpsworksInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OpsworksInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#timeouts OpsworksInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#timeouts OpsworksInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OpsworksInstanceTimeouts"], result)
 
     @builtins.property
     def virtualization_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#virtualization_type OpsworksInstance#virtualization_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#virtualization_type OpsworksInstance#virtualization_type}.'''
         result = self._values.get("virtualization_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1596,12 +1596,12 @@ class OpsworksInstanceEbsBlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#snapshot_id OpsworksInstance#snapshot_id}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#snapshot_id OpsworksInstance#snapshot_id}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d15d19c1202962f88a972a0dee076df2c475a70f11c86c13d884a5c40dddcb6)
@@ -1627,7 +1627,7 @@ class OpsworksInstanceEbsBlockDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1636,31 +1636,31 @@ class OpsworksInstanceEbsBlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#snapshot_id OpsworksInstance#snapshot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#snapshot_id OpsworksInstance#snapshot_id}.'''
         result = self._values.get("snapshot_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1955,8 +1955,8 @@ class OpsworksInstanceEphemeralBlockDevice:
         virtual_name: builtins.str,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.
-        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#virtual_name OpsworksInstance#virtual_name}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.
+        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#virtual_name OpsworksInstance#virtual_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1dad7cc35de38aa59475d5757f2fedebf6b172e3b7a19b4f0b6000b26dbba263)
@@ -1969,14 +1969,14 @@ class OpsworksInstanceEphemeralBlockDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#device_name OpsworksInstance#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def virtual_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#virtual_name OpsworksInstance#virtual_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#virtual_name OpsworksInstance#virtual_name}.'''
         result = self._values.get("virtual_name")
         assert result is not None, "Required property 'virtual_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2184,10 +2184,10 @@ class OpsworksInstanceRootBlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3532778a24b6cdcb2abb1b1171ccf57069fc86aa57bc5d46dc73fe699ad46be)
@@ -2209,25 +2209,25 @@ class OpsworksInstanceRootBlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete_on_termination OpsworksInstance#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#iops OpsworksInstance#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_size OpsworksInstance#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#volume_type OpsworksInstance#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2485,9 +2485,9 @@ class OpsworksInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#create OpsworksInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete OpsworksInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#update OpsworksInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#create OpsworksInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete OpsworksInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#update OpsworksInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0d2706c6b2215df9b33f21ce1b7afe2970671c68872272443d8533f11a99579)
@@ -2504,19 +2504,19 @@ class OpsworksInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#create OpsworksInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#create OpsworksInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#delete OpsworksInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#delete OpsworksInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_instance#update OpsworksInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_instance#update OpsworksInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

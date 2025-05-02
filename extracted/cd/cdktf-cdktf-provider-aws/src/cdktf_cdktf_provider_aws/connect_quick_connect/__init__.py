@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_quick_connect`
 
-Refer to the Terraform Registry for docs: [`aws_connect_quick_connect`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect).
+Refer to the Terraform Registry for docs: [`aws_connect_quick_connect`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectQuickConnect(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectQuickConnect.ConnectQuickConnect",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect aws_connect_quick_connect}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect aws_connect_quick_connect}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ConnectQuickConnect(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect aws_connect_quick_connect} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect aws_connect_quick_connect} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#instance_id ConnectQuickConnect#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#name ConnectQuickConnect#name}.
-        :param quick_connect_config: quick_connect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#quick_connect_config ConnectQuickConnect#quick_connect_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#description ConnectQuickConnect#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#id ConnectQuickConnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#tags ConnectQuickConnect#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#tags_all ConnectQuickConnect#tags_all}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#instance_id ConnectQuickConnect#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#name ConnectQuickConnect#name}.
+        :param quick_connect_config: quick_connect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#quick_connect_config ConnectQuickConnect#quick_connect_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#description ConnectQuickConnect#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#id ConnectQuickConnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#tags ConnectQuickConnect#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#tags_all ConnectQuickConnect#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ConnectQuickConnect(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectQuickConnect to import.
-        :param import_from_id: The id of the existing ConnectQuickConnect that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectQuickConnect that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectQuickConnect to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class ConnectQuickConnect(
         user_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ConnectQuickConnectQuickConnectConfigUserConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param quick_connect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#quick_connect_type ConnectQuickConnect#quick_connect_type}.
-        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#phone_config ConnectQuickConnect#phone_config}
-        :param queue_config: queue_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#queue_config ConnectQuickConnect#queue_config}
-        :param user_config: user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#user_config ConnectQuickConnect#user_config}
+        :param quick_connect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#quick_connect_type ConnectQuickConnect#quick_connect_type}.
+        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#phone_config ConnectQuickConnect#phone_config}
+        :param queue_config: queue_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#queue_config ConnectQuickConnect#queue_config}
+        :param user_config: user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#user_config ConnectQuickConnect#user_config}
         '''
         value = ConnectQuickConnectQuickConnectConfig(
             quick_connect_type=quick_connect_type,
@@ -361,13 +361,13 @@ class ConnectQuickConnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#instance_id ConnectQuickConnect#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#name ConnectQuickConnect#name}.
-        :param quick_connect_config: quick_connect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#quick_connect_config ConnectQuickConnect#quick_connect_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#description ConnectQuickConnect#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#id ConnectQuickConnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#tags ConnectQuickConnect#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#tags_all ConnectQuickConnect#tags_all}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#instance_id ConnectQuickConnect#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#name ConnectQuickConnect#name}.
+        :param quick_connect_config: quick_connect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#quick_connect_config ConnectQuickConnect#quick_connect_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#description ConnectQuickConnect#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#id ConnectQuickConnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#tags ConnectQuickConnect#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#tags_all ConnectQuickConnect#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -483,14 +483,14 @@ class ConnectQuickConnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#instance_id ConnectQuickConnect#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#instance_id ConnectQuickConnect#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#name ConnectQuickConnect#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#name ConnectQuickConnect#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -499,7 +499,7 @@ class ConnectQuickConnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def quick_connect_config(self) -> "ConnectQuickConnectQuickConnectConfig":
         '''quick_connect_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#quick_connect_config ConnectQuickConnect#quick_connect_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#quick_connect_config ConnectQuickConnect#quick_connect_config}
         '''
         result = self._values.get("quick_connect_config")
         assert result is not None, "Required property 'quick_connect_config' is missing"
@@ -507,13 +507,13 @@ class ConnectQuickConnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#description ConnectQuickConnect#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#description ConnectQuickConnect#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#id ConnectQuickConnect#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#id ConnectQuickConnect#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -523,13 +523,13 @@ class ConnectQuickConnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#tags ConnectQuickConnect#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#tags ConnectQuickConnect#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#tags_all ConnectQuickConnect#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#tags_all ConnectQuickConnect#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -565,10 +565,10 @@ class ConnectQuickConnectQuickConnectConfig:
         user_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ConnectQuickConnectQuickConnectConfigUserConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param quick_connect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#quick_connect_type ConnectQuickConnect#quick_connect_type}.
-        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#phone_config ConnectQuickConnect#phone_config}
-        :param queue_config: queue_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#queue_config ConnectQuickConnect#queue_config}
-        :param user_config: user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#user_config ConnectQuickConnect#user_config}
+        :param quick_connect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#quick_connect_type ConnectQuickConnect#quick_connect_type}.
+        :param phone_config: phone_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#phone_config ConnectQuickConnect#phone_config}
+        :param queue_config: queue_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#queue_config ConnectQuickConnect#queue_config}
+        :param user_config: user_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#user_config ConnectQuickConnect#user_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7989435a83939c9559877ef8975c5aa156158e1270793d8cb3ab15d0dbc59fc4)
@@ -588,7 +588,7 @@ class ConnectQuickConnectQuickConnectConfig:
 
     @builtins.property
     def quick_connect_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#quick_connect_type ConnectQuickConnect#quick_connect_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#quick_connect_type ConnectQuickConnect#quick_connect_type}.'''
         result = self._values.get("quick_connect_type")
         assert result is not None, "Required property 'quick_connect_type' is missing"
         return typing.cast(builtins.str, result)
@@ -599,7 +599,7 @@ class ConnectQuickConnectQuickConnectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectQuickConnectQuickConnectConfigPhoneConfig"]]]:
         '''phone_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#phone_config ConnectQuickConnect#phone_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#phone_config ConnectQuickConnect#phone_config}
         '''
         result = self._values.get("phone_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectQuickConnectQuickConnectConfigPhoneConfig"]]], result)
@@ -610,7 +610,7 @@ class ConnectQuickConnectQuickConnectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectQuickConnectQuickConnectConfigQueueConfig"]]]:
         '''queue_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#queue_config ConnectQuickConnect#queue_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#queue_config ConnectQuickConnect#queue_config}
         '''
         result = self._values.get("queue_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectQuickConnectQuickConnectConfigQueueConfig"]]], result)
@@ -621,7 +621,7 @@ class ConnectQuickConnectQuickConnectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectQuickConnectQuickConnectConfigUserConfig"]]]:
         '''user_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#user_config ConnectQuickConnect#user_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#user_config ConnectQuickConnect#user_config}
         '''
         result = self._values.get("user_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectQuickConnectQuickConnectConfigUserConfig"]]], result)
@@ -786,7 +786,7 @@ class ConnectQuickConnectQuickConnectConfigOutputReference(
 class ConnectQuickConnectQuickConnectConfigPhoneConfig:
     def __init__(self, *, phone_number: builtins.str) -> None:
         '''
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#phone_number ConnectQuickConnect#phone_number}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#phone_number ConnectQuickConnect#phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06bfbe23a9225829d61c25caf10eac3923b4e00e98633722b1a740f983d30742)
@@ -797,7 +797,7 @@ class ConnectQuickConnectQuickConnectConfigPhoneConfig:
 
     @builtins.property
     def phone_number(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#phone_number ConnectQuickConnect#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#phone_number ConnectQuickConnect#phone_number}.'''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
         return typing.cast(builtins.str, result)
@@ -981,8 +981,8 @@ class ConnectQuickConnectQuickConnectConfigQueueConfig:
         queue_id: builtins.str,
     ) -> None:
         '''
-        :param contact_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.
-        :param queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#queue_id ConnectQuickConnect#queue_id}.
+        :param contact_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.
+        :param queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#queue_id ConnectQuickConnect#queue_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6913e6fd01a9d9cf70dd336a98c399ac4a6fecff71019bfb7983edcdf6e2bfe6)
@@ -995,14 +995,14 @@ class ConnectQuickConnectQuickConnectConfigQueueConfig:
 
     @builtins.property
     def contact_flow_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.'''
         result = self._values.get("contact_flow_id")
         assert result is not None, "Required property 'contact_flow_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def queue_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#queue_id ConnectQuickConnect#queue_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#queue_id ConnectQuickConnect#queue_id}.'''
         result = self._values.get("queue_id")
         assert result is not None, "Required property 'queue_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1198,8 +1198,8 @@ class ConnectQuickConnectQuickConnectConfigQueueConfigOutputReference(
 class ConnectQuickConnectQuickConnectConfigUserConfig:
     def __init__(self, *, contact_flow_id: builtins.str, user_id: builtins.str) -> None:
         '''
-        :param contact_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#user_id ConnectQuickConnect#user_id}.
+        :param contact_flow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#user_id ConnectQuickConnect#user_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3fc775b4d537c123688beecfb1d01da4dbb21075510e29e8638983658dc39e5f)
@@ -1212,14 +1212,14 @@ class ConnectQuickConnectQuickConnectConfigUserConfig:
 
     @builtins.property
     def contact_flow_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#contact_flow_id ConnectQuickConnect#contact_flow_id}.'''
         result = self._values.get("contact_flow_id")
         assert result is not None, "Required property 'contact_flow_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_quick_connect#user_id ConnectQuickConnect#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_quick_connect#user_id ConnectQuickConnect#user_id}.'''
         result = self._values.get("user_id")
         assert result is not None, "Required property 'user_id' is missing"
         return typing.cast(builtins.str, result)

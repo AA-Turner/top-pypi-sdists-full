@@ -1,7 +1,7 @@
 r'''
 # `aws_iam_service_specific_credential`
 
-Refer to the Terraform Registry for docs: [`aws_iam_service_specific_credential`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential).
+Refer to the Terraform Registry for docs: [`aws_iam_service_specific_credential`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamServiceSpecificCredential(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.iamServiceSpecificCredential.IamServiceSpecificCredential",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class IamServiceSpecificCredential(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class IamServiceSpecificCredential(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamServiceSpecificCredential to import.
-        :param import_from_id: The id of the existing IamServiceSpecificCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamServiceSpecificCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamServiceSpecificCredential to import is found.
         '''
         if __debug__:
@@ -269,10 +269,10 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,21 +378,21 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -402,7 +402,7 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 

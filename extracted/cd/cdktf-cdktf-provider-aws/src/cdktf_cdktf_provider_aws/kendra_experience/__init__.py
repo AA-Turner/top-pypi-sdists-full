@@ -1,7 +1,7 @@
 r'''
 # `aws_kendra_experience`
 
-Refer to the Terraform Registry for docs: [`aws_kendra_experience`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience).
+Refer to the Terraform Registry for docs: [`aws_kendra_experience`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KendraExperience(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kendraExperience.KendraExperience",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience aws_kendra_experience}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience aws_kendra_experience}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class KendraExperience(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience aws_kendra_experience} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience aws_kendra_experience} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#index_id KendraExperience#index_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#name KendraExperience#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#role_arn KendraExperience#role_arn}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#configuration KendraExperience#configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#description KendraExperience#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#id KendraExperience#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#timeouts KendraExperience#timeouts}
+        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#index_id KendraExperience#index_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#name KendraExperience#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#role_arn KendraExperience#role_arn}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#configuration KendraExperience#configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#description KendraExperience#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#id KendraExperience#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#timeouts KendraExperience#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class KendraExperience(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KendraExperience to import.
-        :param import_from_id: The id of the existing KendraExperience that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KendraExperience that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KendraExperience to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class KendraExperience(
         user_identity_configuration: typing.Optional[typing.Union["KendraExperienceConfigurationUserIdentityConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param content_source_configuration: content_source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#content_source_configuration KendraExperience#content_source_configuration}
-        :param user_identity_configuration: user_identity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#user_identity_configuration KendraExperience#user_identity_configuration}
+        :param content_source_configuration: content_source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#content_source_configuration KendraExperience#content_source_configuration}
+        :param user_identity_configuration: user_identity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#user_identity_configuration KendraExperience#user_identity_configuration}
         '''
         value = KendraExperienceConfiguration(
             content_source_configuration=content_source_configuration,
@@ -159,9 +159,9 @@ class KendraExperience(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#create KendraExperience#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#delete KendraExperience#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#update KendraExperience#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#create KendraExperience#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#delete KendraExperience#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#update KendraExperience#update}.
         '''
         value = KendraExperienceTimeouts(create=create, delete=delete, update=update)
 
@@ -371,13 +371,13 @@ class KendraExperienceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#index_id KendraExperience#index_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#name KendraExperience#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#role_arn KendraExperience#role_arn}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#configuration KendraExperience#configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#description KendraExperience#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#id KendraExperience#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#timeouts KendraExperience#timeouts}
+        :param index_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#index_id KendraExperience#index_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#name KendraExperience#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#role_arn KendraExperience#role_arn}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#configuration KendraExperience#configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#description KendraExperience#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#id KendraExperience#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#timeouts KendraExperience#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -495,21 +495,21 @@ class KendraExperienceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def index_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#index_id KendraExperience#index_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#index_id KendraExperience#index_id}.'''
         result = self._values.get("index_id")
         assert result is not None, "Required property 'index_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#name KendraExperience#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#name KendraExperience#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#role_arn KendraExperience#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#role_arn KendraExperience#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -518,20 +518,20 @@ class KendraExperienceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["KendraExperienceConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#configuration KendraExperience#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#configuration KendraExperience#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["KendraExperienceConfiguration"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#description KendraExperience#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#description KendraExperience#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#id KendraExperience#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#id KendraExperience#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -543,7 +543,7 @@ class KendraExperienceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KendraExperienceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#timeouts KendraExperience#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#timeouts KendraExperience#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KendraExperienceTimeouts"], result)
@@ -576,8 +576,8 @@ class KendraExperienceConfiguration:
         user_identity_configuration: typing.Optional[typing.Union["KendraExperienceConfigurationUserIdentityConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param content_source_configuration: content_source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#content_source_configuration KendraExperience#content_source_configuration}
-        :param user_identity_configuration: user_identity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#user_identity_configuration KendraExperience#user_identity_configuration}
+        :param content_source_configuration: content_source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#content_source_configuration KendraExperience#content_source_configuration}
+        :param user_identity_configuration: user_identity_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#user_identity_configuration KendraExperience#user_identity_configuration}
         '''
         if isinstance(content_source_configuration, dict):
             content_source_configuration = KendraExperienceConfigurationContentSourceConfiguration(**content_source_configuration)
@@ -599,7 +599,7 @@ class KendraExperienceConfiguration:
     ) -> typing.Optional["KendraExperienceConfigurationContentSourceConfiguration"]:
         '''content_source_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#content_source_configuration KendraExperience#content_source_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#content_source_configuration KendraExperience#content_source_configuration}
         '''
         result = self._values.get("content_source_configuration")
         return typing.cast(typing.Optional["KendraExperienceConfigurationContentSourceConfiguration"], result)
@@ -610,7 +610,7 @@ class KendraExperienceConfiguration:
     ) -> typing.Optional["KendraExperienceConfigurationUserIdentityConfiguration"]:
         '''user_identity_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#user_identity_configuration KendraExperience#user_identity_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#user_identity_configuration KendraExperience#user_identity_configuration}
         '''
         result = self._values.get("user_identity_configuration")
         return typing.cast(typing.Optional["KendraExperienceConfigurationUserIdentityConfiguration"], result)
@@ -645,9 +645,9 @@ class KendraExperienceConfigurationContentSourceConfiguration:
         faq_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param data_source_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#data_source_ids KendraExperience#data_source_ids}.
-        :param direct_put_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#direct_put_content KendraExperience#direct_put_content}.
-        :param faq_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#faq_ids KendraExperience#faq_ids}.
+        :param data_source_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#data_source_ids KendraExperience#data_source_ids}.
+        :param direct_put_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#direct_put_content KendraExperience#direct_put_content}.
+        :param faq_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#faq_ids KendraExperience#faq_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73ff11280eb1df3d9776e4030b6875893e780f26f7fbc89d1de2d0e8fb34e252)
@@ -664,7 +664,7 @@ class KendraExperienceConfigurationContentSourceConfiguration:
 
     @builtins.property
     def data_source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#data_source_ids KendraExperience#data_source_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#data_source_ids KendraExperience#data_source_ids}.'''
         result = self._values.get("data_source_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -672,13 +672,13 @@ class KendraExperienceConfigurationContentSourceConfiguration:
     def direct_put_content(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#direct_put_content KendraExperience#direct_put_content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#direct_put_content KendraExperience#direct_put_content}.'''
         result = self._values.get("direct_put_content")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def faq_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#faq_ids KendraExperience#faq_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#faq_ids KendraExperience#faq_ids}.'''
         result = self._values.get("faq_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -831,9 +831,9 @@ class KendraExperienceConfigurationOutputReference(
         faq_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param data_source_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#data_source_ids KendraExperience#data_source_ids}.
-        :param direct_put_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#direct_put_content KendraExperience#direct_put_content}.
-        :param faq_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#faq_ids KendraExperience#faq_ids}.
+        :param data_source_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#data_source_ids KendraExperience#data_source_ids}.
+        :param direct_put_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#direct_put_content KendraExperience#direct_put_content}.
+        :param faq_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#faq_ids KendraExperience#faq_ids}.
         '''
         value = KendraExperienceConfigurationContentSourceConfiguration(
             data_source_ids=data_source_ids,
@@ -850,7 +850,7 @@ class KendraExperienceConfigurationOutputReference(
         identity_attribute_name: builtins.str,
     ) -> None:
         '''
-        :param identity_attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#identity_attribute_name KendraExperience#identity_attribute_name}.
+        :param identity_attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#identity_attribute_name KendraExperience#identity_attribute_name}.
         '''
         value = KendraExperienceConfigurationUserIdentityConfiguration(
             identity_attribute_name=identity_attribute_name
@@ -918,7 +918,7 @@ class KendraExperienceConfigurationOutputReference(
 class KendraExperienceConfigurationUserIdentityConfiguration:
     def __init__(self, *, identity_attribute_name: builtins.str) -> None:
         '''
-        :param identity_attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#identity_attribute_name KendraExperience#identity_attribute_name}.
+        :param identity_attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#identity_attribute_name KendraExperience#identity_attribute_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b651cc5b38c0dcaafebc65e9e7b4d30262790d46ba782804d28c5c1d10db5d8b)
@@ -929,7 +929,7 @@ class KendraExperienceConfigurationUserIdentityConfiguration:
 
     @builtins.property
     def identity_attribute_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#identity_attribute_name KendraExperience#identity_attribute_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#identity_attribute_name KendraExperience#identity_attribute_name}.'''
         result = self._values.get("identity_attribute_name")
         assert result is not None, "Required property 'identity_attribute_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1158,9 +1158,9 @@ class KendraExperienceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#create KendraExperience#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#delete KendraExperience#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#update KendraExperience#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#create KendraExperience#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#delete KendraExperience#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#update KendraExperience#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac08b56e68308bdd8584ae8c70b44b9209732b890a6506fb1c5cbbf1efba4ad0)
@@ -1177,19 +1177,19 @@ class KendraExperienceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#create KendraExperience#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#create KendraExperience#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#delete KendraExperience#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#delete KendraExperience#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_experience#update KendraExperience#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_experience#update KendraExperience#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1647,6 +1647,7 @@ def ClickhouseSource(
     db: str = ...,
     user: str = ...,
     password: str = ...,
+    use_tls: Union[bool, str] = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     async_engine_args: Optional[Dict[str, Any]] = ...,
 ) -> BaseSQLSourceProtocol:
@@ -1669,6 +1670,9 @@ def ClickhouseSource(
         Clickhouse username to connect as.
     password
         The password to be used if the server demands password authentication.
+    use_tls
+        Whether to use tls protocol when communicating with the clickhouse engine, required for certain ports.
+        See https://clickhouse.com/docs/guides/sre/network-ports for more details. Defaults to True.
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
     async_engine_args:
@@ -1688,6 +1692,7 @@ def ClickhouseSource(
     ...     db=os.getenv("CLICKHOUSE_DATABASE"),
     ...     user=os.getenv("CLICKHOUSE_USER"),
     ...     password=os.getenv("CLICKHOUSE_PASSWORD"),
+    ...     use_tls=os.getenv("CLICKHOUSE_USE_TLS"),
     ... )
     >>> from chalk.features import online
     >>> @online
@@ -1705,6 +1710,7 @@ def ClickhouseSource(
     db: Optional[str] = None,
     user: Optional[str] = None,
     password: Optional[str] = None,
+    use_tls: Optional[Union[bool, str]] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
 ) -> BaseSQLSourceProtocol:
@@ -1724,6 +1730,7 @@ def ClickhouseSource(
         db=db,
         user=user,
         password=password,
+        use_tls=use_tls,
         engine_args=engine_args,
         async_engine_args=async_engine_args,
     )

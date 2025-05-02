@@ -1,7 +1,7 @@
 r'''
 # `aws_s3_bucket`
 
-Refer to the Terraform Registry for docs: [`aws_s3_bucket`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket).
+Refer to the Terraform Registry for docs: [`aws_s3_bucket`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3Bucket(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3Bucket.S3Bucket",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket aws_s3_bucket}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket aws_s3_bucket}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class S3Bucket(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket aws_s3_bucket} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket aws_s3_bucket} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param acceleration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#acceleration_status S3Bucket#acceleration_status}.
-        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#acl S3Bucket#acl}.
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket_prefix S3Bucket#bucket_prefix}.
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#cors_rule S3Bucket#cors_rule}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#force_destroy S3Bucket#force_destroy}.
-        :param grant: grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#grant S3Bucket#grant}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#lifecycle_rule S3Bucket#lifecycle_rule}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#logging S3Bucket#logging}
-        :param object_lock_configuration: object_lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_configuration S3Bucket#object_lock_configuration}
-        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#policy S3Bucket#policy}.
-        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replication_configuration S3Bucket#replication_configuration}
-        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#request_payer S3Bucket#request_payer}.
-        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#server_side_encryption_configuration S3Bucket#server_side_encryption_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags_all S3Bucket#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#timeouts S3Bucket#timeouts}
-        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#versioning S3Bucket#versioning}
-        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#website S3Bucket#website}
+        :param acceleration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#acceleration_status S3Bucket#acceleration_status}.
+        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#acl S3Bucket#acl}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket_prefix S3Bucket#bucket_prefix}.
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#cors_rule S3Bucket#cors_rule}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#force_destroy S3Bucket#force_destroy}.
+        :param grant: grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#grant S3Bucket#grant}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#lifecycle_rule S3Bucket#lifecycle_rule}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#logging S3Bucket#logging}
+        :param object_lock_configuration: object_lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_configuration S3Bucket#object_lock_configuration}
+        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#policy S3Bucket#policy}.
+        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replication_configuration S3Bucket#replication_configuration}
+        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#request_payer S3Bucket#request_payer}.
+        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#server_side_encryption_configuration S3Bucket#server_side_encryption_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags_all S3Bucket#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#timeouts S3Bucket#timeouts}
+        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#versioning S3Bucket#versioning}
+        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#website S3Bucket#website}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class S3Bucket(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3Bucket to import.
-        :param import_from_id: The id of the existing S3Bucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3Bucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3Bucket to import is found.
         '''
         if __debug__:
@@ -221,8 +221,8 @@ class S3Bucket(
         target_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#target_bucket S3Bucket#target_bucket}.
-        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#target_prefix S3Bucket#target_prefix}.
+        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#target_bucket S3Bucket#target_bucket}.
+        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#target_prefix S3Bucket#target_prefix}.
         '''
         value = S3BucketLogging(
             target_bucket=target_bucket, target_prefix=target_prefix
@@ -238,8 +238,8 @@ class S3Bucket(
         rule: typing.Optional[typing.Union["S3BucketObjectLockConfigurationRule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rule S3Bucket#rule}
+        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rule S3Bucket#rule}
         '''
         value = S3BucketObjectLockConfiguration(
             object_lock_enabled=object_lock_enabled, rule=rule
@@ -255,8 +255,8 @@ class S3Bucket(
         rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["S3BucketReplicationConfigurationRules", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#role S3Bucket#role}.
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rules S3Bucket#rules}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#role S3Bucket#role}.
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rules S3Bucket#rules}
         '''
         value = S3BucketReplicationConfiguration(role=role, rules=rules)
 
@@ -269,7 +269,7 @@ class S3Bucket(
         rule: typing.Union["S3BucketServerSideEncryptionConfigurationRule", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rule S3Bucket#rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rule S3Bucket#rule}
         '''
         value = S3BucketServerSideEncryptionConfiguration(rule=rule)
 
@@ -285,10 +285,10 @@ class S3Bucket(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#create S3Bucket#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#delete S3Bucket#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#read S3Bucket#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#update S3Bucket#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#create S3Bucket#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#delete S3Bucket#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#read S3Bucket#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#update S3Bucket#update}.
         '''
         value = S3BucketTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -304,8 +304,8 @@ class S3Bucket(
         mfa_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
-        :param mfa_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#mfa_delete S3Bucket#mfa_delete}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
+        :param mfa_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#mfa_delete S3Bucket#mfa_delete}.
         '''
         value = S3BucketVersioning(enabled=enabled, mfa_delete=mfa_delete)
 
@@ -321,10 +321,10 @@ class S3Bucket(
         routing_rules: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#error_document S3Bucket#error_document}.
-        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#index_document S3Bucket#index_document}.
-        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#redirect_all_requests_to S3Bucket#redirect_all_requests_to}.
-        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#routing_rules S3Bucket#routing_rules}.
+        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#error_document S3Bucket#error_document}.
+        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#index_document S3Bucket#index_document}.
+        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#redirect_all_requests_to S3Bucket#redirect_all_requests_to}.
+        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#routing_rules S3Bucket#routing_rules}.
         '''
         value = S3BucketWebsite(
             error_document=error_document,
@@ -864,27 +864,27 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param acceleration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#acceleration_status S3Bucket#acceleration_status}.
-        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#acl S3Bucket#acl}.
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket_prefix S3Bucket#bucket_prefix}.
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#cors_rule S3Bucket#cors_rule}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#force_destroy S3Bucket#force_destroy}.
-        :param grant: grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#grant S3Bucket#grant}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#lifecycle_rule S3Bucket#lifecycle_rule}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#logging S3Bucket#logging}
-        :param object_lock_configuration: object_lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_configuration S3Bucket#object_lock_configuration}
-        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#policy S3Bucket#policy}.
-        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replication_configuration S3Bucket#replication_configuration}
-        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#request_payer S3Bucket#request_payer}.
-        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#server_side_encryption_configuration S3Bucket#server_side_encryption_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags_all S3Bucket#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#timeouts S3Bucket#timeouts}
-        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#versioning S3Bucket#versioning}
-        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#website S3Bucket#website}
+        :param acceleration_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#acceleration_status S3Bucket#acceleration_status}.
+        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#acl S3Bucket#acl}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket_prefix S3Bucket#bucket_prefix}.
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#cors_rule S3Bucket#cors_rule}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#force_destroy S3Bucket#force_destroy}.
+        :param grant: grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#grant S3Bucket#grant}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#lifecycle_rule S3Bucket#lifecycle_rule}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#logging S3Bucket#logging}
+        :param object_lock_configuration: object_lock_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_configuration S3Bucket#object_lock_configuration}
+        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#policy S3Bucket#policy}.
+        :param replication_configuration: replication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replication_configuration S3Bucket#replication_configuration}
+        :param request_payer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#request_payer S3Bucket#request_payer}.
+        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#server_side_encryption_configuration S3Bucket#server_side_encryption_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags_all S3Bucket#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#timeouts S3Bucket#timeouts}
+        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#versioning S3Bucket#versioning}
+        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#website S3Bucket#website}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1056,25 +1056,25 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def acceleration_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#acceleration_status S3Bucket#acceleration_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#acceleration_status S3Bucket#acceleration_status}.'''
         result = self._values.get("acceleration_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def acl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#acl S3Bucket#acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#acl S3Bucket#acl}.'''
         result = self._values.get("acl")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket_prefix S3Bucket#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket_prefix S3Bucket#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1084,7 +1084,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketCorsRule"]]]:
         '''cors_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#cors_rule S3Bucket#cors_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#cors_rule S3Bucket#cors_rule}
         '''
         result = self._values.get("cors_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketCorsRule"]]], result)
@@ -1093,7 +1093,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#force_destroy S3Bucket#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#force_destroy S3Bucket#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1103,14 +1103,14 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketGrant"]]]:
         '''grant block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#grant S3Bucket#grant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#grant S3Bucket#grant}
         '''
         result = self._values.get("grant")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketGrant"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1124,7 +1124,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLifecycleRule"]]]:
         '''lifecycle_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#lifecycle_rule S3Bucket#lifecycle_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#lifecycle_rule S3Bucket#lifecycle_rule}
         '''
         result = self._values.get("lifecycle_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLifecycleRule"]]], result)
@@ -1133,7 +1133,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging(self) -> typing.Optional["S3BucketLogging"]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#logging S3Bucket#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#logging S3Bucket#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional["S3BucketLogging"], result)
@@ -1144,7 +1144,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["S3BucketObjectLockConfiguration"]:
         '''object_lock_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_configuration S3Bucket#object_lock_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_configuration S3Bucket#object_lock_configuration}
         '''
         result = self._values.get("object_lock_configuration")
         return typing.cast(typing.Optional["S3BucketObjectLockConfiguration"], result)
@@ -1153,13 +1153,13 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_lock_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.'''
         result = self._values.get("object_lock_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#policy S3Bucket#policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#policy S3Bucket#policy}.'''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1169,14 +1169,14 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["S3BucketReplicationConfiguration"]:
         '''replication_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replication_configuration S3Bucket#replication_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replication_configuration S3Bucket#replication_configuration}
         '''
         result = self._values.get("replication_configuration")
         return typing.cast(typing.Optional["S3BucketReplicationConfiguration"], result)
 
     @builtins.property
     def request_payer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#request_payer S3Bucket#request_payer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#request_payer S3Bucket#request_payer}.'''
         result = self._values.get("request_payer")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1186,20 +1186,20 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["S3BucketServerSideEncryptionConfiguration"]:
         '''server_side_encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#server_side_encryption_configuration S3Bucket#server_side_encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#server_side_encryption_configuration S3Bucket#server_side_encryption_configuration}
         '''
         result = self._values.get("server_side_encryption_configuration")
         return typing.cast(typing.Optional["S3BucketServerSideEncryptionConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags_all S3Bucket#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags_all S3Bucket#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1207,7 +1207,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["S3BucketTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#timeouts S3Bucket#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#timeouts S3Bucket#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["S3BucketTimeouts"], result)
@@ -1216,7 +1216,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def versioning(self) -> typing.Optional["S3BucketVersioning"]:
         '''versioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#versioning S3Bucket#versioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#versioning S3Bucket#versioning}
         '''
         result = self._values.get("versioning")
         return typing.cast(typing.Optional["S3BucketVersioning"], result)
@@ -1225,7 +1225,7 @@ class S3BucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def website(self) -> typing.Optional["S3BucketWebsite"]:
         '''website block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#website S3Bucket#website}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#website S3Bucket#website}
         '''
         result = self._values.get("website")
         return typing.cast(typing.Optional["S3BucketWebsite"], result)
@@ -1264,11 +1264,11 @@ class S3BucketCorsRule:
         max_age_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#allowed_methods S3Bucket#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#allowed_origins S3Bucket#allowed_origins}.
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#allowed_headers S3Bucket#allowed_headers}.
-        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expose_headers S3Bucket#expose_headers}.
-        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#max_age_seconds S3Bucket#max_age_seconds}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#allowed_methods S3Bucket#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#allowed_origins S3Bucket#allowed_origins}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#allowed_headers S3Bucket#allowed_headers}.
+        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expose_headers S3Bucket#expose_headers}.
+        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#max_age_seconds S3Bucket#max_age_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad3b5ebd239cd7820120b5fde5cc58bc50bc067bf9ad255c2c55ac1f7f7935ee)
@@ -1290,33 +1290,33 @@ class S3BucketCorsRule:
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#allowed_methods S3Bucket#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#allowed_methods S3Bucket#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#allowed_origins S3Bucket#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#allowed_origins S3Bucket#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#allowed_headers S3Bucket#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#allowed_headers S3Bucket#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expose_headers S3Bucket#expose_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expose_headers S3Bucket#expose_headers}.'''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def max_age_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#max_age_seconds S3Bucket#max_age_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#max_age_seconds S3Bucket#max_age_seconds}.'''
         result = self._values.get("max_age_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1583,10 +1583,10 @@ class S3BucketGrant:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#permissions S3Bucket#permissions}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#type S3Bucket#type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#uri S3Bucket#uri}.
+        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#permissions S3Bucket#permissions}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#type S3Bucket#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#uri S3Bucket#uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dae89b4303cdc1c0f21bdf14623b5b981445d2e11b0c892492350aa5a0e617da)
@@ -1605,21 +1605,21 @@ class S3BucketGrant:
 
     @builtins.property
     def permissions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#permissions S3Bucket#permissions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#permissions S3Bucket#permissions}.'''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#type S3Bucket#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#type S3Bucket#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1629,7 +1629,7 @@ class S3BucketGrant:
 
     @builtins.property
     def uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#uri S3Bucket#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#uri S3Bucket#uri}.'''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1885,15 +1885,15 @@ class S3BucketLifecycleRule:
         transition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["S3BucketLifecycleRuleTransition", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
-        :param abort_incomplete_multipart_upload_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#abort_incomplete_multipart_upload_days S3Bucket#abort_incomplete_multipart_upload_days}.
-        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expiration S3Bucket#expiration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param noncurrent_version_expiration: noncurrent_version_expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#noncurrent_version_expiration S3Bucket#noncurrent_version_expiration}
-        :param noncurrent_version_transition: noncurrent_version_transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#noncurrent_version_transition S3Bucket#noncurrent_version_transition}
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
-        :param transition: transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#transition S3Bucket#transition}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
+        :param abort_incomplete_multipart_upload_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#abort_incomplete_multipart_upload_days S3Bucket#abort_incomplete_multipart_upload_days}.
+        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expiration S3Bucket#expiration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param noncurrent_version_expiration: noncurrent_version_expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#noncurrent_version_expiration S3Bucket#noncurrent_version_expiration}
+        :param noncurrent_version_transition: noncurrent_version_transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#noncurrent_version_transition S3Bucket#noncurrent_version_transition}
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
+        :param transition: transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#transition S3Bucket#transition}
         '''
         if isinstance(expiration, dict):
             expiration = S3BucketLifecycleRuleExpiration(**expiration)
@@ -1932,14 +1932,14 @@ class S3BucketLifecycleRule:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def abort_incomplete_multipart_upload_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#abort_incomplete_multipart_upload_days S3Bucket#abort_incomplete_multipart_upload_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#abort_incomplete_multipart_upload_days S3Bucket#abort_incomplete_multipart_upload_days}.'''
         result = self._values.get("abort_incomplete_multipart_upload_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1947,14 +1947,14 @@ class S3BucketLifecycleRule:
     def expiration(self) -> typing.Optional["S3BucketLifecycleRuleExpiration"]:
         '''expiration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expiration S3Bucket#expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expiration S3Bucket#expiration}
         '''
         result = self._values.get("expiration")
         return typing.cast(typing.Optional["S3BucketLifecycleRuleExpiration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1968,7 +1968,7 @@ class S3BucketLifecycleRule:
     ) -> typing.Optional["S3BucketLifecycleRuleNoncurrentVersionExpiration"]:
         '''noncurrent_version_expiration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#noncurrent_version_expiration S3Bucket#noncurrent_version_expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#noncurrent_version_expiration S3Bucket#noncurrent_version_expiration}
         '''
         result = self._values.get("noncurrent_version_expiration")
         return typing.cast(typing.Optional["S3BucketLifecycleRuleNoncurrentVersionExpiration"], result)
@@ -1979,20 +1979,20 @@ class S3BucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLifecycleRuleNoncurrentVersionTransition"]]]:
         '''noncurrent_version_transition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#noncurrent_version_transition S3Bucket#noncurrent_version_transition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#noncurrent_version_transition S3Bucket#noncurrent_version_transition}
         '''
         result = self._values.get("noncurrent_version_transition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLifecycleRuleNoncurrentVersionTransition"]]], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2002,7 +2002,7 @@ class S3BucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLifecycleRuleTransition"]]]:
         '''transition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#transition S3Bucket#transition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#transition S3Bucket#transition}
         '''
         result = self._values.get("transition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketLifecycleRuleTransition"]]], result)
@@ -2037,9 +2037,9 @@ class S3BucketLifecycleRuleExpiration:
         expired_object_delete_marker: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#date S3Bucket#date}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
-        :param expired_object_delete_marker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expired_object_delete_marker S3Bucket#expired_object_delete_marker}.
+        :param date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#date S3Bucket#date}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param expired_object_delete_marker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expired_object_delete_marker S3Bucket#expired_object_delete_marker}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec1c12decaa934da2f20b20432a4baf4aefd1f93c88105ba5581f1729054a57d)
@@ -2056,13 +2056,13 @@ class S3BucketLifecycleRuleExpiration:
 
     @builtins.property
     def date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#date S3Bucket#date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#date S3Bucket#date}.'''
         result = self._values.get("date")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2070,7 +2070,7 @@ class S3BucketLifecycleRuleExpiration:
     def expired_object_delete_marker(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expired_object_delete_marker S3Bucket#expired_object_delete_marker}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expired_object_delete_marker S3Bucket#expired_object_delete_marker}.'''
         result = self._values.get("expired_object_delete_marker")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2290,7 +2290,7 @@ class S3BucketLifecycleRuleList(
 class S3BucketLifecycleRuleNoncurrentVersionExpiration:
     def __init__(self, *, days: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__091e8c7580769922234cec0c7b9ba505a860eb6fb56dc1986c630dd932196411)
@@ -2301,7 +2301,7 @@ class S3BucketLifecycleRuleNoncurrentVersionExpiration:
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2389,8 +2389,8 @@ class S3BucketLifecycleRuleNoncurrentVersionTransition:
         days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90ad77cc3d799565045a96676b736b28f11acfa9a0246eaa561b88940066113d)
@@ -2404,14 +2404,14 @@ class S3BucketLifecycleRuleNoncurrentVersionTransition:
 
     @builtins.property
     def storage_class(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.'''
         result = self._values.get("storage_class")
         assert result is not None, "Required property 'storage_class' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2637,9 +2637,9 @@ class S3BucketLifecycleRuleOutputReference(
         expired_object_delete_marker: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#date S3Bucket#date}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
-        :param expired_object_delete_marker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#expired_object_delete_marker S3Bucket#expired_object_delete_marker}.
+        :param date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#date S3Bucket#date}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param expired_object_delete_marker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#expired_object_delete_marker S3Bucket#expired_object_delete_marker}.
         '''
         value = S3BucketLifecycleRuleExpiration(
             date=date,
@@ -2656,7 +2656,7 @@ class S3BucketLifecycleRuleOutputReference(
         days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
         '''
         value = S3BucketLifecycleRuleNoncurrentVersionExpiration(days=days)
 
@@ -2894,9 +2894,9 @@ class S3BucketLifecycleRuleTransition:
         days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
-        :param date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#date S3Bucket#date}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
+        :param date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#date S3Bucket#date}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__847ffe47eccdfc62a62b8f03690f88205a559ab9f490bd51d7b5b70b45ef4874)
@@ -2913,20 +2913,20 @@ class S3BucketLifecycleRuleTransition:
 
     @builtins.property
     def storage_class(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.'''
         result = self._values.get("storage_class")
         assert result is not None, "Required property 'storage_class' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#date S3Bucket#date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#date S3Bucket#date}.'''
         result = self._values.get("date")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3151,8 +3151,8 @@ class S3BucketLogging:
         target_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#target_bucket S3Bucket#target_bucket}.
-        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#target_prefix S3Bucket#target_prefix}.
+        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#target_bucket S3Bucket#target_bucket}.
+        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#target_prefix S3Bucket#target_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__922d76e615ef825bb05a65e3067668b63bee4439e21a41ae9161b1cf28ebe776)
@@ -3166,14 +3166,14 @@ class S3BucketLogging:
 
     @builtins.property
     def target_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#target_bucket S3Bucket#target_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#target_bucket S3Bucket#target_bucket}.'''
         result = self._values.get("target_bucket")
         assert result is not None, "Required property 'target_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#target_prefix S3Bucket#target_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#target_prefix S3Bucket#target_prefix}.'''
         result = self._values.get("target_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3273,8 +3273,8 @@ class S3BucketObjectLockConfiguration:
         rule: typing.Optional[typing.Union["S3BucketObjectLockConfigurationRule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rule S3Bucket#rule}
+        :param object_lock_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rule S3Bucket#rule}
         '''
         if isinstance(rule, dict):
             rule = S3BucketObjectLockConfigurationRule(**rule)
@@ -3290,7 +3290,7 @@ class S3BucketObjectLockConfiguration:
 
     @builtins.property
     def object_lock_enabled(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#object_lock_enabled S3Bucket#object_lock_enabled}.'''
         result = self._values.get("object_lock_enabled")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3298,7 +3298,7 @@ class S3BucketObjectLockConfiguration:
     def rule(self) -> typing.Optional["S3BucketObjectLockConfigurationRule"]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rule S3Bucket#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rule S3Bucket#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional["S3BucketObjectLockConfigurationRule"], result)
@@ -3342,7 +3342,7 @@ class S3BucketObjectLockConfigurationOutputReference(
         default_retention: typing.Union["S3BucketObjectLockConfigurationRuleDefaultRetention", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param default_retention: default_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#default_retention S3Bucket#default_retention}
+        :param default_retention: default_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#default_retention S3Bucket#default_retention}
         '''
         value = S3BucketObjectLockConfigurationRule(
             default_retention=default_retention
@@ -3413,7 +3413,7 @@ class S3BucketObjectLockConfigurationRule:
         default_retention: typing.Union["S3BucketObjectLockConfigurationRuleDefaultRetention", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param default_retention: default_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#default_retention S3Bucket#default_retention}
+        :param default_retention: default_retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#default_retention S3Bucket#default_retention}
         '''
         if isinstance(default_retention, dict):
             default_retention = S3BucketObjectLockConfigurationRuleDefaultRetention(**default_retention)
@@ -3430,7 +3430,7 @@ class S3BucketObjectLockConfigurationRule:
     ) -> "S3BucketObjectLockConfigurationRuleDefaultRetention":
         '''default_retention block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#default_retention S3Bucket#default_retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#default_retention S3Bucket#default_retention}
         '''
         result = self._values.get("default_retention")
         assert result is not None, "Required property 'default_retention' is missing"
@@ -3462,9 +3462,9 @@ class S3BucketObjectLockConfigurationRuleDefaultRetention:
         years: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#mode S3Bucket#mode}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
-        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#years S3Bucket#years}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#mode S3Bucket#mode}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#years S3Bucket#years}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c94306fc5cd71525f515d9909360e2fd95634e3c6f8e8d176b75990b46f018b6)
@@ -3481,20 +3481,20 @@ class S3BucketObjectLockConfigurationRuleDefaultRetention:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#mode S3Bucket#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#mode S3Bucket#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def years(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#years S3Bucket#years}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#years S3Bucket#years}.'''
         result = self._values.get("years")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3636,9 +3636,9 @@ class S3BucketObjectLockConfigurationRuleOutputReference(
         years: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#mode S3Bucket#mode}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#days S3Bucket#days}.
-        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#years S3Bucket#years}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#mode S3Bucket#mode}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#days S3Bucket#days}.
+        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#years S3Bucket#years}.
         '''
         value = S3BucketObjectLockConfigurationRuleDefaultRetention(
             mode=mode, days=days, years=years
@@ -3689,8 +3689,8 @@ class S3BucketReplicationConfiguration:
         rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["S3BucketReplicationConfigurationRules", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#role S3Bucket#role}.
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rules S3Bucket#rules}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#role S3Bucket#role}.
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rules S3Bucket#rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a48bfe29dcff980b74d5811b2c24a44723568ebdabebfcc8693547a31bb9863a)
@@ -3703,7 +3703,7 @@ class S3BucketReplicationConfiguration:
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#role S3Bucket#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#role S3Bucket#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -3714,7 +3714,7 @@ class S3BucketReplicationConfiguration:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketReplicationConfigurationRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rules S3Bucket#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rules S3Bucket#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -3838,14 +3838,14 @@ class S3BucketReplicationConfigurationRules:
         source_selection_criteria: typing.Optional[typing.Union["S3BucketReplicationConfigurationRulesSourceSelectionCriteria", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#destination S3Bucket#destination}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.
-        :param delete_marker_replication_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#delete_marker_replication_status S3Bucket#delete_marker_replication_status}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#filter S3Bucket#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#priority S3Bucket#priority}.
-        :param source_selection_criteria: source_selection_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#source_selection_criteria S3Bucket#source_selection_criteria}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#destination S3Bucket#destination}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.
+        :param delete_marker_replication_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#delete_marker_replication_status S3Bucket#delete_marker_replication_status}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#filter S3Bucket#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#priority S3Bucket#priority}.
+        :param source_selection_criteria: source_selection_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#source_selection_criteria S3Bucket#source_selection_criteria}
         '''
         if isinstance(destination, dict):
             destination = S3BucketReplicationConfigurationRulesDestination(**destination)
@@ -3884,7 +3884,7 @@ class S3BucketReplicationConfigurationRules:
     def destination(self) -> "S3BucketReplicationConfigurationRulesDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#destination S3Bucket#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#destination S3Bucket#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -3892,14 +3892,14 @@ class S3BucketReplicationConfigurationRules:
 
     @builtins.property
     def status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.'''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def delete_marker_replication_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#delete_marker_replication_status S3Bucket#delete_marker_replication_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#delete_marker_replication_status S3Bucket#delete_marker_replication_status}.'''
         result = self._values.get("delete_marker_replication_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3907,14 +3907,14 @@ class S3BucketReplicationConfigurationRules:
     def filter(self) -> typing.Optional["S3BucketReplicationConfigurationRulesFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#filter S3Bucket#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#filter S3Bucket#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["S3BucketReplicationConfigurationRulesFilter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#id S3Bucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#id S3Bucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3924,13 +3924,13 @@ class S3BucketReplicationConfigurationRules:
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#priority S3Bucket#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#priority S3Bucket#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3940,7 +3940,7 @@ class S3BucketReplicationConfigurationRules:
     ) -> typing.Optional["S3BucketReplicationConfigurationRulesSourceSelectionCriteria"]:
         '''source_selection_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#source_selection_criteria S3Bucket#source_selection_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#source_selection_criteria S3Bucket#source_selection_criteria}
         '''
         result = self._values.get("source_selection_criteria")
         return typing.cast(typing.Optional["S3BucketReplicationConfigurationRulesSourceSelectionCriteria"], result)
@@ -3983,13 +3983,13 @@ class S3BucketReplicationConfigurationRulesDestination:
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
-        :param access_control_translation: access_control_translation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#access_control_translation S3Bucket#access_control_translation}
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#account_id S3Bucket#account_id}.
-        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#metrics S3Bucket#metrics}
-        :param replica_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replica_kms_key_id S3Bucket#replica_kms_key_id}.
-        :param replication_time: replication_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replication_time S3Bucket#replication_time}
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
+        :param access_control_translation: access_control_translation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#access_control_translation S3Bucket#access_control_translation}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#account_id S3Bucket#account_id}.
+        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#metrics S3Bucket#metrics}
+        :param replica_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replica_kms_key_id S3Bucket#replica_kms_key_id}.
+        :param replication_time: replication_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replication_time S3Bucket#replication_time}
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
         '''
         if isinstance(access_control_translation, dict):
             access_control_translation = S3BucketReplicationConfigurationRulesDestinationAccessControlTranslation(**access_control_translation)
@@ -4024,7 +4024,7 @@ class S3BucketReplicationConfigurationRulesDestination:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -4035,14 +4035,14 @@ class S3BucketReplicationConfigurationRulesDestination:
     ) -> typing.Optional["S3BucketReplicationConfigurationRulesDestinationAccessControlTranslation"]:
         '''access_control_translation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#access_control_translation S3Bucket#access_control_translation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#access_control_translation S3Bucket#access_control_translation}
         '''
         result = self._values.get("access_control_translation")
         return typing.cast(typing.Optional["S3BucketReplicationConfigurationRulesDestinationAccessControlTranslation"], result)
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#account_id S3Bucket#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#account_id S3Bucket#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4052,14 +4052,14 @@ class S3BucketReplicationConfigurationRulesDestination:
     ) -> typing.Optional["S3BucketReplicationConfigurationRulesDestinationMetrics"]:
         '''metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#metrics S3Bucket#metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#metrics S3Bucket#metrics}
         '''
         result = self._values.get("metrics")
         return typing.cast(typing.Optional["S3BucketReplicationConfigurationRulesDestinationMetrics"], result)
 
     @builtins.property
     def replica_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replica_kms_key_id S3Bucket#replica_kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replica_kms_key_id S3Bucket#replica_kms_key_id}.'''
         result = self._values.get("replica_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4069,14 +4069,14 @@ class S3BucketReplicationConfigurationRulesDestination:
     ) -> typing.Optional["S3BucketReplicationConfigurationRulesDestinationReplicationTime"]:
         '''replication_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replication_time S3Bucket#replication_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replication_time S3Bucket#replication_time}
         '''
         result = self._values.get("replication_time")
         return typing.cast(typing.Optional["S3BucketReplicationConfigurationRulesDestinationReplicationTime"], result)
 
     @builtins.property
     def storage_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.'''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4100,7 +4100,7 @@ class S3BucketReplicationConfigurationRulesDestination:
 class S3BucketReplicationConfigurationRulesDestinationAccessControlTranslation:
     def __init__(self, *, owner: builtins.str) -> None:
         '''
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#owner S3Bucket#owner}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#owner S3Bucket#owner}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f2656dcbcfa19159428462429f48aabd2dd163dae1bf63141bebb055c9c76cd)
@@ -4111,7 +4111,7 @@ class S3BucketReplicationConfigurationRulesDestinationAccessControlTranslation:
 
     @builtins.property
     def owner(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#owner S3Bucket#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#owner S3Bucket#owner}.'''
         result = self._values.get("owner")
         assert result is not None, "Required property 'owner' is missing"
         return typing.cast(builtins.str, result)
@@ -4196,8 +4196,8 @@ class S3BucketReplicationConfigurationRulesDestinationMetrics:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__956b4cbb0568c3ac2598b0041f1181db2b0445d9c1f9a9c13b6b0f20078b1899)
@@ -4211,13 +4211,13 @@ class S3BucketReplicationConfigurationRulesDestinationMetrics:
 
     @builtins.property
     def minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.'''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4336,7 +4336,7 @@ class S3BucketReplicationConfigurationRulesDestinationOutputReference(
     @jsii.member(jsii_name="putAccessControlTranslation")
     def put_access_control_translation(self, *, owner: builtins.str) -> None:
         '''
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#owner S3Bucket#owner}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#owner S3Bucket#owner}.
         '''
         value = S3BucketReplicationConfigurationRulesDestinationAccessControlTranslation(
             owner=owner
@@ -4352,8 +4352,8 @@ class S3BucketReplicationConfigurationRulesDestinationOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.
         '''
         value = S3BucketReplicationConfigurationRulesDestinationMetrics(
             minutes=minutes, status=status
@@ -4369,8 +4369,8 @@ class S3BucketReplicationConfigurationRulesDestinationOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.
         '''
         value = S3BucketReplicationConfigurationRulesDestinationReplicationTime(
             minutes=minutes, status=status
@@ -4543,8 +4543,8 @@ class S3BucketReplicationConfigurationRulesDestinationReplicationTime:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eded17eb077afaaa4d5f628c384ddc0a1f217b774b94cc687c330337dee45278)
@@ -4558,13 +4558,13 @@ class S3BucketReplicationConfigurationRulesDestinationReplicationTime:
 
     @builtins.property
     def minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#minutes S3Bucket#minutes}.'''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#status S3Bucket#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#status S3Bucket#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4673,8 +4673,8 @@ class S3BucketReplicationConfigurationRulesFilter:
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa2476eac1e2b9f7f1b935b32b1bee108b2d92aedfd17256ced99853a451d7ce)
@@ -4688,13 +4688,13 @@ class S3BucketReplicationConfigurationRulesFilter:
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -4922,13 +4922,13 @@ class S3BucketReplicationConfigurationRulesOutputReference(
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
-        :param access_control_translation: access_control_translation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#access_control_translation S3Bucket#access_control_translation}
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#account_id S3Bucket#account_id}.
-        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#metrics S3Bucket#metrics}
-        :param replica_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replica_kms_key_id S3Bucket#replica_kms_key_id}.
-        :param replication_time: replication_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#replication_time S3Bucket#replication_time}
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket S3Bucket#bucket}.
+        :param access_control_translation: access_control_translation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#access_control_translation S3Bucket#access_control_translation}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#account_id S3Bucket#account_id}.
+        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#metrics S3Bucket#metrics}
+        :param replica_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replica_kms_key_id S3Bucket#replica_kms_key_id}.
+        :param replication_time: replication_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#replication_time S3Bucket#replication_time}
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#storage_class S3Bucket#storage_class}.
         '''
         value = S3BucketReplicationConfigurationRulesDestination(
             bucket=bucket,
@@ -4950,8 +4950,8 @@ class S3BucketReplicationConfigurationRulesOutputReference(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#prefix S3Bucket#prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#tags S3Bucket#tags}.
         '''
         value = S3BucketReplicationConfigurationRulesFilter(prefix=prefix, tags=tags)
 
@@ -4964,7 +4964,7 @@ class S3BucketReplicationConfigurationRulesOutputReference(
         sse_kms_encrypted_objects: typing.Optional[typing.Union["S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncryptedObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param sse_kms_encrypted_objects: sse_kms_encrypted_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#sse_kms_encrypted_objects S3Bucket#sse_kms_encrypted_objects}
+        :param sse_kms_encrypted_objects: sse_kms_encrypted_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#sse_kms_encrypted_objects S3Bucket#sse_kms_encrypted_objects}
         '''
         value = S3BucketReplicationConfigurationRulesSourceSelectionCriteria(
             sse_kms_encrypted_objects=sse_kms_encrypted_objects
@@ -5151,7 +5151,7 @@ class S3BucketReplicationConfigurationRulesSourceSelectionCriteria:
         sse_kms_encrypted_objects: typing.Optional[typing.Union["S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncryptedObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param sse_kms_encrypted_objects: sse_kms_encrypted_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#sse_kms_encrypted_objects S3Bucket#sse_kms_encrypted_objects}
+        :param sse_kms_encrypted_objects: sse_kms_encrypted_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#sse_kms_encrypted_objects S3Bucket#sse_kms_encrypted_objects}
         '''
         if isinstance(sse_kms_encrypted_objects, dict):
             sse_kms_encrypted_objects = S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncryptedObjects(**sse_kms_encrypted_objects)
@@ -5168,7 +5168,7 @@ class S3BucketReplicationConfigurationRulesSourceSelectionCriteria:
     ) -> typing.Optional["S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncryptedObjects"]:
         '''sse_kms_encrypted_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#sse_kms_encrypted_objects S3Bucket#sse_kms_encrypted_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#sse_kms_encrypted_objects S3Bucket#sse_kms_encrypted_objects}
         '''
         result = self._values.get("sse_kms_encrypted_objects")
         return typing.cast(typing.Optional["S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncryptedObjects"], result)
@@ -5212,7 +5212,7 @@ class S3BucketReplicationConfigurationRulesSourceSelectionCriteriaOutputReferenc
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
         '''
         value = S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncryptedObjects(
             enabled=enabled
@@ -5268,7 +5268,7 @@ class S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncrypte
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c65b0abfb0a8485396d7f842c8321bafa251ef50ebe93cd5d5344f08beb20be)
@@ -5279,7 +5279,7 @@ class S3BucketReplicationConfigurationRulesSourceSelectionCriteriaSseKmsEncrypte
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -5368,7 +5368,7 @@ class S3BucketServerSideEncryptionConfiguration:
         rule: typing.Union["S3BucketServerSideEncryptionConfigurationRule", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rule S3Bucket#rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rule S3Bucket#rule}
         '''
         if isinstance(rule, dict):
             rule = S3BucketServerSideEncryptionConfigurationRule(**rule)
@@ -5383,7 +5383,7 @@ class S3BucketServerSideEncryptionConfiguration:
     def rule(self) -> "S3BucketServerSideEncryptionConfigurationRule":
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#rule S3Bucket#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#rule S3Bucket#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -5429,8 +5429,8 @@ class S3BucketServerSideEncryptionConfigurationOutputReference(
         bucket_key_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param apply_server_side_encryption_by_default: apply_server_side_encryption_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#apply_server_side_encryption_by_default S3Bucket#apply_server_side_encryption_by_default}
-        :param bucket_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket_key_enabled S3Bucket#bucket_key_enabled}.
+        :param apply_server_side_encryption_by_default: apply_server_side_encryption_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#apply_server_side_encryption_by_default S3Bucket#apply_server_side_encryption_by_default}
+        :param bucket_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket_key_enabled S3Bucket#bucket_key_enabled}.
         '''
         value = S3BucketServerSideEncryptionConfigurationRule(
             apply_server_side_encryption_by_default=apply_server_side_encryption_by_default,
@@ -5485,8 +5485,8 @@ class S3BucketServerSideEncryptionConfigurationRule:
         bucket_key_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param apply_server_side_encryption_by_default: apply_server_side_encryption_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#apply_server_side_encryption_by_default S3Bucket#apply_server_side_encryption_by_default}
-        :param bucket_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket_key_enabled S3Bucket#bucket_key_enabled}.
+        :param apply_server_side_encryption_by_default: apply_server_side_encryption_by_default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#apply_server_side_encryption_by_default S3Bucket#apply_server_side_encryption_by_default}
+        :param bucket_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket_key_enabled S3Bucket#bucket_key_enabled}.
         '''
         if isinstance(apply_server_side_encryption_by_default, dict):
             apply_server_side_encryption_by_default = S3BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefault(**apply_server_side_encryption_by_default)
@@ -5506,7 +5506,7 @@ class S3BucketServerSideEncryptionConfigurationRule:
     ) -> "S3BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefault":
         '''apply_server_side_encryption_by_default block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#apply_server_side_encryption_by_default S3Bucket#apply_server_side_encryption_by_default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#apply_server_side_encryption_by_default S3Bucket#apply_server_side_encryption_by_default}
         '''
         result = self._values.get("apply_server_side_encryption_by_default")
         assert result is not None, "Required property 'apply_server_side_encryption_by_default' is missing"
@@ -5516,7 +5516,7 @@ class S3BucketServerSideEncryptionConfigurationRule:
     def bucket_key_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#bucket_key_enabled S3Bucket#bucket_key_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#bucket_key_enabled S3Bucket#bucket_key_enabled}.'''
         result = self._values.get("bucket_key_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5548,8 +5548,8 @@ class S3BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDe
         kms_master_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#sse_algorithm S3Bucket#sse_algorithm}.
-        :param kms_master_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#kms_master_key_id S3Bucket#kms_master_key_id}.
+        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#sse_algorithm S3Bucket#sse_algorithm}.
+        :param kms_master_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#kms_master_key_id S3Bucket#kms_master_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19fa094859a0416c2315e7480cf5f5ba379433534c1bda7f510d3a54390e170d)
@@ -5563,14 +5563,14 @@ class S3BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDe
 
     @builtins.property
     def sse_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#sse_algorithm S3Bucket#sse_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#sse_algorithm S3Bucket#sse_algorithm}.'''
         result = self._values.get("sse_algorithm")
         assert result is not None, "Required property 'sse_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_master_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#kms_master_key_id S3Bucket#kms_master_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#kms_master_key_id S3Bucket#kms_master_key_id}.'''
         result = self._values.get("kms_master_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5690,8 +5690,8 @@ class S3BucketServerSideEncryptionConfigurationRuleOutputReference(
         kms_master_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#sse_algorithm S3Bucket#sse_algorithm}.
-        :param kms_master_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#kms_master_key_id S3Bucket#kms_master_key_id}.
+        :param sse_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#sse_algorithm S3Bucket#sse_algorithm}.
+        :param kms_master_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#kms_master_key_id S3Bucket#kms_master_key_id}.
         '''
         value = S3BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefault(
             sse_algorithm=sse_algorithm, kms_master_key_id=kms_master_key_id
@@ -5779,10 +5779,10 @@ class S3BucketTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#create S3Bucket#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#delete S3Bucket#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#read S3Bucket#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#update S3Bucket#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#create S3Bucket#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#delete S3Bucket#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#read S3Bucket#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#update S3Bucket#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__005b4c3d39a70a7ca1417a47cc83e1c662db4117c979289adcd6c3b5e119b2a9)
@@ -5802,25 +5802,25 @@ class S3BucketTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#create S3Bucket#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#create S3Bucket#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#delete S3Bucket#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#delete S3Bucket#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#read S3Bucket#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#read S3Bucket#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#update S3Bucket#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#update S3Bucket#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5971,8 +5971,8 @@ class S3BucketVersioning:
         mfa_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
-        :param mfa_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#mfa_delete S3Bucket#mfa_delete}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.
+        :param mfa_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#mfa_delete S3Bucket#mfa_delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__253b75d4a5d04166cf9c8d82481b31c74dda9b0e40485928774445c26a5fbafb)
@@ -5988,7 +5988,7 @@ class S3BucketVersioning:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#enabled S3Bucket#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5996,7 +5996,7 @@ class S3BucketVersioning:
     def mfa_delete(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#mfa_delete S3Bucket#mfa_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#mfa_delete S3Bucket#mfa_delete}.'''
         result = self._values.get("mfa_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6117,10 +6117,10 @@ class S3BucketWebsite:
         routing_rules: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#error_document S3Bucket#error_document}.
-        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#index_document S3Bucket#index_document}.
-        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#redirect_all_requests_to S3Bucket#redirect_all_requests_to}.
-        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#routing_rules S3Bucket#routing_rules}.
+        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#error_document S3Bucket#error_document}.
+        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#index_document S3Bucket#index_document}.
+        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#redirect_all_requests_to S3Bucket#redirect_all_requests_to}.
+        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#routing_rules S3Bucket#routing_rules}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e0f444c17f448c2ca720bca02362a0e1f7668ced9aa9c5986395c656869927d)
@@ -6140,25 +6140,25 @@ class S3BucketWebsite:
 
     @builtins.property
     def error_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#error_document S3Bucket#error_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#error_document S3Bucket#error_document}.'''
         result = self._values.get("error_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def index_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#index_document S3Bucket#index_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#index_document S3Bucket#index_document}.'''
         result = self._values.get("index_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_all_requests_to(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#redirect_all_requests_to S3Bucket#redirect_all_requests_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#redirect_all_requests_to S3Bucket#redirect_all_requests_to}.'''
         result = self._values.get("redirect_all_requests_to")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def routing_rules(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket#routing_rules S3Bucket#routing_rules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket#routing_rules S3Bucket#routing_rules}.'''
         result = self._values.get("routing_rules")
         return typing.cast(typing.Optional[builtins.str], result)
 

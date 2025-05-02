@@ -218,6 +218,9 @@ class _GlobalInitScriptState:
 
 
 class GlobalInitScript(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/globalInitScript:GlobalInitScript"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -231,6 +234,8 @@ class GlobalInitScript(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage [global init scripts](https://docs.databricks.com/clusters/init-scripts.html#global-init-scripts), which are run on all Cluster and databricks_job.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Import
 
@@ -258,6 +263,8 @@ class GlobalInitScript(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage [global init scripts](https://docs.databricks.com/clusters/init-scripts.html#global-init-scripts), which are run on all Cluster and databricks_job.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Import
 

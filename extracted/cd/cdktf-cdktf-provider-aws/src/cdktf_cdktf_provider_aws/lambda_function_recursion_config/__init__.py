@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_function_recursion_config`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_function_recursion_config`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config).
+Refer to the Terraform Registry for docs: [`aws_lambda_function_recursion_config`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaFunctionRecursionConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaFunctionRecursionConfig.LambdaFunctionRecursionConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config aws_lambda_function_recursion_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config aws_lambda_function_recursion_config}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class LambdaFunctionRecursionConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config aws_lambda_function_recursion_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config aws_lambda_function_recursion_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#function_name LambdaFunctionRecursionConfig#function_name}.
-        :param recursive_loop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#recursive_loop LambdaFunctionRecursionConfig#recursive_loop}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#function_name LambdaFunctionRecursionConfig#function_name}.
+        :param recursive_loop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#recursive_loop LambdaFunctionRecursionConfig#recursive_loop}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class LambdaFunctionRecursionConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaFunctionRecursionConfig to import.
-        :param import_from_id: The id of the existing LambdaFunctionRecursionConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaFunctionRecursionConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaFunctionRecursionConfig to import is found.
         '''
         if __debug__:
@@ -202,8 +202,8 @@ class LambdaFunctionRecursionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#function_name LambdaFunctionRecursionConfig#function_name}.
-        :param recursive_loop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#recursive_loop LambdaFunctionRecursionConfig#recursive_loop}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#function_name LambdaFunctionRecursionConfig#function_name}.
+        :param recursive_loop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#recursive_loop LambdaFunctionRecursionConfig#recursive_loop}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -303,14 +303,14 @@ class LambdaFunctionRecursionConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#function_name LambdaFunctionRecursionConfig#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#function_name LambdaFunctionRecursionConfig#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recursive_loop(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function_recursion_config#recursive_loop LambdaFunctionRecursionConfig#recursive_loop}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function_recursion_config#recursive_loop LambdaFunctionRecursionConfig#recursive_loop}.'''
         result = self._values.get("recursive_loop")
         assert result is not None, "Required property 'recursive_loop' is missing"
         return typing.cast(builtins.str, result)

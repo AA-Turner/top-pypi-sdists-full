@@ -1,0 +1,172 @@
+Metadata-Version: 2.1
+Name: fixit
+Version: 2.1.0
+Summary: A lint framework that writes better Python code for you.
+Project-URL: Home, https://fixit.rtfd.io
+Project-URL: Github, https://github.com/Instagram/Fixit
+Project-URL: Changelog, https://github.com/Instagram/Fixit/blob/main/CHANGELOG.md
+Author: Meta Platforms, Inc, Amethyst Reese, Jimmy Lai, Zsolt Dollenstein
+License: MIT License
+        
+        Copyright (c) Facebook, Inc. and its affiliates.
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+        -------------------------------------------------------------------------------
+        
+        PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
+        
+        1. This LICENSE AGREEMENT is between the Python Software Foundation
+        ("PSF"), and the Individual or Organization ("Licensee") accessing and
+        otherwise using this software ("Python") in source or binary form and
+        its associated documentation.
+        
+        2. Subject to the terms and conditions of this License Agreement, PSF hereby
+        grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
+        analyze, test, perform and/or display publicly, prepare derivative works,
+        distribute, and otherwise use Python alone or in any derivative version,
+        provided, however, that PSF's License Agreement and PSF's notice of copyright,
+        i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+        2011, 2012, 2013, 2014, 2015 Python Software Foundation; All Rights Reserved"
+        are retained in Python alone or in any derivative version prepared by Licensee.
+        
+        3. In the event Licensee prepares a derivative work that is based on
+        or incorporates Python or any part thereof, and wants to make
+        the derivative work available to others as provided herein, then
+        Licensee hereby agrees to include in any such work a brief summary of
+        the changes made to Python.
+        
+        4. PSF is making Python available to Licensee on an "AS IS"
+        basis.  PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+        IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND
+        DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+        FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT
+        INFRINGE ANY THIRD PARTY RIGHTS.
+        
+        5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+        FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+        A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON,
+        OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+        
+        6. This License Agreement will automatically terminate upon a material
+        breach of its terms and conditions.
+        
+        7. Nothing in this License Agreement shall be deemed to create any
+        relationship of agency, partnership, or joint venture between PSF and
+        Licensee.  This License Agreement does not grant permission to use PSF
+        trademarks or trade name in a trademark sense to endorse or promote
+        products or services of Licensee, or any third party.
+        
+        8. By copying, installing or otherwise using Python, Licensee
+        agrees to be bound by the terms and conditions of this License
+        Agreement.
+        
+        -------------------------------------------------------------------------------
+        
+        APACHE LICENSE, VERSION 2.0
+        
+        http://www.apache.org/licenses/LICENSE-2.0
+License-File: LICENSE
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Requires-Python: >=3.8
+Requires-Dist: click>=8.0
+Requires-Dist: libcst>=0.3.18
+Requires-Dist: moreorless>=0.4.0
+Requires-Dist: packaging>=21
+Requires-Dist: tomli>=2.0; python_version < '3.11'
+Requires-Dist: trailrunner>=1.2
+Provides-Extra: dev
+Requires-Dist: attribution==1.6.2; extra == 'dev'
+Requires-Dist: black==23.9.1; extra == 'dev'
+Requires-Dist: flake8-bugbear==23.9.16; extra == 'dev'
+Requires-Dist: flake8==6.1.0; extra == 'dev'
+Requires-Dist: mypy==1.5.1; extra == 'dev'
+Requires-Dist: ufmt==2.2.0; extra == 'dev'
+Requires-Dist: usort==1.0.7; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: jinja2==3.1.2; extra == 'docs'
+Requires-Dist: sphinx-mdinclude==0.5.3; extra == 'docs'
+Requires-Dist: sphinx==7.0.1; extra == 'docs'
+Provides-Extra: pretty
+Requires-Dist: rich>=12.6.0; extra == 'pretty'
+Description-Content-Type: text/x-rst
+
+.. image:: docs/_static/logo/logo.svg
+   :width: 600 px
+   :alt: Fixit
+
+|readthedocs-badge| |pypi-badge| |changelog-badge| |roadmap-badge| |license-badge|
+
+.. |readthedocs-badge| image:: https://readthedocs.org/projects/pip/badge/?version=latest&style=flat
+   :target: https://fixit.readthedocs.io/en/latest/
+   :alt: Documentation
+
+.. |pypi-badge| image:: https://img.shields.io/pypi/v/fixit.svg
+   :target: https://pypi.org/project/fixit
+   :alt: PyPI
+
+.. |changelog-badge| image:: https://img.shields.io/badge/change-log-blue.svg
+   :target: https://fixit.readthedocs.io/en/latest/changelog.html
+   :alt: Changelog
+
+.. |roadmap-badge| image:: https://img.shields.io/badge/road-map-9cf.svg
+   :target: https://github.com/Instagram/Fixit/milestones
+   :alt: Project Roadmap
+
+.. |license-badge| image:: https://img.shields.io/pypi/l/fixit.svg
+   :target: https://github.com/instagram/fixit/blob/main/LICENSE
+   :alt: MIT License
+
+Fixit provides a highly configurable linting framework with support for
+auto-fixes, custom "local" lint rules, and hierarchical configuration, built
+on `LibCST <https://libcst.rtfd.io>`_.
+
+Fixit makes it quick and easy to write new lint rules and offer suggested
+changes for any errors found, which can then be accepted automatically,
+or presented to the user for consideration.
+
+
+**Fixit 2.0 has been rebuilt for better configuration and support for custom
+lint rules.** If you are using Fixit 0.1.4 or older, take a look at the
+`legacy documentation <https://fixit.rtfd.io/en/v0.1.4/>`_
+or the `stable branch <https://github.com/Instagram/Fixit/tree/0.x>`_.
+See the `upgrade guide <https://fixit.rtfd.io/en/latest/upgrade.html>`_
+for tools and information to migrate existing configuration and lint rules
+and ensure compatibility with the latest version of Fixit.
+
+For more details, see the `user guide`__.
+
+.. __: https://fixit.rtfd.io/en/latest/guide.html
+
+.. QUICKSTART
+
+
+License
+-------
+
+Fixit is `MIT licensed`__, as found in the LICENSE file.
+
+.. __: https://github.com/Instagram/Fixit/blob/main/LICENSE

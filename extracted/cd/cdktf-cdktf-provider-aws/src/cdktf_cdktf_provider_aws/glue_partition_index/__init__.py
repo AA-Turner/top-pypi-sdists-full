@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_partition_index`
 
-Refer to the Terraform Registry for docs: [`aws_glue_partition_index`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index).
+Refer to the Terraform Registry for docs: [`aws_glue_partition_index`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GluePartitionIndex(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.gluePartitionIndex.GluePartitionIndex",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index aws_glue_partition_index}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index aws_glue_partition_index}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GluePartitionIndex(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index aws_glue_partition_index} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index aws_glue_partition_index} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#database_name GluePartitionIndex#database_name}.
-        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#partition_index GluePartitionIndex#partition_index}
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#table_name GluePartitionIndex#table_name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#catalog_id GluePartitionIndex#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#id GluePartitionIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#timeouts GluePartitionIndex#timeouts}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#database_name GluePartitionIndex#database_name}.
+        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#partition_index GluePartitionIndex#partition_index}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#table_name GluePartitionIndex#table_name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#catalog_id GluePartitionIndex#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#id GluePartitionIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#timeouts GluePartitionIndex#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GluePartitionIndex(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GluePartitionIndex to import.
-        :param import_from_id: The id of the existing GluePartitionIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GluePartitionIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GluePartitionIndex to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class GluePartitionIndex(
         keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#index_name GluePartitionIndex#index_name}.
-        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#keys GluePartitionIndex#keys}.
+        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#index_name GluePartitionIndex#index_name}.
+        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#keys GluePartitionIndex#keys}.
         '''
         value = GluePartitionIndexPartitionIndex(index_name=index_name, keys=keys)
 
@@ -152,8 +152,8 @@ class GluePartitionIndex(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#create GluePartitionIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#delete GluePartitionIndex#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#create GluePartitionIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#delete GluePartitionIndex#delete}.
         '''
         value = GluePartitionIndexTimeouts(create=create, delete=delete)
 
@@ -322,12 +322,12 @@ class GluePartitionIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#database_name GluePartitionIndex#database_name}.
-        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#partition_index GluePartitionIndex#partition_index}
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#table_name GluePartitionIndex#table_name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#catalog_id GluePartitionIndex#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#id GluePartitionIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#timeouts GluePartitionIndex#timeouts}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#database_name GluePartitionIndex#database_name}.
+        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#partition_index GluePartitionIndex#partition_index}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#table_name GluePartitionIndex#table_name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#catalog_id GluePartitionIndex#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#id GluePartitionIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#timeouts GluePartitionIndex#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -442,7 +442,7 @@ class GluePartitionIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#database_name GluePartitionIndex#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#database_name GluePartitionIndex#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
@@ -451,7 +451,7 @@ class GluePartitionIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def partition_index(self) -> "GluePartitionIndexPartitionIndex":
         '''partition_index block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#partition_index GluePartitionIndex#partition_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#partition_index GluePartitionIndex#partition_index}
         '''
         result = self._values.get("partition_index")
         assert result is not None, "Required property 'partition_index' is missing"
@@ -459,20 +459,20 @@ class GluePartitionIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#table_name GluePartitionIndex#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#table_name GluePartitionIndex#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#catalog_id GluePartitionIndex#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#catalog_id GluePartitionIndex#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#id GluePartitionIndex#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#id GluePartitionIndex#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -484,7 +484,7 @@ class GluePartitionIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GluePartitionIndexTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#timeouts GluePartitionIndex#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#timeouts GluePartitionIndex#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GluePartitionIndexTimeouts"], result)
@@ -514,8 +514,8 @@ class GluePartitionIndexPartitionIndex:
         keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#index_name GluePartitionIndex#index_name}.
-        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#keys GluePartitionIndex#keys}.
+        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#index_name GluePartitionIndex#index_name}.
+        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#keys GluePartitionIndex#keys}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc7f5bcdfa9dfaf41e4cb814605a86413b91c77c5047b606f8eafbb59d95c281)
@@ -529,13 +529,13 @@ class GluePartitionIndexPartitionIndex:
 
     @builtins.property
     def index_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#index_name GluePartitionIndex#index_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#index_name GluePartitionIndex#index_name}.'''
         result = self._values.get("index_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#keys GluePartitionIndex#keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#keys GluePartitionIndex#keys}.'''
         result = self._values.get("keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -647,8 +647,8 @@ class GluePartitionIndexTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#create GluePartitionIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#delete GluePartitionIndex#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#create GluePartitionIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#delete GluePartitionIndex#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d62414dbedf82fd0c4a4b5eac4f08fc65c3d50852adf90d08c96419cacf7a68)
@@ -662,13 +662,13 @@ class GluePartitionIndexTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#create GluePartitionIndex#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#create GluePartitionIndex#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition_index#delete GluePartitionIndex#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition_index#delete GluePartitionIndex#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

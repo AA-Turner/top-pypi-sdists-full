@@ -274,9 +274,6 @@ type BrushSculptBrushTypeItems = typing.Literal[
     "BLOB",  # Blob.
     "CREASE",  # Crease.
     "SMOOTH",  # Smooth.
-    "FLATTEN",  # Flatten.
-    "FILL",  # Fill.
-    "SCRAPE",  # Scrape.
     "PLANE",  # Plane.
     "MULTIPLANE_SCRAPE",  # Multi-plane Scrape.
     "PINCH",  # Pinch.

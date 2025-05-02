@@ -1,7 +1,7 @@
 r'''
 # `aws_grafana_license_association`
 
-Refer to the Terraform Registry for docs: [`aws_grafana_license_association`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association).
+Refer to the Terraform Registry for docs: [`aws_grafana_license_association`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GrafanaLicenseAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.grafanaLicenseAssociation.GrafanaLicenseAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association aws_grafana_license_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association aws_grafana_license_association}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GrafanaLicenseAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association aws_grafana_license_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association aws_grafana_license_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#license_type GrafanaLicenseAssociation#license_type}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#workspace_id GrafanaLicenseAssociation#workspace_id}.
-        :param grafana_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#grafana_token GrafanaLicenseAssociation#grafana_token}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#id GrafanaLicenseAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#timeouts GrafanaLicenseAssociation#timeouts}
+        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#license_type GrafanaLicenseAssociation#license_type}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#workspace_id GrafanaLicenseAssociation#workspace_id}.
+        :param grafana_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#grafana_token GrafanaLicenseAssociation#grafana_token}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#id GrafanaLicenseAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#timeouts GrafanaLicenseAssociation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GrafanaLicenseAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GrafanaLicenseAssociation to import.
-        :param import_from_id: The id of the existing GrafanaLicenseAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GrafanaLicenseAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GrafanaLicenseAssociation to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class GrafanaLicenseAssociation(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#create GrafanaLicenseAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#delete GrafanaLicenseAssociation#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#create GrafanaLicenseAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#delete GrafanaLicenseAssociation#delete}.
         '''
         value = GrafanaLicenseAssociationTimeouts(create=create, delete=delete)
 
@@ -300,11 +300,11 @@ class GrafanaLicenseAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#license_type GrafanaLicenseAssociation#license_type}.
-        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#workspace_id GrafanaLicenseAssociation#workspace_id}.
-        :param grafana_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#grafana_token GrafanaLicenseAssociation#grafana_token}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#id GrafanaLicenseAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#timeouts GrafanaLicenseAssociation#timeouts}
+        :param license_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#license_type GrafanaLicenseAssociation#license_type}.
+        :param workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#workspace_id GrafanaLicenseAssociation#workspace_id}.
+        :param grafana_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#grafana_token GrafanaLicenseAssociation#grafana_token}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#id GrafanaLicenseAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#timeouts GrafanaLicenseAssociation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -415,27 +415,27 @@ class GrafanaLicenseAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def license_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#license_type GrafanaLicenseAssociation#license_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#license_type GrafanaLicenseAssociation#license_type}.'''
         result = self._values.get("license_type")
         assert result is not None, "Required property 'license_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#workspace_id GrafanaLicenseAssociation#workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#workspace_id GrafanaLicenseAssociation#workspace_id}.'''
         result = self._values.get("workspace_id")
         assert result is not None, "Required property 'workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def grafana_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#grafana_token GrafanaLicenseAssociation#grafana_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#grafana_token GrafanaLicenseAssociation#grafana_token}.'''
         result = self._values.get("grafana_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#id GrafanaLicenseAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#id GrafanaLicenseAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -447,7 +447,7 @@ class GrafanaLicenseAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GrafanaLicenseAssociationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#timeouts GrafanaLicenseAssociation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#timeouts GrafanaLicenseAssociation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GrafanaLicenseAssociationTimeouts"], result)
@@ -477,8 +477,8 @@ class GrafanaLicenseAssociationTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#create GrafanaLicenseAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#delete GrafanaLicenseAssociation#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#create GrafanaLicenseAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#delete GrafanaLicenseAssociation#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6addf7581cdfc4cc8672c634b105f5b2500ac7d5ec0c1472bf8792fb7d3b25a)
@@ -492,13 +492,13 @@ class GrafanaLicenseAssociationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#create GrafanaLicenseAssociation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#create GrafanaLicenseAssociation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_license_association#delete GrafanaLicenseAssociation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_license_association#delete GrafanaLicenseAssociation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

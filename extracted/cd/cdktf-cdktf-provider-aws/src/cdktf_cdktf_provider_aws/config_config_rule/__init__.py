@@ -1,7 +1,7 @@
 r'''
 # `aws_config_config_rule`
 
-Refer to the Terraform Registry for docs: [`aws_config_config_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule).
+Refer to the Terraform Registry for docs: [`aws_config_config_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConfigConfigRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.configConfigRule.ConfigConfigRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule aws_config_config_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule aws_config_config_rule}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ConfigConfigRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule aws_config_config_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule aws_config_config_rule} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#name ConfigConfigRule#name}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source ConfigConfigRule#source}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#description ConfigConfigRule#description}.
-        :param evaluation_mode: evaluation_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#evaluation_mode ConfigConfigRule#evaluation_mode}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#id ConfigConfigRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#input_parameters ConfigConfigRule#input_parameters}.
-        :param maximum_execution_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#scope ConfigConfigRule#scope}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tags ConfigConfigRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tags_all ConfigConfigRule#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#name ConfigConfigRule#name}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source ConfigConfigRule#source}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#description ConfigConfigRule#description}.
+        :param evaluation_mode: evaluation_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#evaluation_mode ConfigConfigRule#evaluation_mode}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#id ConfigConfigRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#input_parameters ConfigConfigRule#input_parameters}.
+        :param maximum_execution_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#scope ConfigConfigRule#scope}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tags ConfigConfigRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tags_all ConfigConfigRule#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ConfigConfigRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConfigConfigRule to import.
-        :param import_from_id: The id of the existing ConfigConfigRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConfigConfigRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConfigConfigRule to import is found.
         '''
         if __debug__:
@@ -164,10 +164,10 @@ class ConfigConfigRule(
         tag_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compliance_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#compliance_resource_id ConfigConfigRule#compliance_resource_id}.
-        :param compliance_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#compliance_resource_types ConfigConfigRule#compliance_resource_types}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tag_key ConfigConfigRule#tag_key}.
-        :param tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tag_value ConfigConfigRule#tag_value}.
+        :param compliance_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#compliance_resource_id ConfigConfigRule#compliance_resource_id}.
+        :param compliance_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#compliance_resource_types ConfigConfigRule#compliance_resource_types}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tag_key ConfigConfigRule#tag_key}.
+        :param tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tag_value ConfigConfigRule#tag_value}.
         '''
         value = ConfigConfigRuleScope(
             compliance_resource_id=compliance_resource_id,
@@ -188,10 +188,10 @@ class ConfigConfigRule(
         source_identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#owner ConfigConfigRule#owner}.
-        :param custom_policy_details: custom_policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#custom_policy_details ConfigConfigRule#custom_policy_details}
-        :param source_detail: source_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source_detail ConfigConfigRule#source_detail}
-        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source_identifier ConfigConfigRule#source_identifier}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#owner ConfigConfigRule#owner}.
+        :param custom_policy_details: custom_policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#custom_policy_details ConfigConfigRule#custom_policy_details}
+        :param source_detail: source_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source_detail ConfigConfigRule#source_detail}
+        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source_identifier ConfigConfigRule#source_identifier}.
         '''
         value = ConfigConfigRuleSource(
             owner=owner,
@@ -464,16 +464,16 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#name ConfigConfigRule#name}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source ConfigConfigRule#source}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#description ConfigConfigRule#description}.
-        :param evaluation_mode: evaluation_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#evaluation_mode ConfigConfigRule#evaluation_mode}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#id ConfigConfigRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#input_parameters ConfigConfigRule#input_parameters}.
-        :param maximum_execution_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#scope ConfigConfigRule#scope}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tags ConfigConfigRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tags_all ConfigConfigRule#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#name ConfigConfigRule#name}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source ConfigConfigRule#source}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#description ConfigConfigRule#description}.
+        :param evaluation_mode: evaluation_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#evaluation_mode ConfigConfigRule#evaluation_mode}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#id ConfigConfigRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#input_parameters ConfigConfigRule#input_parameters}.
+        :param maximum_execution_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#scope ConfigConfigRule#scope}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tags ConfigConfigRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tags_all ConfigConfigRule#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -601,7 +601,7 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#name ConfigConfigRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#name ConfigConfigRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -610,7 +610,7 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> "ConfigConfigRuleSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source ConfigConfigRule#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source ConfigConfigRule#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -618,7 +618,7 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#description ConfigConfigRule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#description ConfigConfigRule#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -628,14 +628,14 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigRuleEvaluationMode"]]]:
         '''evaluation_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#evaluation_mode ConfigConfigRule#evaluation_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#evaluation_mode ConfigConfigRule#evaluation_mode}
         '''
         result = self._values.get("evaluation_mode")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigRuleEvaluationMode"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#id ConfigConfigRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#id ConfigConfigRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -645,13 +645,13 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def input_parameters(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#input_parameters ConfigConfigRule#input_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#input_parameters ConfigConfigRule#input_parameters}.'''
         result = self._values.get("input_parameters")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def maximum_execution_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.'''
         result = self._values.get("maximum_execution_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -659,20 +659,20 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope(self) -> typing.Optional["ConfigConfigRuleScope"]:
         '''scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#scope ConfigConfigRule#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#scope ConfigConfigRule#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional["ConfigConfigRuleScope"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tags ConfigConfigRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tags ConfigConfigRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tags_all ConfigConfigRule#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tags_all ConfigConfigRule#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -696,7 +696,7 @@ class ConfigConfigRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ConfigConfigRuleEvaluationMode:
     def __init__(self, *, mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#mode ConfigConfigRule#mode}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#mode ConfigConfigRule#mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f16d4d3cad004a215823a5a228f795e418be5c7f8298e813a0d2699462990888)
@@ -707,7 +707,7 @@ class ConfigConfigRuleEvaluationMode:
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#mode ConfigConfigRule#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#mode ConfigConfigRule#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -901,10 +901,10 @@ class ConfigConfigRuleScope:
         tag_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compliance_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#compliance_resource_id ConfigConfigRule#compliance_resource_id}.
-        :param compliance_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#compliance_resource_types ConfigConfigRule#compliance_resource_types}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tag_key ConfigConfigRule#tag_key}.
-        :param tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tag_value ConfigConfigRule#tag_value}.
+        :param compliance_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#compliance_resource_id ConfigConfigRule#compliance_resource_id}.
+        :param compliance_resource_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#compliance_resource_types ConfigConfigRule#compliance_resource_types}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tag_key ConfigConfigRule#tag_key}.
+        :param tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tag_value ConfigConfigRule#tag_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf52a9c103509556a7d46767a24994cd0b402e76c14bec6d31c0d75be9932974)
@@ -924,25 +924,25 @@ class ConfigConfigRuleScope:
 
     @builtins.property
     def compliance_resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#compliance_resource_id ConfigConfigRule#compliance_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#compliance_resource_id ConfigConfigRule#compliance_resource_id}.'''
         result = self._values.get("compliance_resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def compliance_resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#compliance_resource_types ConfigConfigRule#compliance_resource_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#compliance_resource_types ConfigConfigRule#compliance_resource_types}.'''
         result = self._values.get("compliance_resource_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tag_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tag_key ConfigConfigRule#tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tag_key ConfigConfigRule#tag_key}.'''
         result = self._values.get("tag_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tag_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#tag_value ConfigConfigRule#tag_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#tag_value ConfigConfigRule#tag_value}.'''
         result = self._values.get("tag_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1097,10 +1097,10 @@ class ConfigConfigRuleSource:
         source_identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#owner ConfigConfigRule#owner}.
-        :param custom_policy_details: custom_policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#custom_policy_details ConfigConfigRule#custom_policy_details}
-        :param source_detail: source_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source_detail ConfigConfigRule#source_detail}
-        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source_identifier ConfigConfigRule#source_identifier}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#owner ConfigConfigRule#owner}.
+        :param custom_policy_details: custom_policy_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#custom_policy_details ConfigConfigRule#custom_policy_details}
+        :param source_detail: source_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source_detail ConfigConfigRule#source_detail}
+        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source_identifier ConfigConfigRule#source_identifier}.
         '''
         if isinstance(custom_policy_details, dict):
             custom_policy_details = ConfigConfigRuleSourceCustomPolicyDetails(**custom_policy_details)
@@ -1122,7 +1122,7 @@ class ConfigConfigRuleSource:
 
     @builtins.property
     def owner(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#owner ConfigConfigRule#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#owner ConfigConfigRule#owner}.'''
         result = self._values.get("owner")
         assert result is not None, "Required property 'owner' is missing"
         return typing.cast(builtins.str, result)
@@ -1133,7 +1133,7 @@ class ConfigConfigRuleSource:
     ) -> typing.Optional["ConfigConfigRuleSourceCustomPolicyDetails"]:
         '''custom_policy_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#custom_policy_details ConfigConfigRule#custom_policy_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#custom_policy_details ConfigConfigRule#custom_policy_details}
         '''
         result = self._values.get("custom_policy_details")
         return typing.cast(typing.Optional["ConfigConfigRuleSourceCustomPolicyDetails"], result)
@@ -1144,14 +1144,14 @@ class ConfigConfigRuleSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigRuleSourceSourceDetail"]]]:
         '''source_detail block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source_detail ConfigConfigRule#source_detail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source_detail ConfigConfigRule#source_detail}
         '''
         result = self._values.get("source_detail")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConfigConfigRuleSourceSourceDetail"]]], result)
 
     @builtins.property
     def source_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#source_identifier ConfigConfigRule#source_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#source_identifier ConfigConfigRule#source_identifier}.'''
         result = self._values.get("source_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1185,9 +1185,9 @@ class ConfigConfigRuleSourceCustomPolicyDetails:
         enable_debug_log_delivery: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param policy_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#policy_runtime ConfigConfigRule#policy_runtime}.
-        :param policy_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#policy_text ConfigConfigRule#policy_text}.
-        :param enable_debug_log_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#enable_debug_log_delivery ConfigConfigRule#enable_debug_log_delivery}.
+        :param policy_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#policy_runtime ConfigConfigRule#policy_runtime}.
+        :param policy_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#policy_text ConfigConfigRule#policy_text}.
+        :param enable_debug_log_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#enable_debug_log_delivery ConfigConfigRule#enable_debug_log_delivery}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b047a118239a92fd9767ea8716cd7b13376d0e85b441098ef6acaeccbde070f4)
@@ -1203,14 +1203,14 @@ class ConfigConfigRuleSourceCustomPolicyDetails:
 
     @builtins.property
     def policy_runtime(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#policy_runtime ConfigConfigRule#policy_runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#policy_runtime ConfigConfigRule#policy_runtime}.'''
         result = self._values.get("policy_runtime")
         assert result is not None, "Required property 'policy_runtime' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#policy_text ConfigConfigRule#policy_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#policy_text ConfigConfigRule#policy_text}.'''
         result = self._values.get("policy_text")
         assert result is not None, "Required property 'policy_text' is missing"
         return typing.cast(builtins.str, result)
@@ -1219,7 +1219,7 @@ class ConfigConfigRuleSourceCustomPolicyDetails:
     def enable_debug_log_delivery(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#enable_debug_log_delivery ConfigConfigRule#enable_debug_log_delivery}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#enable_debug_log_delivery ConfigConfigRule#enable_debug_log_delivery}.'''
         result = self._values.get("enable_debug_log_delivery")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1364,9 +1364,9 @@ class ConfigConfigRuleSourceOutputReference(
         enable_debug_log_delivery: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param policy_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#policy_runtime ConfigConfigRule#policy_runtime}.
-        :param policy_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#policy_text ConfigConfigRule#policy_text}.
-        :param enable_debug_log_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#enable_debug_log_delivery ConfigConfigRule#enable_debug_log_delivery}.
+        :param policy_runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#policy_runtime ConfigConfigRule#policy_runtime}.
+        :param policy_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#policy_text ConfigConfigRule#policy_text}.
+        :param enable_debug_log_delivery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#enable_debug_log_delivery ConfigConfigRule#enable_debug_log_delivery}.
         '''
         value = ConfigConfigRuleSourceCustomPolicyDetails(
             policy_runtime=policy_runtime,
@@ -1492,9 +1492,9 @@ class ConfigConfigRuleSourceSourceDetail:
         message_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#event_source ConfigConfigRule#event_source}.
-        :param maximum_execution_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.
-        :param message_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#message_type ConfigConfigRule#message_type}.
+        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#event_source ConfigConfigRule#event_source}.
+        :param maximum_execution_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.
+        :param message_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#message_type ConfigConfigRule#message_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22e74c0450d77fa89967cc00474140305fcea99ce880cd054905bb43c6181e44)
@@ -1511,19 +1511,19 @@ class ConfigConfigRuleSourceSourceDetail:
 
     @builtins.property
     def event_source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#event_source ConfigConfigRule#event_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#event_source ConfigConfigRule#event_source}.'''
         result = self._values.get("event_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def maximum_execution_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#maximum_execution_frequency ConfigConfigRule#maximum_execution_frequency}.'''
         result = self._values.get("maximum_execution_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def message_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/config_config_rule#message_type ConfigConfigRule#message_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/config_config_rule#message_type ConfigConfigRule#message_type}.'''
         result = self._values.get("message_type")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.integ-tests-alpha",
-    "version": "2.193.0.a0",
+    "version": "2.194.0.a0",
     "description": "CDK Integration Testing Constructs",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.integ_tests_alpha._jsii": [
-            "integ-tests-alpha@2.193.0-alpha.0.jsii.tgz"
+            "integ-tests-alpha@2.194.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.integ_tests_alpha": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.193.0, <3.0.0",
+        "aws-cdk-lib>=2.194.0, <3.0.0",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.110.0, <2.0.0",
         "publication>=0.0.3",

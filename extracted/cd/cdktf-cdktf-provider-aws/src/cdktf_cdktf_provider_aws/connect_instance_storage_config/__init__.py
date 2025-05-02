@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_instance_storage_config`
 
-Refer to the Terraform Registry for docs: [`aws_connect_instance_storage_config`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config).
+Refer to the Terraform Registry for docs: [`aws_connect_instance_storage_config`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectInstanceStorageConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectInstanceStorageConfig.ConnectInstanceStorageConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config aws_connect_instance_storage_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config aws_connect_instance_storage_config}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ConnectInstanceStorageConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config aws_connect_instance_storage_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config aws_connect_instance_storage_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#instance_id ConnectInstanceStorageConfig#instance_id}.
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#resource_type ConnectInstanceStorageConfig#resource_type}.
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#storage_config ConnectInstanceStorageConfig#storage_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#id ConnectInstanceStorageConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#instance_id ConnectInstanceStorageConfig#instance_id}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#resource_type ConnectInstanceStorageConfig#resource_type}.
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#storage_config ConnectInstanceStorageConfig#storage_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#id ConnectInstanceStorageConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ConnectInstanceStorageConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectInstanceStorageConfig to import.
-        :param import_from_id: The id of the existing ConnectInstanceStorageConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectInstanceStorageConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectInstanceStorageConfig to import is found.
         '''
         if __debug__:
@@ -134,11 +134,11 @@ class ConnectInstanceStorageConfig(
         s3_config: typing.Optional[typing.Union["ConnectInstanceStorageConfigStorageConfigS3Config", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#storage_type ConnectInstanceStorageConfig#storage_type}.
-        :param kinesis_firehose_config: kinesis_firehose_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_firehose_config ConnectInstanceStorageConfig#kinesis_firehose_config}
-        :param kinesis_stream_config: kinesis_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_stream_config ConnectInstanceStorageConfig#kinesis_stream_config}
-        :param kinesis_video_stream_config: kinesis_video_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_video_stream_config ConnectInstanceStorageConfig#kinesis_video_stream_config}
-        :param s3_config: s3_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#s3_config ConnectInstanceStorageConfig#s3_config}
+        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#storage_type ConnectInstanceStorageConfig#storage_type}.
+        :param kinesis_firehose_config: kinesis_firehose_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_firehose_config ConnectInstanceStorageConfig#kinesis_firehose_config}
+        :param kinesis_stream_config: kinesis_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_stream_config ConnectInstanceStorageConfig#kinesis_stream_config}
+        :param kinesis_video_stream_config: kinesis_video_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_video_stream_config ConnectInstanceStorageConfig#kinesis_video_stream_config}
+        :param s3_config: s3_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#s3_config ConnectInstanceStorageConfig#s3_config}
         '''
         value = ConnectInstanceStorageConfigStorageConfig(
             storage_type=storage_type,
@@ -279,10 +279,10 @@ class ConnectInstanceStorageConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#instance_id ConnectInstanceStorageConfig#instance_id}.
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#resource_type ConnectInstanceStorageConfig#resource_type}.
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#storage_config ConnectInstanceStorageConfig#storage_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#id ConnectInstanceStorageConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#instance_id ConnectInstanceStorageConfig#instance_id}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#resource_type ConnectInstanceStorageConfig#resource_type}.
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#storage_config ConnectInstanceStorageConfig#storage_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#id ConnectInstanceStorageConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -389,14 +389,14 @@ class ConnectInstanceStorageConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#instance_id ConnectInstanceStorageConfig#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#instance_id ConnectInstanceStorageConfig#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#resource_type ConnectInstanceStorageConfig#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#resource_type ConnectInstanceStorageConfig#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
@@ -405,7 +405,7 @@ class ConnectInstanceStorageConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def storage_config(self) -> "ConnectInstanceStorageConfigStorageConfig":
         '''storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#storage_config ConnectInstanceStorageConfig#storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#storage_config ConnectInstanceStorageConfig#storage_config}
         '''
         result = self._values.get("storage_config")
         assert result is not None, "Required property 'storage_config' is missing"
@@ -413,7 +413,7 @@ class ConnectInstanceStorageConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#id ConnectInstanceStorageConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#id ConnectInstanceStorageConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -455,11 +455,11 @@ class ConnectInstanceStorageConfigStorageConfig:
         s3_config: typing.Optional[typing.Union["ConnectInstanceStorageConfigStorageConfigS3Config", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#storage_type ConnectInstanceStorageConfig#storage_type}.
-        :param kinesis_firehose_config: kinesis_firehose_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_firehose_config ConnectInstanceStorageConfig#kinesis_firehose_config}
-        :param kinesis_stream_config: kinesis_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_stream_config ConnectInstanceStorageConfig#kinesis_stream_config}
-        :param kinesis_video_stream_config: kinesis_video_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_video_stream_config ConnectInstanceStorageConfig#kinesis_video_stream_config}
-        :param s3_config: s3_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#s3_config ConnectInstanceStorageConfig#s3_config}
+        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#storage_type ConnectInstanceStorageConfig#storage_type}.
+        :param kinesis_firehose_config: kinesis_firehose_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_firehose_config ConnectInstanceStorageConfig#kinesis_firehose_config}
+        :param kinesis_stream_config: kinesis_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_stream_config ConnectInstanceStorageConfig#kinesis_stream_config}
+        :param kinesis_video_stream_config: kinesis_video_stream_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_video_stream_config ConnectInstanceStorageConfig#kinesis_video_stream_config}
+        :param s3_config: s3_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#s3_config ConnectInstanceStorageConfig#s3_config}
         '''
         if isinstance(kinesis_firehose_config, dict):
             kinesis_firehose_config = ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfig(**kinesis_firehose_config)
@@ -490,7 +490,7 @@ class ConnectInstanceStorageConfigStorageConfig:
 
     @builtins.property
     def storage_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#storage_type ConnectInstanceStorageConfig#storage_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#storage_type ConnectInstanceStorageConfig#storage_type}.'''
         result = self._values.get("storage_type")
         assert result is not None, "Required property 'storage_type' is missing"
         return typing.cast(builtins.str, result)
@@ -501,7 +501,7 @@ class ConnectInstanceStorageConfigStorageConfig:
     ) -> typing.Optional["ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfig"]:
         '''kinesis_firehose_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_firehose_config ConnectInstanceStorageConfig#kinesis_firehose_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_firehose_config ConnectInstanceStorageConfig#kinesis_firehose_config}
         '''
         result = self._values.get("kinesis_firehose_config")
         return typing.cast(typing.Optional["ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfig"], result)
@@ -512,7 +512,7 @@ class ConnectInstanceStorageConfigStorageConfig:
     ) -> typing.Optional["ConnectInstanceStorageConfigStorageConfigKinesisStreamConfig"]:
         '''kinesis_stream_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_stream_config ConnectInstanceStorageConfig#kinesis_stream_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_stream_config ConnectInstanceStorageConfig#kinesis_stream_config}
         '''
         result = self._values.get("kinesis_stream_config")
         return typing.cast(typing.Optional["ConnectInstanceStorageConfigStorageConfigKinesisStreamConfig"], result)
@@ -523,7 +523,7 @@ class ConnectInstanceStorageConfigStorageConfig:
     ) -> typing.Optional["ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig"]:
         '''kinesis_video_stream_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#kinesis_video_stream_config ConnectInstanceStorageConfig#kinesis_video_stream_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#kinesis_video_stream_config ConnectInstanceStorageConfig#kinesis_video_stream_config}
         '''
         result = self._values.get("kinesis_video_stream_config")
         return typing.cast(typing.Optional["ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig"], result)
@@ -534,7 +534,7 @@ class ConnectInstanceStorageConfigStorageConfig:
     ) -> typing.Optional["ConnectInstanceStorageConfigStorageConfigS3Config"]:
         '''s3_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#s3_config ConnectInstanceStorageConfig#s3_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#s3_config ConnectInstanceStorageConfig#s3_config}
         '''
         result = self._values.get("s3_config")
         return typing.cast(typing.Optional["ConnectInstanceStorageConfigStorageConfigS3Config"], result)
@@ -559,7 +559,7 @@ class ConnectInstanceStorageConfigStorageConfig:
 class ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfig:
     def __init__(self, *, firehose_arn: builtins.str) -> None:
         '''
-        :param firehose_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#firehose_arn ConnectInstanceStorageConfig#firehose_arn}.
+        :param firehose_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#firehose_arn ConnectInstanceStorageConfig#firehose_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cac8db2f8590050bff278b86cdb386c0f21ab1c48b9233e9581e4024398b037c)
@@ -570,7 +570,7 @@ class ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfig:
 
     @builtins.property
     def firehose_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#firehose_arn ConnectInstanceStorageConfig#firehose_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#firehose_arn ConnectInstanceStorageConfig#firehose_arn}.'''
         result = self._values.get("firehose_arn")
         assert result is not None, "Required property 'firehose_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -650,7 +650,7 @@ class ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfigOutputRefere
 class ConnectInstanceStorageConfigStorageConfigKinesisStreamConfig:
     def __init__(self, *, stream_arn: builtins.str) -> None:
         '''
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#stream_arn ConnectInstanceStorageConfig#stream_arn}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#stream_arn ConnectInstanceStorageConfig#stream_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba119695c6bea0915195fe7e04a53b43da0eeedd4925f610856ddbac690f3756)
@@ -661,7 +661,7 @@ class ConnectInstanceStorageConfigStorageConfigKinesisStreamConfig:
 
     @builtins.property
     def stream_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#stream_arn ConnectInstanceStorageConfig#stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#stream_arn ConnectInstanceStorageConfig#stream_arn}.'''
         result = self._values.get("stream_arn")
         assert result is not None, "Required property 'stream_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -751,9 +751,9 @@ class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig:
         retention_period_hours: jsii.Number,
     ) -> None:
         '''
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#prefix ConnectInstanceStorageConfig#prefix}.
-        :param retention_period_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#retention_period_hours ConnectInstanceStorageConfig#retention_period_hours}.
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#prefix ConnectInstanceStorageConfig#prefix}.
+        :param retention_period_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#retention_period_hours ConnectInstanceStorageConfig#retention_period_hours}.
         '''
         if isinstance(encryption_config, dict):
             encryption_config = ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfigEncryptionConfig(**encryption_config)
@@ -774,7 +774,7 @@ class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig:
     ) -> "ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfigEncryptionConfig":
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
         '''
         result = self._values.get("encryption_config")
         assert result is not None, "Required property 'encryption_config' is missing"
@@ -782,14 +782,14 @@ class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig:
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#prefix ConnectInstanceStorageConfig#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#prefix ConnectInstanceStorageConfig#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def retention_period_hours(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#retention_period_hours ConnectInstanceStorageConfig#retention_period_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#retention_period_hours ConnectInstanceStorageConfig#retention_period_hours}.'''
         result = self._values.get("retention_period_hours")
         assert result is not None, "Required property 'retention_period_hours' is missing"
         return typing.cast(jsii.Number, result)
@@ -814,8 +814,8 @@ class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig:
 class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfigEncryptionConfig:
     def __init__(self, *, encryption_type: builtins.str, key_id: builtins.str) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38c977b86d247a9994ed9fe797e6d8a95599be98d44324889c9a18b9660b17c3)
@@ -828,14 +828,14 @@ class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfigEncryptio
 
     @builtins.property
     def encryption_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.'''
         result = self._values.get("encryption_type")
         assert result is not None, "Required property 'encryption_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.'''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
@@ -952,8 +952,8 @@ class ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfigOutputRef
         key_id: builtins.str,
     ) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
         '''
         value = ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfigEncryptionConfig(
             encryption_type=encryption_type, key_id=key_id
@@ -1050,7 +1050,7 @@ class ConnectInstanceStorageConfigStorageConfigOutputReference(
     @jsii.member(jsii_name="putKinesisFirehoseConfig")
     def put_kinesis_firehose_config(self, *, firehose_arn: builtins.str) -> None:
         '''
-        :param firehose_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#firehose_arn ConnectInstanceStorageConfig#firehose_arn}.
+        :param firehose_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#firehose_arn ConnectInstanceStorageConfig#firehose_arn}.
         '''
         value = ConnectInstanceStorageConfigStorageConfigKinesisFirehoseConfig(
             firehose_arn=firehose_arn
@@ -1061,7 +1061,7 @@ class ConnectInstanceStorageConfigStorageConfigOutputReference(
     @jsii.member(jsii_name="putKinesisStreamConfig")
     def put_kinesis_stream_config(self, *, stream_arn: builtins.str) -> None:
         '''
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#stream_arn ConnectInstanceStorageConfig#stream_arn}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#stream_arn ConnectInstanceStorageConfig#stream_arn}.
         '''
         value = ConnectInstanceStorageConfigStorageConfigKinesisStreamConfig(
             stream_arn=stream_arn
@@ -1078,9 +1078,9 @@ class ConnectInstanceStorageConfigStorageConfigOutputReference(
         retention_period_hours: jsii.Number,
     ) -> None:
         '''
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#prefix ConnectInstanceStorageConfig#prefix}.
-        :param retention_period_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#retention_period_hours ConnectInstanceStorageConfig#retention_period_hours}.
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#prefix ConnectInstanceStorageConfig#prefix}.
+        :param retention_period_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#retention_period_hours ConnectInstanceStorageConfig#retention_period_hours}.
         '''
         value = ConnectInstanceStorageConfigStorageConfigKinesisVideoStreamConfig(
             encryption_config=encryption_config,
@@ -1099,9 +1099,9 @@ class ConnectInstanceStorageConfigStorageConfigOutputReference(
         encryption_config: typing.Optional[typing.Union["ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#bucket_name ConnectInstanceStorageConfig#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#bucket_prefix ConnectInstanceStorageConfig#bucket_prefix}.
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#bucket_name ConnectInstanceStorageConfig#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#bucket_prefix ConnectInstanceStorageConfig#bucket_prefix}.
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
         '''
         value = ConnectInstanceStorageConfigStorageConfigS3Config(
             bucket_name=bucket_name,
@@ -1236,9 +1236,9 @@ class ConnectInstanceStorageConfigStorageConfigS3Config:
         encryption_config: typing.Optional[typing.Union["ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#bucket_name ConnectInstanceStorageConfig#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#bucket_prefix ConnectInstanceStorageConfig#bucket_prefix}.
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#bucket_name ConnectInstanceStorageConfig#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#bucket_prefix ConnectInstanceStorageConfig#bucket_prefix}.
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
         '''
         if isinstance(encryption_config, dict):
             encryption_config = ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig(**encryption_config)
@@ -1256,14 +1256,14 @@ class ConnectInstanceStorageConfigStorageConfigS3Config:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#bucket_name ConnectInstanceStorageConfig#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#bucket_name ConnectInstanceStorageConfig#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#bucket_prefix ConnectInstanceStorageConfig#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#bucket_prefix ConnectInstanceStorageConfig#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         assert result is not None, "Required property 'bucket_prefix' is missing"
         return typing.cast(builtins.str, result)
@@ -1274,7 +1274,7 @@ class ConnectInstanceStorageConfigStorageConfigS3Config:
     ) -> typing.Optional["ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_config ConnectInstanceStorageConfig#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig"], result)
@@ -1299,8 +1299,8 @@ class ConnectInstanceStorageConfigStorageConfigS3Config:
 class ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig:
     def __init__(self, *, encryption_type: builtins.str, key_id: builtins.str) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f8e65ff299406fee3120486c5c49921976884f3230c5d15c4b2593faf7300fc)
@@ -1313,14 +1313,14 @@ class ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig:
 
     @builtins.property
     def encryption_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.'''
         result = self._values.get("encryption_type")
         assert result is not None, "Required property 'encryption_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.'''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1437,8 +1437,8 @@ class ConnectInstanceStorageConfigStorageConfigS3ConfigOutputReference(
         key_id: builtins.str,
     ) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#encryption_type ConnectInstanceStorageConfig#encryption_type}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_instance_storage_config#key_id ConnectInstanceStorageConfig#key_id}.
         '''
         value = ConnectInstanceStorageConfigStorageConfigS3ConfigEncryptionConfig(
             encryption_type=encryption_type, key_id=key_id

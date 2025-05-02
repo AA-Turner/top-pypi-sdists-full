@@ -62,7 +62,7 @@ impl<'db> ClassBase<'db> {
     pub(super) fn object(db: &'db dyn Db) -> Self {
         KnownClass::Object
             .to_class_literal(db)
-            .into_class_type()
+            .to_class_type(db)
             .map_or(Self::unknown(), Self::Class)
     }
 
@@ -72,18 +72,24 @@ impl<'db> ClassBase<'db> {
     pub(super) fn try_from_type(db: &'db dyn Db, ty: Type<'db>) -> Option<Self> {
         match ty {
             Type::Dynamic(dynamic) => Some(Self::Dynamic(dynamic)),
-            Type::ClassLiteral(literal) => Some(if literal.is_known(db, KnownClass::Any) {
-                Self::Dynamic(DynamicType::Any)
-            } else {
-                Self::Class(literal.default_specialization(db))
-            }),
+            Type::ClassLiteral(literal) => {
+                if literal.is_known(db, KnownClass::Any) {
+                    Some(Self::Dynamic(DynamicType::Any))
+                } else if literal.is_known(db, KnownClass::NamedTuple) {
+                    Self::try_from_type(db, KnownClass::Tuple.to_class_literal(db))
+                } else {
+                    Some(Self::Class(literal.default_specialization(db)))
+                }
+            }
             Type::GenericAlias(generic) => Some(Self::Class(ClassType::Generic(generic))),
-            Type::Instance(instance) if instance.class().is_known(db, KnownClass::GenericAlias) => {
+            Type::NominalInstance(instance)
+                if instance.class().is_known(db, KnownClass::GenericAlias) =>
+            {
                 Self::try_from_type(db, todo_type!("GenericAlias instance"))
             }
             Type::Union(_) => None, // TODO -- forces consideration of multiple possible MROs?
             Type::Intersection(_) => None, // TODO -- probably incorrect?
-            Type::Instance(_) => None, // TODO -- handle `__mro_entries__`?
+            Type::NominalInstance(_) => None, // TODO -- handle `__mro_entries__`?
             Type::PropertyInstance(_) => None,
             Type::Never
             | Type::BooleanLiteral(_)
@@ -104,6 +110,7 @@ impl<'db> ClassBase<'db> {
             | Type::SubclassOf(_)
             | Type::TypeVar(_)
             | Type::BoundSuper(_)
+            | Type::ProtocolInstance(_)
             | Type::AlwaysFalsy
             | Type::AlwaysTruthy => None,
             Type::KnownInstance(known_instance) => match known_instance {
@@ -169,6 +176,7 @@ impl<'db> ClassBase<'db> {
                 KnownInstanceType::OrderedDict => {
                     Self::try_from_type(db, KnownClass::OrderedDict.to_class_literal(db))
                 }
+                KnownInstanceType::TypedDict => Self::try_from_type(db, todo_type!("TypedDict")),
                 KnownInstanceType::Callable => {
                     Self::try_from_type(db, todo_type!("Support for Callable as a base class"))
                 }

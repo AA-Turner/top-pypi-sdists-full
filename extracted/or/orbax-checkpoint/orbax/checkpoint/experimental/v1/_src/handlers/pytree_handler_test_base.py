@@ -16,6 +16,8 @@
 
 # pylint: disable=protected-access, missing-function-docstring
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import copy
@@ -46,7 +48,6 @@ from orbax.checkpoint._src.metadata import empty_values
 from orbax.checkpoint._src.metadata import sharding as sharding_metadata
 from orbax.checkpoint._src.metadata import tree as tree_metadata
 from orbax.checkpoint._src.metadata import value as value_metadata
-from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.serialization import replica_slices
 from orbax.checkpoint._src.serialization import serialization
 from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
@@ -55,8 +56,13 @@ from orbax.checkpoint._src.tree import utils as tree_utils
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.context import options as options_lib
 from orbax.checkpoint.experimental.v1._src.handlers import pytree_handler
+from orbax.checkpoint.experimental.v1._src.path import types as path_types
+from orbax.checkpoint.experimental.v1._src.serialization import registration as serialization_registration
+from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 from orbax.checkpoint.experimental.v1._src.testing import array_utils as array_test_utils
+from orbax.checkpoint.experimental.v1._src.testing import path_utils as path_test_utils
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
+
 
 PyTree = tree_types.PyTree
 ParamInfo = pytree_checkpoint_handler.ParamInfo
@@ -72,6 +78,11 @@ create_sharded_pytree = array_test_utils.create_sharded_pytree
 as_abstract_type = array_test_utils.as_abstract_type
 
 
+PathAwaitingCreation = path_types.PathAwaitingCreation
+PathLike = path_types.PathLike
+Path = path_types.Path
+
+
 async def _run_awaitable(awaitable: Awaitable[Any]) -> Any:
   return await awaitable
 
@@ -82,22 +93,25 @@ class PyTreeHandler:
   def __init__(self, **kwargs):
     self._handler = pytree_handler.PyTreeHandler(**kwargs)
 
-  def save(self, *args, **kwargs):
-    awaitable = asyncio.run(self._handler.save(*args, **kwargs))
+  def save(self, path: Path, checkpointable: PyTree):
+    awaitable = self.save_async(path, checkpointable)
     return asyncio.run(_run_awaitable(awaitable))
 
-  def save_async(self, *args, **kwargs):
-    return asyncio.run(self._handler.save(*args, **kwargs))
+  def save_async(self, path: Path, checkpointable: PyTree):
+    path = path_test_utils.PathAwaitingCreationWrapper(path)
+    return asyncio.run(self._handler.save(path, checkpointable))
 
-  def load(self, *args, **kwargs):
-    awaitable = asyncio.run(self._handler.load(*args, **kwargs))
+  def load(self, path: Path, abstract_checkpointable: PyTree | None = None):
+    awaitable = self.load_async(path, abstract_checkpointable)
     return asyncio.run(_run_awaitable(awaitable))
 
-  def load_async(self, *args, **kwargs):
-    return asyncio.run(self._handler.load(*args, **kwargs))
+  def load_async(
+      self, path: Path, abstract_checkpointable: PyTree | None = None
+  ):
+    return asyncio.run(self._handler.load(path, abstract_checkpointable))
 
-  def metadata(self, *args, **kwargs):
-    return asyncio.run(self._handler.metadata(*args, **kwargs))
+  def metadata(self, path: Path):
+    return asyncio.run(self._handler.metadata(path))
 
 
 def create_mixed_format_pytree(
@@ -159,6 +173,16 @@ def init_flax_model(model):
       apply_fn=model.apply, params=params, tx=tx
   )
   return jax.tree.map(np.asarray, state)
+
+
+def get_d_files(path: Path) -> list[Path]:
+  files = []
+  for idx in range(multihost.process_count()):
+    d_path = path / f'ocdbt.process_{idx}' / 'd'
+    if not d_path.exists():
+      continue
+    files.extend(list(d_path.iterdir()))
+  return files
 
 
 @contextlib.contextmanager
@@ -732,31 +756,59 @@ class PyTreeHandlerTestBase:
         )
 
     def test_save_async(self):
-      save_done = threading.Event()
-      original_finalize = pytree_handler.PyTreeHandler._finalize
+      # The pytree must be larger so that saving doesn't complete too quickly.
+      mesh = jax.sharding.Mesh(jax.devices(), 'x')
+      np.random.seed(42)
+      pytree = {
+          'a': array_test_utils.create_sharded_array(
+              np.arange(2**20),
+              sharding=jax.sharding.NamedSharding(
+                  mesh, jax.sharding.PartitionSpec('x')
+              ),
+          ),
+          'b': array_test_utils.create_sharded_array(
+              np.random.uniform(size=2**15),
+              sharding=jax.sharding.NamedSharding(
+                  mesh, jax.sharding.PartitionSpec(None)
+              ),
+          ),
+      }
+      abstract_pytree = jax.tree.map(array_test_utils.as_abstract_type, pytree)
 
-      def mock_finalize(*args, **kwargs):
-        save_done.wait()  # Wait for explicit signal before proceeding.
-        return original_finalize(*args, **kwargs)
+      start_serialize = threading.Event()
+      original_serialize = serialization.async_serialize_from_host
+
+      def mock_serialize(*args, **kwargs):
+        start_serialize.wait()  # Wait for explicit signal before proceeding.
+        return original_serialize(*args, **kwargs)
 
       def is_save_complete(directory):
         return (directory / 'manifest.ocdbt').exists()
 
-      with mock.patch.object(
-          pytree_handler.PyTreeHandler,
-          '_finalize',
-          new=mock_finalize,
-      ), handler_with_options() as checkpoint_handler:
-        awaitable = checkpoint_handler.save_async(self.directory, self.pytree)
+      # Serialization to disk does not start until receiving an explicit signal.
+      self.enter_context(
+          mock.patch.object(
+              serialization, 'async_serialize_from_host', new=mock_serialize
+          )
+      )
+
+      with handler_with_options() as checkpoint_handler:
+        awaitable = checkpoint_handler.save_async(self.directory, pytree)
+        initial_d_files = get_d_files(self.directory)
         self.assertFalse(is_save_complete(self.directory))
-        save_done.set()
+        start_serialize.set()
+
         asyncio.run(_run_awaitable(awaitable))
+        final_d_files = get_d_files(self.directory)
+        self.assertNotEmpty(final_d_files)
+        self.assertNotEqual(len(initial_d_files), len(final_d_files))
         self.assertTrue(is_save_complete(self.directory))
+
         restored = checkpoint_handler.load(
             self.directory,
-            self.abstract_pytree,
+            abstract_pytree,
         )
-        test_utils.assert_tree_equal(self, self.pytree, restored)
+        test_utils.assert_tree_equal(self, pytree, restored)
 
     def test_load_async(self):
       with handler_with_options() as checkpoint_handler:

@@ -1,7 +1,7 @@
 r'''
 # `data_aws_chatbot_slack_workspace`
 
-Refer to the Terraform Registry for docs: [`data_aws_chatbot_slack_workspace`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace).
+Refer to the Terraform Registry for docs: [`data_aws_chatbot_slack_workspace`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsChatbotSlackWorkspace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsChatbotSlackWorkspace.DataAwsChatbotSlackWorkspace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace aws_chatbot_slack_workspace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace aws_chatbot_slack_workspace}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsChatbotSlackWorkspace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace aws_chatbot_slack_workspace} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace aws_chatbot_slack_workspace} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param slack_team_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace#slack_team_name DataAwsChatbotSlackWorkspace#slack_team_name}.
+        :param slack_team_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace#slack_team_name DataAwsChatbotSlackWorkspace#slack_team_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsChatbotSlackWorkspace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsChatbotSlackWorkspace to import.
-        :param import_from_id: The id of the existing DataAwsChatbotSlackWorkspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsChatbotSlackWorkspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsChatbotSlackWorkspace to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class DataAwsChatbotSlackWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param slack_team_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace#slack_team_name DataAwsChatbotSlackWorkspace#slack_team_name}.
+        :param slack_team_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace#slack_team_name DataAwsChatbotSlackWorkspace#slack_team_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -283,7 +283,7 @@ class DataAwsChatbotSlackWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def slack_team_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/chatbot_slack_workspace#slack_team_name DataAwsChatbotSlackWorkspace#slack_team_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/chatbot_slack_workspace#slack_team_name DataAwsChatbotSlackWorkspace#slack_team_name}.'''
         result = self._values.get("slack_team_name")
         assert result is not None, "Required property 'slack_team_name' is missing"
         return typing.cast(builtins.str, result)

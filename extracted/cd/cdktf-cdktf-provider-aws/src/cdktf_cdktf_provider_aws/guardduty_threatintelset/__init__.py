@@ -1,7 +1,7 @@
 r'''
 # `aws_guardduty_threatintelset`
 
-Refer to the Terraform Registry for docs: [`aws_guardduty_threatintelset`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset).
+Refer to the Terraform Registry for docs: [`aws_guardduty_threatintelset`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GuarddutyThreatintelset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.guarddutyThreatintelset.GuarddutyThreatintelset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset aws_guardduty_threatintelset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset aws_guardduty_threatintelset}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GuarddutyThreatintelset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset aws_guardduty_threatintelset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset aws_guardduty_threatintelset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param activate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#activate GuarddutyThreatintelset#activate}.
-        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#detector_id GuarddutyThreatintelset#detector_id}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#format GuarddutyThreatintelset#format}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#location GuarddutyThreatintelset#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#name GuarddutyThreatintelset#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#id GuarddutyThreatintelset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#tags GuarddutyThreatintelset#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#tags_all GuarddutyThreatintelset#tags_all}.
+        :param activate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#activate GuarddutyThreatintelset#activate}.
+        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#detector_id GuarddutyThreatintelset#detector_id}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#format GuarddutyThreatintelset#format}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#location GuarddutyThreatintelset#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#name GuarddutyThreatintelset#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#id GuarddutyThreatintelset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#tags GuarddutyThreatintelset#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#tags_all GuarddutyThreatintelset#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GuarddutyThreatintelset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GuarddutyThreatintelset to import.
-        :param import_from_id: The id of the existing GuarddutyThreatintelset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GuarddutyThreatintelset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GuarddutyThreatintelset to import is found.
         '''
         if __debug__:
@@ -358,14 +358,14 @@ class GuarddutyThreatintelsetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param activate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#activate GuarddutyThreatintelset#activate}.
-        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#detector_id GuarddutyThreatintelset#detector_id}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#format GuarddutyThreatintelset#format}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#location GuarddutyThreatintelset#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#name GuarddutyThreatintelset#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#id GuarddutyThreatintelset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#tags GuarddutyThreatintelset#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#tags_all GuarddutyThreatintelset#tags_all}.
+        :param activate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#activate GuarddutyThreatintelset#activate}.
+        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#detector_id GuarddutyThreatintelset#detector_id}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#format GuarddutyThreatintelset#format}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#location GuarddutyThreatintelset#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#name GuarddutyThreatintelset#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#id GuarddutyThreatintelset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#tags GuarddutyThreatintelset#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#tags_all GuarddutyThreatintelset#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -480,42 +480,42 @@ class GuarddutyThreatintelsetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def activate(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#activate GuarddutyThreatintelset#activate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#activate GuarddutyThreatintelset#activate}.'''
         result = self._values.get("activate")
         assert result is not None, "Required property 'activate' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def detector_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#detector_id GuarddutyThreatintelset#detector_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#detector_id GuarddutyThreatintelset#detector_id}.'''
         result = self._values.get("detector_id")
         assert result is not None, "Required property 'detector_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#format GuarddutyThreatintelset#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#format GuarddutyThreatintelset#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#location GuarddutyThreatintelset#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#location GuarddutyThreatintelset#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#name GuarddutyThreatintelset#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#name GuarddutyThreatintelset#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#id GuarddutyThreatintelset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#id GuarddutyThreatintelset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -525,13 +525,13 @@ class GuarddutyThreatintelsetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#tags GuarddutyThreatintelset#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#tags GuarddutyThreatintelset#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_threatintelset#tags_all GuarddutyThreatintelset#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_threatintelset#tags_all GuarddutyThreatintelset#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

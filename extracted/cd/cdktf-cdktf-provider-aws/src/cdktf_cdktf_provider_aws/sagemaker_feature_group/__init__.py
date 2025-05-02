@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_feature_group`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_feature_group`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_feature_group`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerFeatureGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerFeatureGroup.SagemakerFeatureGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group aws_sagemaker_feature_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group aws_sagemaker_feature_group}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class SagemakerFeatureGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group aws_sagemaker_feature_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group aws_sagemaker_feature_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event_time_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#event_time_feature_name SagemakerFeatureGroup#event_time_feature_name}.
-        :param feature_definition: feature_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_definition SagemakerFeatureGroup#feature_definition}
-        :param feature_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_group_name SagemakerFeatureGroup#feature_group_name}.
-        :param record_identifier_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#record_identifier_feature_name SagemakerFeatureGroup#record_identifier_feature_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#role_arn SagemakerFeatureGroup#role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#description SagemakerFeatureGroup#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#id SagemakerFeatureGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param offline_store_config: offline_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#offline_store_config SagemakerFeatureGroup#offline_store_config}
-        :param online_store_config: online_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#online_store_config SagemakerFeatureGroup#online_store_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#tags SagemakerFeatureGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#tags_all SagemakerFeatureGroup#tags_all}.
-        :param throughput_config: throughput_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#throughput_config SagemakerFeatureGroup#throughput_config}
+        :param event_time_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#event_time_feature_name SagemakerFeatureGroup#event_time_feature_name}.
+        :param feature_definition: feature_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_definition SagemakerFeatureGroup#feature_definition}
+        :param feature_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_group_name SagemakerFeatureGroup#feature_group_name}.
+        :param record_identifier_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#record_identifier_feature_name SagemakerFeatureGroup#record_identifier_feature_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#role_arn SagemakerFeatureGroup#role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#description SagemakerFeatureGroup#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#id SagemakerFeatureGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param offline_store_config: offline_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#offline_store_config SagemakerFeatureGroup#offline_store_config}
+        :param online_store_config: online_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#online_store_config SagemakerFeatureGroup#online_store_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#tags SagemakerFeatureGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#tags_all SagemakerFeatureGroup#tags_all}.
+        :param throughput_config: throughput_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#throughput_config SagemakerFeatureGroup#throughput_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class SagemakerFeatureGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerFeatureGroup to import.
-        :param import_from_id: The id of the existing SagemakerFeatureGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerFeatureGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerFeatureGroup to import is found.
         '''
         if __debug__:
@@ -170,10 +170,10 @@ class SagemakerFeatureGroup(
         table_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_storage_config: s3_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#s3_storage_config SagemakerFeatureGroup#s3_storage_config}
-        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#data_catalog_config SagemakerFeatureGroup#data_catalog_config}
-        :param disable_glue_table_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#disable_glue_table_creation SagemakerFeatureGroup#disable_glue_table_creation}.
-        :param table_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#table_format SagemakerFeatureGroup#table_format}.
+        :param s3_storage_config: s3_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#s3_storage_config SagemakerFeatureGroup#s3_storage_config}
+        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#data_catalog_config SagemakerFeatureGroup#data_catalog_config}
+        :param disable_glue_table_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#disable_glue_table_creation SagemakerFeatureGroup#disable_glue_table_creation}.
+        :param table_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#table_format SagemakerFeatureGroup#table_format}.
         '''
         value = SagemakerFeatureGroupOfflineStoreConfig(
             s3_storage_config=s3_storage_config,
@@ -194,10 +194,10 @@ class SagemakerFeatureGroup(
         ttl_duration: typing.Optional[typing.Union["SagemakerFeatureGroupOnlineStoreConfigTtlDuration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enable_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#enable_online_store SagemakerFeatureGroup#enable_online_store}.
-        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#security_config SagemakerFeatureGroup#security_config}
-        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#storage_type SagemakerFeatureGroup#storage_type}.
-        :param ttl_duration: ttl_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#ttl_duration SagemakerFeatureGroup#ttl_duration}
+        :param enable_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#enable_online_store SagemakerFeatureGroup#enable_online_store}.
+        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#security_config SagemakerFeatureGroup#security_config}
+        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#storage_type SagemakerFeatureGroup#storage_type}.
+        :param ttl_duration: ttl_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#ttl_duration SagemakerFeatureGroup#ttl_duration}
         '''
         value = SagemakerFeatureGroupOnlineStoreConfig(
             enable_online_store=enable_online_store,
@@ -217,9 +217,9 @@ class SagemakerFeatureGroup(
         throughput_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param provisioned_read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#provisioned_read_capacity_units SagemakerFeatureGroup#provisioned_read_capacity_units}.
-        :param provisioned_write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#provisioned_write_capacity_units SagemakerFeatureGroup#provisioned_write_capacity_units}.
-        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#throughput_mode SagemakerFeatureGroup#throughput_mode}.
+        :param provisioned_read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#provisioned_read_capacity_units SagemakerFeatureGroup#provisioned_read_capacity_units}.
+        :param provisioned_write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#provisioned_write_capacity_units SagemakerFeatureGroup#provisioned_write_capacity_units}.
+        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#throughput_mode SagemakerFeatureGroup#throughput_mode}.
         '''
         value = SagemakerFeatureGroupThroughputConfig(
             provisioned_read_capacity_units=provisioned_read_capacity_units,
@@ -525,18 +525,18 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event_time_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#event_time_feature_name SagemakerFeatureGroup#event_time_feature_name}.
-        :param feature_definition: feature_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_definition SagemakerFeatureGroup#feature_definition}
-        :param feature_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_group_name SagemakerFeatureGroup#feature_group_name}.
-        :param record_identifier_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#record_identifier_feature_name SagemakerFeatureGroup#record_identifier_feature_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#role_arn SagemakerFeatureGroup#role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#description SagemakerFeatureGroup#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#id SagemakerFeatureGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param offline_store_config: offline_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#offline_store_config SagemakerFeatureGroup#offline_store_config}
-        :param online_store_config: online_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#online_store_config SagemakerFeatureGroup#online_store_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#tags SagemakerFeatureGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#tags_all SagemakerFeatureGroup#tags_all}.
-        :param throughput_config: throughput_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#throughput_config SagemakerFeatureGroup#throughput_config}
+        :param event_time_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#event_time_feature_name SagemakerFeatureGroup#event_time_feature_name}.
+        :param feature_definition: feature_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_definition SagemakerFeatureGroup#feature_definition}
+        :param feature_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_group_name SagemakerFeatureGroup#feature_group_name}.
+        :param record_identifier_feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#record_identifier_feature_name SagemakerFeatureGroup#record_identifier_feature_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#role_arn SagemakerFeatureGroup#role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#description SagemakerFeatureGroup#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#id SagemakerFeatureGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param offline_store_config: offline_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#offline_store_config SagemakerFeatureGroup#offline_store_config}
+        :param online_store_config: online_store_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#online_store_config SagemakerFeatureGroup#online_store_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#tags SagemakerFeatureGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#tags_all SagemakerFeatureGroup#tags_all}.
+        :param throughput_config: throughput_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#throughput_config SagemakerFeatureGroup#throughput_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -669,7 +669,7 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def event_time_feature_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#event_time_feature_name SagemakerFeatureGroup#event_time_feature_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#event_time_feature_name SagemakerFeatureGroup#event_time_feature_name}.'''
         result = self._values.get("event_time_feature_name")
         assert result is not None, "Required property 'event_time_feature_name' is missing"
         return typing.cast(builtins.str, result)
@@ -680,7 +680,7 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerFeatureGroupFeatureDefinition"]]:
         '''feature_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_definition SagemakerFeatureGroup#feature_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_definition SagemakerFeatureGroup#feature_definition}
         '''
         result = self._values.get("feature_definition")
         assert result is not None, "Required property 'feature_definition' is missing"
@@ -688,34 +688,34 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def feature_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_group_name SagemakerFeatureGroup#feature_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_group_name SagemakerFeatureGroup#feature_group_name}.'''
         result = self._values.get("feature_group_name")
         assert result is not None, "Required property 'feature_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def record_identifier_feature_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#record_identifier_feature_name SagemakerFeatureGroup#record_identifier_feature_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#record_identifier_feature_name SagemakerFeatureGroup#record_identifier_feature_name}.'''
         result = self._values.get("record_identifier_feature_name")
         assert result is not None, "Required property 'record_identifier_feature_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#role_arn SagemakerFeatureGroup#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#role_arn SagemakerFeatureGroup#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#description SagemakerFeatureGroup#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#description SagemakerFeatureGroup#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#id SagemakerFeatureGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#id SagemakerFeatureGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -729,7 +729,7 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerFeatureGroupOfflineStoreConfig"]:
         '''offline_store_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#offline_store_config SagemakerFeatureGroup#offline_store_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#offline_store_config SagemakerFeatureGroup#offline_store_config}
         '''
         result = self._values.get("offline_store_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupOfflineStoreConfig"], result)
@@ -740,20 +740,20 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerFeatureGroupOnlineStoreConfig"]:
         '''online_store_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#online_store_config SagemakerFeatureGroup#online_store_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#online_store_config SagemakerFeatureGroup#online_store_config}
         '''
         result = self._values.get("online_store_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupOnlineStoreConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#tags SagemakerFeatureGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#tags SagemakerFeatureGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#tags_all SagemakerFeatureGroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#tags_all SagemakerFeatureGroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -763,7 +763,7 @@ class SagemakerFeatureGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerFeatureGroupThroughputConfig"]:
         '''throughput_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#throughput_config SagemakerFeatureGroup#throughput_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#throughput_config SagemakerFeatureGroup#throughput_config}
         '''
         result = self._values.get("throughput_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupThroughputConfig"], result)
@@ -800,10 +800,10 @@ class SagemakerFeatureGroupFeatureDefinition:
         feature_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param collection_config: collection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#collection_config SagemakerFeatureGroup#collection_config}
-        :param collection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#collection_type SagemakerFeatureGroup#collection_type}.
-        :param feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_name SagemakerFeatureGroup#feature_name}.
-        :param feature_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_type SagemakerFeatureGroup#feature_type}.
+        :param collection_config: collection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#collection_config SagemakerFeatureGroup#collection_config}
+        :param collection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#collection_type SagemakerFeatureGroup#collection_type}.
+        :param feature_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_name SagemakerFeatureGroup#feature_name}.
+        :param feature_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_type SagemakerFeatureGroup#feature_type}.
         '''
         if isinstance(collection_config, dict):
             collection_config = SagemakerFeatureGroupFeatureDefinitionCollectionConfig(**collection_config)
@@ -829,26 +829,26 @@ class SagemakerFeatureGroupFeatureDefinition:
     ) -> typing.Optional["SagemakerFeatureGroupFeatureDefinitionCollectionConfig"]:
         '''collection_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#collection_config SagemakerFeatureGroup#collection_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#collection_config SagemakerFeatureGroup#collection_config}
         '''
         result = self._values.get("collection_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupFeatureDefinitionCollectionConfig"], result)
 
     @builtins.property
     def collection_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#collection_type SagemakerFeatureGroup#collection_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#collection_type SagemakerFeatureGroup#collection_type}.'''
         result = self._values.get("collection_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def feature_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_name SagemakerFeatureGroup#feature_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_name SagemakerFeatureGroup#feature_name}.'''
         result = self._values.get("feature_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def feature_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#feature_type SagemakerFeatureGroup#feature_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#feature_type SagemakerFeatureGroup#feature_type}.'''
         result = self._values.get("feature_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -876,7 +876,7 @@ class SagemakerFeatureGroupFeatureDefinitionCollectionConfig:
         vector_config: typing.Optional[typing.Union["SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param vector_config: vector_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#vector_config SagemakerFeatureGroup#vector_config}
+        :param vector_config: vector_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#vector_config SagemakerFeatureGroup#vector_config}
         '''
         if isinstance(vector_config, dict):
             vector_config = SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig(**vector_config)
@@ -893,7 +893,7 @@ class SagemakerFeatureGroupFeatureDefinitionCollectionConfig:
     ) -> typing.Optional["SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig"]:
         '''vector_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#vector_config SagemakerFeatureGroup#vector_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#vector_config SagemakerFeatureGroup#vector_config}
         '''
         result = self._values.get("vector_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig"], result)
@@ -937,7 +937,7 @@ class SagemakerFeatureGroupFeatureDefinitionCollectionConfigOutputReference(
         dimension: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#dimension SagemakerFeatureGroup#dimension}.
+        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#dimension SagemakerFeatureGroup#dimension}.
         '''
         value = SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig(
             dimension=dimension
@@ -989,7 +989,7 @@ class SagemakerFeatureGroupFeatureDefinitionCollectionConfigOutputReference(
 class SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig:
     def __init__(self, *, dimension: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#dimension SagemakerFeatureGroup#dimension}.
+        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#dimension SagemakerFeatureGroup#dimension}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0be7d3c94928aa7abbc728434a76c819c9cd06fb460e8e325923772ed72b1acd)
@@ -1000,7 +1000,7 @@ class SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig:
 
     @builtins.property
     def dimension(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#dimension SagemakerFeatureGroup#dimension}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#dimension SagemakerFeatureGroup#dimension}.'''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1201,7 +1201,7 @@ class SagemakerFeatureGroupFeatureDefinitionOutputReference(
         vector_config: typing.Optional[typing.Union[SagemakerFeatureGroupFeatureDefinitionCollectionConfigVectorConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param vector_config: vector_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#vector_config SagemakerFeatureGroup#vector_config}
+        :param vector_config: vector_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#vector_config SagemakerFeatureGroup#vector_config}
         '''
         value = SagemakerFeatureGroupFeatureDefinitionCollectionConfig(
             vector_config=vector_config
@@ -1328,10 +1328,10 @@ class SagemakerFeatureGroupOfflineStoreConfig:
         table_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_storage_config: s3_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#s3_storage_config SagemakerFeatureGroup#s3_storage_config}
-        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#data_catalog_config SagemakerFeatureGroup#data_catalog_config}
-        :param disable_glue_table_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#disable_glue_table_creation SagemakerFeatureGroup#disable_glue_table_creation}.
-        :param table_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#table_format SagemakerFeatureGroup#table_format}.
+        :param s3_storage_config: s3_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#s3_storage_config SagemakerFeatureGroup#s3_storage_config}
+        :param data_catalog_config: data_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#data_catalog_config SagemakerFeatureGroup#data_catalog_config}
+        :param disable_glue_table_creation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#disable_glue_table_creation SagemakerFeatureGroup#disable_glue_table_creation}.
+        :param table_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#table_format SagemakerFeatureGroup#table_format}.
         '''
         if isinstance(s3_storage_config, dict):
             s3_storage_config = SagemakerFeatureGroupOfflineStoreConfigS3StorageConfig(**s3_storage_config)
@@ -1359,7 +1359,7 @@ class SagemakerFeatureGroupOfflineStoreConfig:
     ) -> "SagemakerFeatureGroupOfflineStoreConfigS3StorageConfig":
         '''s3_storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#s3_storage_config SagemakerFeatureGroup#s3_storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#s3_storage_config SagemakerFeatureGroup#s3_storage_config}
         '''
         result = self._values.get("s3_storage_config")
         assert result is not None, "Required property 's3_storage_config' is missing"
@@ -1371,7 +1371,7 @@ class SagemakerFeatureGroupOfflineStoreConfig:
     ) -> typing.Optional["SagemakerFeatureGroupOfflineStoreConfigDataCatalogConfig"]:
         '''data_catalog_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#data_catalog_config SagemakerFeatureGroup#data_catalog_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#data_catalog_config SagemakerFeatureGroup#data_catalog_config}
         '''
         result = self._values.get("data_catalog_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupOfflineStoreConfigDataCatalogConfig"], result)
@@ -1380,13 +1380,13 @@ class SagemakerFeatureGroupOfflineStoreConfig:
     def disable_glue_table_creation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#disable_glue_table_creation SagemakerFeatureGroup#disable_glue_table_creation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#disable_glue_table_creation SagemakerFeatureGroup#disable_glue_table_creation}.'''
         result = self._values.get("disable_glue_table_creation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def table_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#table_format SagemakerFeatureGroup#table_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#table_format SagemakerFeatureGroup#table_format}.'''
         result = self._values.get("table_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1420,9 +1420,9 @@ class SagemakerFeatureGroupOfflineStoreConfigDataCatalogConfig:
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#catalog SagemakerFeatureGroup#catalog}.
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#database SagemakerFeatureGroup#database}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#table_name SagemakerFeatureGroup#table_name}.
+        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#catalog SagemakerFeatureGroup#catalog}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#database SagemakerFeatureGroup#database}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#table_name SagemakerFeatureGroup#table_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cb4c8164be71c6181be17ddc68e74a8a07b93fb60b02743b722131ebc9b1aa5)
@@ -1439,19 +1439,19 @@ class SagemakerFeatureGroupOfflineStoreConfigDataCatalogConfig:
 
     @builtins.property
     def catalog(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#catalog SagemakerFeatureGroup#catalog}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#catalog SagemakerFeatureGroup#catalog}.'''
         result = self._values.get("catalog")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def database(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#database SagemakerFeatureGroup#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#database SagemakerFeatureGroup#database}.'''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#table_name SagemakerFeatureGroup#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#table_name SagemakerFeatureGroup#table_name}.'''
         result = self._values.get("table_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1597,9 +1597,9 @@ class SagemakerFeatureGroupOfflineStoreConfigOutputReference(
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#catalog SagemakerFeatureGroup#catalog}.
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#database SagemakerFeatureGroup#database}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#table_name SagemakerFeatureGroup#table_name}.
+        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#catalog SagemakerFeatureGroup#catalog}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#database SagemakerFeatureGroup#database}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#table_name SagemakerFeatureGroup#table_name}.
         '''
         value = SagemakerFeatureGroupOfflineStoreConfigDataCatalogConfig(
             catalog=catalog, database=database, table_name=table_name
@@ -1616,9 +1616,9 @@ class SagemakerFeatureGroupOfflineStoreConfigOutputReference(
         resolved_output_s3_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#s3_uri SagemakerFeatureGroup#s3_uri}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
-        :param resolved_output_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#resolved_output_s3_uri SagemakerFeatureGroup#resolved_output_s3_uri}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#s3_uri SagemakerFeatureGroup#s3_uri}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
+        :param resolved_output_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#resolved_output_s3_uri SagemakerFeatureGroup#resolved_output_s3_uri}.
         '''
         value = SagemakerFeatureGroupOfflineStoreConfigS3StorageConfig(
             s3_uri=s3_uri,
@@ -1745,9 +1745,9 @@ class SagemakerFeatureGroupOfflineStoreConfigS3StorageConfig:
         resolved_output_s3_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#s3_uri SagemakerFeatureGroup#s3_uri}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
-        :param resolved_output_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#resolved_output_s3_uri SagemakerFeatureGroup#resolved_output_s3_uri}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#s3_uri SagemakerFeatureGroup#s3_uri}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
+        :param resolved_output_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#resolved_output_s3_uri SagemakerFeatureGroup#resolved_output_s3_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2f12aa114b55b0a8c6fbcff2160da3c756f952f41afb70bfbce9863a1f1c1ef)
@@ -1764,20 +1764,20 @@ class SagemakerFeatureGroupOfflineStoreConfigS3StorageConfig:
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#s3_uri SagemakerFeatureGroup#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#s3_uri SagemakerFeatureGroup#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resolved_output_s3_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#resolved_output_s3_uri SagemakerFeatureGroup#resolved_output_s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#resolved_output_s3_uri SagemakerFeatureGroup#resolved_output_s3_uri}.'''
         result = self._values.get("resolved_output_s3_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1910,10 +1910,10 @@ class SagemakerFeatureGroupOnlineStoreConfig:
         ttl_duration: typing.Optional[typing.Union["SagemakerFeatureGroupOnlineStoreConfigTtlDuration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enable_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#enable_online_store SagemakerFeatureGroup#enable_online_store}.
-        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#security_config SagemakerFeatureGroup#security_config}
-        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#storage_type SagemakerFeatureGroup#storage_type}.
-        :param ttl_duration: ttl_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#ttl_duration SagemakerFeatureGroup#ttl_duration}
+        :param enable_online_store: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#enable_online_store SagemakerFeatureGroup#enable_online_store}.
+        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#security_config SagemakerFeatureGroup#security_config}
+        :param storage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#storage_type SagemakerFeatureGroup#storage_type}.
+        :param ttl_duration: ttl_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#ttl_duration SagemakerFeatureGroup#ttl_duration}
         '''
         if isinstance(security_config, dict):
             security_config = SagemakerFeatureGroupOnlineStoreConfigSecurityConfig(**security_config)
@@ -1939,7 +1939,7 @@ class SagemakerFeatureGroupOnlineStoreConfig:
     def enable_online_store(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#enable_online_store SagemakerFeatureGroup#enable_online_store}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#enable_online_store SagemakerFeatureGroup#enable_online_store}.'''
         result = self._values.get("enable_online_store")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1949,14 +1949,14 @@ class SagemakerFeatureGroupOnlineStoreConfig:
     ) -> typing.Optional["SagemakerFeatureGroupOnlineStoreConfigSecurityConfig"]:
         '''security_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#security_config SagemakerFeatureGroup#security_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#security_config SagemakerFeatureGroup#security_config}
         '''
         result = self._values.get("security_config")
         return typing.cast(typing.Optional["SagemakerFeatureGroupOnlineStoreConfigSecurityConfig"], result)
 
     @builtins.property
     def storage_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#storage_type SagemakerFeatureGroup#storage_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#storage_type SagemakerFeatureGroup#storage_type}.'''
         result = self._values.get("storage_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1966,7 +1966,7 @@ class SagemakerFeatureGroupOnlineStoreConfig:
     ) -> typing.Optional["SagemakerFeatureGroupOnlineStoreConfigTtlDuration"]:
         '''ttl_duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#ttl_duration SagemakerFeatureGroup#ttl_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#ttl_duration SagemakerFeatureGroup#ttl_duration}
         '''
         result = self._values.get("ttl_duration")
         return typing.cast(typing.Optional["SagemakerFeatureGroupOnlineStoreConfigTtlDuration"], result)
@@ -2010,7 +2010,7 @@ class SagemakerFeatureGroupOnlineStoreConfigOutputReference(
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
         '''
         value = SagemakerFeatureGroupOnlineStoreConfigSecurityConfig(
             kms_key_id=kms_key_id
@@ -2026,8 +2026,8 @@ class SagemakerFeatureGroupOnlineStoreConfigOutputReference(
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#unit SagemakerFeatureGroup#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#value SagemakerFeatureGroup#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#unit SagemakerFeatureGroup#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#value SagemakerFeatureGroup#value}.
         '''
         value_ = SagemakerFeatureGroupOnlineStoreConfigTtlDuration(
             unit=unit, value=value
@@ -2144,7 +2144,7 @@ class SagemakerFeatureGroupOnlineStoreConfigOutputReference(
 class SagemakerFeatureGroupOnlineStoreConfigSecurityConfig:
     def __init__(self, *, kms_key_id: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6cc686ddcfc2e3b1f14913382f521b738fb7b984a7539cef33008175b5c960ff)
@@ -2155,7 +2155,7 @@ class SagemakerFeatureGroupOnlineStoreConfigSecurityConfig:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#kms_key_id SagemakerFeatureGroup#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2243,8 +2243,8 @@ class SagemakerFeatureGroupOnlineStoreConfigTtlDuration:
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#unit SagemakerFeatureGroup#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#value SagemakerFeatureGroup#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#unit SagemakerFeatureGroup#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#value SagemakerFeatureGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf07da641a1e96f95283bc4a80314ef5c078127e93775ec723f3cb705cbdd761)
@@ -2258,13 +2258,13 @@ class SagemakerFeatureGroupOnlineStoreConfigTtlDuration:
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#unit SagemakerFeatureGroup#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#unit SagemakerFeatureGroup#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#value SagemakerFeatureGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#value SagemakerFeatureGroup#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2378,9 +2378,9 @@ class SagemakerFeatureGroupThroughputConfig:
         throughput_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param provisioned_read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#provisioned_read_capacity_units SagemakerFeatureGroup#provisioned_read_capacity_units}.
-        :param provisioned_write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#provisioned_write_capacity_units SagemakerFeatureGroup#provisioned_write_capacity_units}.
-        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#throughput_mode SagemakerFeatureGroup#throughput_mode}.
+        :param provisioned_read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#provisioned_read_capacity_units SagemakerFeatureGroup#provisioned_read_capacity_units}.
+        :param provisioned_write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#provisioned_write_capacity_units SagemakerFeatureGroup#provisioned_write_capacity_units}.
+        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#throughput_mode SagemakerFeatureGroup#throughput_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f6744c5bf4df4df2b569e55a5927cd83a8277b442899c25f0df56da01368c2f)
@@ -2397,19 +2397,19 @@ class SagemakerFeatureGroupThroughputConfig:
 
     @builtins.property
     def provisioned_read_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#provisioned_read_capacity_units SagemakerFeatureGroup#provisioned_read_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#provisioned_read_capacity_units SagemakerFeatureGroup#provisioned_read_capacity_units}.'''
         result = self._values.get("provisioned_read_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def provisioned_write_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#provisioned_write_capacity_units SagemakerFeatureGroup#provisioned_write_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#provisioned_write_capacity_units SagemakerFeatureGroup#provisioned_write_capacity_units}.'''
         result = self._values.get("provisioned_write_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def throughput_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_feature_group#throughput_mode SagemakerFeatureGroup#throughput_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_feature_group#throughput_mode SagemakerFeatureGroup#throughput_mode}.'''
         result = self._values.get("throughput_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 

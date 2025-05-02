@@ -95,8 +95,10 @@ __all__ = (
     "GetConfigurationProfileRequestTypeDef",
     "GetConfigurationRequestTypeDef",
     "GetDeploymentRequestTypeDef",
+    "GetDeploymentRequestWaitTypeDef",
     "GetDeploymentStrategyRequestTypeDef",
     "GetEnvironmentRequestTypeDef",
+    "GetEnvironmentRequestWaitTypeDef",
     "GetExtensionAssociationRequestTypeDef",
     "GetExtensionRequestTypeDef",
     "GetHostedConfigurationVersionRequestTypeDef",
@@ -138,6 +140,7 @@ __all__ = (
     "UpdateExtensionRequestTypeDef",
     "ValidateConfigurationRequestTypeDef",
     "ValidatorTypeDef",
+    "WaiterConfigTypeDef",
 )
 
 
@@ -341,6 +344,11 @@ class GetDeploymentRequestTypeDef(TypedDict):
     ApplicationId: str
     EnvironmentId: str
     DeploymentNumber: int
+
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
 
 
 class GetDeploymentStrategyRequestTypeDef(TypedDict):
@@ -721,6 +729,19 @@ class ExtensionsTypeDef(TypedDict):
     Items: List[ExtensionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetDeploymentRequestWaitTypeDef(TypedDict):
+    ApplicationId: str
+    EnvironmentId: str
+    DeploymentNumber: int
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetEnvironmentRequestWaitTypeDef(TypedDict):
+    ApplicationId: str
+    EnvironmentId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
 class HostedConfigurationVersionsTypeDef(TypedDict):

@@ -1,7 +1,7 @@
 r'''
 # `aws_osis_pipeline`
 
-Refer to the Terraform Registry for docs: [`aws_osis_pipeline`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline).
+Refer to the Terraform Registry for docs: [`aws_osis_pipeline`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OsisPipeline(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.osisPipeline.OsisPipeline",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline aws_osis_pipeline}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline aws_osis_pipeline}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class OsisPipeline(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline aws_osis_pipeline} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline aws_osis_pipeline} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param max_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#max_units OsisPipeline#max_units}.
-        :param min_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#min_units OsisPipeline#min_units}.
-        :param pipeline_configuration_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#pipeline_configuration_body OsisPipeline#pipeline_configuration_body}.
-        :param pipeline_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#pipeline_name OsisPipeline#pipeline_name}.
-        :param buffer_options: buffer_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#buffer_options OsisPipeline#buffer_options}
-        :param encryption_at_rest_options: encryption_at_rest_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#encryption_at_rest_options OsisPipeline#encryption_at_rest_options}
-        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#log_publishing_options OsisPipeline#log_publishing_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#tags OsisPipeline#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#timeouts OsisPipeline#timeouts}
-        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#vpc_options OsisPipeline#vpc_options}
+        :param max_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#max_units OsisPipeline#max_units}.
+        :param min_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#min_units OsisPipeline#min_units}.
+        :param pipeline_configuration_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#pipeline_configuration_body OsisPipeline#pipeline_configuration_body}.
+        :param pipeline_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#pipeline_name OsisPipeline#pipeline_name}.
+        :param buffer_options: buffer_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#buffer_options OsisPipeline#buffer_options}
+        :param encryption_at_rest_options: encryption_at_rest_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#encryption_at_rest_options OsisPipeline#encryption_at_rest_options}
+        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#log_publishing_options OsisPipeline#log_publishing_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#tags OsisPipeline#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#timeouts OsisPipeline#timeouts}
+        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#vpc_options OsisPipeline#vpc_options}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class OsisPipeline(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OsisPipeline to import.
-        :param import_from_id: The id of the existing OsisPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OsisPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OsisPipeline to import is found.
         '''
         if __debug__:
@@ -189,9 +189,9 @@ class OsisPipeline(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#create OsisPipeline#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#delete OsisPipeline#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#update OsisPipeline#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#create OsisPipeline#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#delete OsisPipeline#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#update OsisPipeline#update}
         '''
         value = OsisPipelineTimeouts(create=create, delete=delete, update=update)
 
@@ -425,7 +425,7 @@ class OsisPipelineBufferOptions:
         persistent_buffer_enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param persistent_buffer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#persistent_buffer_enabled OsisPipeline#persistent_buffer_enabled}.
+        :param persistent_buffer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#persistent_buffer_enabled OsisPipeline#persistent_buffer_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b7029a34777bd7c42951a83a31b5aa21f3243658f838bcf785fc170d9206143)
@@ -438,7 +438,7 @@ class OsisPipelineBufferOptions:
     def persistent_buffer_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#persistent_buffer_enabled OsisPipeline#persistent_buffer_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#persistent_buffer_enabled OsisPipeline#persistent_buffer_enabled}.'''
         result = self._values.get("persistent_buffer_enabled")
         assert result is not None, "Required property 'persistent_buffer_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -666,16 +666,16 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param max_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#max_units OsisPipeline#max_units}.
-        :param min_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#min_units OsisPipeline#min_units}.
-        :param pipeline_configuration_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#pipeline_configuration_body OsisPipeline#pipeline_configuration_body}.
-        :param pipeline_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#pipeline_name OsisPipeline#pipeline_name}.
-        :param buffer_options: buffer_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#buffer_options OsisPipeline#buffer_options}
-        :param encryption_at_rest_options: encryption_at_rest_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#encryption_at_rest_options OsisPipeline#encryption_at_rest_options}
-        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#log_publishing_options OsisPipeline#log_publishing_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#tags OsisPipeline#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#timeouts OsisPipeline#timeouts}
-        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#vpc_options OsisPipeline#vpc_options}
+        :param max_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#max_units OsisPipeline#max_units}.
+        :param min_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#min_units OsisPipeline#min_units}.
+        :param pipeline_configuration_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#pipeline_configuration_body OsisPipeline#pipeline_configuration_body}.
+        :param pipeline_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#pipeline_name OsisPipeline#pipeline_name}.
+        :param buffer_options: buffer_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#buffer_options OsisPipeline#buffer_options}
+        :param encryption_at_rest_options: encryption_at_rest_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#encryption_at_rest_options OsisPipeline#encryption_at_rest_options}
+        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#log_publishing_options OsisPipeline#log_publishing_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#tags OsisPipeline#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#timeouts OsisPipeline#timeouts}
+        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#vpc_options OsisPipeline#vpc_options}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -799,28 +799,28 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_units(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#max_units OsisPipeline#max_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#max_units OsisPipeline#max_units}.'''
         result = self._values.get("max_units")
         assert result is not None, "Required property 'max_units' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def min_units(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#min_units OsisPipeline#min_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#min_units OsisPipeline#min_units}.'''
         result = self._values.get("min_units")
         assert result is not None, "Required property 'min_units' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def pipeline_configuration_body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#pipeline_configuration_body OsisPipeline#pipeline_configuration_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#pipeline_configuration_body OsisPipeline#pipeline_configuration_body}.'''
         result = self._values.get("pipeline_configuration_body")
         assert result is not None, "Required property 'pipeline_configuration_body' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def pipeline_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#pipeline_name OsisPipeline#pipeline_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#pipeline_name OsisPipeline#pipeline_name}.'''
         result = self._values.get("pipeline_name")
         assert result is not None, "Required property 'pipeline_name' is missing"
         return typing.cast(builtins.str, result)
@@ -831,7 +831,7 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OsisPipelineBufferOptions]]]:
         '''buffer_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#buffer_options OsisPipeline#buffer_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#buffer_options OsisPipeline#buffer_options}
         '''
         result = self._values.get("buffer_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OsisPipelineBufferOptions]]], result)
@@ -842,7 +842,7 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineEncryptionAtRestOptions"]]]:
         '''encryption_at_rest_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#encryption_at_rest_options OsisPipeline#encryption_at_rest_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#encryption_at_rest_options OsisPipeline#encryption_at_rest_options}
         '''
         result = self._values.get("encryption_at_rest_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineEncryptionAtRestOptions"]]], result)
@@ -853,14 +853,14 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineLogPublishingOptions"]]]:
         '''log_publishing_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#log_publishing_options OsisPipeline#log_publishing_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#log_publishing_options OsisPipeline#log_publishing_options}
         '''
         result = self._values.get("log_publishing_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineLogPublishingOptions"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#tags OsisPipeline#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#tags OsisPipeline#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -868,7 +868,7 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OsisPipelineTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#timeouts OsisPipeline#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#timeouts OsisPipeline#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OsisPipelineTimeouts"], result)
@@ -879,7 +879,7 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineVpcOptions"]]]:
         '''vpc_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#vpc_options OsisPipeline#vpc_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#vpc_options OsisPipeline#vpc_options}
         '''
         result = self._values.get("vpc_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineVpcOptions"]]], result)
@@ -904,7 +904,7 @@ class OsisPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class OsisPipelineEncryptionAtRestOptions:
     def __init__(self, *, kms_key_arn: builtins.str) -> None:
         '''
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#kms_key_arn OsisPipeline#kms_key_arn}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#kms_key_arn OsisPipeline#kms_key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4569c443d9895df47a1eb34c19026e6f707748242b3e24ed5bfdc8af6d88115)
@@ -915,7 +915,7 @@ class OsisPipelineEncryptionAtRestOptions:
 
     @builtins.property
     def kms_key_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#kms_key_arn OsisPipeline#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#kms_key_arn OsisPipeline#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         assert result is not None, "Required property 'kms_key_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1102,8 +1102,8 @@ class OsisPipelineLogPublishingOptions:
         is_logging_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cloudwatch_log_destination: cloudwatch_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#cloudwatch_log_destination OsisPipeline#cloudwatch_log_destination}
-        :param is_logging_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#is_logging_enabled OsisPipeline#is_logging_enabled}.
+        :param cloudwatch_log_destination: cloudwatch_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#cloudwatch_log_destination OsisPipeline#cloudwatch_log_destination}
+        :param is_logging_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#is_logging_enabled OsisPipeline#is_logging_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c88b9d5057f475da47d8be30a99aeadf1ab4836acf013cbc2b511c68b261fc1)
@@ -1121,7 +1121,7 @@ class OsisPipelineLogPublishingOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineLogPublishingOptionsCloudwatchLogDestination"]]]:
         '''cloudwatch_log_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#cloudwatch_log_destination OsisPipeline#cloudwatch_log_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#cloudwatch_log_destination OsisPipeline#cloudwatch_log_destination}
         '''
         result = self._values.get("cloudwatch_log_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsisPipelineLogPublishingOptionsCloudwatchLogDestination"]]], result)
@@ -1130,7 +1130,7 @@ class OsisPipelineLogPublishingOptions:
     def is_logging_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#is_logging_enabled OsisPipeline#is_logging_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#is_logging_enabled OsisPipeline#is_logging_enabled}.'''
         result = self._values.get("is_logging_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1154,7 +1154,7 @@ class OsisPipelineLogPublishingOptions:
 class OsisPipelineLogPublishingOptionsCloudwatchLogDestination:
     def __init__(self, *, log_group: builtins.str) -> None:
         '''
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#log_group OsisPipeline#log_group}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#log_group OsisPipeline#log_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e06dae4050188bc433fa8cba9e9b4c761537a470b2caad8af6b55a1e1c0d38aa)
@@ -1165,7 +1165,7 @@ class OsisPipelineLogPublishingOptionsCloudwatchLogDestination:
 
     @builtins.property
     def log_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#log_group OsisPipeline#log_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#log_group OsisPipeline#log_group}.'''
         result = self._values.get("log_group")
         assert result is not None, "Required property 'log_group' is missing"
         return typing.cast(builtins.str, result)
@@ -1546,9 +1546,9 @@ class OsisPipelineTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#create OsisPipeline#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#delete OsisPipeline#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#update OsisPipeline#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#create OsisPipeline#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#delete OsisPipeline#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#update OsisPipeline#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d159877d839f582d2eb8b88d38b0810b1cf94b34382c0b070c025ef0ae69aa28)
@@ -1567,7 +1567,7 @@ class OsisPipelineTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#create OsisPipeline#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#create OsisPipeline#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1576,7 +1576,7 @@ class OsisPipelineTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#delete OsisPipeline#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#delete OsisPipeline#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1585,7 +1585,7 @@ class OsisPipelineTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#update OsisPipeline#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#update OsisPipeline#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1721,9 +1721,9 @@ class OsisPipelineVpcOptions:
         vpc_endpoint_management: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#subnet_ids OsisPipeline#subnet_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#security_group_ids OsisPipeline#security_group_ids}.
-        :param vpc_endpoint_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#vpc_endpoint_management OsisPipeline#vpc_endpoint_management}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#subnet_ids OsisPipeline#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#security_group_ids OsisPipeline#security_group_ids}.
+        :param vpc_endpoint_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#vpc_endpoint_management OsisPipeline#vpc_endpoint_management}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba94fedc17b79a38193a60b2df551adf4b6b4f04b5763c571c70f30bdc0711c0)
@@ -1740,20 +1740,20 @@ class OsisPipelineVpcOptions:
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#subnet_ids OsisPipeline#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#subnet_ids OsisPipeline#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#security_group_ids OsisPipeline#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#security_group_ids OsisPipeline#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def vpc_endpoint_management(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/osis_pipeline#vpc_endpoint_management OsisPipeline#vpc_endpoint_management}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/osis_pipeline#vpc_endpoint_management OsisPipeline#vpc_endpoint_management}.'''
         result = self._values.get("vpc_endpoint_management")
         return typing.cast(typing.Optional[builtins.str], result)
 

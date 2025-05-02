@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import logging
 import math
 import os
 import time
+from types import MappingProxyType
 
 import numpy as np
 import pandas as pd
@@ -30,6 +33,12 @@ class CatBoostModel(AbstractModel):
 
     Hyperparameter options: https://catboost.ai/en/docs/references/training-parameters
     """
+    ag_key = "CAT"
+    ag_name = "CatBoost"
+    ag_priority = 70
+    ag_priority_by_problem_type = MappingProxyType({
+        SOFTCLASS: 60
+    })
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -86,17 +95,26 @@ class CatBoostModel(AbstractModel):
             Scales roughly by 5080*num_features*2^depth bytes
             For 10000 features and 6 depth, the histogram would be 3.2 GB.
         """
+        if hyperparameters is None:
+            hyperparameters = {}
         num_classes = num_classes if num_classes else 1  # self.num_classes could be None after initialization if it's a regression problem
         data_mem_usage = get_approximate_df_mem_usage(X).sum()
         data_mem_usage_bytes = data_mem_usage * 5 + data_mem_usage / 4 * num_classes  # TODO: Extremely crude approximation, can be vastly improved
 
         border_count = hyperparameters.get("border_count", 254)
         depth = hyperparameters.get("depth", 6)
+
+        # if depth < 7, treat it as 1 step larger for histogram size estimate
+        #  this fixes cases where otherwise histogram size appears to be off by around a factor of 2 for depth=6
+        histogram_effective_depth = max(min(depth+1, 7), depth)
+
         # Formula based on manual testing, aligns with LightGBM histogram sizes
-        histogram_mem_usage_bytes = 20 * math.pow(2, depth) * len(X.columns) * border_count
+        histogram_mem_usage_bytes = 24 * math.pow(2, histogram_effective_depth) * len(X.columns) * border_count
         histogram_mem_usage_bytes *= 1.2  # Add a 20% buffer
 
-        approx_mem_size_req = data_mem_usage_bytes + histogram_mem_usage_bytes
+        baseline_memory_bytes = 4e8  # 400 MB baseline memory
+
+        approx_mem_size_req = data_mem_usage_bytes + histogram_mem_usage_bytes + baseline_memory_bytes
         return approx_mem_size_req
 
     # TODO: Use Pool in preprocess, optimize bagging to do Pool.split() to avoid re-computing pool for each fold! Requires stateful + y
@@ -336,6 +354,10 @@ class CatBoostModel(AbstractModel):
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
         num_gpus = 0
         return num_cpus, num_gpus
+
+    @classmethod
+    def supported_problem_types(cls) -> list[str] | None:
+        return ["binary", "multiclass", "regression", "quantile", "softclass"]
 
     @classmethod
     def _class_tags(cls):

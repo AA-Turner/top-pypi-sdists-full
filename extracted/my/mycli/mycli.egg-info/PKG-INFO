@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.31.1
+Version: 1.31.2
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author-email: Mycli Core Team <mycli-dev@googlegroups.com>
 License: BSD

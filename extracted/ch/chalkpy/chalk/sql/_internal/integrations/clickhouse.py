@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Union
 
 from chalk.integrations.named import create_integration_variable, load_integration_variable
@@ -10,12 +9,15 @@ from chalk.utils.missing_dependency import missing_dependency_exception
 if TYPE_CHECKING:
     from sqlalchemy.engine.url import URL
 
-
 _CLICKHOUSE_HOST_NAME = "CLICKHOUSE_HOST"
 _CLICKHOUSE_TCP_PORT_NAME = "CLICKHOUSE_TCP_PORT"
 _CLICKHOUSE_DATABASE_NAME = "CLICKHOUSE_DATABASE"
 _CLICKHOUSE_USER_NAME = "CLICKHOUSE_USER"
 _CLICKHOUSE_PWD_NAME = "CLICKHOUSE_PWD"
+_CLICKHOUSE_USE_TLS = "CLICKHOUSE_USE_TLS"
+
+# For parsing the USE_TLS flag
+_TRUTHY_VALUES = {"1", "true", "yes", "t", "y"}
 
 
 class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
@@ -27,6 +29,7 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         db: Optional[str] = None,
         user: Optional[str] = None,
         password: Optional[str] = None,
+        use_tls: Optional[Union[bool, str]] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
@@ -61,6 +64,18 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         self.password = password or load_integration_variable(
             name=_CLICKHOUSE_PWD_NAME, integration_name=name, override=integration_variable_override
         )
+        self.use_tls = (
+            use_tls
+            if isinstance(use_tls, bool)
+            else use_tls in _TRUTHY_VALUES
+            if isinstance(use_tls, str)
+            else load_integration_variable(
+                name=_CLICKHOUSE_USE_TLS,
+                integration_name=name,
+                override=integration_variable_override,
+                parser=lambda x: x in _TRUTHY_VALUES,
+            )
+        )
         self.ingested_tables: Dict[str, Any] = {}
         if engine_args is None:
             engine_args = {}
@@ -70,13 +85,6 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         engine_args.setdefault("max_overflow", 60)
         async_engine_args.setdefault("pool_size", 20)
         async_engine_args.setdefault("max_overflow", 60)
-        # We set the default isolation level to autocommit since the SQL sources are read-only, and thus
-        # transactions are not needed
-        # Setting the isolation level on the engine, instead of the connection, avoids
-        # a DBAPI statement to reset the transactional level back to the default before returning the
-        # connection to the pool
-        engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
-        async_engine_args.setdefault("isolation_level", os.environ.get("CHALK_SQL_ISOLATION_LEVEL", "AUTOCOMMIT"))
         BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args=async_engine_args)
 
     kind = SQLSourceKind.clickhouse
@@ -94,6 +102,7 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
             host=self.host,
             port=self.port,
             database=self.db,
+            query={"secure": "True"} if self.use_tls is not False else {},
         )
 
     def async_local_engine_url(self) -> URL:
@@ -106,6 +115,7 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
             host=self.host,
             port=self.port,
             database=self.db,
+            query={"secure": "True"} if self.use_tls is not False else {},
         )
 
     def _recreate_integration_variables(self) -> Dict[str, str]:

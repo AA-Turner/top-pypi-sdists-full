@@ -1,7 +1,7 @@
 r'''
 # `aws_costoptimizationhub_preferences`
 
-Refer to the Terraform Registry for docs: [`aws_costoptimizationhub_preferences`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences).
+Refer to the Terraform Registry for docs: [`aws_costoptimizationhub_preferences`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CostoptimizationhubPreferences(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.costoptimizationhubPreferences.CostoptimizationhubPreferences",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences aws_costoptimizationhub_preferences}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences aws_costoptimizationhub_preferences}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class CostoptimizationhubPreferences(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences aws_costoptimizationhub_preferences} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences aws_costoptimizationhub_preferences} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param member_account_discount_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#member_account_discount_visibility CostoptimizationhubPreferences#member_account_discount_visibility}.
-        :param savings_estimation_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#savings_estimation_mode CostoptimizationhubPreferences#savings_estimation_mode}.
+        :param member_account_discount_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#member_account_discount_visibility CostoptimizationhubPreferences#member_account_discount_visibility}.
+        :param savings_estimation_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#savings_estimation_mode CostoptimizationhubPreferences#savings_estimation_mode}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class CostoptimizationhubPreferences(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CostoptimizationhubPreferences to import.
-        :param import_from_id: The id of the existing CostoptimizationhubPreferences that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CostoptimizationhubPreferences that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CostoptimizationhubPreferences to import is found.
         '''
         if __debug__:
@@ -215,8 +215,8 @@ class CostoptimizationhubPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param member_account_discount_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#member_account_discount_visibility CostoptimizationhubPreferences#member_account_discount_visibility}.
-        :param savings_estimation_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#savings_estimation_mode CostoptimizationhubPreferences#savings_estimation_mode}.
+        :param member_account_discount_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#member_account_discount_visibility CostoptimizationhubPreferences#member_account_discount_visibility}.
+        :param savings_estimation_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#savings_estimation_mode CostoptimizationhubPreferences#savings_estimation_mode}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -317,13 +317,13 @@ class CostoptimizationhubPreferencesConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def member_account_discount_visibility(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#member_account_discount_visibility CostoptimizationhubPreferences#member_account_discount_visibility}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#member_account_discount_visibility CostoptimizationhubPreferences#member_account_discount_visibility}.'''
         result = self._values.get("member_account_discount_visibility")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def savings_estimation_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/costoptimizationhub_preferences#savings_estimation_mode CostoptimizationhubPreferences#savings_estimation_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/costoptimizationhub_preferences#savings_estimation_mode CostoptimizationhubPreferences#savings_estimation_mode}.'''
         result = self._values.get("savings_estimation_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 

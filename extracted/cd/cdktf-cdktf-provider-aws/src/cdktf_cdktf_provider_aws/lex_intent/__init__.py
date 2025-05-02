@@ -1,7 +1,7 @@
 r'''
 # `aws_lex_intent`
 
-Refer to the Terraform Registry for docs: [`aws_lex_intent`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent).
+Refer to the Terraform Registry for docs: [`aws_lex_intent`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LexIntent(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lexIntent.LexIntent",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent aws_lex_intent}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent aws_lex_intent}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class LexIntent(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent aws_lex_intent} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent aws_lex_intent} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param fulfillment_activity: fulfillment_activity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#fulfillment_activity LexIntent#fulfillment_activity}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#name LexIntent#name}.
-        :param conclusion_statement: conclusion_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#conclusion_statement LexIntent#conclusion_statement}
-        :param confirmation_prompt: confirmation_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#confirmation_prompt LexIntent#confirmation_prompt}
-        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#create_version LexIntent#create_version}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#description LexIntent#description}.
-        :param dialog_code_hook: dialog_code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#dialog_code_hook LexIntent#dialog_code_hook}
-        :param follow_up_prompt: follow_up_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#follow_up_prompt LexIntent#follow_up_prompt}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#id LexIntent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent_intent_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#parent_intent_signature LexIntent#parent_intent_signature}.
-        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
-        :param sample_utterances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.
-        :param slot: slot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot LexIntent#slot}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#timeouts LexIntent#timeouts}
+        :param fulfillment_activity: fulfillment_activity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#fulfillment_activity LexIntent#fulfillment_activity}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#name LexIntent#name}.
+        :param conclusion_statement: conclusion_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#conclusion_statement LexIntent#conclusion_statement}
+        :param confirmation_prompt: confirmation_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#confirmation_prompt LexIntent#confirmation_prompt}
+        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#create_version LexIntent#create_version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#description LexIntent#description}.
+        :param dialog_code_hook: dialog_code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#dialog_code_hook LexIntent#dialog_code_hook}
+        :param follow_up_prompt: follow_up_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#follow_up_prompt LexIntent#follow_up_prompt}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#id LexIntent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent_intent_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#parent_intent_signature LexIntent#parent_intent_signature}.
+        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
+        :param sample_utterances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.
+        :param slot: slot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot LexIntent#slot}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#timeouts LexIntent#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class LexIntent(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LexIntent to import.
-        :param import_from_id: The id of the existing LexIntent that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LexIntent that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LexIntent to import is found.
         '''
         if __debug__:
@@ -161,8 +161,8 @@ class LexIntent(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         value = LexIntentConclusionStatement(
             message=message, response_card=response_card
@@ -179,9 +179,9 @@ class LexIntent(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         value = LexIntentConfirmationPrompt(
             max_attempts=max_attempts, message=message, response_card=response_card
@@ -197,8 +197,8 @@ class LexIntent(
         uri: builtins.str,
     ) -> None:
         '''
-        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#uri LexIntent#uri}.
+        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#uri LexIntent#uri}.
         '''
         value = LexIntentDialogCodeHook(message_version=message_version, uri=uri)
 
@@ -212,8 +212,8 @@ class LexIntent(
         rejection_statement: typing.Union["LexIntentFollowUpPromptRejectionStatement", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param prompt: prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#prompt LexIntent#prompt}
-        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
+        :param prompt: prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#prompt LexIntent#prompt}
+        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
         '''
         value = LexIntentFollowUpPrompt(
             prompt=prompt, rejection_statement=rejection_statement
@@ -229,8 +229,8 @@ class LexIntent(
         code_hook: typing.Optional[typing.Union["LexIntentFulfillmentActivityCodeHook", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#type LexIntent#type}.
-        :param code_hook: code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#code_hook LexIntent#code_hook}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#type LexIntent#type}.
+        :param code_hook: code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#code_hook LexIntent#code_hook}
         '''
         value = LexIntentFulfillmentActivity(type=type, code_hook=code_hook)
 
@@ -244,8 +244,8 @@ class LexIntent(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         value = LexIntentRejectionStatement(
             message=message, response_card=response_card
@@ -275,9 +275,9 @@ class LexIntent(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#create LexIntent#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#delete LexIntent#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#update LexIntent#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#create LexIntent#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#delete LexIntent#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#update LexIntent#update}.
         '''
         value = LexIntentTimeouts(create=create, delete=delete, update=update)
 
@@ -584,8 +584,8 @@ class LexIntentConclusionStatement:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5678173a8cb1f780a3bc6c86014ec1ba6456d8042dd4c7a8d54334abf381bb49)
@@ -603,7 +603,7 @@ class LexIntentConclusionStatement:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentConclusionStatementMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -611,7 +611,7 @@ class LexIntentConclusionStatement:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -645,9 +645,9 @@ class LexIntentConclusionStatementMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ccc30754b3b7c1cbad816cb4ed7b948b1b209f765589a4d885430e6c0caa8e9)
@@ -663,21 +663,21 @@ class LexIntentConclusionStatementMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1028,20 +1028,20 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param fulfillment_activity: fulfillment_activity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#fulfillment_activity LexIntent#fulfillment_activity}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#name LexIntent#name}.
-        :param conclusion_statement: conclusion_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#conclusion_statement LexIntent#conclusion_statement}
-        :param confirmation_prompt: confirmation_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#confirmation_prompt LexIntent#confirmation_prompt}
-        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#create_version LexIntent#create_version}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#description LexIntent#description}.
-        :param dialog_code_hook: dialog_code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#dialog_code_hook LexIntent#dialog_code_hook}
-        :param follow_up_prompt: follow_up_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#follow_up_prompt LexIntent#follow_up_prompt}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#id LexIntent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent_intent_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#parent_intent_signature LexIntent#parent_intent_signature}.
-        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
-        :param sample_utterances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.
-        :param slot: slot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot LexIntent#slot}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#timeouts LexIntent#timeouts}
+        :param fulfillment_activity: fulfillment_activity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#fulfillment_activity LexIntent#fulfillment_activity}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#name LexIntent#name}.
+        :param conclusion_statement: conclusion_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#conclusion_statement LexIntent#conclusion_statement}
+        :param confirmation_prompt: confirmation_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#confirmation_prompt LexIntent#confirmation_prompt}
+        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#create_version LexIntent#create_version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#description LexIntent#description}.
+        :param dialog_code_hook: dialog_code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#dialog_code_hook LexIntent#dialog_code_hook}
+        :param follow_up_prompt: follow_up_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#follow_up_prompt LexIntent#follow_up_prompt}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#id LexIntent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent_intent_signature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#parent_intent_signature LexIntent#parent_intent_signature}.
+        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
+        :param sample_utterances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.
+        :param slot: slot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot LexIntent#slot}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#timeouts LexIntent#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1193,7 +1193,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fulfillment_activity(self) -> "LexIntentFulfillmentActivity":
         '''fulfillment_activity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#fulfillment_activity LexIntent#fulfillment_activity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#fulfillment_activity LexIntent#fulfillment_activity}
         '''
         result = self._values.get("fulfillment_activity")
         assert result is not None, "Required property 'fulfillment_activity' is missing"
@@ -1201,7 +1201,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#name LexIntent#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#name LexIntent#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1210,7 +1210,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conclusion_statement(self) -> typing.Optional[LexIntentConclusionStatement]:
         '''conclusion_statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#conclusion_statement LexIntent#conclusion_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#conclusion_statement LexIntent#conclusion_statement}
         '''
         result = self._values.get("conclusion_statement")
         return typing.cast(typing.Optional[LexIntentConclusionStatement], result)
@@ -1219,7 +1219,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def confirmation_prompt(self) -> typing.Optional["LexIntentConfirmationPrompt"]:
         '''confirmation_prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#confirmation_prompt LexIntent#confirmation_prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#confirmation_prompt LexIntent#confirmation_prompt}
         '''
         result = self._values.get("confirmation_prompt")
         return typing.cast(typing.Optional["LexIntentConfirmationPrompt"], result)
@@ -1228,13 +1228,13 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def create_version(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#create_version LexIntent#create_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#create_version LexIntent#create_version}.'''
         result = self._values.get("create_version")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#description LexIntent#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#description LexIntent#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1242,7 +1242,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dialog_code_hook(self) -> typing.Optional["LexIntentDialogCodeHook"]:
         '''dialog_code_hook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#dialog_code_hook LexIntent#dialog_code_hook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#dialog_code_hook LexIntent#dialog_code_hook}
         '''
         result = self._values.get("dialog_code_hook")
         return typing.cast(typing.Optional["LexIntentDialogCodeHook"], result)
@@ -1251,14 +1251,14 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def follow_up_prompt(self) -> typing.Optional["LexIntentFollowUpPrompt"]:
         '''follow_up_prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#follow_up_prompt LexIntent#follow_up_prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#follow_up_prompt LexIntent#follow_up_prompt}
         '''
         result = self._values.get("follow_up_prompt")
         return typing.cast(typing.Optional["LexIntentFollowUpPrompt"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#id LexIntent#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#id LexIntent#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1268,7 +1268,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def parent_intent_signature(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#parent_intent_signature LexIntent#parent_intent_signature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#parent_intent_signature LexIntent#parent_intent_signature}.'''
         result = self._values.get("parent_intent_signature")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1276,14 +1276,14 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rejection_statement(self) -> typing.Optional["LexIntentRejectionStatement"]:
         '''rejection_statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
         '''
         result = self._values.get("rejection_statement")
         return typing.cast(typing.Optional["LexIntentRejectionStatement"], result)
 
     @builtins.property
     def sample_utterances(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.'''
         result = self._values.get("sample_utterances")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1293,7 +1293,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentSlot"]]]:
         '''slot block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot LexIntent#slot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot LexIntent#slot}
         '''
         result = self._values.get("slot")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentSlot"]]], result)
@@ -1302,7 +1302,7 @@ class LexIntentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LexIntentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#timeouts LexIntent#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#timeouts LexIntent#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LexIntentTimeouts"], result)
@@ -1337,9 +1337,9 @@ class LexIntentConfirmationPrompt:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89283692103fcde83dade67a68f0f3a2d7cbdc6de78e5852685c9cfbb971e7da)
@@ -1355,7 +1355,7 @@ class LexIntentConfirmationPrompt:
 
     @builtins.property
     def max_attempts(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.'''
         result = self._values.get("max_attempts")
         assert result is not None, "Required property 'max_attempts' is missing"
         return typing.cast(jsii.Number, result)
@@ -1366,7 +1366,7 @@ class LexIntentConfirmationPrompt:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentConfirmationPromptMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -1374,7 +1374,7 @@ class LexIntentConfirmationPrompt:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1408,9 +1408,9 @@ class LexIntentConfirmationPromptMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e389c066d4382f698207e09e096c17e1659def3fad2be2fcf3b79ab0630a349)
@@ -1426,21 +1426,21 @@ class LexIntentConfirmationPromptMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1755,8 +1755,8 @@ class LexIntentConfirmationPromptOutputReference(
 class LexIntentDialogCodeHook:
     def __init__(self, *, message_version: builtins.str, uri: builtins.str) -> None:
         '''
-        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#uri LexIntent#uri}.
+        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#uri LexIntent#uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5ce14d65cf6b2c9e51f393e9f9013a8a9e3c4197395d1e0b30aa2c27c0ed474)
@@ -1769,14 +1769,14 @@ class LexIntentDialogCodeHook:
 
     @builtins.property
     def message_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message_version LexIntent#message_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message_version LexIntent#message_version}.'''
         result = self._values.get("message_version")
         assert result is not None, "Required property 'message_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#uri LexIntent#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#uri LexIntent#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1873,8 +1873,8 @@ class LexIntentFollowUpPrompt:
         rejection_statement: typing.Union["LexIntentFollowUpPromptRejectionStatement", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param prompt: prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#prompt LexIntent#prompt}
-        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
+        :param prompt: prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#prompt LexIntent#prompt}
+        :param rejection_statement: rejection_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
         '''
         if isinstance(prompt, dict):
             prompt = LexIntentFollowUpPromptPrompt(**prompt)
@@ -1893,7 +1893,7 @@ class LexIntentFollowUpPrompt:
     def prompt(self) -> "LexIntentFollowUpPromptPrompt":
         '''prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#prompt LexIntent#prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#prompt LexIntent#prompt}
         '''
         result = self._values.get("prompt")
         assert result is not None, "Required property 'prompt' is missing"
@@ -1903,7 +1903,7 @@ class LexIntentFollowUpPrompt:
     def rejection_statement(self) -> "LexIntentFollowUpPromptRejectionStatement":
         '''rejection_statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#rejection_statement LexIntent#rejection_statement}
         '''
         result = self._values.get("rejection_statement")
         assert result is not None, "Required property 'rejection_statement' is missing"
@@ -1950,9 +1950,9 @@ class LexIntentFollowUpPromptOutputReference(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         value = LexIntentFollowUpPromptPrompt(
             max_attempts=max_attempts, message=message, response_card=response_card
@@ -1968,8 +1968,8 @@ class LexIntentFollowUpPromptOutputReference(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         value = LexIntentFollowUpPromptRejectionStatement(
             message=message, response_card=response_card
@@ -2032,9 +2032,9 @@ class LexIntentFollowUpPromptPrompt:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89049bb2a9a22bc2150fdbda5c90ccee89703287bb4389dcad27eb16a5362964)
@@ -2050,7 +2050,7 @@ class LexIntentFollowUpPromptPrompt:
 
     @builtins.property
     def max_attempts(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.'''
         result = self._values.get("max_attempts")
         assert result is not None, "Required property 'max_attempts' is missing"
         return typing.cast(jsii.Number, result)
@@ -2061,7 +2061,7 @@ class LexIntentFollowUpPromptPrompt:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentFollowUpPromptPromptMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -2069,7 +2069,7 @@ class LexIntentFollowUpPromptPrompt:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2103,9 +2103,9 @@ class LexIntentFollowUpPromptPromptMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__387a6775f26b8b1e3619a925e7d3b339582459bfc1f2c1ab89fabdebb89b6c61)
@@ -2121,21 +2121,21 @@ class LexIntentFollowUpPromptPromptMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2455,8 +2455,8 @@ class LexIntentFollowUpPromptRejectionStatement:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33bc6a47ed20ca5f3af939fae6f0ad0ed1318befba18a76ffc3d94b101c4d288)
@@ -2474,7 +2474,7 @@ class LexIntentFollowUpPromptRejectionStatement:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentFollowUpPromptRejectionStatementMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -2482,7 +2482,7 @@ class LexIntentFollowUpPromptRejectionStatement:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2516,9 +2516,9 @@ class LexIntentFollowUpPromptRejectionStatementMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1071f9b05c81522e37e36ea6063390dd030bb615797fcb300b651d9383cc776f)
@@ -2534,21 +2534,21 @@ class LexIntentFollowUpPromptRejectionStatementMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2853,8 +2853,8 @@ class LexIntentFulfillmentActivity:
         code_hook: typing.Optional[typing.Union["LexIntentFulfillmentActivityCodeHook", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#type LexIntent#type}.
-        :param code_hook: code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#code_hook LexIntent#code_hook}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#type LexIntent#type}.
+        :param code_hook: code_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#code_hook LexIntent#code_hook}
         '''
         if isinstance(code_hook, dict):
             code_hook = LexIntentFulfillmentActivityCodeHook(**code_hook)
@@ -2870,7 +2870,7 @@ class LexIntentFulfillmentActivity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#type LexIntent#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#type LexIntent#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -2879,7 +2879,7 @@ class LexIntentFulfillmentActivity:
     def code_hook(self) -> typing.Optional["LexIntentFulfillmentActivityCodeHook"]:
         '''code_hook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#code_hook LexIntent#code_hook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#code_hook LexIntent#code_hook}
         '''
         result = self._values.get("code_hook")
         return typing.cast(typing.Optional["LexIntentFulfillmentActivityCodeHook"], result)
@@ -2904,8 +2904,8 @@ class LexIntentFulfillmentActivity:
 class LexIntentFulfillmentActivityCodeHook:
     def __init__(self, *, message_version: builtins.str, uri: builtins.str) -> None:
         '''
-        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#uri LexIntent#uri}.
+        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#uri LexIntent#uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a3e39cf3dee5c3956f92d2b661e51c149b79dbd962b449032caba8821f9c9a2)
@@ -2918,14 +2918,14 @@ class LexIntentFulfillmentActivityCodeHook:
 
     @builtins.property
     def message_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message_version LexIntent#message_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message_version LexIntent#message_version}.'''
         result = self._values.get("message_version")
         assert result is not None, "Required property 'message_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#uri LexIntent#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#uri LexIntent#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -3040,8 +3040,8 @@ class LexIntentFulfillmentActivityOutputReference(
         uri: builtins.str,
     ) -> None:
         '''
-        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#uri LexIntent#uri}.
+        :param message_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message_version LexIntent#message_version}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#uri LexIntent#uri}.
         '''
         value = LexIntentFulfillmentActivityCodeHook(
             message_version=message_version, uri=uri
@@ -3109,8 +3109,8 @@ class LexIntentRejectionStatement:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14f087797a57ac5f68b23630d656d815c330fcc6e057d9486002a35439e3eae5)
@@ -3128,7 +3128,7 @@ class LexIntentRejectionStatement:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentRejectionStatementMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -3136,7 +3136,7 @@ class LexIntentRejectionStatement:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3170,9 +3170,9 @@ class LexIntentRejectionStatementMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e2e06b40f71e0282c0991b5f7727f19e9c2648a0dedad7a9243a9b4e1b15542)
@@ -3188,21 +3188,21 @@ class LexIntentRejectionStatementMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3522,15 +3522,15 @@ class LexIntentSlot:
         value_elicitation_prompt: typing.Optional[typing.Union["LexIntentSlotValueElicitationPrompt", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#name LexIntent#name}.
-        :param slot_constraint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot_constraint LexIntent#slot_constraint}.
-        :param slot_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot_type LexIntent#slot_type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#description LexIntent#description}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#priority LexIntent#priority}.
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
-        :param sample_utterances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.
-        :param slot_type_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot_type_version LexIntent#slot_type_version}.
-        :param value_elicitation_prompt: value_elicitation_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#value_elicitation_prompt LexIntent#value_elicitation_prompt}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#name LexIntent#name}.
+        :param slot_constraint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot_constraint LexIntent#slot_constraint}.
+        :param slot_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot_type LexIntent#slot_type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#description LexIntent#description}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#priority LexIntent#priority}.
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param sample_utterances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.
+        :param slot_type_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot_type_version LexIntent#slot_type_version}.
+        :param value_elicitation_prompt: value_elicitation_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#value_elicitation_prompt LexIntent#value_elicitation_prompt}
         '''
         if isinstance(value_elicitation_prompt, dict):
             value_elicitation_prompt = LexIntentSlotValueElicitationPrompt(**value_elicitation_prompt)
@@ -3565,52 +3565,52 @@ class LexIntentSlot:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#name LexIntent#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#name LexIntent#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def slot_constraint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot_constraint LexIntent#slot_constraint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot_constraint LexIntent#slot_constraint}.'''
         result = self._values.get("slot_constraint")
         assert result is not None, "Required property 'slot_constraint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def slot_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot_type LexIntent#slot_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot_type LexIntent#slot_type}.'''
         result = self._values.get("slot_type")
         assert result is not None, "Required property 'slot_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#description LexIntent#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#description LexIntent#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#priority LexIntent#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#priority LexIntent#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sample_utterances(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#sample_utterances LexIntent#sample_utterances}.'''
         result = self._values.get("sample_utterances")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def slot_type_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#slot_type_version LexIntent#slot_type_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#slot_type_version LexIntent#slot_type_version}.'''
         result = self._values.get("slot_type_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3620,7 +3620,7 @@ class LexIntentSlot:
     ) -> typing.Optional["LexIntentSlotValueElicitationPrompt"]:
         '''value_elicitation_prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#value_elicitation_prompt LexIntent#value_elicitation_prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#value_elicitation_prompt LexIntent#value_elicitation_prompt}
         '''
         result = self._values.get("value_elicitation_prompt")
         return typing.cast(typing.Optional["LexIntentSlotValueElicitationPrompt"], result)
@@ -3762,9 +3762,9 @@ class LexIntentSlotOutputReference(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         value = LexIntentSlotValueElicitationPrompt(
             max_attempts=max_attempts, message=message, response_card=response_card
@@ -3982,9 +3982,9 @@ class LexIntentSlotValueElicitationPrompt:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__454da05daf466bc021c003a403731b90a6db396cc6ee1a4bb1ef7fb30e47c257)
@@ -4000,7 +4000,7 @@ class LexIntentSlotValueElicitationPrompt:
 
     @builtins.property
     def max_attempts(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#max_attempts LexIntent#max_attempts}.'''
         result = self._values.get("max_attempts")
         assert result is not None, "Required property 'max_attempts' is missing"
         return typing.cast(jsii.Number, result)
@@ -4011,7 +4011,7 @@ class LexIntentSlotValueElicitationPrompt:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexIntentSlotValueElicitationPromptMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#message LexIntent#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#message LexIntent#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -4019,7 +4019,7 @@ class LexIntentSlotValueElicitationPrompt:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#response_card LexIntent#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4053,9 +4053,9 @@ class LexIntentSlotValueElicitationPromptMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59fb8f2bf104d1940d7391b0c86f8f95b0e96b602021cde2778d23672db5fdc6)
@@ -4071,21 +4071,21 @@ class LexIntentSlotValueElicitationPromptMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content LexIntent#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content LexIntent#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#content_type LexIntent#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#group_number LexIntent#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4406,9 +4406,9 @@ class LexIntentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#create LexIntent#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#delete LexIntent#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#update LexIntent#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#create LexIntent#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#delete LexIntent#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#update LexIntent#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de661f70d18ee3e2e13f11522fd61efcf523f8455dfb475ea0b3170c91bb5db6)
@@ -4425,19 +4425,19 @@ class LexIntentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#create LexIntent#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#create LexIntent#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#delete LexIntent#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#delete LexIntent#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_intent#update LexIntent#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_intent#update LexIntent#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

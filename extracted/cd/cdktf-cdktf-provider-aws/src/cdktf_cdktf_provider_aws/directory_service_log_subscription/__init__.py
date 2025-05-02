@@ -1,7 +1,7 @@
 r'''
 # `aws_directory_service_log_subscription`
 
-Refer to the Terraform Registry for docs: [`aws_directory_service_log_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription).
+Refer to the Terraform Registry for docs: [`aws_directory_service_log_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DirectoryServiceLogSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.directoryServiceLogSubscription.DirectoryServiceLogSubscription",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription aws_directory_service_log_subscription}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription aws_directory_service_log_subscription}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DirectoryServiceLogSubscription(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription aws_directory_service_log_subscription} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription aws_directory_service_log_subscription} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#directory_id DirectoryServiceLogSubscription#directory_id}.
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#log_group_name DirectoryServiceLogSubscription#log_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#id DirectoryServiceLogSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#directory_id DirectoryServiceLogSubscription#directory_id}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#log_group_name DirectoryServiceLogSubscription#log_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#id DirectoryServiceLogSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DirectoryServiceLogSubscription(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DirectoryServiceLogSubscription to import.
-        :param import_from_id: The id of the existing DirectoryServiceLogSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DirectoryServiceLogSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DirectoryServiceLogSubscription to import is found.
         '''
         if __debug__:
@@ -228,9 +228,9 @@ class DirectoryServiceLogSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#directory_id DirectoryServiceLogSubscription#directory_id}.
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#log_group_name DirectoryServiceLogSubscription#log_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#id DirectoryServiceLogSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#directory_id DirectoryServiceLogSubscription#directory_id}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#log_group_name DirectoryServiceLogSubscription#log_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#id DirectoryServiceLogSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -333,21 +333,21 @@ class DirectoryServiceLogSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def directory_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#directory_id DirectoryServiceLogSubscription#directory_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#directory_id DirectoryServiceLogSubscription#directory_id}.'''
         result = self._values.get("directory_id")
         assert result is not None, "Required property 'directory_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#log_group_name DirectoryServiceLogSubscription#log_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#log_group_name DirectoryServiceLogSubscription#log_group_name}.'''
         result = self._values.get("log_group_name")
         assert result is not None, "Required property 'log_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_log_subscription#id DirectoryServiceLogSubscription#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_log_subscription#id DirectoryServiceLogSubscription#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

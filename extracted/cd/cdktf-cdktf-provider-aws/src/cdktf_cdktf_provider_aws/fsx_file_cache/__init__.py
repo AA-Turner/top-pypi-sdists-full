@@ -1,7 +1,7 @@
 r'''
 # `aws_fsx_file_cache`
 
-Refer to the Terraform Registry for docs: [`aws_fsx_file_cache`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache).
+Refer to the Terraform Registry for docs: [`aws_fsx_file_cache`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FsxFileCache(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.fsxFileCache.FsxFileCache",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache aws_fsx_file_cache}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache aws_fsx_file_cache}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class FsxFileCache(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache aws_fsx_file_cache} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache aws_fsx_file_cache} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param file_cache_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_type FsxFileCache#file_cache_type}.
-        :param file_cache_type_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_type_version FsxFileCache#file_cache_type_version}.
-        :param storage_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#subnet_ids FsxFileCache#subnet_ids}.
-        :param copy_tags_to_data_repository_associations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#copy_tags_to_data_repository_associations FsxFileCache#copy_tags_to_data_repository_associations}.
-        :param data_repository_association: data_repository_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_association FsxFileCache#data_repository_association}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#id FsxFileCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#kms_key_id FsxFileCache#kms_key_id}.
-        :param lustre_configuration: lustre_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#lustre_configuration FsxFileCache#lustre_configuration}
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#security_group_ids FsxFileCache#security_group_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags_all FsxFileCache#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#timeouts FsxFileCache#timeouts}
+        :param file_cache_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_type FsxFileCache#file_cache_type}.
+        :param file_cache_type_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_type_version FsxFileCache#file_cache_type_version}.
+        :param storage_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#subnet_ids FsxFileCache#subnet_ids}.
+        :param copy_tags_to_data_repository_associations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#copy_tags_to_data_repository_associations FsxFileCache#copy_tags_to_data_repository_associations}.
+        :param data_repository_association: data_repository_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_association FsxFileCache#data_repository_association}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#id FsxFileCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#kms_key_id FsxFileCache#kms_key_id}.
+        :param lustre_configuration: lustre_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#lustre_configuration FsxFileCache#lustre_configuration}
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#security_group_ids FsxFileCache#security_group_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags_all FsxFileCache#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#timeouts FsxFileCache#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class FsxFileCache(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FsxFileCache to import.
-        :param import_from_id: The id of the existing FsxFileCache that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FsxFileCache that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FsxFileCache to import is found.
         '''
         if __debug__:
@@ -185,9 +185,9 @@ class FsxFileCache(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#create FsxFileCache#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#delete FsxFileCache#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#update FsxFileCache#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#create FsxFileCache#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#delete FsxFileCache#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#update FsxFileCache#update}.
         '''
         value = FsxFileCacheTimeouts(create=create, delete=delete, update=update)
 
@@ -554,19 +554,19 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param file_cache_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_type FsxFileCache#file_cache_type}.
-        :param file_cache_type_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_type_version FsxFileCache#file_cache_type_version}.
-        :param storage_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#subnet_ids FsxFileCache#subnet_ids}.
-        :param copy_tags_to_data_repository_associations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#copy_tags_to_data_repository_associations FsxFileCache#copy_tags_to_data_repository_associations}.
-        :param data_repository_association: data_repository_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_association FsxFileCache#data_repository_association}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#id FsxFileCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#kms_key_id FsxFileCache#kms_key_id}.
-        :param lustre_configuration: lustre_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#lustre_configuration FsxFileCache#lustre_configuration}
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#security_group_ids FsxFileCache#security_group_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags_all FsxFileCache#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#timeouts FsxFileCache#timeouts}
+        :param file_cache_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_type FsxFileCache#file_cache_type}.
+        :param file_cache_type_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_type_version FsxFileCache#file_cache_type_version}.
+        :param storage_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#subnet_ids FsxFileCache#subnet_ids}.
+        :param copy_tags_to_data_repository_associations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#copy_tags_to_data_repository_associations FsxFileCache#copy_tags_to_data_repository_associations}.
+        :param data_repository_association: data_repository_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_association FsxFileCache#data_repository_association}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#id FsxFileCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#kms_key_id FsxFileCache#kms_key_id}.
+        :param lustre_configuration: lustre_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#lustre_configuration FsxFileCache#lustre_configuration}
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#security_group_ids FsxFileCache#security_group_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags_all FsxFileCache#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#timeouts FsxFileCache#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -699,28 +699,28 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def file_cache_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_type FsxFileCache#file_cache_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_type FsxFileCache#file_cache_type}.'''
         result = self._values.get("file_cache_type")
         assert result is not None, "Required property 'file_cache_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def file_cache_type_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_type_version FsxFileCache#file_cache_type_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_type_version FsxFileCache#file_cache_type_version}.'''
         result = self._values.get("file_cache_type_version")
         assert result is not None, "Required property 'file_cache_type_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.'''
         result = self._values.get("storage_capacity")
         assert result is not None, "Required property 'storage_capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#subnet_ids FsxFileCache#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#subnet_ids FsxFileCache#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -729,7 +729,7 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def copy_tags_to_data_repository_associations(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#copy_tags_to_data_repository_associations FsxFileCache#copy_tags_to_data_repository_associations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#copy_tags_to_data_repository_associations FsxFileCache#copy_tags_to_data_repository_associations}.'''
         result = self._values.get("copy_tags_to_data_repository_associations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -739,14 +739,14 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheDataRepositoryAssociation"]]]:
         '''data_repository_association block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_association FsxFileCache#data_repository_association}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_association FsxFileCache#data_repository_association}
         '''
         result = self._values.get("data_repository_association")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheDataRepositoryAssociation"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#id FsxFileCache#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#id FsxFileCache#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -756,7 +756,7 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#kms_key_id FsxFileCache#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#kms_key_id FsxFileCache#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -766,26 +766,26 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheLustreConfiguration"]]]:
         '''lustre_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#lustre_configuration FsxFileCache#lustre_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#lustre_configuration FsxFileCache#lustre_configuration}
         '''
         result = self._values.get("lustre_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheLustreConfiguration"]]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#security_group_ids FsxFileCache#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#security_group_ids FsxFileCache#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags_all FsxFileCache#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags_all FsxFileCache#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -793,7 +793,7 @@ class FsxFileCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FsxFileCacheTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#timeouts FsxFileCache#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#timeouts FsxFileCache#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FsxFileCacheTimeouts"], result)
@@ -832,11 +832,11 @@ class FsxFileCacheDataRepositoryAssociation:
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param data_repository_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_path FsxFileCache#data_repository_path}.
-        :param file_cache_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_path FsxFileCache#file_cache_path}.
-        :param data_repository_subdirectories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_subdirectories FsxFileCache#data_repository_subdirectories}.
-        :param nfs: nfs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#nfs FsxFileCache#nfs}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.
+        :param data_repository_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_path FsxFileCache#data_repository_path}.
+        :param file_cache_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_path FsxFileCache#file_cache_path}.
+        :param data_repository_subdirectories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_subdirectories FsxFileCache#data_repository_subdirectories}.
+        :param nfs: nfs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#nfs FsxFileCache#nfs}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a327d3069527d050b3c9eebc96852e089a44338ce8268b9ad06a583944bbbc9)
@@ -858,14 +858,14 @@ class FsxFileCacheDataRepositoryAssociation:
 
     @builtins.property
     def data_repository_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_path FsxFileCache#data_repository_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_path FsxFileCache#data_repository_path}.'''
         result = self._values.get("data_repository_path")
         assert result is not None, "Required property 'data_repository_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def file_cache_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#file_cache_path FsxFileCache#file_cache_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#file_cache_path FsxFileCache#file_cache_path}.'''
         result = self._values.get("file_cache_path")
         assert result is not None, "Required property 'file_cache_path' is missing"
         return typing.cast(builtins.str, result)
@@ -874,7 +874,7 @@ class FsxFileCacheDataRepositoryAssociation:
     def data_repository_subdirectories(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#data_repository_subdirectories FsxFileCache#data_repository_subdirectories}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#data_repository_subdirectories FsxFileCache#data_repository_subdirectories}.'''
         result = self._values.get("data_repository_subdirectories")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -884,14 +884,14 @@ class FsxFileCacheDataRepositoryAssociation:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheDataRepositoryAssociationNfs"]]]:
         '''nfs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#nfs FsxFileCache#nfs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#nfs FsxFileCache#nfs}
         '''
         result = self._values.get("nfs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheDataRepositoryAssociationNfs"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#tags FsxFileCache#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1013,8 +1013,8 @@ class FsxFileCacheDataRepositoryAssociationNfs:
         dns_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#version FsxFileCache#version}.
-        :param dns_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#dns_ips FsxFileCache#dns_ips}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#version FsxFileCache#version}.
+        :param dns_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#dns_ips FsxFileCache#dns_ips}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06c7039ab26bdca398b023f26a6dc4ce71048334f39cc746460cb7aa647911ce)
@@ -1028,14 +1028,14 @@ class FsxFileCacheDataRepositoryAssociationNfs:
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#version FsxFileCache#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#version FsxFileCache#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dns_ips(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#dns_ips FsxFileCache#dns_ips}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#dns_ips FsxFileCache#dns_ips}.'''
         result = self._values.get("dns_ips")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1427,10 +1427,10 @@ class FsxFileCacheLustreConfiguration:
         weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deployment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#deployment_type FsxFileCache#deployment_type}.
-        :param metadata_configuration: metadata_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#metadata_configuration FsxFileCache#metadata_configuration}
-        :param per_unit_storage_throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#per_unit_storage_throughput FsxFileCache#per_unit_storage_throughput}.
-        :param weekly_maintenance_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#weekly_maintenance_start_time FsxFileCache#weekly_maintenance_start_time}.
+        :param deployment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#deployment_type FsxFileCache#deployment_type}.
+        :param metadata_configuration: metadata_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#metadata_configuration FsxFileCache#metadata_configuration}
+        :param per_unit_storage_throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#per_unit_storage_throughput FsxFileCache#per_unit_storage_throughput}.
+        :param weekly_maintenance_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#weekly_maintenance_start_time FsxFileCache#weekly_maintenance_start_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3e8b07ec90809cad5dc641ac05af9cd641ca783f9c3b740fbc05d8c4999d016)
@@ -1448,7 +1448,7 @@ class FsxFileCacheLustreConfiguration:
 
     @builtins.property
     def deployment_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#deployment_type FsxFileCache#deployment_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#deployment_type FsxFileCache#deployment_type}.'''
         result = self._values.get("deployment_type")
         assert result is not None, "Required property 'deployment_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1459,7 +1459,7 @@ class FsxFileCacheLustreConfiguration:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FsxFileCacheLustreConfigurationMetadataConfiguration"]]:
         '''metadata_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#metadata_configuration FsxFileCache#metadata_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#metadata_configuration FsxFileCache#metadata_configuration}
         '''
         result = self._values.get("metadata_configuration")
         assert result is not None, "Required property 'metadata_configuration' is missing"
@@ -1467,14 +1467,14 @@ class FsxFileCacheLustreConfiguration:
 
     @builtins.property
     def per_unit_storage_throughput(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#per_unit_storage_throughput FsxFileCache#per_unit_storage_throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#per_unit_storage_throughput FsxFileCache#per_unit_storage_throughput}.'''
         result = self._values.get("per_unit_storage_throughput")
         assert result is not None, "Required property 'per_unit_storage_throughput' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def weekly_maintenance_start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#weekly_maintenance_start_time FsxFileCache#weekly_maintenance_start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#weekly_maintenance_start_time FsxFileCache#weekly_maintenance_start_time}.'''
         result = self._values.get("weekly_maintenance_start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1742,7 +1742,7 @@ class FsxFileCacheLustreConfigurationLogConfigurationOutputReference(
 class FsxFileCacheLustreConfigurationMetadataConfiguration:
     def __init__(self, *, storage_capacity: jsii.Number) -> None:
         '''
-        :param storage_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.
+        :param storage_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b686b61af601d6b23fa1bb96060e5ef94816ad7655b806c2d8ed91f201ed78f)
@@ -1753,7 +1753,7 @@ class FsxFileCacheLustreConfigurationMetadataConfiguration:
 
     @builtins.property
     def storage_capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#storage_capacity FsxFileCache#storage_capacity}.'''
         result = self._values.get("storage_capacity")
         assert result is not None, "Required property 'storage_capacity' is missing"
         return typing.cast(jsii.Number, result)
@@ -2074,9 +2074,9 @@ class FsxFileCacheTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#create FsxFileCache#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#delete FsxFileCache#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#update FsxFileCache#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#create FsxFileCache#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#delete FsxFileCache#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#update FsxFileCache#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ace97f501ac6beaf6fe95fd32c668fe57e38d6a0e4d6e0a5cc4200a78be7143)
@@ -2093,19 +2093,19 @@ class FsxFileCacheTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#create FsxFileCache#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#create FsxFileCache#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#delete FsxFileCache#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#delete FsxFileCache#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/fsx_file_cache#update FsxFileCache#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/fsx_file_cache#update FsxFileCache#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

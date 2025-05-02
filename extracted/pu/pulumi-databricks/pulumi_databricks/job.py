@@ -1324,6 +1324,9 @@ class _JobState:
 
 
 class Job(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/job:Job"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -1371,6 +1374,8 @@ class Job(pulumi.CustomResource):
                  __props__=None):
         """
         The `Job` resource allows you to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -1488,6 +1493,8 @@ class Job(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         The `Job` resource allows you to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "pyplexity"
+version = "0.2.12"
+description = "Perplexity filter for documents and bulk HTML and WARC boilerplate removal."
+authors = ["Manuel de Prada Corral <manuel.deprada.corral@usc.es>", "Marcos Fernández Pichel <marcosfernandez.pichel@usc.es>", "Pablo Gamallo <pablo.gamallo@usc.es>"]
+readme = "README.md"
+license = "GPL-3.0-only"
+homepage = "https://github.com/citiususc/pyplexity"
+
+
+[tool.poetry.scripts]
+pyplexity = "pyplexity.__main__:app"
+
+[tool.poetry.dependencies]
+python = "^3.6.1"
+typer = {extras = ["all"], version = "^0.4.0"}
+Flask = "^2.0.2"
+nltk = "^3.6.7"
+pandas = "^1.1.5"
+storable = "^1.2.4"
+memory-tempfile = "^2.2.3"
+warcio = "^1.7.4"
+html5lib = "^1.1"
+lxml = "^4.7.1"
+cached-path = "^1.0.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

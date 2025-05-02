@@ -22487,7 +22487,7 @@ class CfnKnowledgeBase(
             :param field_mapping: Contains the names of the fields to which to map information about the vector store.
             :param vector_index_name: The name of the MongoDB Atlas vector search index.
             :param endpoint_service_name: The name of the VPC endpoint service in your account that is connected to your MongoDB Atlas cluster.
-            :param text_index_name: Name of a MongoDB Atlas text index.
+            :param text_index_name: The name of the text search index in the MongoDB collection. This is required for using the hybrid search feature.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-mongodbatlasconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -22611,7 +22611,9 @@ class CfnKnowledgeBase(
 
         @builtins.property
         def text_index_name(self) -> typing.Optional[builtins.str]:
-            '''Name of a MongoDB Atlas text index.
+            '''The name of the text search index in the MongoDB collection.
+
+            This is required for using the hybrid search feature.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-mongodbatlasconfiguration.html#cfn-bedrock-knowledgebase-mongodbatlasconfiguration-textindexname
             '''
@@ -24008,7 +24010,7 @@ class CfnKnowledgeBase(
             :param primary_key_field: The name of the field in which Amazon Bedrock stores the ID for each entry.
             :param text_field: The name of the field in which Amazon Bedrock stores the raw text from your data. The text is split according to the chunking strategy you choose.
             :param vector_field: The name of the field in which Amazon Bedrock stores the vector embeddings for your data sources.
-            :param custom_metadata_field: The name of the field in which Amazon Bedrock stores custom metadata about the vector store.
+            :param custom_metadata_field: Provide a name for the universal metadata field where Amazon Bedrock will store any custom metadata from your data source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-rdsfieldmapping.html
             :exampleMetadata: fixture=_generated
@@ -24089,7 +24091,7 @@ class CfnKnowledgeBase(
 
         @builtins.property
         def custom_metadata_field(self) -> typing.Optional[builtins.str]:
-            '''The name of the field in which Amazon Bedrock stores custom metadata about the vector store.
+            '''Provide a name for the universal metadata field where Amazon Bedrock will store any custom metadata from your data source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-rdsfieldmapping.html#cfn-bedrock-knowledgebase-rdsfieldmapping-custommetadatafield
             '''

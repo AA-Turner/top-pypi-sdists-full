@@ -1,7 +1,7 @@
 r'''
 # `aws_devopsguru_resource_collection`
 
-Refer to the Terraform Registry for docs: [`aws_devopsguru_resource_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection).
+Refer to the Terraform Registry for docs: [`aws_devopsguru_resource_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DevopsguruResourceCollection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.devopsguruResourceCollection.DevopsguruResourceCollection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection aws_devopsguru_resource_collection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection aws_devopsguru_resource_collection}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DevopsguruResourceCollection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection aws_devopsguru_resource_collection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection aws_devopsguru_resource_collection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#type DevopsguruResourceCollection#type}.
-        :param cloudformation: cloudformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#cloudformation DevopsguruResourceCollection#cloudformation}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#tags DevopsguruResourceCollection#tags}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#type DevopsguruResourceCollection#type}.
+        :param cloudformation: cloudformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#cloudformation DevopsguruResourceCollection#cloudformation}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#tags DevopsguruResourceCollection#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DevopsguruResourceCollection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DevopsguruResourceCollection to import.
-        :param import_from_id: The id of the existing DevopsguruResourceCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DevopsguruResourceCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DevopsguruResourceCollection to import is found.
         '''
         if __debug__:
@@ -222,7 +222,7 @@ class DevopsguruResourceCollection(
 class DevopsguruResourceCollectionCloudformation:
     def __init__(self, *, stack_names: typing.Sequence[builtins.str]) -> None:
         '''
-        :param stack_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#stack_names DevopsguruResourceCollection#stack_names}.
+        :param stack_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#stack_names DevopsguruResourceCollection#stack_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__854d430b3dc2d0eb9d18c0eb9bb0d728724ddb64728bf1e9d1edf083962c18bf)
@@ -233,7 +233,7 @@ class DevopsguruResourceCollectionCloudformation:
 
     @builtins.property
     def stack_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#stack_names DevopsguruResourceCollection#stack_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#stack_names DevopsguruResourceCollection#stack_names}.'''
         result = self._values.get("stack_names")
         assert result is not None, "Required property 'stack_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -443,9 +443,9 @@ class DevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#type DevopsguruResourceCollection#type}.
-        :param cloudformation: cloudformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#cloudformation DevopsguruResourceCollection#cloudformation}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#tags DevopsguruResourceCollection#tags}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#type DevopsguruResourceCollection#type}.
+        :param cloudformation: cloudformation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#cloudformation DevopsguruResourceCollection#cloudformation}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#tags DevopsguruResourceCollection#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -549,7 +549,7 @@ class DevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#type DevopsguruResourceCollection#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#type DevopsguruResourceCollection#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -560,7 +560,7 @@ class DevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DevopsguruResourceCollectionCloudformation]]]:
         '''cloudformation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#cloudformation DevopsguruResourceCollection#cloudformation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#cloudformation DevopsguruResourceCollection#cloudformation}
         '''
         result = self._values.get("cloudformation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DevopsguruResourceCollectionCloudformation]]], result)
@@ -571,7 +571,7 @@ class DevopsguruResourceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruResourceCollectionTags"]]]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#tags DevopsguruResourceCollection#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#tags DevopsguruResourceCollection#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruResourceCollectionTags"]]], result)
@@ -601,8 +601,8 @@ class DevopsguruResourceCollectionTags:
         tag_values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param app_boundary_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#app_boundary_key DevopsguruResourceCollection#app_boundary_key}.
-        :param tag_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#tag_values DevopsguruResourceCollection#tag_values}.
+        :param app_boundary_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#app_boundary_key DevopsguruResourceCollection#app_boundary_key}.
+        :param tag_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#tag_values DevopsguruResourceCollection#tag_values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__712ada3a1a5feed635c8bb06fdf52f743d4600ac56133ec54bcbf72646722f11)
@@ -615,14 +615,14 @@ class DevopsguruResourceCollectionTags:
 
     @builtins.property
     def app_boundary_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#app_boundary_key DevopsguruResourceCollection#app_boundary_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#app_boundary_key DevopsguruResourceCollection#app_boundary_key}.'''
         result = self._values.get("app_boundary_key")
         assert result is not None, "Required property 'app_boundary_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_resource_collection#tag_values DevopsguruResourceCollection#tag_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_resource_collection#tag_values DevopsguruResourceCollection#tag_values}.'''
         result = self._values.get("tag_values")
         assert result is not None, "Required property 'tag_values' is missing"
         return typing.cast(typing.List[builtins.str], result)

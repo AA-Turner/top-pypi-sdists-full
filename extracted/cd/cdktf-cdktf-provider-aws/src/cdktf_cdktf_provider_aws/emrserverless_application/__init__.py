@@ -1,7 +1,7 @@
 r'''
 # `aws_emrserverless_application`
 
-Refer to the Terraform Registry for docs: [`aws_emrserverless_application`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application).
+Refer to the Terraform Registry for docs: [`aws_emrserverless_application`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EmrserverlessApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.emrserverlessApplication.EmrserverlessApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application aws_emrserverless_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application aws_emrserverless_application}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class EmrserverlessApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application aws_emrserverless_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application aws_emrserverless_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#name EmrserverlessApplication#name}.
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#release_label EmrserverlessApplication#release_label}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#type EmrserverlessApplication#type}.
-        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#architecture EmrserverlessApplication#architecture}.
-        :param auto_start_configuration: auto_start_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#auto_start_configuration EmrserverlessApplication#auto_start_configuration}
-        :param auto_stop_configuration: auto_stop_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#auto_stop_configuration EmrserverlessApplication#auto_stop_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#id EmrserverlessApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#image_configuration EmrserverlessApplication#image_configuration}
-        :param initial_capacity: initial_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity EmrserverlessApplication#initial_capacity}
-        :param interactive_configuration: interactive_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#interactive_configuration EmrserverlessApplication#interactive_configuration}
-        :param maximum_capacity: maximum_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#maximum_capacity EmrserverlessApplication#maximum_capacity}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#network_configuration EmrserverlessApplication#network_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#tags EmrserverlessApplication#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#tags_all EmrserverlessApplication#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#name EmrserverlessApplication#name}.
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#release_label EmrserverlessApplication#release_label}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#type EmrserverlessApplication#type}.
+        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#architecture EmrserverlessApplication#architecture}.
+        :param auto_start_configuration: auto_start_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#auto_start_configuration EmrserverlessApplication#auto_start_configuration}
+        :param auto_stop_configuration: auto_stop_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#auto_stop_configuration EmrserverlessApplication#auto_stop_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#id EmrserverlessApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#image_configuration EmrserverlessApplication#image_configuration}
+        :param initial_capacity: initial_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity EmrserverlessApplication#initial_capacity}
+        :param interactive_configuration: interactive_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#interactive_configuration EmrserverlessApplication#interactive_configuration}
+        :param maximum_capacity: maximum_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#maximum_capacity EmrserverlessApplication#maximum_capacity}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#network_configuration EmrserverlessApplication#network_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#tags EmrserverlessApplication#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#tags_all EmrserverlessApplication#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class EmrserverlessApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EmrserverlessApplication to import.
-        :param import_from_id: The id of the existing EmrserverlessApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EmrserverlessApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EmrserverlessApplication to import is found.
         '''
         if __debug__:
@@ -160,7 +160,7 @@ class EmrserverlessApplication(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
         '''
         value = EmrserverlessApplicationAutoStartConfiguration(enabled=enabled)
 
@@ -174,8 +174,8 @@ class EmrserverlessApplication(
         idle_timeout_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
-        :param idle_timeout_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#idle_timeout_minutes EmrserverlessApplication#idle_timeout_minutes}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
+        :param idle_timeout_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#idle_timeout_minutes EmrserverlessApplication#idle_timeout_minutes}.
         '''
         value = EmrserverlessApplicationAutoStopConfiguration(
             enabled=enabled, idle_timeout_minutes=idle_timeout_minutes
@@ -186,7 +186,7 @@ class EmrserverlessApplication(
     @jsii.member(jsii_name="putImageConfiguration")
     def put_image_configuration(self, *, image_uri: builtins.str) -> None:
         '''
-        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#image_uri EmrserverlessApplication#image_uri}.
+        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#image_uri EmrserverlessApplication#image_uri}.
         '''
         value = EmrserverlessApplicationImageConfiguration(image_uri=image_uri)
 
@@ -213,8 +213,8 @@ class EmrserverlessApplication(
         studio_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param livy_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#livy_endpoint_enabled EmrserverlessApplication#livy_endpoint_enabled}.
-        :param studio_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#studio_enabled EmrserverlessApplication#studio_enabled}.
+        :param livy_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#livy_endpoint_enabled EmrserverlessApplication#livy_endpoint_enabled}.
+        :param studio_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#studio_enabled EmrserverlessApplication#studio_enabled}.
         '''
         value = EmrserverlessApplicationInteractiveConfiguration(
             livy_endpoint_enabled=livy_endpoint_enabled, studio_enabled=studio_enabled
@@ -231,9 +231,9 @@ class EmrserverlessApplication(
         disk: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
-        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
+        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
         '''
         value = EmrserverlessApplicationMaximumCapacity(
             cpu=cpu, memory=memory, disk=disk
@@ -249,8 +249,8 @@ class EmrserverlessApplication(
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#security_group_ids EmrserverlessApplication#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#subnet_ids EmrserverlessApplication#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#security_group_ids EmrserverlessApplication#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#subnet_ids EmrserverlessApplication#subnet_ids}.
         '''
         value = EmrserverlessApplicationNetworkConfiguration(
             security_group_ids=security_group_ids, subnet_ids=subnet_ids
@@ -550,7 +550,7 @@ class EmrserverlessApplicationAutoStartConfiguration:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__711adc9a70854729f54a13f0e3159d31c4f91ca65924f40f57dd36d442fdc8d0)
@@ -563,7 +563,7 @@ class EmrserverlessApplicationAutoStartConfiguration:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -656,8 +656,8 @@ class EmrserverlessApplicationAutoStopConfiguration:
         idle_timeout_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
-        :param idle_timeout_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#idle_timeout_minutes EmrserverlessApplication#idle_timeout_minutes}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.
+        :param idle_timeout_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#idle_timeout_minutes EmrserverlessApplication#idle_timeout_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f606597533d046e346c92c83226fe23ca8c1554f90d3dd534e13d3fb2d7ca78)
@@ -673,13 +673,13 @@ class EmrserverlessApplicationAutoStopConfiguration:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#enabled EmrserverlessApplication#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def idle_timeout_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#idle_timeout_minutes EmrserverlessApplication#idle_timeout_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#idle_timeout_minutes EmrserverlessApplication#idle_timeout_minutes}.'''
         result = self._values.get("idle_timeout_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -841,20 +841,20 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#name EmrserverlessApplication#name}.
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#release_label EmrserverlessApplication#release_label}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#type EmrserverlessApplication#type}.
-        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#architecture EmrserverlessApplication#architecture}.
-        :param auto_start_configuration: auto_start_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#auto_start_configuration EmrserverlessApplication#auto_start_configuration}
-        :param auto_stop_configuration: auto_stop_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#auto_stop_configuration EmrserverlessApplication#auto_stop_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#id EmrserverlessApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#image_configuration EmrserverlessApplication#image_configuration}
-        :param initial_capacity: initial_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity EmrserverlessApplication#initial_capacity}
-        :param interactive_configuration: interactive_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#interactive_configuration EmrserverlessApplication#interactive_configuration}
-        :param maximum_capacity: maximum_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#maximum_capacity EmrserverlessApplication#maximum_capacity}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#network_configuration EmrserverlessApplication#network_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#tags EmrserverlessApplication#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#tags_all EmrserverlessApplication#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#name EmrserverlessApplication#name}.
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#release_label EmrserverlessApplication#release_label}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#type EmrserverlessApplication#type}.
+        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#architecture EmrserverlessApplication#architecture}.
+        :param auto_start_configuration: auto_start_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#auto_start_configuration EmrserverlessApplication#auto_start_configuration}
+        :param auto_stop_configuration: auto_stop_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#auto_stop_configuration EmrserverlessApplication#auto_stop_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#id EmrserverlessApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#image_configuration EmrserverlessApplication#image_configuration}
+        :param initial_capacity: initial_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity EmrserverlessApplication#initial_capacity}
+        :param interactive_configuration: interactive_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#interactive_configuration EmrserverlessApplication#interactive_configuration}
+        :param maximum_capacity: maximum_capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#maximum_capacity EmrserverlessApplication#maximum_capacity}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#network_configuration EmrserverlessApplication#network_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#tags EmrserverlessApplication#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#tags_all EmrserverlessApplication#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1001,28 +1001,28 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#name EmrserverlessApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#name EmrserverlessApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def release_label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#release_label EmrserverlessApplication#release_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#release_label EmrserverlessApplication#release_label}.'''
         result = self._values.get("release_label")
         assert result is not None, "Required property 'release_label' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#type EmrserverlessApplication#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#type EmrserverlessApplication#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def architecture(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#architecture EmrserverlessApplication#architecture}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#architecture EmrserverlessApplication#architecture}.'''
         result = self._values.get("architecture")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1032,7 +1032,7 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[EmrserverlessApplicationAutoStartConfiguration]:
         '''auto_start_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#auto_start_configuration EmrserverlessApplication#auto_start_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#auto_start_configuration EmrserverlessApplication#auto_start_configuration}
         '''
         result = self._values.get("auto_start_configuration")
         return typing.cast(typing.Optional[EmrserverlessApplicationAutoStartConfiguration], result)
@@ -1043,14 +1043,14 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[EmrserverlessApplicationAutoStopConfiguration]:
         '''auto_stop_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#auto_stop_configuration EmrserverlessApplication#auto_stop_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#auto_stop_configuration EmrserverlessApplication#auto_stop_configuration}
         '''
         result = self._values.get("auto_stop_configuration")
         return typing.cast(typing.Optional[EmrserverlessApplicationAutoStopConfiguration], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#id EmrserverlessApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#id EmrserverlessApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1064,7 +1064,7 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EmrserverlessApplicationImageConfiguration"]:
         '''image_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#image_configuration EmrserverlessApplication#image_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#image_configuration EmrserverlessApplication#image_configuration}
         '''
         result = self._values.get("image_configuration")
         return typing.cast(typing.Optional["EmrserverlessApplicationImageConfiguration"], result)
@@ -1075,7 +1075,7 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrserverlessApplicationInitialCapacity"]]]:
         '''initial_capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity EmrserverlessApplication#initial_capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity EmrserverlessApplication#initial_capacity}
         '''
         result = self._values.get("initial_capacity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrserverlessApplicationInitialCapacity"]]], result)
@@ -1086,7 +1086,7 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EmrserverlessApplicationInteractiveConfiguration"]:
         '''interactive_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#interactive_configuration EmrserverlessApplication#interactive_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#interactive_configuration EmrserverlessApplication#interactive_configuration}
         '''
         result = self._values.get("interactive_configuration")
         return typing.cast(typing.Optional["EmrserverlessApplicationInteractiveConfiguration"], result)
@@ -1097,7 +1097,7 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EmrserverlessApplicationMaximumCapacity"]:
         '''maximum_capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#maximum_capacity EmrserverlessApplication#maximum_capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#maximum_capacity EmrserverlessApplication#maximum_capacity}
         '''
         result = self._values.get("maximum_capacity")
         return typing.cast(typing.Optional["EmrserverlessApplicationMaximumCapacity"], result)
@@ -1108,20 +1108,20 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EmrserverlessApplicationNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#network_configuration EmrserverlessApplication#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#network_configuration EmrserverlessApplication#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["EmrserverlessApplicationNetworkConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#tags EmrserverlessApplication#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#tags EmrserverlessApplication#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#tags_all EmrserverlessApplication#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#tags_all EmrserverlessApplication#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1145,7 +1145,7 @@ class EmrserverlessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class EmrserverlessApplicationImageConfiguration:
     def __init__(self, *, image_uri: builtins.str) -> None:
         '''
-        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#image_uri EmrserverlessApplication#image_uri}.
+        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#image_uri EmrserverlessApplication#image_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88364ebbb88e6f3cc5aa80d2d1ea3013facb713e1d2d6ff18c77a47cd73db455)
@@ -1156,7 +1156,7 @@ class EmrserverlessApplicationImageConfiguration:
 
     @builtins.property
     def image_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#image_uri EmrserverlessApplication#image_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#image_uri EmrserverlessApplication#image_uri}.'''
         result = self._values.get("image_uri")
         assert result is not None, "Required property 'image_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1244,8 +1244,8 @@ class EmrserverlessApplicationInitialCapacity:
         initial_capacity_config: typing.Optional[typing.Union["EmrserverlessApplicationInitialCapacityInitialCapacityConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param initial_capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity_type EmrserverlessApplication#initial_capacity_type}.
-        :param initial_capacity_config: initial_capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity_config EmrserverlessApplication#initial_capacity_config}
+        :param initial_capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity_type EmrserverlessApplication#initial_capacity_type}.
+        :param initial_capacity_config: initial_capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity_config EmrserverlessApplication#initial_capacity_config}
         '''
         if isinstance(initial_capacity_config, dict):
             initial_capacity_config = EmrserverlessApplicationInitialCapacityInitialCapacityConfig(**initial_capacity_config)
@@ -1261,7 +1261,7 @@ class EmrserverlessApplicationInitialCapacity:
 
     @builtins.property
     def initial_capacity_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity_type EmrserverlessApplication#initial_capacity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity_type EmrserverlessApplication#initial_capacity_type}.'''
         result = self._values.get("initial_capacity_type")
         assert result is not None, "Required property 'initial_capacity_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1272,7 +1272,7 @@ class EmrserverlessApplicationInitialCapacity:
     ) -> typing.Optional["EmrserverlessApplicationInitialCapacityInitialCapacityConfig"]:
         '''initial_capacity_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#initial_capacity_config EmrserverlessApplication#initial_capacity_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#initial_capacity_config EmrserverlessApplication#initial_capacity_config}
         '''
         result = self._values.get("initial_capacity_config")
         return typing.cast(typing.Optional["EmrserverlessApplicationInitialCapacityInitialCapacityConfig"], result)
@@ -1305,8 +1305,8 @@ class EmrserverlessApplicationInitialCapacityInitialCapacityConfig:
         worker_configuration: typing.Optional[typing.Union["EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#worker_count EmrserverlessApplication#worker_count}.
-        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#worker_configuration EmrserverlessApplication#worker_configuration}
+        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#worker_count EmrserverlessApplication#worker_count}.
+        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#worker_configuration EmrserverlessApplication#worker_configuration}
         '''
         if isinstance(worker_configuration, dict):
             worker_configuration = EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfiguration(**worker_configuration)
@@ -1322,7 +1322,7 @@ class EmrserverlessApplicationInitialCapacityInitialCapacityConfig:
 
     @builtins.property
     def worker_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#worker_count EmrserverlessApplication#worker_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#worker_count EmrserverlessApplication#worker_count}.'''
         result = self._values.get("worker_count")
         assert result is not None, "Required property 'worker_count' is missing"
         return typing.cast(jsii.Number, result)
@@ -1333,7 +1333,7 @@ class EmrserverlessApplicationInitialCapacityInitialCapacityConfig:
     ) -> typing.Optional["EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfiguration"]:
         '''worker_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#worker_configuration EmrserverlessApplication#worker_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#worker_configuration EmrserverlessApplication#worker_configuration}
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfiguration"], result)
@@ -1379,9 +1379,9 @@ class EmrserverlessApplicationInitialCapacityInitialCapacityConfigOutputReferenc
         disk: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
-        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
+        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
         '''
         value = EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfiguration(
             cpu=cpu, memory=memory, disk=disk
@@ -1456,9 +1456,9 @@ class EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfigur
         disk: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
-        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
+        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__037dbf4eee9f5d069ca18fda50e3200e441002fca4bbfef958ec0c1d5554b51f)
@@ -1474,21 +1474,21 @@ class EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfigur
 
     @builtins.property
     def cpu(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.'''
         result = self._values.get("cpu")
         assert result is not None, "Required property 'cpu' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def memory(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.'''
         result = self._values.get("memory")
         assert result is not None, "Required property 'memory' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def disk(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.'''
         result = self._values.get("disk")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1724,8 +1724,8 @@ class EmrserverlessApplicationInitialCapacityOutputReference(
         worker_configuration: typing.Optional[typing.Union[EmrserverlessApplicationInitialCapacityInitialCapacityConfigWorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#worker_count EmrserverlessApplication#worker_count}.
-        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#worker_configuration EmrserverlessApplication#worker_configuration}
+        :param worker_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#worker_count EmrserverlessApplication#worker_count}.
+        :param worker_configuration: worker_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#worker_configuration EmrserverlessApplication#worker_configuration}
         '''
         value = EmrserverlessApplicationInitialCapacityInitialCapacityConfig(
             worker_count=worker_count, worker_configuration=worker_configuration
@@ -1802,8 +1802,8 @@ class EmrserverlessApplicationInteractiveConfiguration:
         studio_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param livy_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#livy_endpoint_enabled EmrserverlessApplication#livy_endpoint_enabled}.
-        :param studio_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#studio_enabled EmrserverlessApplication#studio_enabled}.
+        :param livy_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#livy_endpoint_enabled EmrserverlessApplication#livy_endpoint_enabled}.
+        :param studio_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#studio_enabled EmrserverlessApplication#studio_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd73c16ad7904d28a4937186eb6fcc11155df7201a7d26f1e20d26ba60a7170b)
@@ -1819,7 +1819,7 @@ class EmrserverlessApplicationInteractiveConfiguration:
     def livy_endpoint_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#livy_endpoint_enabled EmrserverlessApplication#livy_endpoint_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#livy_endpoint_enabled EmrserverlessApplication#livy_endpoint_enabled}.'''
         result = self._values.get("livy_endpoint_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1827,7 +1827,7 @@ class EmrserverlessApplicationInteractiveConfiguration:
     def studio_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#studio_enabled EmrserverlessApplication#studio_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#studio_enabled EmrserverlessApplication#studio_enabled}.'''
         result = self._values.get("studio_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1951,9 +1951,9 @@ class EmrserverlessApplicationMaximumCapacity:
         disk: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
-        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.
+        :param disk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6948195f4c180b3da9fb30e8d5636972681835a4ac1cbcd45cec5268f6480835)
@@ -1969,21 +1969,21 @@ class EmrserverlessApplicationMaximumCapacity:
 
     @builtins.property
     def cpu(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#cpu EmrserverlessApplication#cpu}.'''
         result = self._values.get("cpu")
         assert result is not None, "Required property 'cpu' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def memory(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#memory EmrserverlessApplication#memory}.'''
         result = self._values.get("memory")
         assert result is not None, "Required property 'memory' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def disk(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#disk EmrserverlessApplication#disk}.'''
         result = self._values.get("disk")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2105,8 +2105,8 @@ class EmrserverlessApplicationNetworkConfiguration:
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#security_group_ids EmrserverlessApplication#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#subnet_ids EmrserverlessApplication#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#security_group_ids EmrserverlessApplication#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#subnet_ids EmrserverlessApplication#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7697d4f2fb9595f573ee31647a54396c798f646da2bbd9d726833fb5660d2517)
@@ -2120,13 +2120,13 @@ class EmrserverlessApplicationNetworkConfiguration:
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#security_group_ids EmrserverlessApplication#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#security_group_ids EmrserverlessApplication#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emrserverless_application#subnet_ids EmrserverlessApplication#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emrserverless_application#subnet_ids EmrserverlessApplication#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

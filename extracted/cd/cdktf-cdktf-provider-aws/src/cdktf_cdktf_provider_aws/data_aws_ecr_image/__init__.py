@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ecr_image`
 
-Refer to the Terraform Registry for docs: [`data_aws_ecr_image`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image).
+Refer to the Terraform Registry for docs: [`data_aws_ecr_image`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEcrImage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEcrImage.DataAwsEcrImage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image aws_ecr_image}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image aws_ecr_image}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataAwsEcrImage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image aws_ecr_image} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image aws_ecr_image} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
-        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
-        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
+        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
+        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataAwsEcrImage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEcrImage to import.
-        :param import_from_id: The id of the existing DataAwsEcrImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEcrImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEcrImage to import is found.
         '''
         if __debug__:
@@ -335,12 +335,12 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
-        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
-        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
-        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_digest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.
+        :param image_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.
+        :param most_recent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.
+        :param registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -453,14 +453,14 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def repository_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#repository_name DataAwsEcrImage#repository_name}.'''
         result = self._values.get("repository_name")
         assert result is not None, "Required property 'repository_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#id DataAwsEcrImage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -470,13 +470,13 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def image_digest(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#image_digest DataAwsEcrImage#image_digest}.'''
         result = self._values.get("image_digest")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#image_tag DataAwsEcrImage#image_tag}.'''
         result = self._values.get("image_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -484,13 +484,13 @@ class DataAwsEcrImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def most_recent(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#most_recent DataAwsEcrImage#most_recent}.'''
         result = self._values.get("most_recent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def registry_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ecr_image#registry_id DataAwsEcrImage#registry_id}.'''
         result = self._values.get("registry_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

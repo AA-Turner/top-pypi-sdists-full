@@ -1,19 +1,18 @@
 Metadata-Version: 2.4
 Name: nox
-Version: 2025.2.9
+Version: 2025.5.1
 Summary: Flexible test automation.
 Project-URL: bug-tracker, https://github.com/wntrblm/nox/issues
 Project-URL: documentation, https://nox.thea.codes
 Project-URL: homepage, https://github.com/wntrblm/nox
 Project-URL: repository, https://github.com/wntrblm/nox
 Author-email: Alethea Katherine Flowers <me@thea.codes>
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: automation,testing,tox
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX

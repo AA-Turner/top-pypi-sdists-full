@@ -1,7 +1,7 @@
 r'''
 # `aws_pipes_pipe`
 
-Refer to the Terraform Registry for docs: [`aws_pipes_pipe`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe).
+Refer to the Terraform Registry for docs: [`aws_pipes_pipe`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PipesPipe(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.pipesPipe.PipesPipe",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe aws_pipes_pipe}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe aws_pipes_pipe}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class PipesPipe(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe aws_pipes_pipe} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe aws_pipes_pipe} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#role_arn PipesPipe#role_arn}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source PipesPipe#source}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#target PipesPipe#target}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#description PipesPipe#description}.
-        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#desired_state PipesPipe#desired_state}.
-        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enrichment PipesPipe#enrichment}.
-        :param enrichment_parameters: enrichment_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enrichment_parameters PipesPipe#enrichment_parameters}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#id PipesPipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kms_key_identifier PipesPipe#kms_key_identifier}.
-        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_configuration PipesPipe#log_configuration}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name_prefix PipesPipe#name_prefix}.
-        :param source_parameters: source_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source_parameters PipesPipe#source_parameters}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags_all PipesPipe#tags_all}.
-        :param target_parameters: target_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#target_parameters PipesPipe#target_parameters}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#timeouts PipesPipe#timeouts}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#role_arn PipesPipe#role_arn}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source PipesPipe#source}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#target PipesPipe#target}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#description PipesPipe#description}.
+        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#desired_state PipesPipe#desired_state}.
+        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enrichment PipesPipe#enrichment}.
+        :param enrichment_parameters: enrichment_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enrichment_parameters PipesPipe#enrichment_parameters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#id PipesPipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kms_key_identifier PipesPipe#kms_key_identifier}.
+        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_configuration PipesPipe#log_configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name_prefix PipesPipe#name_prefix}.
+        :param source_parameters: source_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source_parameters PipesPipe#source_parameters}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags_all PipesPipe#tags_all}.
+        :param target_parameters: target_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#target_parameters PipesPipe#target_parameters}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#timeouts PipesPipe#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class PipesPipe(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PipesPipe to import.
-        :param import_from_id: The id of the existing PipesPipe that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PipesPipe that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PipesPipe to import is found.
         '''
         if __debug__:
@@ -170,8 +170,8 @@ class PipesPipe(
         input_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
-        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
+        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
+        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
         '''
         value = PipesPipeEnrichmentParameters(
             http_parameters=http_parameters, input_template=input_template
@@ -190,11 +190,11 @@ class PipesPipe(
         s3_log_destination: typing.Optional[typing.Union["PipesPipeLogConfigurationS3LogDestination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#level PipesPipe#level}.
-        :param cloudwatch_logs_log_destination: cloudwatch_logs_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cloudwatch_logs_log_destination PipesPipe#cloudwatch_logs_log_destination}
-        :param firehose_log_destination: firehose_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#firehose_log_destination PipesPipe#firehose_log_destination}
-        :param include_execution_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#include_execution_data PipesPipe#include_execution_data}.
-        :param s3_log_destination: s3_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#s3_log_destination PipesPipe#s3_log_destination}
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#level PipesPipe#level}.
+        :param cloudwatch_logs_log_destination: cloudwatch_logs_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cloudwatch_logs_log_destination PipesPipe#cloudwatch_logs_log_destination}
+        :param firehose_log_destination: firehose_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#firehose_log_destination PipesPipe#firehose_log_destination}
+        :param include_execution_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#include_execution_data PipesPipe#include_execution_data}.
+        :param s3_log_destination: s3_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#s3_log_destination PipesPipe#s3_log_destination}
         '''
         value = PipesPipeLogConfiguration(
             level=level,
@@ -220,14 +220,14 @@ class PipesPipe(
         sqs_queue_parameters: typing.Optional[typing.Union["PipesPipeSourceParametersSqsQueueParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param activemq_broker_parameters: activemq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#activemq_broker_parameters PipesPipe#activemq_broker_parameters}
-        :param dynamodb_stream_parameters: dynamodb_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dynamodb_stream_parameters PipesPipe#dynamodb_stream_parameters}
-        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#filter_criteria PipesPipe#filter_criteria}
-        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
-        :param managed_streaming_kafka_parameters: managed_streaming_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#managed_streaming_kafka_parameters PipesPipe#managed_streaming_kafka_parameters}
-        :param rabbitmq_broker_parameters: rabbitmq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#rabbitmq_broker_parameters PipesPipe#rabbitmq_broker_parameters}
-        :param self_managed_kafka_parameters: self_managed_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#self_managed_kafka_parameters PipesPipe#self_managed_kafka_parameters}
-        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
+        :param activemq_broker_parameters: activemq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#activemq_broker_parameters PipesPipe#activemq_broker_parameters}
+        :param dynamodb_stream_parameters: dynamodb_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dynamodb_stream_parameters PipesPipe#dynamodb_stream_parameters}
+        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#filter_criteria PipesPipe#filter_criteria}
+        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
+        :param managed_streaming_kafka_parameters: managed_streaming_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#managed_streaming_kafka_parameters PipesPipe#managed_streaming_kafka_parameters}
+        :param rabbitmq_broker_parameters: rabbitmq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#rabbitmq_broker_parameters PipesPipe#rabbitmq_broker_parameters}
+        :param self_managed_kafka_parameters: self_managed_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#self_managed_kafka_parameters PipesPipe#self_managed_kafka_parameters}
+        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
         '''
         value = PipesPipeSourceParameters(
             activemq_broker_parameters=activemq_broker_parameters,
@@ -260,18 +260,18 @@ class PipesPipe(
         step_function_state_machine_parameters: typing.Optional[typing.Union["PipesPipeTargetParametersStepFunctionStateMachineParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param batch_job_parameters: batch_job_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_job_parameters PipesPipe#batch_job_parameters}
-        :param cloudwatch_logs_parameters: cloudwatch_logs_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cloudwatch_logs_parameters PipesPipe#cloudwatch_logs_parameters}
-        :param ecs_task_parameters: ecs_task_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#ecs_task_parameters PipesPipe#ecs_task_parameters}
-        :param eventbridge_event_bus_parameters: eventbridge_event_bus_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#eventbridge_event_bus_parameters PipesPipe#eventbridge_event_bus_parameters}
-        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
-        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
-        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
-        :param lambda_function_parameters: lambda_function_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#lambda_function_parameters PipesPipe#lambda_function_parameters}
-        :param redshift_data_parameters: redshift_data_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#redshift_data_parameters PipesPipe#redshift_data_parameters}
-        :param sagemaker_pipeline_parameters: sagemaker_pipeline_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sagemaker_pipeline_parameters PipesPipe#sagemaker_pipeline_parameters}
-        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
-        :param step_function_state_machine_parameters: step_function_state_machine_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#step_function_state_machine_parameters PipesPipe#step_function_state_machine_parameters}
+        :param batch_job_parameters: batch_job_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_job_parameters PipesPipe#batch_job_parameters}
+        :param cloudwatch_logs_parameters: cloudwatch_logs_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cloudwatch_logs_parameters PipesPipe#cloudwatch_logs_parameters}
+        :param ecs_task_parameters: ecs_task_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#ecs_task_parameters PipesPipe#ecs_task_parameters}
+        :param eventbridge_event_bus_parameters: eventbridge_event_bus_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#eventbridge_event_bus_parameters PipesPipe#eventbridge_event_bus_parameters}
+        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
+        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
+        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
+        :param lambda_function_parameters: lambda_function_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#lambda_function_parameters PipesPipe#lambda_function_parameters}
+        :param redshift_data_parameters: redshift_data_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#redshift_data_parameters PipesPipe#redshift_data_parameters}
+        :param sagemaker_pipeline_parameters: sagemaker_pipeline_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sagemaker_pipeline_parameters PipesPipe#sagemaker_pipeline_parameters}
+        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
+        :param step_function_state_machine_parameters: step_function_state_machine_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#step_function_state_machine_parameters PipesPipe#step_function_state_machine_parameters}
         '''
         value = PipesPipeTargetParameters(
             batch_job_parameters=batch_job_parameters,
@@ -299,9 +299,9 @@ class PipesPipe(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#create PipesPipe#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#delete PipesPipe#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#update PipesPipe#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#create PipesPipe#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#delete PipesPipe#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#update PipesPipe#update}.
         '''
         value = PipesPipeTimeouts(create=create, delete=delete, update=update)
 
@@ -709,23 +709,23 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#role_arn PipesPipe#role_arn}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source PipesPipe#source}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#target PipesPipe#target}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#description PipesPipe#description}.
-        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#desired_state PipesPipe#desired_state}.
-        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enrichment PipesPipe#enrichment}.
-        :param enrichment_parameters: enrichment_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enrichment_parameters PipesPipe#enrichment_parameters}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#id PipesPipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kms_key_identifier PipesPipe#kms_key_identifier}.
-        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_configuration PipesPipe#log_configuration}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name_prefix PipesPipe#name_prefix}.
-        :param source_parameters: source_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source_parameters PipesPipe#source_parameters}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags_all PipesPipe#tags_all}.
-        :param target_parameters: target_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#target_parameters PipesPipe#target_parameters}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#timeouts PipesPipe#timeouts}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#role_arn PipesPipe#role_arn}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source PipesPipe#source}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#target PipesPipe#target}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#description PipesPipe#description}.
+        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#desired_state PipesPipe#desired_state}.
+        :param enrichment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enrichment PipesPipe#enrichment}.
+        :param enrichment_parameters: enrichment_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enrichment_parameters PipesPipe#enrichment_parameters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#id PipesPipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kms_key_identifier PipesPipe#kms_key_identifier}.
+        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_configuration PipesPipe#log_configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name_prefix PipesPipe#name_prefix}.
+        :param source_parameters: source_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source_parameters PipesPipe#source_parameters}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags_all PipesPipe#tags_all}.
+        :param target_parameters: target_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#target_parameters PipesPipe#target_parameters}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#timeouts PipesPipe#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -879,40 +879,40 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#role_arn PipesPipe#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#role_arn PipesPipe#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source PipesPipe#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source PipesPipe#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#target PipesPipe#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#target PipesPipe#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#description PipesPipe#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#description PipesPipe#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def desired_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#desired_state PipesPipe#desired_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#desired_state PipesPipe#desired_state}.'''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enrichment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enrichment PipesPipe#enrichment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enrichment PipesPipe#enrichment}.'''
         result = self._values.get("enrichment")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -920,14 +920,14 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enrichment_parameters(self) -> typing.Optional["PipesPipeEnrichmentParameters"]:
         '''enrichment_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enrichment_parameters PipesPipe#enrichment_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enrichment_parameters PipesPipe#enrichment_parameters}
         '''
         result = self._values.get("enrichment_parameters")
         return typing.cast(typing.Optional["PipesPipeEnrichmentParameters"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#id PipesPipe#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#id PipesPipe#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -937,7 +937,7 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kms_key_identifier PipesPipe#kms_key_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kms_key_identifier PipesPipe#kms_key_identifier}.'''
         result = self._values.get("kms_key_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -945,20 +945,20 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_configuration(self) -> typing.Optional["PipesPipeLogConfiguration"]:
         '''log_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_configuration PipesPipe#log_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_configuration PipesPipe#log_configuration}
         '''
         result = self._values.get("log_configuration")
         return typing.cast(typing.Optional["PipesPipeLogConfiguration"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name_prefix PipesPipe#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name_prefix PipesPipe#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -966,20 +966,20 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_parameters(self) -> typing.Optional["PipesPipeSourceParameters"]:
         '''source_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source_parameters PipesPipe#source_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source_parameters PipesPipe#source_parameters}
         '''
         result = self._values.get("source_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParameters"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags_all PipesPipe#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags_all PipesPipe#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -987,7 +987,7 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_parameters(self) -> typing.Optional["PipesPipeTargetParameters"]:
         '''target_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#target_parameters PipesPipe#target_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#target_parameters PipesPipe#target_parameters}
         '''
         result = self._values.get("target_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParameters"], result)
@@ -996,7 +996,7 @@ class PipesPipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PipesPipeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#timeouts PipesPipe#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#timeouts PipesPipe#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PipesPipeTimeouts"], result)
@@ -1029,8 +1029,8 @@ class PipesPipeEnrichmentParameters:
         input_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
-        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
+        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
+        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
         '''
         if isinstance(http_parameters, dict):
             http_parameters = PipesPipeEnrichmentParametersHttpParameters(**http_parameters)
@@ -1050,14 +1050,14 @@ class PipesPipeEnrichmentParameters:
     ) -> typing.Optional["PipesPipeEnrichmentParametersHttpParameters"]:
         '''http_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
         '''
         result = self._values.get("http_parameters")
         return typing.cast(typing.Optional["PipesPipeEnrichmentParametersHttpParameters"], result)
 
     @builtins.property
     def input_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.'''
         result = self._values.get("input_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1091,9 +1091,9 @@ class PipesPipeEnrichmentParametersHttpParameters:
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
-        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
-        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
+        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
+        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
+        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbd132970f51dbc99f97a1a186ef62af2f3b7e9ce4d3bd4ce21c7351bf07057a)
@@ -1112,13 +1112,13 @@ class PipesPipeEnrichmentParametersHttpParameters:
     def header_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.'''
         result = self._values.get("header_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.'''
         result = self._values.get("path_parameter_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1126,7 +1126,7 @@ class PipesPipeEnrichmentParametersHttpParameters:
     def query_string_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.'''
         result = self._values.get("query_string_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1282,9 +1282,9 @@ class PipesPipeEnrichmentParametersOutputReference(
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
-        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
-        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
+        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
+        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
+        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
         '''
         value = PipesPipeEnrichmentParametersHttpParameters(
             header_parameters=header_parameters,
@@ -1371,11 +1371,11 @@ class PipesPipeLogConfiguration:
         s3_log_destination: typing.Optional[typing.Union["PipesPipeLogConfigurationS3LogDestination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#level PipesPipe#level}.
-        :param cloudwatch_logs_log_destination: cloudwatch_logs_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cloudwatch_logs_log_destination PipesPipe#cloudwatch_logs_log_destination}
-        :param firehose_log_destination: firehose_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#firehose_log_destination PipesPipe#firehose_log_destination}
-        :param include_execution_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#include_execution_data PipesPipe#include_execution_data}.
-        :param s3_log_destination: s3_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#s3_log_destination PipesPipe#s3_log_destination}
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#level PipesPipe#level}.
+        :param cloudwatch_logs_log_destination: cloudwatch_logs_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cloudwatch_logs_log_destination PipesPipe#cloudwatch_logs_log_destination}
+        :param firehose_log_destination: firehose_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#firehose_log_destination PipesPipe#firehose_log_destination}
+        :param include_execution_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#include_execution_data PipesPipe#include_execution_data}.
+        :param s3_log_destination: s3_log_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#s3_log_destination PipesPipe#s3_log_destination}
         '''
         if isinstance(cloudwatch_logs_log_destination, dict):
             cloudwatch_logs_log_destination = PipesPipeLogConfigurationCloudwatchLogsLogDestination(**cloudwatch_logs_log_destination)
@@ -1404,7 +1404,7 @@ class PipesPipeLogConfiguration:
 
     @builtins.property
     def level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#level PipesPipe#level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#level PipesPipe#level}.'''
         result = self._values.get("level")
         assert result is not None, "Required property 'level' is missing"
         return typing.cast(builtins.str, result)
@@ -1415,7 +1415,7 @@ class PipesPipeLogConfiguration:
     ) -> typing.Optional["PipesPipeLogConfigurationCloudwatchLogsLogDestination"]:
         '''cloudwatch_logs_log_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cloudwatch_logs_log_destination PipesPipe#cloudwatch_logs_log_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cloudwatch_logs_log_destination PipesPipe#cloudwatch_logs_log_destination}
         '''
         result = self._values.get("cloudwatch_logs_log_destination")
         return typing.cast(typing.Optional["PipesPipeLogConfigurationCloudwatchLogsLogDestination"], result)
@@ -1426,14 +1426,14 @@ class PipesPipeLogConfiguration:
     ) -> typing.Optional["PipesPipeLogConfigurationFirehoseLogDestination"]:
         '''firehose_log_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#firehose_log_destination PipesPipe#firehose_log_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#firehose_log_destination PipesPipe#firehose_log_destination}
         '''
         result = self._values.get("firehose_log_destination")
         return typing.cast(typing.Optional["PipesPipeLogConfigurationFirehoseLogDestination"], result)
 
     @builtins.property
     def include_execution_data(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#include_execution_data PipesPipe#include_execution_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#include_execution_data PipesPipe#include_execution_data}.'''
         result = self._values.get("include_execution_data")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1443,7 +1443,7 @@ class PipesPipeLogConfiguration:
     ) -> typing.Optional["PipesPipeLogConfigurationS3LogDestination"]:
         '''s3_log_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#s3_log_destination PipesPipe#s3_log_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#s3_log_destination PipesPipe#s3_log_destination}
         '''
         result = self._values.get("s3_log_destination")
         return typing.cast(typing.Optional["PipesPipeLogConfigurationS3LogDestination"], result)
@@ -1468,7 +1468,7 @@ class PipesPipeLogConfiguration:
 class PipesPipeLogConfigurationCloudwatchLogsLogDestination:
     def __init__(self, *, log_group_arn: builtins.str) -> None:
         '''
-        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_group_arn PipesPipe#log_group_arn}.
+        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_group_arn PipesPipe#log_group_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5bf15e2b3b745fd1d37e6d09cb6c5d2ed192aad6656913d4090ffb284be056c9)
@@ -1479,7 +1479,7 @@ class PipesPipeLogConfigurationCloudwatchLogsLogDestination:
 
     @builtins.property
     def log_group_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_group_arn PipesPipe#log_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_group_arn PipesPipe#log_group_arn}.'''
         result = self._values.get("log_group_arn")
         assert result is not None, "Required property 'log_group_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1559,7 +1559,7 @@ class PipesPipeLogConfigurationCloudwatchLogsLogDestinationOutputReference(
 class PipesPipeLogConfigurationFirehoseLogDestination:
     def __init__(self, *, delivery_stream_arn: builtins.str) -> None:
         '''
-        :param delivery_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#delivery_stream_arn PipesPipe#delivery_stream_arn}.
+        :param delivery_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#delivery_stream_arn PipesPipe#delivery_stream_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a55dde54c23adc340c83767fd77cd6b674315bc531b89f16d0fd6538b4277377)
@@ -1570,7 +1570,7 @@ class PipesPipeLogConfigurationFirehoseLogDestination:
 
     @builtins.property
     def delivery_stream_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#delivery_stream_arn PipesPipe#delivery_stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#delivery_stream_arn PipesPipe#delivery_stream_arn}.'''
         result = self._values.get("delivery_stream_arn")
         assert result is not None, "Required property 'delivery_stream_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1669,7 +1669,7 @@ class PipesPipeLogConfigurationOutputReference(
         log_group_arn: builtins.str,
     ) -> None:
         '''
-        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_group_arn PipesPipe#log_group_arn}.
+        :param log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_group_arn PipesPipe#log_group_arn}.
         '''
         value = PipesPipeLogConfigurationCloudwatchLogsLogDestination(
             log_group_arn=log_group_arn
@@ -1684,7 +1684,7 @@ class PipesPipeLogConfigurationOutputReference(
         delivery_stream_arn: builtins.str,
     ) -> None:
         '''
-        :param delivery_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#delivery_stream_arn PipesPipe#delivery_stream_arn}.
+        :param delivery_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#delivery_stream_arn PipesPipe#delivery_stream_arn}.
         '''
         value = PipesPipeLogConfigurationFirehoseLogDestination(
             delivery_stream_arn=delivery_stream_arn
@@ -1702,10 +1702,10 @@ class PipesPipeLogConfigurationOutputReference(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#bucket_name PipesPipe#bucket_name}.
-        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#bucket_owner PipesPipe#bucket_owner}.
-        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#output_format PipesPipe#output_format}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#prefix PipesPipe#prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#bucket_name PipesPipe#bucket_name}.
+        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#bucket_owner PipesPipe#bucket_owner}.
+        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#output_format PipesPipe#output_format}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#prefix PipesPipe#prefix}.
         '''
         value = PipesPipeLogConfigurationS3LogDestination(
             bucket_name=bucket_name,
@@ -1843,10 +1843,10 @@ class PipesPipeLogConfigurationS3LogDestination:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#bucket_name PipesPipe#bucket_name}.
-        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#bucket_owner PipesPipe#bucket_owner}.
-        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#output_format PipesPipe#output_format}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#prefix PipesPipe#prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#bucket_name PipesPipe#bucket_name}.
+        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#bucket_owner PipesPipe#bucket_owner}.
+        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#output_format PipesPipe#output_format}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#prefix PipesPipe#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02e4e613e28b1792498e5263a66d3815a4b74daf0b60c03501834bc79ec1d584)
@@ -1865,27 +1865,27 @@ class PipesPipeLogConfigurationS3LogDestination:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#bucket_name PipesPipe#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#bucket_name PipesPipe#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_owner(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#bucket_owner PipesPipe#bucket_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#bucket_owner PipesPipe#bucket_owner}.'''
         result = self._values.get("bucket_owner")
         assert result is not None, "Required property 'bucket_owner' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def output_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#output_format PipesPipe#output_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#output_format PipesPipe#output_format}.'''
         result = self._values.get("output_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#prefix PipesPipe#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#prefix PipesPipe#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2043,14 +2043,14 @@ class PipesPipeSourceParameters:
         sqs_queue_parameters: typing.Optional[typing.Union["PipesPipeSourceParametersSqsQueueParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param activemq_broker_parameters: activemq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#activemq_broker_parameters PipesPipe#activemq_broker_parameters}
-        :param dynamodb_stream_parameters: dynamodb_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dynamodb_stream_parameters PipesPipe#dynamodb_stream_parameters}
-        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#filter_criteria PipesPipe#filter_criteria}
-        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
-        :param managed_streaming_kafka_parameters: managed_streaming_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#managed_streaming_kafka_parameters PipesPipe#managed_streaming_kafka_parameters}
-        :param rabbitmq_broker_parameters: rabbitmq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#rabbitmq_broker_parameters PipesPipe#rabbitmq_broker_parameters}
-        :param self_managed_kafka_parameters: self_managed_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#self_managed_kafka_parameters PipesPipe#self_managed_kafka_parameters}
-        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
+        :param activemq_broker_parameters: activemq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#activemq_broker_parameters PipesPipe#activemq_broker_parameters}
+        :param dynamodb_stream_parameters: dynamodb_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dynamodb_stream_parameters PipesPipe#dynamodb_stream_parameters}
+        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#filter_criteria PipesPipe#filter_criteria}
+        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
+        :param managed_streaming_kafka_parameters: managed_streaming_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#managed_streaming_kafka_parameters PipesPipe#managed_streaming_kafka_parameters}
+        :param rabbitmq_broker_parameters: rabbitmq_broker_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#rabbitmq_broker_parameters PipesPipe#rabbitmq_broker_parameters}
+        :param self_managed_kafka_parameters: self_managed_kafka_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#self_managed_kafka_parameters PipesPipe#self_managed_kafka_parameters}
+        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
         '''
         if isinstance(activemq_broker_parameters, dict):
             activemq_broker_parameters = PipesPipeSourceParametersActivemqBrokerParameters(**activemq_broker_parameters)
@@ -2102,7 +2102,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersActivemqBrokerParameters"]:
         '''activemq_broker_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#activemq_broker_parameters PipesPipe#activemq_broker_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#activemq_broker_parameters PipesPipe#activemq_broker_parameters}
         '''
         result = self._values.get("activemq_broker_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersActivemqBrokerParameters"], result)
@@ -2113,7 +2113,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersDynamodbStreamParameters"]:
         '''dynamodb_stream_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dynamodb_stream_parameters PipesPipe#dynamodb_stream_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dynamodb_stream_parameters PipesPipe#dynamodb_stream_parameters}
         '''
         result = self._values.get("dynamodb_stream_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersDynamodbStreamParameters"], result)
@@ -2124,7 +2124,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersFilterCriteria"]:
         '''filter_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#filter_criteria PipesPipe#filter_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#filter_criteria PipesPipe#filter_criteria}
         '''
         result = self._values.get("filter_criteria")
         return typing.cast(typing.Optional["PipesPipeSourceParametersFilterCriteria"], result)
@@ -2135,7 +2135,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersKinesisStreamParameters"]:
         '''kinesis_stream_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
         '''
         result = self._values.get("kinesis_stream_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersKinesisStreamParameters"], result)
@@ -2146,7 +2146,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersManagedStreamingKafkaParameters"]:
         '''managed_streaming_kafka_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#managed_streaming_kafka_parameters PipesPipe#managed_streaming_kafka_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#managed_streaming_kafka_parameters PipesPipe#managed_streaming_kafka_parameters}
         '''
         result = self._values.get("managed_streaming_kafka_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersManagedStreamingKafkaParameters"], result)
@@ -2157,7 +2157,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersRabbitmqBrokerParameters"]:
         '''rabbitmq_broker_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#rabbitmq_broker_parameters PipesPipe#rabbitmq_broker_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#rabbitmq_broker_parameters PipesPipe#rabbitmq_broker_parameters}
         '''
         result = self._values.get("rabbitmq_broker_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersRabbitmqBrokerParameters"], result)
@@ -2168,7 +2168,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersSelfManagedKafkaParameters"]:
         '''self_managed_kafka_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#self_managed_kafka_parameters PipesPipe#self_managed_kafka_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#self_managed_kafka_parameters PipesPipe#self_managed_kafka_parameters}
         '''
         result = self._values.get("self_managed_kafka_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersSelfManagedKafkaParameters"], result)
@@ -2179,7 +2179,7 @@ class PipesPipeSourceParameters:
     ) -> typing.Optional["PipesPipeSourceParametersSqsQueueParameters"]:
         '''sqs_queue_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
         '''
         result = self._values.get("sqs_queue_parameters")
         return typing.cast(typing.Optional["PipesPipeSourceParametersSqsQueueParameters"], result)
@@ -2216,10 +2216,10 @@ class PipesPipeSourceParametersActivemqBrokerParameters:
         maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
         '''
         if isinstance(credentials, dict):
             credentials = PipesPipeSourceParametersActivemqBrokerParametersCredentials(**credentials)
@@ -2244,7 +2244,7 @@ class PipesPipeSourceParametersActivemqBrokerParameters:
     ) -> "PipesPipeSourceParametersActivemqBrokerParametersCredentials":
         '''credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
         '''
         result = self._values.get("credentials")
         assert result is not None, "Required property 'credentials' is missing"
@@ -2252,20 +2252,20 @@ class PipesPipeSourceParametersActivemqBrokerParameters:
 
     @builtins.property
     def queue_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.'''
         result = self._values.get("queue_name")
         assert result is not None, "Required property 'queue_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2289,7 +2289,7 @@ class PipesPipeSourceParametersActivemqBrokerParameters:
 class PipesPipeSourceParametersActivemqBrokerParametersCredentials:
     def __init__(self, *, basic_auth: builtins.str) -> None:
         '''
-        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
+        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a007bfd2dcddfa6d7bc0ddb94d871c0c97723f5d6386c55d4f331c534b7fc93)
@@ -2300,7 +2300,7 @@ class PipesPipeSourceParametersActivemqBrokerParametersCredentials:
 
     @builtins.property
     def basic_auth(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.'''
         result = self._values.get("basic_auth")
         assert result is not None, "Required property 'basic_auth' is missing"
         return typing.cast(builtins.str, result)
@@ -2395,7 +2395,7 @@ class PipesPipeSourceParametersActivemqBrokerParametersOutputReference(
     @jsii.member(jsii_name="putCredentials")
     def put_credentials(self, *, basic_auth: builtins.str) -> None:
         '''
-        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
+        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
         '''
         value = PipesPipeSourceParametersActivemqBrokerParametersCredentials(
             basic_auth=basic_auth
@@ -2522,14 +2522,14 @@ class PipesPipeSourceParametersDynamodbStreamParameters:
         parallelization_factor: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
-        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
-        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
+        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
+        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
         '''
         if isinstance(dead_letter_config, dict):
             dead_letter_config = PipesPipeSourceParametersDynamodbStreamParametersDeadLetterConfig(**dead_letter_config)
@@ -2563,14 +2563,14 @@ class PipesPipeSourceParametersDynamodbStreamParameters:
 
     @builtins.property
     def starting_position(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2580,38 +2580,38 @@ class PipesPipeSourceParametersDynamodbStreamParameters:
     ) -> typing.Optional["PipesPipeSourceParametersDynamodbStreamParametersDeadLetterConfig"]:
         '''dead_letter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
         '''
         result = self._values.get("dead_letter_config")
         return typing.cast(typing.Optional["PipesPipeSourceParametersDynamodbStreamParametersDeadLetterConfig"], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_record_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.'''
         result = self._values.get("maximum_record_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_retry_attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.'''
         result = self._values.get("maximum_retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def on_partial_batch_item_failure(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.'''
         result = self._values.get("on_partial_batch_item_failure")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parallelization_factor(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.'''
         result = self._values.get("parallelization_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2635,7 +2635,7 @@ class PipesPipeSourceParametersDynamodbStreamParameters:
 class PipesPipeSourceParametersDynamodbStreamParametersDeadLetterConfig:
     def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17f3c9eb2a10c867822a87eb29ac10120ce1cc83bfd2afb6df1b9a27ff92b335)
@@ -2646,7 +2646,7 @@ class PipesPipeSourceParametersDynamodbStreamParametersDeadLetterConfig:
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2748,7 +2748,7 @@ class PipesPipeSourceParametersDynamodbStreamParametersOutputReference(
         arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
         '''
         value = PipesPipeSourceParametersDynamodbStreamParametersDeadLetterConfig(
             arn=arn
@@ -2947,7 +2947,7 @@ class PipesPipeSourceParametersFilterCriteria:
         filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PipesPipeSourceParametersFilterCriteriaFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#filter PipesPipe#filter}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#filter PipesPipe#filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bab998576186e3754b673e6a5216b531cddcd21141daec63656614bc91e2cba5)
@@ -2962,7 +2962,7 @@ class PipesPipeSourceParametersFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeSourceParametersFilterCriteriaFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#filter PipesPipe#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#filter PipesPipe#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeSourceParametersFilterCriteriaFilter"]]], result)
@@ -2987,7 +2987,7 @@ class PipesPipeSourceParametersFilterCriteria:
 class PipesPipeSourceParametersFilterCriteriaFilter:
     def __init__(self, *, pattern: builtins.str) -> None:
         '''
-        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#pattern PipesPipe#pattern}.
+        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#pattern PipesPipe#pattern}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bdbffc64c44bea5b18a318ebd196bf2802c5d0c9c80a7d73d17aa00e83e5e7c)
@@ -2998,7 +2998,7 @@ class PipesPipeSourceParametersFilterCriteriaFilter:
 
     @builtins.property
     def pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#pattern PipesPipe#pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#pattern PipesPipe#pattern}.'''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
         return typing.cast(builtins.str, result)
@@ -3266,15 +3266,15 @@ class PipesPipeSourceParametersKinesisStreamParameters:
         starting_position_timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
-        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
-        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
-        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position_timestamp PipesPipe#starting_position_timestamp}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
+        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
+        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
+        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position_timestamp PipesPipe#starting_position_timestamp}.
         '''
         if isinstance(dead_letter_config, dict):
             dead_letter_config = PipesPipeSourceParametersKinesisStreamParametersDeadLetterConfig(**dead_letter_config)
@@ -3311,14 +3311,14 @@ class PipesPipeSourceParametersKinesisStreamParameters:
 
     @builtins.property
     def starting_position(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
         result = self._values.get("starting_position")
         assert result is not None, "Required property 'starting_position' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3328,44 +3328,44 @@ class PipesPipeSourceParametersKinesisStreamParameters:
     ) -> typing.Optional["PipesPipeSourceParametersKinesisStreamParametersDeadLetterConfig"]:
         '''dead_letter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
         '''
         result = self._values.get("dead_letter_config")
         return typing.cast(typing.Optional["PipesPipeSourceParametersKinesisStreamParametersDeadLetterConfig"], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_record_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.'''
         result = self._values.get("maximum_record_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_retry_attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.'''
         result = self._values.get("maximum_retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def on_partial_batch_item_failure(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.'''
         result = self._values.get("on_partial_batch_item_failure")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parallelization_factor(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.'''
         result = self._values.get("parallelization_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def starting_position_timestamp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position_timestamp PipesPipe#starting_position_timestamp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position_timestamp PipesPipe#starting_position_timestamp}.'''
         result = self._values.get("starting_position_timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3389,7 +3389,7 @@ class PipesPipeSourceParametersKinesisStreamParameters:
 class PipesPipeSourceParametersKinesisStreamParametersDeadLetterConfig:
     def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a783b1288042d64792bd0625205e0dcae484be3156fb61de08e9c24be7abe8e)
@@ -3400,7 +3400,7 @@ class PipesPipeSourceParametersKinesisStreamParametersDeadLetterConfig:
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3502,7 +3502,7 @@ class PipesPipeSourceParametersKinesisStreamParametersOutputReference(
         arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#arn PipesPipe#arn}.
         '''
         value = PipesPipeSourceParametersKinesisStreamParametersDeadLetterConfig(
             arn=arn
@@ -3734,12 +3734,12 @@ class PipesPipeSourceParametersManagedStreamingKafkaParameters:
         starting_position: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
         '''
         if isinstance(credentials, dict):
             credentials = PipesPipeSourceParametersManagedStreamingKafkaParametersCredentials(**credentials)
@@ -3767,20 +3767,20 @@ class PipesPipeSourceParametersManagedStreamingKafkaParameters:
 
     @builtins.property
     def topic_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.'''
         result = self._values.get("topic_name")
         assert result is not None, "Required property 'topic_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.'''
         result = self._values.get("consumer_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3790,20 +3790,20 @@ class PipesPipeSourceParametersManagedStreamingKafkaParameters:
     ) -> typing.Optional["PipesPipeSourceParametersManagedStreamingKafkaParametersCredentials"]:
         '''credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["PipesPipeSourceParametersManagedStreamingKafkaParametersCredentials"], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def starting_position(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
         result = self._values.get("starting_position")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3835,8 +3835,8 @@ class PipesPipeSourceParametersManagedStreamingKafkaParametersCredentials:
         sasl_scram512_auth: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
-        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
+        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
+        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5be1a7108fffe44a7f5b69eac1b0ebfd9c878d42148eba053def08fd7178a904)
@@ -3850,13 +3850,13 @@ class PipesPipeSourceParametersManagedStreamingKafkaParametersCredentials:
 
     @builtins.property
     def client_certificate_tls_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.'''
         result = self._values.get("client_certificate_tls_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sasl_scram512_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.'''
         result = self._values.get("sasl_scram512_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3980,8 +3980,8 @@ class PipesPipeSourceParametersManagedStreamingKafkaParametersOutputReference(
         sasl_scram512_auth: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
-        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
+        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
+        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
         '''
         value = PipesPipeSourceParametersManagedStreamingKafkaParametersCredentials(
             client_certificate_tls_auth=client_certificate_tls_auth,
@@ -4157,10 +4157,10 @@ class PipesPipeSourceParametersOutputReference(
         maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
         '''
         value = PipesPipeSourceParametersActivemqBrokerParameters(
             credentials=credentials,
@@ -4185,14 +4185,14 @@ class PipesPipeSourceParametersOutputReference(
         parallelization_factor: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
-        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
-        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
+        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
+        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
         '''
         value = PipesPipeSourceParametersDynamodbStreamParameters(
             starting_position=starting_position,
@@ -4214,7 +4214,7 @@ class PipesPipeSourceParametersOutputReference(
         filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PipesPipeSourceParametersFilterCriteriaFilter, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#filter PipesPipe#filter}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#filter PipesPipe#filter}
         '''
         value = PipesPipeSourceParametersFilterCriteria(filter=filter)
 
@@ -4235,15 +4235,15 @@ class PipesPipeSourceParametersOutputReference(
         starting_position_timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
-        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
-        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
-        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position_timestamp PipesPipe#starting_position_timestamp}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#dead_letter_config PipesPipe#dead_letter_config}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_record_age_in_seconds PipesPipe#maximum_record_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_retry_attempts PipesPipe#maximum_retry_attempts}.
+        :param on_partial_batch_item_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#on_partial_batch_item_failure PipesPipe#on_partial_batch_item_failure}.
+        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parallelization_factor PipesPipe#parallelization_factor}.
+        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position_timestamp PipesPipe#starting_position_timestamp}.
         '''
         value = PipesPipeSourceParametersKinesisStreamParameters(
             starting_position=starting_position,
@@ -4271,12 +4271,12 @@ class PipesPipeSourceParametersOutputReference(
         starting_position: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
         '''
         value = PipesPipeSourceParametersManagedStreamingKafkaParameters(
             topic_name=topic_name,
@@ -4300,11 +4300,11 @@ class PipesPipeSourceParametersOutputReference(
         virtual_host: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param virtual_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#virtual_host PipesPipe#virtual_host}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param virtual_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#virtual_host PipesPipe#virtual_host}.
         '''
         value = PipesPipeSourceParametersRabbitmqBrokerParameters(
             credentials=credentials,
@@ -4331,15 +4331,15 @@ class PipesPipeSourceParametersOutputReference(
         vpc: typing.Optional[typing.Union["PipesPipeSourceParametersSelfManagedKafkaParametersVpc", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
-        :param additional_bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#additional_bootstrap_servers PipesPipe#additional_bootstrap_servers}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param server_root_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#server_root_ca_certificate PipesPipe#server_root_ca_certificate}.
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#vpc PipesPipe#vpc}
+        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
+        :param additional_bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#additional_bootstrap_servers PipesPipe#additional_bootstrap_servers}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param server_root_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#server_root_ca_certificate PipesPipe#server_root_ca_certificate}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#vpc PipesPipe#vpc}
         '''
         value = PipesPipeSourceParametersSelfManagedKafkaParameters(
             topic_name=topic_name,
@@ -4363,8 +4363,8 @@ class PipesPipeSourceParametersOutputReference(
         maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
         '''
         value = PipesPipeSourceParametersSqsQueueParameters(
             batch_size=batch_size,
@@ -4550,11 +4550,11 @@ class PipesPipeSourceParametersRabbitmqBrokerParameters:
         virtual_host: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param virtual_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#virtual_host PipesPipe#virtual_host}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param queue_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param virtual_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#virtual_host PipesPipe#virtual_host}.
         '''
         if isinstance(credentials, dict):
             credentials = PipesPipeSourceParametersRabbitmqBrokerParametersCredentials(**credentials)
@@ -4582,7 +4582,7 @@ class PipesPipeSourceParametersRabbitmqBrokerParameters:
     ) -> "PipesPipeSourceParametersRabbitmqBrokerParametersCredentials":
         '''credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
         '''
         result = self._values.get("credentials")
         assert result is not None, "Required property 'credentials' is missing"
@@ -4590,26 +4590,26 @@ class PipesPipeSourceParametersRabbitmqBrokerParameters:
 
     @builtins.property
     def queue_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#queue_name PipesPipe#queue_name}.'''
         result = self._values.get("queue_name")
         assert result is not None, "Required property 'queue_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def virtual_host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#virtual_host PipesPipe#virtual_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#virtual_host PipesPipe#virtual_host}.'''
         result = self._values.get("virtual_host")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4633,7 +4633,7 @@ class PipesPipeSourceParametersRabbitmqBrokerParameters:
 class PipesPipeSourceParametersRabbitmqBrokerParametersCredentials:
     def __init__(self, *, basic_auth: builtins.str) -> None:
         '''
-        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
+        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a743ed7fec946ec857124e7e6670cc58ee80e15db7964145a6aa4fffe890b953)
@@ -4644,7 +4644,7 @@ class PipesPipeSourceParametersRabbitmqBrokerParametersCredentials:
 
     @builtins.property
     def basic_auth(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.'''
         result = self._values.get("basic_auth")
         assert result is not None, "Required property 'basic_auth' is missing"
         return typing.cast(builtins.str, result)
@@ -4739,7 +4739,7 @@ class PipesPipeSourceParametersRabbitmqBrokerParametersOutputReference(
     @jsii.member(jsii_name="putCredentials")
     def put_credentials(self, *, basic_auth: builtins.str) -> None:
         '''
-        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
+        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
         '''
         value = PipesPipeSourceParametersRabbitmqBrokerParametersCredentials(
             basic_auth=basic_auth
@@ -4889,15 +4889,15 @@ class PipesPipeSourceParametersSelfManagedKafkaParameters:
         vpc: typing.Optional[typing.Union["PipesPipeSourceParametersSelfManagedKafkaParametersVpc", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
-        :param additional_bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#additional_bootstrap_servers PipesPipe#additional_bootstrap_servers}.
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
-        :param server_root_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#server_root_ca_certificate PipesPipe#server_root_ca_certificate}.
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#vpc PipesPipe#vpc}
+        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.
+        :param additional_bootstrap_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#additional_bootstrap_servers PipesPipe#additional_bootstrap_servers}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param server_root_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#server_root_ca_certificate PipesPipe#server_root_ca_certificate}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#vpc PipesPipe#vpc}
         '''
         if isinstance(credentials, dict):
             credentials = PipesPipeSourceParametersSelfManagedKafkaParametersCredentials(**credentials)
@@ -4936,7 +4936,7 @@ class PipesPipeSourceParametersSelfManagedKafkaParameters:
 
     @builtins.property
     def topic_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#topic_name PipesPipe#topic_name}.'''
         result = self._values.get("topic_name")
         assert result is not None, "Required property 'topic_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4945,19 +4945,19 @@ class PipesPipeSourceParametersSelfManagedKafkaParameters:
     def additional_bootstrap_servers(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#additional_bootstrap_servers PipesPipe#additional_bootstrap_servers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#additional_bootstrap_servers PipesPipe#additional_bootstrap_servers}.'''
         result = self._values.get("additional_bootstrap_servers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#consumer_group_id PipesPipe#consumer_group_id}.'''
         result = self._values.get("consumer_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4967,26 +4967,26 @@ class PipesPipeSourceParametersSelfManagedKafkaParameters:
     ) -> typing.Optional["PipesPipeSourceParametersSelfManagedKafkaParametersCredentials"]:
         '''credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#credentials PipesPipe#credentials}
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["PipesPipeSourceParametersSelfManagedKafkaParametersCredentials"], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def server_root_ca_certificate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#server_root_ca_certificate PipesPipe#server_root_ca_certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#server_root_ca_certificate PipesPipe#server_root_ca_certificate}.'''
         result = self._values.get("server_root_ca_certificate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def starting_position(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#starting_position PipesPipe#starting_position}.'''
         result = self._values.get("starting_position")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4996,7 +4996,7 @@ class PipesPipeSourceParametersSelfManagedKafkaParameters:
     ) -> typing.Optional["PipesPipeSourceParametersSelfManagedKafkaParametersVpc"]:
         '''vpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#vpc PipesPipe#vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#vpc PipesPipe#vpc}
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional["PipesPipeSourceParametersSelfManagedKafkaParametersVpc"], result)
@@ -5033,10 +5033,10 @@ class PipesPipeSourceParametersSelfManagedKafkaParametersCredentials:
         sasl_scram512_auth: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
-        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
-        :param sasl_scram256_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_256_auth PipesPipe#sasl_scram_256_auth}.
-        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
+        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
+        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
+        :param sasl_scram256_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_256_auth PipesPipe#sasl_scram_256_auth}.
+        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1500725b1ae78a8f84bce66d1e29dd12d5f22bfddcc3b596b24091dfd4e88dd)
@@ -5056,25 +5056,25 @@ class PipesPipeSourceParametersSelfManagedKafkaParametersCredentials:
 
     @builtins.property
     def basic_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.'''
         result = self._values.get("basic_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_certificate_tls_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.'''
         result = self._values.get("client_certificate_tls_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sasl_scram256_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_256_auth PipesPipe#sasl_scram_256_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_256_auth PipesPipe#sasl_scram_256_auth}.'''
         result = self._values.get("sasl_scram256_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sasl_scram512_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.'''
         result = self._values.get("sasl_scram512_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5242,10 +5242,10 @@ class PipesPipeSourceParametersSelfManagedKafkaParametersOutputReference(
         sasl_scram512_auth: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
-        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
-        :param sasl_scram256_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_256_auth PipesPipe#sasl_scram_256_auth}.
-        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
+        :param basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#basic_auth PipesPipe#basic_auth}.
+        :param client_certificate_tls_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#client_certificate_tls_auth PipesPipe#client_certificate_tls_auth}.
+        :param sasl_scram256_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_256_auth PipesPipe#sasl_scram_256_auth}.
+        :param sasl_scram512_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sasl_scram_512_auth PipesPipe#sasl_scram_512_auth}.
         '''
         value = PipesPipeSourceParametersSelfManagedKafkaParametersCredentials(
             basic_auth=basic_auth,
@@ -5264,8 +5264,8 @@ class PipesPipeSourceParametersSelfManagedKafkaParametersOutputReference(
         subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
         '''
         value = PipesPipeSourceParametersSelfManagedKafkaParametersVpc(
             security_groups=security_groups, subnets=subnets
@@ -5485,8 +5485,8 @@ class PipesPipeSourceParametersSelfManagedKafkaParametersVpc:
         subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc8672296bd558d9765ef7290d74c578eb5265277997f410de61d31e9b212221)
@@ -5500,13 +5500,13 @@ class PipesPipeSourceParametersSelfManagedKafkaParametersVpc:
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.'''
         result = self._values.get("subnets")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5618,8 +5618,8 @@ class PipesPipeSourceParametersSqsQueueParameters:
         maximum_batching_window_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c80bdde1bb2a2a7f80e049721cf3a1cf90ab695718d099b3aafa9eaa9d9c8e96)
@@ -5633,13 +5633,13 @@ class PipesPipeSourceParametersSqsQueueParameters:
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_size PipesPipe#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#maximum_batching_window_in_seconds PipesPipe#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5771,18 +5771,18 @@ class PipesPipeTargetParameters:
         step_function_state_machine_parameters: typing.Optional[typing.Union["PipesPipeTargetParametersStepFunctionStateMachineParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param batch_job_parameters: batch_job_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_job_parameters PipesPipe#batch_job_parameters}
-        :param cloudwatch_logs_parameters: cloudwatch_logs_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cloudwatch_logs_parameters PipesPipe#cloudwatch_logs_parameters}
-        :param ecs_task_parameters: ecs_task_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#ecs_task_parameters PipesPipe#ecs_task_parameters}
-        :param eventbridge_event_bus_parameters: eventbridge_event_bus_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#eventbridge_event_bus_parameters PipesPipe#eventbridge_event_bus_parameters}
-        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
-        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
-        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
-        :param lambda_function_parameters: lambda_function_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#lambda_function_parameters PipesPipe#lambda_function_parameters}
-        :param redshift_data_parameters: redshift_data_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#redshift_data_parameters PipesPipe#redshift_data_parameters}
-        :param sagemaker_pipeline_parameters: sagemaker_pipeline_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sagemaker_pipeline_parameters PipesPipe#sagemaker_pipeline_parameters}
-        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
-        :param step_function_state_machine_parameters: step_function_state_machine_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#step_function_state_machine_parameters PipesPipe#step_function_state_machine_parameters}
+        :param batch_job_parameters: batch_job_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_job_parameters PipesPipe#batch_job_parameters}
+        :param cloudwatch_logs_parameters: cloudwatch_logs_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cloudwatch_logs_parameters PipesPipe#cloudwatch_logs_parameters}
+        :param ecs_task_parameters: ecs_task_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#ecs_task_parameters PipesPipe#ecs_task_parameters}
+        :param eventbridge_event_bus_parameters: eventbridge_event_bus_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#eventbridge_event_bus_parameters PipesPipe#eventbridge_event_bus_parameters}
+        :param http_parameters: http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
+        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.
+        :param kinesis_stream_parameters: kinesis_stream_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
+        :param lambda_function_parameters: lambda_function_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#lambda_function_parameters PipesPipe#lambda_function_parameters}
+        :param redshift_data_parameters: redshift_data_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#redshift_data_parameters PipesPipe#redshift_data_parameters}
+        :param sagemaker_pipeline_parameters: sagemaker_pipeline_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sagemaker_pipeline_parameters PipesPipe#sagemaker_pipeline_parameters}
+        :param sqs_queue_parameters: sqs_queue_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
+        :param step_function_state_machine_parameters: step_function_state_machine_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#step_function_state_machine_parameters PipesPipe#step_function_state_machine_parameters}
         '''
         if isinstance(batch_job_parameters, dict):
             batch_job_parameters = PipesPipeTargetParametersBatchJobParameters(**batch_job_parameters)
@@ -5852,7 +5852,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersBatchJobParameters"]:
         '''batch_job_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#batch_job_parameters PipesPipe#batch_job_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#batch_job_parameters PipesPipe#batch_job_parameters}
         '''
         result = self._values.get("batch_job_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersBatchJobParameters"], result)
@@ -5863,7 +5863,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersCloudwatchLogsParameters"]:
         '''cloudwatch_logs_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cloudwatch_logs_parameters PipesPipe#cloudwatch_logs_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cloudwatch_logs_parameters PipesPipe#cloudwatch_logs_parameters}
         '''
         result = self._values.get("cloudwatch_logs_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersCloudwatchLogsParameters"], result)
@@ -5874,7 +5874,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersEcsTaskParameters"]:
         '''ecs_task_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#ecs_task_parameters PipesPipe#ecs_task_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#ecs_task_parameters PipesPipe#ecs_task_parameters}
         '''
         result = self._values.get("ecs_task_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersEcsTaskParameters"], result)
@@ -5885,7 +5885,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersEventbridgeEventBusParameters"]:
         '''eventbridge_event_bus_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#eventbridge_event_bus_parameters PipesPipe#eventbridge_event_bus_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#eventbridge_event_bus_parameters PipesPipe#eventbridge_event_bus_parameters}
         '''
         result = self._values.get("eventbridge_event_bus_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersEventbridgeEventBusParameters"], result)
@@ -5896,14 +5896,14 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersHttpParameters"]:
         '''http_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#http_parameters PipesPipe#http_parameters}
         '''
         result = self._values.get("http_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersHttpParameters"], result)
 
     @builtins.property
     def input_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#input_template PipesPipe#input_template}.'''
         result = self._values.get("input_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5913,7 +5913,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersKinesisStreamParameters"]:
         '''kinesis_stream_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#kinesis_stream_parameters PipesPipe#kinesis_stream_parameters}
         '''
         result = self._values.get("kinesis_stream_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersKinesisStreamParameters"], result)
@@ -5924,7 +5924,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersLambdaFunctionParameters"]:
         '''lambda_function_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#lambda_function_parameters PipesPipe#lambda_function_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#lambda_function_parameters PipesPipe#lambda_function_parameters}
         '''
         result = self._values.get("lambda_function_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersLambdaFunctionParameters"], result)
@@ -5935,7 +5935,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersRedshiftDataParameters"]:
         '''redshift_data_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#redshift_data_parameters PipesPipe#redshift_data_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#redshift_data_parameters PipesPipe#redshift_data_parameters}
         '''
         result = self._values.get("redshift_data_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersRedshiftDataParameters"], result)
@@ -5946,7 +5946,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersSagemakerPipelineParameters"]:
         '''sagemaker_pipeline_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sagemaker_pipeline_parameters PipesPipe#sagemaker_pipeline_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sagemaker_pipeline_parameters PipesPipe#sagemaker_pipeline_parameters}
         '''
         result = self._values.get("sagemaker_pipeline_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersSagemakerPipelineParameters"], result)
@@ -5957,7 +5957,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersSqsQueueParameters"]:
         '''sqs_queue_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqs_queue_parameters PipesPipe#sqs_queue_parameters}
         '''
         result = self._values.get("sqs_queue_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersSqsQueueParameters"], result)
@@ -5968,7 +5968,7 @@ class PipesPipeTargetParameters:
     ) -> typing.Optional["PipesPipeTargetParametersStepFunctionStateMachineParameters"]:
         '''step_function_state_machine_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#step_function_state_machine_parameters PipesPipe#step_function_state_machine_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#step_function_state_machine_parameters PipesPipe#step_function_state_machine_parameters}
         '''
         result = self._values.get("step_function_state_machine_parameters")
         return typing.cast(typing.Optional["PipesPipeTargetParametersStepFunctionStateMachineParameters"], result)
@@ -6011,13 +6011,13 @@ class PipesPipeTargetParametersBatchJobParameters:
         retry_strategy: typing.Optional[typing.Union["PipesPipeTargetParametersBatchJobParametersRetryStrategy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_definition PipesPipe#job_definition}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_name PipesPipe#job_name}.
-        :param array_properties: array_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#array_properties PipesPipe#array_properties}
-        :param container_overrides: container_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#container_overrides PipesPipe#container_overrides}
-        :param depends_on: depends_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#depends_on PipesPipe#depends_on}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parameters PipesPipe#parameters}.
-        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#retry_strategy PipesPipe#retry_strategy}
+        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_definition PipesPipe#job_definition}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_name PipesPipe#job_name}.
+        :param array_properties: array_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#array_properties PipesPipe#array_properties}
+        :param container_overrides: container_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#container_overrides PipesPipe#container_overrides}
+        :param depends_on: depends_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#depends_on PipesPipe#depends_on}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parameters PipesPipe#parameters}.
+        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#retry_strategy PipesPipe#retry_strategy}
         '''
         if isinstance(array_properties, dict):
             array_properties = PipesPipeTargetParametersBatchJobParametersArrayProperties(**array_properties)
@@ -6051,14 +6051,14 @@ class PipesPipeTargetParametersBatchJobParameters:
 
     @builtins.property
     def job_definition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_definition PipesPipe#job_definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_definition PipesPipe#job_definition}.'''
         result = self._values.get("job_definition")
         assert result is not None, "Required property 'job_definition' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def job_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_name PipesPipe#job_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_name PipesPipe#job_name}.'''
         result = self._values.get("job_name")
         assert result is not None, "Required property 'job_name' is missing"
         return typing.cast(builtins.str, result)
@@ -6069,7 +6069,7 @@ class PipesPipeTargetParametersBatchJobParameters:
     ) -> typing.Optional["PipesPipeTargetParametersBatchJobParametersArrayProperties"]:
         '''array_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#array_properties PipesPipe#array_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#array_properties PipesPipe#array_properties}
         '''
         result = self._values.get("array_properties")
         return typing.cast(typing.Optional["PipesPipeTargetParametersBatchJobParametersArrayProperties"], result)
@@ -6080,7 +6080,7 @@ class PipesPipeTargetParametersBatchJobParameters:
     ) -> typing.Optional["PipesPipeTargetParametersBatchJobParametersContainerOverrides"]:
         '''container_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#container_overrides PipesPipe#container_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#container_overrides PipesPipe#container_overrides}
         '''
         result = self._values.get("container_overrides")
         return typing.cast(typing.Optional["PipesPipeTargetParametersBatchJobParametersContainerOverrides"], result)
@@ -6091,14 +6091,14 @@ class PipesPipeTargetParametersBatchJobParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersBatchJobParametersDependsOn"]]]:
         '''depends_on block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#depends_on PipesPipe#depends_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#depends_on PipesPipe#depends_on}
         '''
         result = self._values.get("depends_on")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersBatchJobParametersDependsOn"]]], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parameters PipesPipe#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parameters PipesPipe#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -6108,7 +6108,7 @@ class PipesPipeTargetParametersBatchJobParameters:
     ) -> typing.Optional["PipesPipeTargetParametersBatchJobParametersRetryStrategy"]:
         '''retry_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#retry_strategy PipesPipe#retry_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#retry_strategy PipesPipe#retry_strategy}
         '''
         result = self._values.get("retry_strategy")
         return typing.cast(typing.Optional["PipesPipeTargetParametersBatchJobParametersRetryStrategy"], result)
@@ -6133,7 +6133,7 @@ class PipesPipeTargetParametersBatchJobParameters:
 class PipesPipeTargetParametersBatchJobParametersArrayProperties:
     def __init__(self, *, size: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#size PipesPipe#size}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#size PipesPipe#size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ddd3dc657bcd23a41dc39c3b8ebb70519f9663195f910615c41328be9439bf5)
@@ -6144,7 +6144,7 @@ class PipesPipeTargetParametersBatchJobParametersArrayProperties:
 
     @builtins.property
     def size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#size PipesPipe#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#size PipesPipe#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6239,10 +6239,10 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverrides:
         resource_requirement: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PipesPipeTargetParametersBatchJobParametersContainerOverridesResourceRequirement", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#command PipesPipe#command}.
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#instance_type PipesPipe#instance_type}.
-        :param resource_requirement: resource_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#command PipesPipe#command}.
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#instance_type PipesPipe#instance_type}.
+        :param resource_requirement: resource_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1ac170bf1ee0e30a17909db976c096aa4ef5ec06543d76fb575e8b66a50d50e)
@@ -6262,7 +6262,7 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverrides:
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#command PipesPipe#command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#command PipesPipe#command}.'''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6272,14 +6272,14 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverrides:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersBatchJobParametersContainerOverridesEnvironment"]]]:
         '''environment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
         '''
         result = self._values.get("environment")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersBatchJobParametersContainerOverridesEnvironment"]]], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#instance_type PipesPipe#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#instance_type PipesPipe#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6289,7 +6289,7 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverrides:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersBatchJobParametersContainerOverridesResourceRequirement"]]]:
         '''resource_requirement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
         '''
         result = self._values.get("resource_requirement")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersBatchJobParametersContainerOverridesResourceRequirement"]]], result)
@@ -6319,8 +6319,8 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverridesEnvironment:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d5e4dda516209273e910ba897162e255e6a562b0eefca3d8eefe73d2bc2c9ff)
@@ -6334,13 +6334,13 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverridesEnvironment:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6685,8 +6685,8 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverridesOutputReferen
 class PipesPipeTargetParametersBatchJobParametersContainerOverridesResourceRequirement:
     def __init__(self, *, type: builtins.str, value: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf041b0b059d02605f317b1f2d7c3813fb43bc95f08f02bfc3b811b49d5d586b)
@@ -6699,14 +6699,14 @@ class PipesPipeTargetParametersBatchJobParametersContainerOverridesResourceRequi
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6907,8 +6907,8 @@ class PipesPipeTargetParametersBatchJobParametersDependsOn:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param job_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_id PipesPipe#job_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.
+        :param job_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_id PipesPipe#job_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb1fcc6fbd1f1e3758bdb48b6a3c81c883e0742b676f205d251f459156ddcc99)
@@ -6922,13 +6922,13 @@ class PipesPipeTargetParametersBatchJobParametersDependsOn:
 
     @builtins.property
     def job_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_id PipesPipe#job_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_id PipesPipe#job_id}.'''
         result = self._values.get("job_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7150,7 +7150,7 @@ class PipesPipeTargetParametersBatchJobParametersOutputReference(
         size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#size PipesPipe#size}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#size PipesPipe#size}.
         '''
         value = PipesPipeTargetParametersBatchJobParametersArrayProperties(size=size)
 
@@ -7166,10 +7166,10 @@ class PipesPipeTargetParametersBatchJobParametersOutputReference(
         resource_requirement: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PipesPipeTargetParametersBatchJobParametersContainerOverridesResourceRequirement, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#command PipesPipe#command}.
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#instance_type PipesPipe#instance_type}.
-        :param resource_requirement: resource_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#command PipesPipe#command}.
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#instance_type PipesPipe#instance_type}.
+        :param resource_requirement: resource_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
         '''
         value = PipesPipeTargetParametersBatchJobParametersContainerOverrides(
             command=command,
@@ -7200,7 +7200,7 @@ class PipesPipeTargetParametersBatchJobParametersOutputReference(
         attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#attempts PipesPipe#attempts}.
+        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#attempts PipesPipe#attempts}.
         '''
         value = PipesPipeTargetParametersBatchJobParametersRetryStrategy(
             attempts=attempts
@@ -7361,7 +7361,7 @@ class PipesPipeTargetParametersBatchJobParametersOutputReference(
 class PipesPipeTargetParametersBatchJobParametersRetryStrategy:
     def __init__(self, *, attempts: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#attempts PipesPipe#attempts}.
+        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#attempts PipesPipe#attempts}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d63beaea962f0fa96bc28232dfc753ddf27f99585639ce02314e799047e0e6f3)
@@ -7372,7 +7372,7 @@ class PipesPipeTargetParametersBatchJobParametersRetryStrategy:
 
     @builtins.property
     def attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#attempts PipesPipe#attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#attempts PipesPipe#attempts}.'''
         result = self._values.get("attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7460,8 +7460,8 @@ class PipesPipeTargetParametersCloudwatchLogsParameters:
         timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_stream_name PipesPipe#log_stream_name}.
-        :param timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#timestamp PipesPipe#timestamp}.
+        :param log_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_stream_name PipesPipe#log_stream_name}.
+        :param timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#timestamp PipesPipe#timestamp}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92cb6bdceee1f4568f4320e14cca8c5ea498cb8144f618cdf2b06fcd2e7814fb)
@@ -7475,13 +7475,13 @@ class PipesPipeTargetParametersCloudwatchLogsParameters:
 
     @builtins.property
     def log_stream_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_stream_name PipesPipe#log_stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_stream_name PipesPipe#log_stream_name}.'''
         result = self._values.get("log_stream_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timestamp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#timestamp PipesPipe#timestamp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#timestamp PipesPipe#timestamp}.'''
         result = self._values.get("timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7619,21 +7619,21 @@ class PipesPipeTargetParametersEcsTaskParameters:
         task_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_definition_arn PipesPipe#task_definition_arn}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#capacity_provider_strategy PipesPipe#capacity_provider_strategy}
-        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enable_ecs_managed_tags PipesPipe#enable_ecs_managed_tags}.
-        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enable_execute_command PipesPipe#enable_execute_command}.
-        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#group PipesPipe#group}.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#launch_type PipesPipe#launch_type}.
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#network_configuration PipesPipe#network_configuration}
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#overrides PipesPipe#overrides}
-        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#placement_constraint PipesPipe#placement_constraint}
-        :param placement_strategy: placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#placement_strategy PipesPipe#placement_strategy}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#platform_version PipesPipe#platform_version}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#propagate_tags PipesPipe#propagate_tags}.
-        :param reference_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#reference_id PipesPipe#reference_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
-        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_count PipesPipe#task_count}.
+        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_definition_arn PipesPipe#task_definition_arn}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#capacity_provider_strategy PipesPipe#capacity_provider_strategy}
+        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enable_ecs_managed_tags PipesPipe#enable_ecs_managed_tags}.
+        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enable_execute_command PipesPipe#enable_execute_command}.
+        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#group PipesPipe#group}.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#launch_type PipesPipe#launch_type}.
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#network_configuration PipesPipe#network_configuration}
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#overrides PipesPipe#overrides}
+        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#placement_constraint PipesPipe#placement_constraint}
+        :param placement_strategy: placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#placement_strategy PipesPipe#placement_strategy}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#platform_version PipesPipe#platform_version}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#propagate_tags PipesPipe#propagate_tags}.
+        :param reference_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#reference_id PipesPipe#reference_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
+        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_count PipesPipe#task_count}.
         '''
         if isinstance(network_configuration, dict):
             network_configuration = PipesPipeTargetParametersEcsTaskParametersNetworkConfiguration(**network_configuration)
@@ -7690,7 +7690,7 @@ class PipesPipeTargetParametersEcsTaskParameters:
 
     @builtins.property
     def task_definition_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_definition_arn PipesPipe#task_definition_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_definition_arn PipesPipe#task_definition_arn}.'''
         result = self._values.get("task_definition_arn")
         assert result is not None, "Required property 'task_definition_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -7701,7 +7701,7 @@ class PipesPipeTargetParametersEcsTaskParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersCapacityProviderStrategy"]]]:
         '''capacity_provider_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#capacity_provider_strategy PipesPipe#capacity_provider_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#capacity_provider_strategy PipesPipe#capacity_provider_strategy}
         '''
         result = self._values.get("capacity_provider_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersCapacityProviderStrategy"]]], result)
@@ -7710,7 +7710,7 @@ class PipesPipeTargetParametersEcsTaskParameters:
     def enable_ecs_managed_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enable_ecs_managed_tags PipesPipe#enable_ecs_managed_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enable_ecs_managed_tags PipesPipe#enable_ecs_managed_tags}.'''
         result = self._values.get("enable_ecs_managed_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7718,19 +7718,19 @@ class PipesPipeTargetParametersEcsTaskParameters:
     def enable_execute_command(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enable_execute_command PipesPipe#enable_execute_command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enable_execute_command PipesPipe#enable_execute_command}.'''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#group PipesPipe#group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#group PipesPipe#group}.'''
         result = self._values.get("group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def launch_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#launch_type PipesPipe#launch_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#launch_type PipesPipe#launch_type}.'''
         result = self._values.get("launch_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7740,7 +7740,7 @@ class PipesPipeTargetParametersEcsTaskParameters:
     ) -> typing.Optional["PipesPipeTargetParametersEcsTaskParametersNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#network_configuration PipesPipe#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#network_configuration PipesPipe#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["PipesPipeTargetParametersEcsTaskParametersNetworkConfiguration"], result)
@@ -7751,7 +7751,7 @@ class PipesPipeTargetParametersEcsTaskParameters:
     ) -> typing.Optional["PipesPipeTargetParametersEcsTaskParametersOverrides"]:
         '''overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#overrides PipesPipe#overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#overrides PipesPipe#overrides}
         '''
         result = self._values.get("overrides")
         return typing.cast(typing.Optional["PipesPipeTargetParametersEcsTaskParametersOverrides"], result)
@@ -7762,7 +7762,7 @@ class PipesPipeTargetParametersEcsTaskParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersPlacementConstraint"]]]:
         '''placement_constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#placement_constraint PipesPipe#placement_constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#placement_constraint PipesPipe#placement_constraint}
         '''
         result = self._values.get("placement_constraint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersPlacementConstraint"]]], result)
@@ -7773,38 +7773,38 @@ class PipesPipeTargetParametersEcsTaskParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersPlacementStrategy"]]]:
         '''placement_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#placement_strategy PipesPipe#placement_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#placement_strategy PipesPipe#placement_strategy}
         '''
         result = self._values.get("placement_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersPlacementStrategy"]]], result)
 
     @builtins.property
     def platform_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#platform_version PipesPipe#platform_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#platform_version PipesPipe#platform_version}.'''
         result = self._values.get("platform_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def propagate_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#propagate_tags PipesPipe#propagate_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#propagate_tags PipesPipe#propagate_tags}.'''
         result = self._values.get("propagate_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def reference_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#reference_id PipesPipe#reference_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#reference_id PipesPipe#reference_id}.'''
         result = self._values.get("reference_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def task_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_count PipesPipe#task_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_count PipesPipe#task_count}.'''
         result = self._values.get("task_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7838,9 +7838,9 @@ class PipesPipeTargetParametersEcsTaskParametersCapacityProviderStrategy:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#capacity_provider PipesPipe#capacity_provider}.
-        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#base PipesPipe#base}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#weight PipesPipe#weight}.
+        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#capacity_provider PipesPipe#capacity_provider}.
+        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#base PipesPipe#base}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#weight PipesPipe#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3054ab06098c1579b8624eef97bc10a5ca5d492ae131c55f551b31651398e16)
@@ -7857,20 +7857,20 @@ class PipesPipeTargetParametersEcsTaskParametersCapacityProviderStrategy:
 
     @builtins.property
     def capacity_provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#capacity_provider PipesPipe#capacity_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#capacity_provider PipesPipe#capacity_provider}.'''
         result = self._values.get("capacity_provider")
         assert result is not None, "Required property 'capacity_provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def base(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#base PipesPipe#base}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#base PipesPipe#base}.'''
         result = self._values.get("base")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#weight PipesPipe#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#weight PipesPipe#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -8094,7 +8094,7 @@ class PipesPipeTargetParametersEcsTaskParametersNetworkConfiguration:
         aws_vpc_configuration: typing.Optional[typing.Union["PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aws_vpc_configuration: aws_vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#aws_vpc_configuration PipesPipe#aws_vpc_configuration}
+        :param aws_vpc_configuration: aws_vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#aws_vpc_configuration PipesPipe#aws_vpc_configuration}
         '''
         if isinstance(aws_vpc_configuration, dict):
             aws_vpc_configuration = PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfiguration(**aws_vpc_configuration)
@@ -8111,7 +8111,7 @@ class PipesPipeTargetParametersEcsTaskParametersNetworkConfiguration:
     ) -> typing.Optional["PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfiguration"]:
         '''aws_vpc_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#aws_vpc_configuration PipesPipe#aws_vpc_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#aws_vpc_configuration PipesPipe#aws_vpc_configuration}
         '''
         result = self._values.get("aws_vpc_configuration")
         return typing.cast(typing.Optional["PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfiguration"], result)
@@ -8146,9 +8146,9 @@ class PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfig
         subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#assign_public_ip PipesPipe#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#assign_public_ip PipesPipe#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f9b8458583630fb2f880e88b55f83ac32157f7113c6682ede3e0f3e81ea9844)
@@ -8165,19 +8165,19 @@ class PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfig
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#assign_public_ip PipesPipe#assign_public_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#assign_public_ip PipesPipe#assign_public_ip}.'''
         result = self._values.get("assign_public_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.'''
         result = self._values.get("subnets")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -8323,9 +8323,9 @@ class PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationOutputRefere
         subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#assign_public_ip PipesPipe#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#assign_public_ip PipesPipe#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#security_groups PipesPipe#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#subnets PipesPipe#subnets}.
         '''
         value = PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfiguration(
             assign_public_ip=assign_public_ip,
@@ -8411,7 +8411,7 @@ class PipesPipeTargetParametersEcsTaskParametersOutputReference(
         aws_vpc_configuration: typing.Optional[typing.Union[PipesPipeTargetParametersEcsTaskParametersNetworkConfigurationAwsVpcConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aws_vpc_configuration: aws_vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#aws_vpc_configuration PipesPipe#aws_vpc_configuration}
+        :param aws_vpc_configuration: aws_vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#aws_vpc_configuration PipesPipe#aws_vpc_configuration}
         '''
         value = PipesPipeTargetParametersEcsTaskParametersNetworkConfiguration(
             aws_vpc_configuration=aws_vpc_configuration
@@ -8432,13 +8432,13 @@ class PipesPipeTargetParametersEcsTaskParametersOutputReference(
         task_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_override: container_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#container_override PipesPipe#container_override}
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.
-        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#ephemeral_storage PipesPipe#ephemeral_storage}
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#execution_role_arn PipesPipe#execution_role_arn}.
-        :param inference_accelerator_override: inference_accelerator_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#inference_accelerator_override PipesPipe#inference_accelerator_override}
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.
-        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_role_arn PipesPipe#task_role_arn}.
+        :param container_override: container_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#container_override PipesPipe#container_override}
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.
+        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#ephemeral_storage PipesPipe#ephemeral_storage}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#execution_role_arn PipesPipe#execution_role_arn}.
+        :param inference_accelerator_override: inference_accelerator_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#inference_accelerator_override PipesPipe#inference_accelerator_override}
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.
+        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_role_arn PipesPipe#task_role_arn}.
         '''
         value = PipesPipeTargetParametersEcsTaskParametersOverrides(
             container_override=container_override,
@@ -8832,13 +8832,13 @@ class PipesPipeTargetParametersEcsTaskParametersOverrides:
         task_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_override: container_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#container_override PipesPipe#container_override}
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.
-        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#ephemeral_storage PipesPipe#ephemeral_storage}
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#execution_role_arn PipesPipe#execution_role_arn}.
-        :param inference_accelerator_override: inference_accelerator_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#inference_accelerator_override PipesPipe#inference_accelerator_override}
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.
-        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_role_arn PipesPipe#task_role_arn}.
+        :param container_override: container_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#container_override PipesPipe#container_override}
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.
+        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#ephemeral_storage PipesPipe#ephemeral_storage}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#execution_role_arn PipesPipe#execution_role_arn}.
+        :param inference_accelerator_override: inference_accelerator_override block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#inference_accelerator_override PipesPipe#inference_accelerator_override}
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.
+        :param task_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_role_arn PipesPipe#task_role_arn}.
         '''
         if isinstance(ephemeral_storage, dict):
             ephemeral_storage = PipesPipeTargetParametersEcsTaskParametersOverridesEphemeralStorage(**ephemeral_storage)
@@ -8873,14 +8873,14 @@ class PipesPipeTargetParametersEcsTaskParametersOverrides:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride"]]]:
         '''container_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#container_override PipesPipe#container_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#container_override PipesPipe#container_override}
         '''
         result = self._values.get("container_override")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride"]]], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.'''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8890,14 +8890,14 @@ class PipesPipeTargetParametersEcsTaskParametersOverrides:
     ) -> typing.Optional["PipesPipeTargetParametersEcsTaskParametersOverridesEphemeralStorage"]:
         '''ephemeral_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#ephemeral_storage PipesPipe#ephemeral_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#ephemeral_storage PipesPipe#ephemeral_storage}
         '''
         result = self._values.get("ephemeral_storage")
         return typing.cast(typing.Optional["PipesPipeTargetParametersEcsTaskParametersOverridesEphemeralStorage"], result)
 
     @builtins.property
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#execution_role_arn PipesPipe#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#execution_role_arn PipesPipe#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8907,20 +8907,20 @@ class PipesPipeTargetParametersEcsTaskParametersOverrides:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesInferenceAcceleratorOverride"]]]:
         '''inference_accelerator_override block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#inference_accelerator_override PipesPipe#inference_accelerator_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#inference_accelerator_override PipesPipe#inference_accelerator_override}
         '''
         result = self._values.get("inference_accelerator_override")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesInferenceAcceleratorOverride"]]], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.'''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def task_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_role_arn PipesPipe#task_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_role_arn PipesPipe#task_role_arn}.'''
         result = self._values.get("task_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8964,14 +8964,14 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride:
         resource_requirement: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideResourceRequirement", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#command PipesPipe#command}.
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
-        :param environment_file: environment_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment_file PipesPipe#environment_file}
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.
-        :param memory_reservation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory_reservation PipesPipe#memory_reservation}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.
-        :param resource_requirement: resource_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#command PipesPipe#command}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
+        :param environment_file: environment_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment_file PipesPipe#environment_file}
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.
+        :param memory_reservation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory_reservation PipesPipe#memory_reservation}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.
+        :param resource_requirement: resource_requirement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44c3465e2e1a0ad67478b883021c7d3e3e703d92f92412ccd839de71b12544eb)
@@ -9003,13 +9003,13 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride:
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#command PipesPipe#command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#command PipesPipe#command}.'''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#cpu PipesPipe#cpu}.'''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -9019,7 +9019,7 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnvironment"]]]:
         '''environment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment PipesPipe#environment}
         '''
         result = self._values.get("environment")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnvironment"]]], result)
@@ -9030,26 +9030,26 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnvironmentFile"]]]:
         '''environment_file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#environment_file PipesPipe#environment_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#environment_file PipesPipe#environment_file}
         '''
         result = self._values.get("environment_file")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnvironmentFile"]]], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory PipesPipe#memory}.'''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def memory_reservation(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#memory_reservation PipesPipe#memory_reservation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#memory_reservation PipesPipe#memory_reservation}.'''
         result = self._values.get("memory_reservation")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9059,7 +9059,7 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverride:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideResourceRequirement"]]]:
         '''resource_requirement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resource_requirement PipesPipe#resource_requirement}
         '''
         result = self._values.get("resource_requirement")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideResourceRequirement"]]], result)
@@ -9089,8 +9089,8 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnviro
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c353db5b3df47a752e90aae20866fd5fd10669aed355d1c1ecb7bc24ba2756c)
@@ -9104,13 +9104,13 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnviro
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9134,8 +9134,8 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnviro
 class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnvironmentFile:
     def __init__(self, *, type: builtins.str, value: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7deb8e4dfd5859a3031fca249e11f3088592b23f16b8133ad50aa72c08adc50d)
@@ -9148,14 +9148,14 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideEnviro
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9865,8 +9865,8 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideOutput
 class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideResourceRequirement:
     def __init__(self, *, type: builtins.str, value: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e30058607c59693a8c3f51b72d14ab763d9b9a19ef7ca22cf9f75993af55c74)
@@ -9879,14 +9879,14 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideResour
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10082,7 +10082,7 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesContainerOverrideResour
 class PipesPipeTargetParametersEcsTaskParametersOverridesEphemeralStorage:
     def __init__(self, *, size_in_gib: jsii.Number) -> None:
         '''
-        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#size_in_gib PipesPipe#size_in_gib}.
+        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#size_in_gib PipesPipe#size_in_gib}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04943886594d4324b4399e634b207c085c2d38d5fe78996f2f3a9eff03824595)
@@ -10093,7 +10093,7 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesEphemeralStorage:
 
     @builtins.property
     def size_in_gib(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#size_in_gib PipesPipe#size_in_gib}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#size_in_gib PipesPipe#size_in_gib}.'''
         result = self._values.get("size_in_gib")
         assert result is not None, "Required property 'size_in_gib' is missing"
         return typing.cast(jsii.Number, result)
@@ -10178,8 +10178,8 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesInferenceAcceleratorOve
         device_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#device_name PipesPipe#device_name}.
-        :param device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#device_type PipesPipe#device_type}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#device_name PipesPipe#device_name}.
+        :param device_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#device_type PipesPipe#device_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30addbea279eec224a18bc4bee6c2d6bd9ad2e103daa5285198eee69ef73de11)
@@ -10193,13 +10193,13 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesInferenceAcceleratorOve
 
     @builtins.property
     def device_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#device_name PipesPipe#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#device_name PipesPipe#device_name}.'''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def device_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#device_type PipesPipe#device_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#device_type PipesPipe#device_type}.'''
         result = self._values.get("device_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10430,7 +10430,7 @@ class PipesPipeTargetParametersEcsTaskParametersOverridesOutputReference(
     @jsii.member(jsii_name="putEphemeralStorage")
     def put_ephemeral_storage(self, *, size_in_gib: jsii.Number) -> None:
         '''
-        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#size_in_gib PipesPipe#size_in_gib}.
+        :param size_in_gib: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#size_in_gib PipesPipe#size_in_gib}.
         '''
         value = PipesPipeTargetParametersEcsTaskParametersOverridesEphemeralStorage(
             size_in_gib=size_in_gib
@@ -10620,8 +10620,8 @@ class PipesPipeTargetParametersEcsTaskParametersPlacementConstraint:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#expression PipesPipe#expression}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#expression PipesPipe#expression}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21263f747c2f061b3f5deac8bcbb2b7962a6b2ad8db634d918312d2d5a586f0d)
@@ -10635,13 +10635,13 @@ class PipesPipeTargetParametersEcsTaskParametersPlacementConstraint:
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#expression PipesPipe#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#expression PipesPipe#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10849,8 +10849,8 @@ class PipesPipeTargetParametersEcsTaskParametersPlacementStrategy:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#field PipesPipe#field}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#field PipesPipe#field}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1e39f2c960c6ec4b3717e0f58fa0dc719d6405af8d8a09c7de11a466ef50b76)
@@ -10864,13 +10864,13 @@ class PipesPipeTargetParametersEcsTaskParametersPlacementStrategy:
 
     @builtins.property
     def field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#field PipesPipe#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#field PipesPipe#field}.'''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#type PipesPipe#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11087,11 +11087,11 @@ class PipesPipeTargetParametersEventbridgeEventBusParameters:
         time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param detail_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#detail_type PipesPipe#detail_type}.
-        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#endpoint_id PipesPipe#endpoint_id}.
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resources PipesPipe#resources}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source PipesPipe#source}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#time PipesPipe#time}.
+        :param detail_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#detail_type PipesPipe#detail_type}.
+        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#endpoint_id PipesPipe#endpoint_id}.
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resources PipesPipe#resources}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source PipesPipe#source}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#time PipesPipe#time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ceb20f73aaf0c1f8e98a651471be42a8e1403056b2ea308bec4ebaca40bbde9b)
@@ -11114,31 +11114,31 @@ class PipesPipeTargetParametersEventbridgeEventBusParameters:
 
     @builtins.property
     def detail_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#detail_type PipesPipe#detail_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#detail_type PipesPipe#detail_type}.'''
         result = self._values.get("detail_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def endpoint_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#endpoint_id PipesPipe#endpoint_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#endpoint_id PipesPipe#endpoint_id}.'''
         result = self._values.get("endpoint_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resources PipesPipe#resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resources PipesPipe#resources}.'''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source PipesPipe#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source PipesPipe#source}.'''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#time PipesPipe#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#time PipesPipe#time}.'''
         result = self._values.get("time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11315,9 +11315,9 @@ class PipesPipeTargetParametersHttpParameters:
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
-        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
-        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
+        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
+        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
+        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a53c08ddfee005f4c6c9be762197b0f7ba0d61f1d74234d37698197972c18453)
@@ -11336,13 +11336,13 @@ class PipesPipeTargetParametersHttpParameters:
     def header_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.'''
         result = self._values.get("header_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.'''
         result = self._values.get("path_parameter_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -11350,7 +11350,7 @@ class PipesPipeTargetParametersHttpParameters:
     def query_string_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.'''
         result = self._values.get("query_string_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -11485,7 +11485,7 @@ class PipesPipeTargetParametersHttpParametersOutputReference(
 class PipesPipeTargetParametersKinesisStreamParameters:
     def __init__(self, *, partition_key: builtins.str) -> None:
         '''
-        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#partition_key PipesPipe#partition_key}.
+        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#partition_key PipesPipe#partition_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b8ad854c9fee85d1cf9279680e48cd94c51fa4351d8e3cd2b3bcb84af9be82c)
@@ -11496,7 +11496,7 @@ class PipesPipeTargetParametersKinesisStreamParameters:
 
     @builtins.property
     def partition_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#partition_key PipesPipe#partition_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#partition_key PipesPipe#partition_key}.'''
         result = self._values.get("partition_key")
         assert result is not None, "Required property 'partition_key' is missing"
         return typing.cast(builtins.str, result)
@@ -11576,7 +11576,7 @@ class PipesPipeTargetParametersKinesisStreamParametersOutputReference(
 class PipesPipeTargetParametersLambdaFunctionParameters:
     def __init__(self, *, invocation_type: builtins.str) -> None:
         '''
-        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
+        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2c048e988a30e56ad344b92a8690aeeda6b72f0a1682c07b512dd9697845aa9)
@@ -11587,7 +11587,7 @@ class PipesPipeTargetParametersLambdaFunctionParameters:
 
     @builtins.property
     def invocation_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.'''
         result = self._values.get("invocation_type")
         assert result is not None, "Required property 'invocation_type' is missing"
         return typing.cast(builtins.str, result)
@@ -11692,13 +11692,13 @@ class PipesPipeTargetParametersOutputReference(
         retry_strategy: typing.Optional[typing.Union[PipesPipeTargetParametersBatchJobParametersRetryStrategy, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_definition PipesPipe#job_definition}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#job_name PipesPipe#job_name}.
-        :param array_properties: array_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#array_properties PipesPipe#array_properties}
-        :param container_overrides: container_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#container_overrides PipesPipe#container_overrides}
-        :param depends_on: depends_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#depends_on PipesPipe#depends_on}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#parameters PipesPipe#parameters}.
-        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#retry_strategy PipesPipe#retry_strategy}
+        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_definition PipesPipe#job_definition}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#job_name PipesPipe#job_name}.
+        :param array_properties: array_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#array_properties PipesPipe#array_properties}
+        :param container_overrides: container_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#container_overrides PipesPipe#container_overrides}
+        :param depends_on: depends_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#depends_on PipesPipe#depends_on}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#parameters PipesPipe#parameters}.
+        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#retry_strategy PipesPipe#retry_strategy}
         '''
         value = PipesPipeTargetParametersBatchJobParameters(
             job_definition=job_definition,
@@ -11720,8 +11720,8 @@ class PipesPipeTargetParametersOutputReference(
         timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#log_stream_name PipesPipe#log_stream_name}.
-        :param timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#timestamp PipesPipe#timestamp}.
+        :param log_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#log_stream_name PipesPipe#log_stream_name}.
+        :param timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#timestamp PipesPipe#timestamp}.
         '''
         value = PipesPipeTargetParametersCloudwatchLogsParameters(
             log_stream_name=log_stream_name, timestamp=timestamp
@@ -11750,21 +11750,21 @@ class PipesPipeTargetParametersOutputReference(
         task_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_definition_arn PipesPipe#task_definition_arn}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#capacity_provider_strategy PipesPipe#capacity_provider_strategy}
-        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enable_ecs_managed_tags PipesPipe#enable_ecs_managed_tags}.
-        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#enable_execute_command PipesPipe#enable_execute_command}.
-        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#group PipesPipe#group}.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#launch_type PipesPipe#launch_type}.
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#network_configuration PipesPipe#network_configuration}
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#overrides PipesPipe#overrides}
-        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#placement_constraint PipesPipe#placement_constraint}
-        :param placement_strategy: placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#placement_strategy PipesPipe#placement_strategy}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#platform_version PipesPipe#platform_version}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#propagate_tags PipesPipe#propagate_tags}.
-        :param reference_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#reference_id PipesPipe#reference_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
-        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#task_count PipesPipe#task_count}.
+        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_definition_arn PipesPipe#task_definition_arn}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#capacity_provider_strategy PipesPipe#capacity_provider_strategy}
+        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enable_ecs_managed_tags PipesPipe#enable_ecs_managed_tags}.
+        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#enable_execute_command PipesPipe#enable_execute_command}.
+        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#group PipesPipe#group}.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#launch_type PipesPipe#launch_type}.
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#network_configuration PipesPipe#network_configuration}
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#overrides PipesPipe#overrides}
+        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#placement_constraint PipesPipe#placement_constraint}
+        :param placement_strategy: placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#placement_strategy PipesPipe#placement_strategy}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#platform_version PipesPipe#platform_version}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#propagate_tags PipesPipe#propagate_tags}.
+        :param reference_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#reference_id PipesPipe#reference_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#tags PipesPipe#tags}.
+        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#task_count PipesPipe#task_count}.
         '''
         value = PipesPipeTargetParametersEcsTaskParameters(
             task_definition_arn=task_definition_arn,
@@ -11797,11 +11797,11 @@ class PipesPipeTargetParametersOutputReference(
         time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param detail_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#detail_type PipesPipe#detail_type}.
-        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#endpoint_id PipesPipe#endpoint_id}.
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#resources PipesPipe#resources}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#source PipesPipe#source}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#time PipesPipe#time}.
+        :param detail_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#detail_type PipesPipe#detail_type}.
+        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#endpoint_id PipesPipe#endpoint_id}.
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#resources PipesPipe#resources}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#source PipesPipe#source}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#time PipesPipe#time}.
         '''
         value = PipesPipeTargetParametersEventbridgeEventBusParameters(
             detail_type=detail_type,
@@ -11822,9 +11822,9 @@ class PipesPipeTargetParametersOutputReference(
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
-        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
-        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
+        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#header_parameters PipesPipe#header_parameters}.
+        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#path_parameter_values PipesPipe#path_parameter_values}.
+        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#query_string_parameters PipesPipe#query_string_parameters}.
         '''
         value = PipesPipeTargetParametersHttpParameters(
             header_parameters=header_parameters,
@@ -11837,7 +11837,7 @@ class PipesPipeTargetParametersOutputReference(
     @jsii.member(jsii_name="putKinesisStreamParameters")
     def put_kinesis_stream_parameters(self, *, partition_key: builtins.str) -> None:
         '''
-        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#partition_key PipesPipe#partition_key}.
+        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#partition_key PipesPipe#partition_key}.
         '''
         value = PipesPipeTargetParametersKinesisStreamParameters(
             partition_key=partition_key
@@ -11848,7 +11848,7 @@ class PipesPipeTargetParametersOutputReference(
     @jsii.member(jsii_name="putLambdaFunctionParameters")
     def put_lambda_function_parameters(self, *, invocation_type: builtins.str) -> None:
         '''
-        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
+        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
         '''
         value = PipesPipeTargetParametersLambdaFunctionParameters(
             invocation_type=invocation_type
@@ -11868,12 +11868,12 @@ class PipesPipeTargetParametersOutputReference(
         with_event: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#database PipesPipe#database}.
-        :param sqls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqls PipesPipe#sqls}.
-        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#db_user PipesPipe#db_user}.
-        :param secret_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#secret_manager_arn PipesPipe#secret_manager_arn}.
-        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#statement_name PipesPipe#statement_name}.
-        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#with_event PipesPipe#with_event}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#database PipesPipe#database}.
+        :param sqls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqls PipesPipe#sqls}.
+        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#db_user PipesPipe#db_user}.
+        :param secret_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#secret_manager_arn PipesPipe#secret_manager_arn}.
+        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#statement_name PipesPipe#statement_name}.
+        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#with_event PipesPipe#with_event}.
         '''
         value = PipesPipeTargetParametersRedshiftDataParameters(
             database=database,
@@ -11893,7 +11893,7 @@ class PipesPipeTargetParametersOutputReference(
         pipeline_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PipesPipeTargetParametersSagemakerPipelineParametersPipelineParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param pipeline_parameter: pipeline_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#pipeline_parameter PipesPipe#pipeline_parameter}
+        :param pipeline_parameter: pipeline_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#pipeline_parameter PipesPipe#pipeline_parameter}
         '''
         value = PipesPipeTargetParametersSagemakerPipelineParameters(
             pipeline_parameter=pipeline_parameter
@@ -11909,8 +11909,8 @@ class PipesPipeTargetParametersOutputReference(
         message_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_deduplication_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#message_deduplication_id PipesPipe#message_deduplication_id}.
-        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#message_group_id PipesPipe#message_group_id}.
+        :param message_deduplication_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#message_deduplication_id PipesPipe#message_deduplication_id}.
+        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#message_group_id PipesPipe#message_group_id}.
         '''
         value = PipesPipeTargetParametersSqsQueueParameters(
             message_deduplication_id=message_deduplication_id,
@@ -11926,7 +11926,7 @@ class PipesPipeTargetParametersOutputReference(
         invocation_type: builtins.str,
     ) -> None:
         '''
-        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
+        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
         '''
         value = PipesPipeTargetParametersStepFunctionStateMachineParameters(
             invocation_type=invocation_type
@@ -12188,12 +12188,12 @@ class PipesPipeTargetParametersRedshiftDataParameters:
         with_event: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#database PipesPipe#database}.
-        :param sqls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqls PipesPipe#sqls}.
-        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#db_user PipesPipe#db_user}.
-        :param secret_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#secret_manager_arn PipesPipe#secret_manager_arn}.
-        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#statement_name PipesPipe#statement_name}.
-        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#with_event PipesPipe#with_event}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#database PipesPipe#database}.
+        :param sqls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqls PipesPipe#sqls}.
+        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#db_user PipesPipe#db_user}.
+        :param secret_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#secret_manager_arn PipesPipe#secret_manager_arn}.
+        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#statement_name PipesPipe#statement_name}.
+        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#with_event PipesPipe#with_event}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d78d05895dcf7c4be41786c64d7407028bb9478d3677dcdd7fa7ba76fa0f77f9)
@@ -12218,33 +12218,33 @@ class PipesPipeTargetParametersRedshiftDataParameters:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#database PipesPipe#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#database PipesPipe#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sqls(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#sqls PipesPipe#sqls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#sqls PipesPipe#sqls}.'''
         result = self._values.get("sqls")
         assert result is not None, "Required property 'sqls' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def db_user(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#db_user PipesPipe#db_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#db_user PipesPipe#db_user}.'''
         result = self._values.get("db_user")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secret_manager_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#secret_manager_arn PipesPipe#secret_manager_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#secret_manager_arn PipesPipe#secret_manager_arn}.'''
         result = self._values.get("secret_manager_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def statement_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#statement_name PipesPipe#statement_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#statement_name PipesPipe#statement_name}.'''
         result = self._values.get("statement_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12252,7 +12252,7 @@ class PipesPipeTargetParametersRedshiftDataParameters:
     def with_event(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#with_event PipesPipe#with_event}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#with_event PipesPipe#with_event}.'''
         result = self._values.get("with_event")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -12441,7 +12441,7 @@ class PipesPipeTargetParametersSagemakerPipelineParameters:
         pipeline_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PipesPipeTargetParametersSagemakerPipelineParametersPipelineParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param pipeline_parameter: pipeline_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#pipeline_parameter PipesPipe#pipeline_parameter}
+        :param pipeline_parameter: pipeline_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#pipeline_parameter PipesPipe#pipeline_parameter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdfa8c05bd8b0a402d1a770d39e5ab6082f65eab93f6f4d210180b5935010b14)
@@ -12456,7 +12456,7 @@ class PipesPipeTargetParametersSagemakerPipelineParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersSagemakerPipelineParametersPipelineParameter"]]]:
         '''pipeline_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#pipeline_parameter PipesPipe#pipeline_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#pipeline_parameter PipesPipe#pipeline_parameter}
         '''
         result = self._values.get("pipeline_parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PipesPipeTargetParametersSagemakerPipelineParametersPipelineParameter"]]], result)
@@ -12550,8 +12550,8 @@ class PipesPipeTargetParametersSagemakerPipelineParametersOutputReference(
 class PipesPipeTargetParametersSagemakerPipelineParametersPipelineParameter:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3d347ae0926e0c8a0e87dd45ecea7f8a6f970bb4303764fe12714f47174a847)
@@ -12564,14 +12564,14 @@ class PipesPipeTargetParametersSagemakerPipelineParametersPipelineParameter:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#name PipesPipe#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#value PipesPipe#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12775,8 +12775,8 @@ class PipesPipeTargetParametersSqsQueueParameters:
         message_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_deduplication_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#message_deduplication_id PipesPipe#message_deduplication_id}.
-        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#message_group_id PipesPipe#message_group_id}.
+        :param message_deduplication_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#message_deduplication_id PipesPipe#message_deduplication_id}.
+        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#message_group_id PipesPipe#message_group_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0225a7bc3afb9955fa2e36de932615f8065209227addf717580831b405b40abc)
@@ -12790,13 +12790,13 @@ class PipesPipeTargetParametersSqsQueueParameters:
 
     @builtins.property
     def message_deduplication_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#message_deduplication_id PipesPipe#message_deduplication_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#message_deduplication_id PipesPipe#message_deduplication_id}.'''
         result = self._values.get("message_deduplication_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def message_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#message_group_id PipesPipe#message_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#message_group_id PipesPipe#message_group_id}.'''
         result = self._values.get("message_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12900,7 +12900,7 @@ class PipesPipeTargetParametersSqsQueueParametersOutputReference(
 class PipesPipeTargetParametersStepFunctionStateMachineParameters:
     def __init__(self, *, invocation_type: builtins.str) -> None:
         '''
-        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
+        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a17cfd8c8eb38f5d17d00b9b6ee1099659462765412e1c399d2c88483ac31327)
@@ -12911,7 +12911,7 @@ class PipesPipeTargetParametersStepFunctionStateMachineParameters:
 
     @builtins.property
     def invocation_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#invocation_type PipesPipe#invocation_type}.'''
         result = self._values.get("invocation_type")
         assert result is not None, "Required property 'invocation_type' is missing"
         return typing.cast(builtins.str, result)
@@ -12997,9 +12997,9 @@ class PipesPipeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#create PipesPipe#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#delete PipesPipe#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#update PipesPipe#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#create PipesPipe#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#delete PipesPipe#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#update PipesPipe#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__742afe7f12563567c423902c40a2b73b5e13f6bb33c01290a4b65fbc478b6992)
@@ -13016,19 +13016,19 @@ class PipesPipeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#create PipesPipe#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#create PipesPipe#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#delete PipesPipe#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#delete PipesPipe#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pipes_pipe#update PipesPipe#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pipes_pipe#update PipesPipe#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

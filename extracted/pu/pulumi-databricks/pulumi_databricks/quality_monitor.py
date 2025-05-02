@@ -621,6 +621,9 @@ class _QualityMonitorState:
 
 
 class QualityMonitor(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/qualityMonitor:QualityMonitor"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -644,6 +647,8 @@ class QualityMonitor(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage [Lakehouse Monitors](https://docs.databricks.com/en/lakehouse-monitoring/index.html) in Databricks.
+
+        > This resource can only be used with a workspace-level provider!
 
         A `QualityMonitor` is attached to a SqlTable and can be of type timeseries, snapshot or inference.
 
@@ -764,6 +769,8 @@ class QualityMonitor(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage [Lakehouse Monitors](https://docs.databricks.com/en/lakehouse-monitoring/index.html) in Databricks.
+
+        > This resource can only be used with a workspace-level provider!
 
         A `QualityMonitor` is attached to a SqlTable and can be of type timeseries, snapshot or inference.
 

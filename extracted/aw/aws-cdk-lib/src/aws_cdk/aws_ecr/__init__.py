@@ -1249,6 +1249,363 @@ class CfnRegistryPolicyProps:
 
 
 @jsii.implements(_IInspectable_c2943556)
+class CfnRegistryScanningConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryScanningConfiguration",
+):
+    '''The AWS::ECR::RegistryScanningConfiguration controls the scanning configuration for an Amazon Elastic Container Registry (Amazon Private ECR).
+
+    For more information, see https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html
+    :cloudformationResource: AWS::ECR::RegistryScanningConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ecr as ecr
+        
+        cfn_registry_scanning_configuration = ecr.CfnRegistryScanningConfiguration(self, "MyCfnRegistryScanningConfiguration",
+            rules=[ecr.CfnRegistryScanningConfiguration.ScanningRuleProperty(
+                repository_filters=[ecr.CfnRegistryScanningConfiguration.RepositoryFilterProperty(
+                    filter="filter",
+                    filter_type="filterType"
+                )],
+                scan_frequency="scanFrequency"
+            )],
+            scan_type="scanType"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRegistryScanningConfiguration.ScanningRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        scan_type: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param rules: The scanning rules associated with the registry. A registry scanning configuration may contain a maximum of 2 rules.
+        :param scan_type: The type of scanning configured for the registry.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b68a41065b53c404ecfbf77d1c1dca4759228bec8020c901ec850026c1f0f7f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRegistryScanningConfigurationProps(rules=rules, scan_type=scan_type)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4d08cae9fcc3be8b1528f23c35bc9a22ca0fba2fab068fc08b75c1cfe389e24)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fcd0a067b02317e542152310e0b6796223c0fe4536450fbf2cdfa3673b5fac6f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistryId")
+    def attr_registry_id(self) -> builtins.str:
+        '''The registry id.
+
+        :cloudformationAttribute: RegistryId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistryId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rules")
+    def rules(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]]:
+        '''The scanning rules associated with the registry.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]], jsii.get(self, "rules"))
+
+    @rules.setter
+    def rules(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRegistryScanningConfiguration.ScanningRuleProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__921150d6d5faa8474ec7f3be3b2d6d58c6eb0b5024b547f0c929470055982457)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scanType")
+    def scan_type(self) -> builtins.str:
+        '''The type of scanning configured for the registry.'''
+        return typing.cast(builtins.str, jsii.get(self, "scanType"))
+
+    @scan_type.setter
+    def scan_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94a43f834f1cd998ab3369a817b4af2fe53258974556dc78b9e2c75aaeaaa5ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scanType", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryScanningConfiguration.RepositoryFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"filter": "filter", "filter_type": "filterType"},
+    )
+    class RepositoryFilterProperty:
+        def __init__(self, *, filter: builtins.str, filter_type: builtins.str) -> None:
+            '''The details of a scanning repository filter.
+
+            :param filter: The filter to use when scanning.
+            :param filter_type: The type associated with the filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-repositoryfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecr as ecr
+                
+                repository_filter_property = ecr.CfnRegistryScanningConfiguration.RepositoryFilterProperty(
+                    filter="filter",
+                    filter_type="filterType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9ff81a98ae71376276df972cda0909207513e4f0b7a1f6fea94a077f86e2b2f5)
+                check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+                check_type(argname="argument filter_type", value=filter_type, expected_type=type_hints["filter_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "filter": filter,
+                "filter_type": filter_type,
+            }
+
+        @builtins.property
+        def filter(self) -> builtins.str:
+            '''The filter to use when scanning.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-repositoryfilter.html#cfn-ecr-registryscanningconfiguration-repositoryfilter-filter
+            '''
+            result = self._values.get("filter")
+            assert result is not None, "Required property 'filter' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter_type(self) -> builtins.str:
+            '''The type associated with the filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-repositoryfilter.html#cfn-ecr-registryscanningconfiguration-repositoryfilter-filtertype
+            '''
+            result = self._values.get("filter_type")
+            assert result is not None, "Required property 'filter_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RepositoryFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryScanningConfiguration.ScanningRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "repository_filters": "repositoryFilters",
+            "scan_frequency": "scanFrequency",
+        },
+    )
+    class ScanningRuleProperty:
+        def __init__(
+            self,
+            *,
+            repository_filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRegistryScanningConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            scan_frequency: builtins.str,
+        ) -> None:
+            '''A rule representing the details of a scanning configuration.
+
+            :param repository_filters: The repository filters associated with the scanning configuration for a private registry.
+            :param scan_frequency: The frequency that scans are performed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-scanningrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecr as ecr
+                
+                scanning_rule_property = ecr.CfnRegistryScanningConfiguration.ScanningRuleProperty(
+                    repository_filters=[ecr.CfnRegistryScanningConfiguration.RepositoryFilterProperty(
+                        filter="filter",
+                        filter_type="filterType"
+                    )],
+                    scan_frequency="scanFrequency"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a5764ae58f5a18a9eb6b651d412c176771cb3de37bf83810ee9cf74fbb8950bd)
+                check_type(argname="argument repository_filters", value=repository_filters, expected_type=type_hints["repository_filters"])
+                check_type(argname="argument scan_frequency", value=scan_frequency, expected_type=type_hints["scan_frequency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "repository_filters": repository_filters,
+                "scan_frequency": scan_frequency,
+            }
+
+        @builtins.property
+        def repository_filters(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]]:
+            '''The repository filters associated with the scanning configuration for a private registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-scanningrule.html#cfn-ecr-registryscanningconfiguration-scanningrule-repositoryfilters
+            '''
+            result = self._values.get("repository_filters")
+            assert result is not None, "Required property 'repository_filters' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]], result)
+
+        @builtins.property
+        def scan_frequency(self) -> builtins.str:
+            '''The frequency that scans are performed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-scanningrule.html#cfn-ecr-registryscanningconfiguration-scanningrule-scanfrequency
+            '''
+            result = self._values.get("scan_frequency")
+            assert result is not None, "Required property 'scan_frequency' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScanningRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryScanningConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={"rules": "rules", "scan_type": "scanType"},
+)
+class CfnRegistryScanningConfigurationProps:
+    def __init__(
+        self,
+        *,
+        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        scan_type: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnRegistryScanningConfiguration``.
+
+        :param rules: The scanning rules associated with the registry. A registry scanning configuration may contain a maximum of 2 rules.
+        :param scan_type: The type of scanning configured for the registry.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecr as ecr
+            
+            cfn_registry_scanning_configuration_props = ecr.CfnRegistryScanningConfigurationProps(
+                rules=[ecr.CfnRegistryScanningConfiguration.ScanningRuleProperty(
+                    repository_filters=[ecr.CfnRegistryScanningConfiguration.RepositoryFilterProperty(
+                        filter="filter",
+                        filter_type="filterType"
+                    )],
+                    scan_frequency="scanFrequency"
+                )],
+                scan_type="scanType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0cb9229bec3c4ef027deaf853b1b19296c230ef0a56be8bdbedc54630c259c5)
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument scan_type", value=scan_type, expected_type=type_hints["scan_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rules": rules,
+            "scan_type": scan_type,
+        }
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRegistryScanningConfiguration.ScanningRuleProperty]]]:
+        '''The scanning rules associated with the registry.
+
+        A registry scanning configuration may contain a maximum of 2 rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html#cfn-ecr-registryscanningconfiguration-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRegistryScanningConfiguration.ScanningRuleProperty]]], result)
+
+    @builtins.property
+    def scan_type(self) -> builtins.str:
+        '''The type of scanning configured for the registry.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html#cfn-ecr-registryscanningconfiguration-scantype
+        '''
+        result = self._values.get("scan_type")
+        assert result is not None, "Required property 'scan_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRegistryScanningConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556)
 class CfnReplicationConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5196,6 +5553,8 @@ __all__ = [
     "CfnPullThroughCacheRuleProps",
     "CfnRegistryPolicy",
     "CfnRegistryPolicyProps",
+    "CfnRegistryScanningConfiguration",
+    "CfnRegistryScanningConfigurationProps",
     "CfnReplicationConfiguration",
     "CfnReplicationConfigurationProps",
     "CfnRepository",
@@ -5398,6 +5757,64 @@ def _typecheckingstub__22f296a7fd25dcbd0e6d71e5f19c5a64bea31bc39494f50b1a2fdceb3
 def _typecheckingstub__61caec2d35981c77552d8e7762d2c96379773ad1cbd183c24427fd9006273d94(
     *,
     policy_text: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b68a41065b53c404ecfbf77d1c1dca4759228bec8020c901ec850026c1f0f7f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    scan_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4d08cae9fcc3be8b1528f23c35bc9a22ca0fba2fab068fc08b75c1cfe389e24(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcd0a067b02317e542152310e0b6796223c0fe4536450fbf2cdfa3673b5fac6f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__921150d6d5faa8474ec7f3be3b2d6d58c6eb0b5024b547f0c929470055982457(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRegistryScanningConfiguration.ScanningRuleProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94a43f834f1cd998ab3369a817b4af2fe53258974556dc78b9e2c75aaeaaa5ac(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ff81a98ae71376276df972cda0909207513e4f0b7a1f6fea94a077f86e2b2f5(
+    *,
+    filter: builtins.str,
+    filter_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5764ae58f5a18a9eb6b651d412c176771cb3de37bf83810ee9cf74fbb8950bd(
+    *,
+    repository_filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.RepositoryFilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    scan_frequency: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0cb9229bec3c4ef027deaf853b1b19296c230ef0a56be8bdbedc54630c259c5(
+    *,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRegistryScanningConfiguration.ScanningRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    scan_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

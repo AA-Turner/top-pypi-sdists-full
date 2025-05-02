@@ -1,7 +1,7 @@
 r'''
 # `aws_gamelift_fleet`
 
-Refer to the Terraform Registry for docs: [`aws_gamelift_fleet`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet).
+Refer to the Terraform Registry for docs: [`aws_gamelift_fleet`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GameliftFleet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.gameliftFleet.GameliftFleet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet aws_gamelift_fleet}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet aws_gamelift_fleet}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class GameliftFleet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet aws_gamelift_fleet} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet aws_gamelift_fleet} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param ec2_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ec2_instance_type GameliftFleet#ec2_instance_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#name GameliftFleet#name}.
-        :param build_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#build_id GameliftFleet#build_id}.
-        :param certificate_configuration: certificate_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#certificate_configuration GameliftFleet#certificate_configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#description GameliftFleet#description}.
-        :param ec2_inbound_permission: ec2_inbound_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ec2_inbound_permission GameliftFleet#ec2_inbound_permission}
-        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#fleet_type GameliftFleet#fleet_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#id GameliftFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#instance_role_arn GameliftFleet#instance_role_arn}.
-        :param metric_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#metric_groups GameliftFleet#metric_groups}.
-        :param new_game_session_protection_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#new_game_session_protection_policy GameliftFleet#new_game_session_protection_policy}.
-        :param resource_creation_limit_policy: resource_creation_limit_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#resource_creation_limit_policy GameliftFleet#resource_creation_limit_policy}
-        :param runtime_configuration: runtime_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#runtime_configuration GameliftFleet#runtime_configuration}
-        :param script_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#script_id GameliftFleet#script_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#tags GameliftFleet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#tags_all GameliftFleet#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#timeouts GameliftFleet#timeouts}
+        :param ec2_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ec2_instance_type GameliftFleet#ec2_instance_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#name GameliftFleet#name}.
+        :param build_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#build_id GameliftFleet#build_id}.
+        :param certificate_configuration: certificate_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#certificate_configuration GameliftFleet#certificate_configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#description GameliftFleet#description}.
+        :param ec2_inbound_permission: ec2_inbound_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ec2_inbound_permission GameliftFleet#ec2_inbound_permission}
+        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#fleet_type GameliftFleet#fleet_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#id GameliftFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#instance_role_arn GameliftFleet#instance_role_arn}.
+        :param metric_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#metric_groups GameliftFleet#metric_groups}.
+        :param new_game_session_protection_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#new_game_session_protection_policy GameliftFleet#new_game_session_protection_policy}.
+        :param resource_creation_limit_policy: resource_creation_limit_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#resource_creation_limit_policy GameliftFleet#resource_creation_limit_policy}
+        :param runtime_configuration: runtime_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#runtime_configuration GameliftFleet#runtime_configuration}
+        :param script_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#script_id GameliftFleet#script_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#tags GameliftFleet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#tags_all GameliftFleet#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#timeouts GameliftFleet#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class GameliftFleet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GameliftFleet to import.
-        :param import_from_id: The id of the existing GameliftFleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GameliftFleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GameliftFleet to import is found.
         '''
         if __debug__:
@@ -169,7 +169,7 @@ class GameliftFleet(
         certificate_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param certificate_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#certificate_type GameliftFleet#certificate_type}.
+        :param certificate_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#certificate_type GameliftFleet#certificate_type}.
         '''
         value = GameliftFleetCertificateConfiguration(
             certificate_type=certificate_type
@@ -198,8 +198,8 @@ class GameliftFleet(
         policy_period_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param new_game_sessions_per_creator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#new_game_sessions_per_creator GameliftFleet#new_game_sessions_per_creator}.
-        :param policy_period_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#policy_period_in_minutes GameliftFleet#policy_period_in_minutes}.
+        :param new_game_sessions_per_creator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#new_game_sessions_per_creator GameliftFleet#new_game_sessions_per_creator}.
+        :param policy_period_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#policy_period_in_minutes GameliftFleet#policy_period_in_minutes}.
         '''
         value = GameliftFleetResourceCreationLimitPolicy(
             new_game_sessions_per_creator=new_game_sessions_per_creator,
@@ -217,9 +217,9 @@ class GameliftFleet(
         server_process: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GameliftFleetRuntimeConfigurationServerProcess", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param game_session_activation_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#game_session_activation_timeout_seconds GameliftFleet#game_session_activation_timeout_seconds}.
-        :param max_concurrent_game_session_activations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#max_concurrent_game_session_activations GameliftFleet#max_concurrent_game_session_activations}.
-        :param server_process: server_process block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#server_process GameliftFleet#server_process}
+        :param game_session_activation_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#game_session_activation_timeout_seconds GameliftFleet#game_session_activation_timeout_seconds}.
+        :param max_concurrent_game_session_activations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#max_concurrent_game_session_activations GameliftFleet#max_concurrent_game_session_activations}.
+        :param server_process: server_process block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#server_process GameliftFleet#server_process}
         '''
         value = GameliftFleetRuntimeConfiguration(
             game_session_activation_timeout_seconds=game_session_activation_timeout_seconds,
@@ -237,8 +237,8 @@ class GameliftFleet(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#create GameliftFleet#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#delete GameliftFleet#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#create GameliftFleet#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#delete GameliftFleet#delete}.
         '''
         value = GameliftFleetTimeouts(create=create, delete=delete)
 
@@ -627,7 +627,7 @@ class GameliftFleetCertificateConfiguration:
         certificate_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param certificate_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#certificate_type GameliftFleet#certificate_type}.
+        :param certificate_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#certificate_type GameliftFleet#certificate_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb1c6121ee3af114c00d4e9731a2a176c49c2ec878186b12ab348b2514ecfb91)
@@ -638,7 +638,7 @@ class GameliftFleetCertificateConfiguration:
 
     @builtins.property
     def certificate_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#certificate_type GameliftFleet#certificate_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#certificate_type GameliftFleet#certificate_type}.'''
         result = self._values.get("certificate_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -778,23 +778,23 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param ec2_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ec2_instance_type GameliftFleet#ec2_instance_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#name GameliftFleet#name}.
-        :param build_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#build_id GameliftFleet#build_id}.
-        :param certificate_configuration: certificate_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#certificate_configuration GameliftFleet#certificate_configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#description GameliftFleet#description}.
-        :param ec2_inbound_permission: ec2_inbound_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ec2_inbound_permission GameliftFleet#ec2_inbound_permission}
-        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#fleet_type GameliftFleet#fleet_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#id GameliftFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#instance_role_arn GameliftFleet#instance_role_arn}.
-        :param metric_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#metric_groups GameliftFleet#metric_groups}.
-        :param new_game_session_protection_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#new_game_session_protection_policy GameliftFleet#new_game_session_protection_policy}.
-        :param resource_creation_limit_policy: resource_creation_limit_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#resource_creation_limit_policy GameliftFleet#resource_creation_limit_policy}
-        :param runtime_configuration: runtime_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#runtime_configuration GameliftFleet#runtime_configuration}
-        :param script_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#script_id GameliftFleet#script_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#tags GameliftFleet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#tags_all GameliftFleet#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#timeouts GameliftFleet#timeouts}
+        :param ec2_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ec2_instance_type GameliftFleet#ec2_instance_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#name GameliftFleet#name}.
+        :param build_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#build_id GameliftFleet#build_id}.
+        :param certificate_configuration: certificate_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#certificate_configuration GameliftFleet#certificate_configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#description GameliftFleet#description}.
+        :param ec2_inbound_permission: ec2_inbound_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ec2_inbound_permission GameliftFleet#ec2_inbound_permission}
+        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#fleet_type GameliftFleet#fleet_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#id GameliftFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#instance_role_arn GameliftFleet#instance_role_arn}.
+        :param metric_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#metric_groups GameliftFleet#metric_groups}.
+        :param new_game_session_protection_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#new_game_session_protection_policy GameliftFleet#new_game_session_protection_policy}.
+        :param resource_creation_limit_policy: resource_creation_limit_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#resource_creation_limit_policy GameliftFleet#resource_creation_limit_policy}
+        :param runtime_configuration: runtime_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#runtime_configuration GameliftFleet#runtime_configuration}
+        :param script_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#script_id GameliftFleet#script_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#tags GameliftFleet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#tags_all GameliftFleet#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#timeouts GameliftFleet#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -947,21 +947,21 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ec2_instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ec2_instance_type GameliftFleet#ec2_instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ec2_instance_type GameliftFleet#ec2_instance_type}.'''
         result = self._values.get("ec2_instance_type")
         assert result is not None, "Required property 'ec2_instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#name GameliftFleet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#name GameliftFleet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def build_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#build_id GameliftFleet#build_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#build_id GameliftFleet#build_id}.'''
         result = self._values.get("build_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -971,14 +971,14 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GameliftFleetCertificateConfiguration]:
         '''certificate_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#certificate_configuration GameliftFleet#certificate_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#certificate_configuration GameliftFleet#certificate_configuration}
         '''
         result = self._values.get("certificate_configuration")
         return typing.cast(typing.Optional[GameliftFleetCertificateConfiguration], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#description GameliftFleet#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#description GameliftFleet#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -988,20 +988,20 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GameliftFleetEc2InboundPermission"]]]:
         '''ec2_inbound_permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ec2_inbound_permission GameliftFleet#ec2_inbound_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ec2_inbound_permission GameliftFleet#ec2_inbound_permission}
         '''
         result = self._values.get("ec2_inbound_permission")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GameliftFleetEc2InboundPermission"]]], result)
 
     @builtins.property
     def fleet_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#fleet_type GameliftFleet#fleet_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#fleet_type GameliftFleet#fleet_type}.'''
         result = self._values.get("fleet_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#id GameliftFleet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#id GameliftFleet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1011,19 +1011,19 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#instance_role_arn GameliftFleet#instance_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#instance_role_arn GameliftFleet#instance_role_arn}.'''
         result = self._values.get("instance_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def metric_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#metric_groups GameliftFleet#metric_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#metric_groups GameliftFleet#metric_groups}.'''
         result = self._values.get("metric_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def new_game_session_protection_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#new_game_session_protection_policy GameliftFleet#new_game_session_protection_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#new_game_session_protection_policy GameliftFleet#new_game_session_protection_policy}.'''
         result = self._values.get("new_game_session_protection_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1033,7 +1033,7 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GameliftFleetResourceCreationLimitPolicy"]:
         '''resource_creation_limit_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#resource_creation_limit_policy GameliftFleet#resource_creation_limit_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#resource_creation_limit_policy GameliftFleet#resource_creation_limit_policy}
         '''
         result = self._values.get("resource_creation_limit_policy")
         return typing.cast(typing.Optional["GameliftFleetResourceCreationLimitPolicy"], result)
@@ -1044,26 +1044,26 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GameliftFleetRuntimeConfiguration"]:
         '''runtime_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#runtime_configuration GameliftFleet#runtime_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#runtime_configuration GameliftFleet#runtime_configuration}
         '''
         result = self._values.get("runtime_configuration")
         return typing.cast(typing.Optional["GameliftFleetRuntimeConfiguration"], result)
 
     @builtins.property
     def script_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#script_id GameliftFleet#script_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#script_id GameliftFleet#script_id}.'''
         result = self._values.get("script_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#tags GameliftFleet#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#tags GameliftFleet#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#tags_all GameliftFleet#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#tags_all GameliftFleet#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1071,7 +1071,7 @@ class GameliftFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GameliftFleetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#timeouts GameliftFleet#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#timeouts GameliftFleet#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GameliftFleetTimeouts"], result)
@@ -1108,10 +1108,10 @@ class GameliftFleetEc2InboundPermission:
         to_port: jsii.Number,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#from_port GameliftFleet#from_port}.
-        :param ip_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ip_range GameliftFleet#ip_range}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#protocol GameliftFleet#protocol}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#to_port GameliftFleet#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#from_port GameliftFleet#from_port}.
+        :param ip_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ip_range GameliftFleet#ip_range}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#protocol GameliftFleet#protocol}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#to_port GameliftFleet#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__813b1b46dbe3c19bdd7e7949e2f4e10f62db518b1759928637e425ca2d93d797)
@@ -1128,28 +1128,28 @@ class GameliftFleetEc2InboundPermission:
 
     @builtins.property
     def from_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#from_port GameliftFleet#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#from_port GameliftFleet#from_port}.'''
         result = self._values.get("from_port")
         assert result is not None, "Required property 'from_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def ip_range(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#ip_range GameliftFleet#ip_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#ip_range GameliftFleet#ip_range}.'''
         result = self._values.get("ip_range")
         assert result is not None, "Required property 'ip_range' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#protocol GameliftFleet#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#protocol GameliftFleet#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def to_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#to_port GameliftFleet#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#to_port GameliftFleet#to_port}.'''
         result = self._values.get("to_port")
         assert result is not None, "Required property 'to_port' is missing"
         return typing.cast(jsii.Number, result)
@@ -1387,8 +1387,8 @@ class GameliftFleetResourceCreationLimitPolicy:
         policy_period_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param new_game_sessions_per_creator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#new_game_sessions_per_creator GameliftFleet#new_game_sessions_per_creator}.
-        :param policy_period_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#policy_period_in_minutes GameliftFleet#policy_period_in_minutes}.
+        :param new_game_sessions_per_creator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#new_game_sessions_per_creator GameliftFleet#new_game_sessions_per_creator}.
+        :param policy_period_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#policy_period_in_minutes GameliftFleet#policy_period_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40d0da0ff106868f096ae7d8220f2e278a1397487c81dafaf55b37d94790ccbb)
@@ -1402,13 +1402,13 @@ class GameliftFleetResourceCreationLimitPolicy:
 
     @builtins.property
     def new_game_sessions_per_creator(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#new_game_sessions_per_creator GameliftFleet#new_game_sessions_per_creator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#new_game_sessions_per_creator GameliftFleet#new_game_sessions_per_creator}.'''
         result = self._values.get("new_game_sessions_per_creator")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def policy_period_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#policy_period_in_minutes GameliftFleet#policy_period_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#policy_period_in_minutes GameliftFleet#policy_period_in_minutes}.'''
         result = self._values.get("policy_period_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1522,9 +1522,9 @@ class GameliftFleetRuntimeConfiguration:
         server_process: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GameliftFleetRuntimeConfigurationServerProcess", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param game_session_activation_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#game_session_activation_timeout_seconds GameliftFleet#game_session_activation_timeout_seconds}.
-        :param max_concurrent_game_session_activations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#max_concurrent_game_session_activations GameliftFleet#max_concurrent_game_session_activations}.
-        :param server_process: server_process block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#server_process GameliftFleet#server_process}
+        :param game_session_activation_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#game_session_activation_timeout_seconds GameliftFleet#game_session_activation_timeout_seconds}.
+        :param max_concurrent_game_session_activations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#max_concurrent_game_session_activations GameliftFleet#max_concurrent_game_session_activations}.
+        :param server_process: server_process block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#server_process GameliftFleet#server_process}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e1648874884b6c15b01b9127431ba4b9cfdf37c1ccd023a21906a5564fa6c51)
@@ -1541,13 +1541,13 @@ class GameliftFleetRuntimeConfiguration:
 
     @builtins.property
     def game_session_activation_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#game_session_activation_timeout_seconds GameliftFleet#game_session_activation_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#game_session_activation_timeout_seconds GameliftFleet#game_session_activation_timeout_seconds}.'''
         result = self._values.get("game_session_activation_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_concurrent_game_session_activations(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#max_concurrent_game_session_activations GameliftFleet#max_concurrent_game_session_activations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#max_concurrent_game_session_activations GameliftFleet#max_concurrent_game_session_activations}.'''
         result = self._values.get("max_concurrent_game_session_activations")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1557,7 +1557,7 @@ class GameliftFleetRuntimeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GameliftFleetRuntimeConfigurationServerProcess"]]]:
         '''server_process block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#server_process GameliftFleet#server_process}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#server_process GameliftFleet#server_process}
         '''
         result = self._values.get("server_process")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GameliftFleetRuntimeConfigurationServerProcess"]]], result)
@@ -1703,9 +1703,9 @@ class GameliftFleetRuntimeConfigurationServerProcess:
         parameters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param concurrent_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#concurrent_executions GameliftFleet#concurrent_executions}.
-        :param launch_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#launch_path GameliftFleet#launch_path}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#parameters GameliftFleet#parameters}.
+        :param concurrent_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#concurrent_executions GameliftFleet#concurrent_executions}.
+        :param launch_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#launch_path GameliftFleet#launch_path}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#parameters GameliftFleet#parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__667210e3cd9a04ae5f895c0b244392aa23644f751ea322b9e1aa7c9fd3a8d909)
@@ -1721,21 +1721,21 @@ class GameliftFleetRuntimeConfigurationServerProcess:
 
     @builtins.property
     def concurrent_executions(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#concurrent_executions GameliftFleet#concurrent_executions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#concurrent_executions GameliftFleet#concurrent_executions}.'''
         result = self._values.get("concurrent_executions")
         assert result is not None, "Required property 'concurrent_executions' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def launch_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#launch_path GameliftFleet#launch_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#launch_path GameliftFleet#launch_path}.'''
         result = self._values.get("launch_path")
         assert result is not None, "Required property 'launch_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#parameters GameliftFleet#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#parameters GameliftFleet#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1956,8 +1956,8 @@ class GameliftFleetTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#create GameliftFleet#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#delete GameliftFleet#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#create GameliftFleet#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#delete GameliftFleet#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__322402b2a23408146e3abadf82015fad106c818c1d83cbca11de07dd69664c2e)
@@ -1971,13 +1971,13 @@ class GameliftFleetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#create GameliftFleet#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#create GameliftFleet#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/gamelift_fleet#delete GameliftFleet#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/gamelift_fleet#delete GameliftFleet#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

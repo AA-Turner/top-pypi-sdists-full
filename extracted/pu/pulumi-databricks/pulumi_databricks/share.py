@@ -308,6 +308,9 @@ class _ShareState:
 
 
 class Share(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/share:Share"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -324,9 +327,9 @@ class Share(pulumi.CustomResource):
                  updated_by: Optional[pulumi.Input[builtins.str]] = None,
                  __props__=None):
         """
-        > This resource can only be used with a workspace-level provider!
-
         In Delta Sharing, a share is a read-only collection of tables and table partitions that a provider wants to share with one or more recipients. If your recipient uses a Unity Catalog-enabled Databricks workspace, you can also include notebook files, views (including dynamic views that restrict access at the row and column level), Unity Catalog volumes, and Unity Catalog models in a share.
+
+        > This resource can only be used with a workspace-level provider!
 
         In a Unity Catalog-enabled Databricks workspace, a share is a securable object registered in Unity Catalog. A `Share` is contained within a databricks_metastore. If you remove a share from your Unity Catalog metastore, all recipients of that share lose the ability to access it.
 
@@ -343,10 +346,10 @@ class Share(pulumi.CustomResource):
         things = databricks.get_tables(catalog_name="sandbox",
             schema_name="things")
         some = databricks.Share("some",
-            objects=[{
+            objects=[{"key": k, "value": v} for k, v in things.ids].apply(lambda entries: [{
                 "name": entry["value"],
-                "data_object_type": "TABLE",
-            } for entry in [{"key": k, "value": v} for k, v in things.ids]],
+                "dataObjectType": "TABLE",
+            } for entry in entries]),
             name="my_share")
         ```
 
@@ -435,9 +438,9 @@ class Share(pulumi.CustomResource):
                  args: Optional[ShareArgs] = None,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        > This resource can only be used with a workspace-level provider!
-
         In Delta Sharing, a share is a read-only collection of tables and table partitions that a provider wants to share with one or more recipients. If your recipient uses a Unity Catalog-enabled Databricks workspace, you can also include notebook files, views (including dynamic views that restrict access at the row and column level), Unity Catalog volumes, and Unity Catalog models in a share.
+
+        > This resource can only be used with a workspace-level provider!
 
         In a Unity Catalog-enabled Databricks workspace, a share is a securable object registered in Unity Catalog. A `Share` is contained within a databricks_metastore. If you remove a share from your Unity Catalog metastore, all recipients of that share lose the ability to access it.
 
@@ -454,10 +457,10 @@ class Share(pulumi.CustomResource):
         things = databricks.get_tables(catalog_name="sandbox",
             schema_name="things")
         some = databricks.Share("some",
-            objects=[{
+            objects=[{"key": k, "value": v} for k, v in things.ids].apply(lambda entries: [{
                 "name": entry["value"],
-                "data_object_type": "TABLE",
-            } for entry in [{"key": k, "value": v} for k, v in things.ids]],
+                "dataObjectType": "TABLE",
+            } for entry in entries]),
             name="my_share")
         ```
 

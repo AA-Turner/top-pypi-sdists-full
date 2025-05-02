@@ -1,7 +1,7 @@
 r'''
 # `aws_appsync_datasource`
 
-Refer to the Terraform Registry for docs: [`aws_appsync_datasource`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource).
+Refer to the Terraform Registry for docs: [`aws_appsync_datasource`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppsyncDatasource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appsyncDatasource.AppsyncDatasource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource aws_appsync_datasource}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource aws_appsync_datasource}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class AppsyncDatasource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource aws_appsync_datasource} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource aws_appsync_datasource} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#api_id AppsyncDatasource#api_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#name AppsyncDatasource#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#type AppsyncDatasource#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#description AppsyncDatasource#description}.
-        :param dynamodb_config: dynamodb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#dynamodb_config AppsyncDatasource#dynamodb_config}
-        :param elasticsearch_config: elasticsearch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#elasticsearch_config AppsyncDatasource#elasticsearch_config}
-        :param event_bridge_config: event_bridge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#event_bridge_config AppsyncDatasource#event_bridge_config}
-        :param http_config: http_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#http_config AppsyncDatasource#http_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#id AppsyncDatasource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#lambda_config AppsyncDatasource#lambda_config}
-        :param opensearchservice_config: opensearchservice_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#opensearchservice_config AppsyncDatasource#opensearchservice_config}
-        :param relational_database_config: relational_database_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#relational_database_config AppsyncDatasource#relational_database_config}
-        :param service_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#service_role_arn AppsyncDatasource#service_role_arn}.
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#api_id AppsyncDatasource#api_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#name AppsyncDatasource#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#type AppsyncDatasource#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#description AppsyncDatasource#description}.
+        :param dynamodb_config: dynamodb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#dynamodb_config AppsyncDatasource#dynamodb_config}
+        :param elasticsearch_config: elasticsearch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#elasticsearch_config AppsyncDatasource#elasticsearch_config}
+        :param event_bridge_config: event_bridge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#event_bridge_config AppsyncDatasource#event_bridge_config}
+        :param http_config: http_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#http_config AppsyncDatasource#http_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#id AppsyncDatasource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#lambda_config AppsyncDatasource#lambda_config}
+        :param opensearchservice_config: opensearchservice_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#opensearchservice_config AppsyncDatasource#opensearchservice_config}
+        :param relational_database_config: relational_database_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#relational_database_config AppsyncDatasource#relational_database_config}
+        :param service_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#service_role_arn AppsyncDatasource#service_role_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class AppsyncDatasource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppsyncDatasource to import.
-        :param import_from_id: The id of the existing AppsyncDatasource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppsyncDatasource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppsyncDatasource to import is found.
         '''
         if __debug__:
@@ -161,11 +161,11 @@ class AppsyncDatasource(
         versioned: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#table_name AppsyncDatasource#table_name}.
-        :param delta_sync_config: delta_sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_config AppsyncDatasource#delta_sync_config}
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
-        :param use_caller_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#use_caller_credentials AppsyncDatasource#use_caller_credentials}.
-        :param versioned: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#versioned AppsyncDatasource#versioned}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#table_name AppsyncDatasource#table_name}.
+        :param delta_sync_config: delta_sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_config AppsyncDatasource#delta_sync_config}
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param use_caller_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#use_caller_credentials AppsyncDatasource#use_caller_credentials}.
+        :param versioned: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#versioned AppsyncDatasource#versioned}.
         '''
         value = AppsyncDatasourceDynamodbConfig(
             table_name=table_name,
@@ -185,8 +185,8 @@ class AppsyncDatasource(
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
         '''
         value = AppsyncDatasourceElasticsearchConfig(endpoint=endpoint, region=region)
 
@@ -195,7 +195,7 @@ class AppsyncDatasource(
     @jsii.member(jsii_name="putEventBridgeConfig")
     def put_event_bridge_config(self, *, event_bus_arn: builtins.str) -> None:
         '''
-        :param event_bus_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#event_bus_arn AppsyncDatasource#event_bus_arn}.
+        :param event_bus_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#event_bus_arn AppsyncDatasource#event_bus_arn}.
         '''
         value = AppsyncDatasourceEventBridgeConfig(event_bus_arn=event_bus_arn)
 
@@ -209,8 +209,8 @@ class AppsyncDatasource(
         authorization_config: typing.Optional[typing.Union["AppsyncDatasourceHttpConfigAuthorizationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
-        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#authorization_config AppsyncDatasource#authorization_config}
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
+        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#authorization_config AppsyncDatasource#authorization_config}
         '''
         value = AppsyncDatasourceHttpConfig(
             endpoint=endpoint, authorization_config=authorization_config
@@ -221,7 +221,7 @@ class AppsyncDatasource(
     @jsii.member(jsii_name="putLambdaConfig")
     def put_lambda_config(self, *, function_arn: builtins.str) -> None:
         '''
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#function_arn AppsyncDatasource#function_arn}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#function_arn AppsyncDatasource#function_arn}.
         '''
         value = AppsyncDatasourceLambdaConfig(function_arn=function_arn)
 
@@ -235,8 +235,8 @@ class AppsyncDatasource(
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
         '''
         value = AppsyncDatasourceOpensearchserviceConfig(
             endpoint=endpoint, region=region
@@ -252,8 +252,8 @@ class AppsyncDatasource(
         source_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_endpoint_config: http_endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#http_endpoint_config AppsyncDatasource#http_endpoint_config}
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#source_type AppsyncDatasource#source_type}.
+        :param http_endpoint_config: http_endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#http_endpoint_config AppsyncDatasource#http_endpoint_config}
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#source_type AppsyncDatasource#source_type}.
         '''
         value = AppsyncDatasourceRelationalDatabaseConfig(
             http_endpoint_config=http_endpoint_config, source_type=source_type
@@ -569,19 +569,19 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#api_id AppsyncDatasource#api_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#name AppsyncDatasource#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#type AppsyncDatasource#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#description AppsyncDatasource#description}.
-        :param dynamodb_config: dynamodb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#dynamodb_config AppsyncDatasource#dynamodb_config}
-        :param elasticsearch_config: elasticsearch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#elasticsearch_config AppsyncDatasource#elasticsearch_config}
-        :param event_bridge_config: event_bridge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#event_bridge_config AppsyncDatasource#event_bridge_config}
-        :param http_config: http_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#http_config AppsyncDatasource#http_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#id AppsyncDatasource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#lambda_config AppsyncDatasource#lambda_config}
-        :param opensearchservice_config: opensearchservice_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#opensearchservice_config AppsyncDatasource#opensearchservice_config}
-        :param relational_database_config: relational_database_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#relational_database_config AppsyncDatasource#relational_database_config}
-        :param service_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#service_role_arn AppsyncDatasource#service_role_arn}.
+        :param api_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#api_id AppsyncDatasource#api_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#name AppsyncDatasource#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#type AppsyncDatasource#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#description AppsyncDatasource#description}.
+        :param dynamodb_config: dynamodb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#dynamodb_config AppsyncDatasource#dynamodb_config}
+        :param elasticsearch_config: elasticsearch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#elasticsearch_config AppsyncDatasource#elasticsearch_config}
+        :param event_bridge_config: event_bridge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#event_bridge_config AppsyncDatasource#event_bridge_config}
+        :param http_config: http_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#http_config AppsyncDatasource#http_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#id AppsyncDatasource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_config: lambda_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#lambda_config AppsyncDatasource#lambda_config}
+        :param opensearchservice_config: opensearchservice_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#opensearchservice_config AppsyncDatasource#opensearchservice_config}
+        :param relational_database_config: relational_database_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#relational_database_config AppsyncDatasource#relational_database_config}
+        :param service_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#service_role_arn AppsyncDatasource#service_role_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -727,28 +727,28 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#api_id AppsyncDatasource#api_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#api_id AppsyncDatasource#api_id}.'''
         result = self._values.get("api_id")
         assert result is not None, "Required property 'api_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#name AppsyncDatasource#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#name AppsyncDatasource#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#type AppsyncDatasource#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#type AppsyncDatasource#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#description AppsyncDatasource#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#description AppsyncDatasource#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -756,7 +756,7 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dynamodb_config(self) -> typing.Optional["AppsyncDatasourceDynamodbConfig"]:
         '''dynamodb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#dynamodb_config AppsyncDatasource#dynamodb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#dynamodb_config AppsyncDatasource#dynamodb_config}
         '''
         result = self._values.get("dynamodb_config")
         return typing.cast(typing.Optional["AppsyncDatasourceDynamodbConfig"], result)
@@ -767,7 +767,7 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppsyncDatasourceElasticsearchConfig"]:
         '''elasticsearch_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#elasticsearch_config AppsyncDatasource#elasticsearch_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#elasticsearch_config AppsyncDatasource#elasticsearch_config}
         '''
         result = self._values.get("elasticsearch_config")
         return typing.cast(typing.Optional["AppsyncDatasourceElasticsearchConfig"], result)
@@ -778,7 +778,7 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppsyncDatasourceEventBridgeConfig"]:
         '''event_bridge_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#event_bridge_config AppsyncDatasource#event_bridge_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#event_bridge_config AppsyncDatasource#event_bridge_config}
         '''
         result = self._values.get("event_bridge_config")
         return typing.cast(typing.Optional["AppsyncDatasourceEventBridgeConfig"], result)
@@ -787,14 +787,14 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_config(self) -> typing.Optional["AppsyncDatasourceHttpConfig"]:
         '''http_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#http_config AppsyncDatasource#http_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#http_config AppsyncDatasource#http_config}
         '''
         result = self._values.get("http_config")
         return typing.cast(typing.Optional["AppsyncDatasourceHttpConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#id AppsyncDatasource#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#id AppsyncDatasource#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -806,7 +806,7 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lambda_config(self) -> typing.Optional["AppsyncDatasourceLambdaConfig"]:
         '''lambda_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#lambda_config AppsyncDatasource#lambda_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#lambda_config AppsyncDatasource#lambda_config}
         '''
         result = self._values.get("lambda_config")
         return typing.cast(typing.Optional["AppsyncDatasourceLambdaConfig"], result)
@@ -817,7 +817,7 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppsyncDatasourceOpensearchserviceConfig"]:
         '''opensearchservice_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#opensearchservice_config AppsyncDatasource#opensearchservice_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#opensearchservice_config AppsyncDatasource#opensearchservice_config}
         '''
         result = self._values.get("opensearchservice_config")
         return typing.cast(typing.Optional["AppsyncDatasourceOpensearchserviceConfig"], result)
@@ -828,14 +828,14 @@ class AppsyncDatasourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppsyncDatasourceRelationalDatabaseConfig"]:
         '''relational_database_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#relational_database_config AppsyncDatasource#relational_database_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#relational_database_config AppsyncDatasource#relational_database_config}
         '''
         result = self._values.get("relational_database_config")
         return typing.cast(typing.Optional["AppsyncDatasourceRelationalDatabaseConfig"], result)
 
     @builtins.property
     def service_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#service_role_arn AppsyncDatasource#service_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#service_role_arn AppsyncDatasource#service_role_arn}.'''
         result = self._values.get("service_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -873,11 +873,11 @@ class AppsyncDatasourceDynamodbConfig:
         versioned: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#table_name AppsyncDatasource#table_name}.
-        :param delta_sync_config: delta_sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_config AppsyncDatasource#delta_sync_config}
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
-        :param use_caller_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#use_caller_credentials AppsyncDatasource#use_caller_credentials}.
-        :param versioned: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#versioned AppsyncDatasource#versioned}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#table_name AppsyncDatasource#table_name}.
+        :param delta_sync_config: delta_sync_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_config AppsyncDatasource#delta_sync_config}
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param use_caller_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#use_caller_credentials AppsyncDatasource#use_caller_credentials}.
+        :param versioned: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#versioned AppsyncDatasource#versioned}.
         '''
         if isinstance(delta_sync_config, dict):
             delta_sync_config = AppsyncDatasourceDynamodbConfigDeltaSyncConfig(**delta_sync_config)
@@ -902,7 +902,7 @@ class AppsyncDatasourceDynamodbConfig:
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#table_name AppsyncDatasource#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#table_name AppsyncDatasource#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -913,14 +913,14 @@ class AppsyncDatasourceDynamodbConfig:
     ) -> typing.Optional["AppsyncDatasourceDynamodbConfigDeltaSyncConfig"]:
         '''delta_sync_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_config AppsyncDatasource#delta_sync_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_config AppsyncDatasource#delta_sync_config}
         '''
         result = self._values.get("delta_sync_config")
         return typing.cast(typing.Optional["AppsyncDatasourceDynamodbConfigDeltaSyncConfig"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -928,7 +928,7 @@ class AppsyncDatasourceDynamodbConfig:
     def use_caller_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#use_caller_credentials AppsyncDatasource#use_caller_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#use_caller_credentials AppsyncDatasource#use_caller_credentials}.'''
         result = self._values.get("use_caller_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -936,7 +936,7 @@ class AppsyncDatasourceDynamodbConfig:
     def versioned(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#versioned AppsyncDatasource#versioned}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#versioned AppsyncDatasource#versioned}.'''
         result = self._values.get("versioned")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -970,9 +970,9 @@ class AppsyncDatasourceDynamodbConfigDeltaSyncConfig:
         delta_sync_table_ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delta_sync_table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_table_name AppsyncDatasource#delta_sync_table_name}.
-        :param base_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#base_table_ttl AppsyncDatasource#base_table_ttl}.
-        :param delta_sync_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_table_ttl AppsyncDatasource#delta_sync_table_ttl}.
+        :param delta_sync_table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_table_name AppsyncDatasource#delta_sync_table_name}.
+        :param base_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#base_table_ttl AppsyncDatasource#base_table_ttl}.
+        :param delta_sync_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_table_ttl AppsyncDatasource#delta_sync_table_ttl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1924bcc98de6fceee508d3d10c950b9fbcb52d2cc0512bff033eb1e9107b8479)
@@ -989,20 +989,20 @@ class AppsyncDatasourceDynamodbConfigDeltaSyncConfig:
 
     @builtins.property
     def delta_sync_table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_table_name AppsyncDatasource#delta_sync_table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_table_name AppsyncDatasource#delta_sync_table_name}.'''
         result = self._values.get("delta_sync_table_name")
         assert result is not None, "Required property 'delta_sync_table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def base_table_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#base_table_ttl AppsyncDatasource#base_table_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#base_table_ttl AppsyncDatasource#base_table_ttl}.'''
         result = self._values.get("base_table_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def delta_sync_table_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_table_ttl AppsyncDatasource#delta_sync_table_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_table_ttl AppsyncDatasource#delta_sync_table_ttl}.'''
         result = self._values.get("delta_sync_table_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1144,9 +1144,9 @@ class AppsyncDatasourceDynamodbConfigOutputReference(
         delta_sync_table_ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delta_sync_table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_table_name AppsyncDatasource#delta_sync_table_name}.
-        :param base_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#base_table_ttl AppsyncDatasource#base_table_ttl}.
-        :param delta_sync_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#delta_sync_table_ttl AppsyncDatasource#delta_sync_table_ttl}.
+        :param delta_sync_table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_table_name AppsyncDatasource#delta_sync_table_name}.
+        :param base_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#base_table_ttl AppsyncDatasource#base_table_ttl}.
+        :param delta_sync_table_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#delta_sync_table_ttl AppsyncDatasource#delta_sync_table_ttl}.
         '''
         value = AppsyncDatasourceDynamodbConfigDeltaSyncConfig(
             delta_sync_table_name=delta_sync_table_name,
@@ -1295,8 +1295,8 @@ class AppsyncDatasourceElasticsearchConfig:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1749087fe8a88236fcc687ab886b2af599e6efbf97f02a073072434b1170228c)
@@ -1310,14 +1310,14 @@ class AppsyncDatasourceElasticsearchConfig:
 
     @builtins.property
     def endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.'''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1415,7 +1415,7 @@ class AppsyncDatasourceElasticsearchConfigOutputReference(
 class AppsyncDatasourceEventBridgeConfig:
     def __init__(self, *, event_bus_arn: builtins.str) -> None:
         '''
-        :param event_bus_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#event_bus_arn AppsyncDatasource#event_bus_arn}.
+        :param event_bus_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#event_bus_arn AppsyncDatasource#event_bus_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28360f76ae0351eaf03691885130f58b01d023989a7b76a442c3a255361cb604)
@@ -1426,7 +1426,7 @@ class AppsyncDatasourceEventBridgeConfig:
 
     @builtins.property
     def event_bus_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#event_bus_arn AppsyncDatasource#event_bus_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#event_bus_arn AppsyncDatasource#event_bus_arn}.'''
         result = self._values.get("event_bus_arn")
         assert result is not None, "Required property 'event_bus_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1512,8 +1512,8 @@ class AppsyncDatasourceHttpConfig:
         authorization_config: typing.Optional[typing.Union["AppsyncDatasourceHttpConfigAuthorizationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
-        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#authorization_config AppsyncDatasource#authorization_config}
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
+        :param authorization_config: authorization_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#authorization_config AppsyncDatasource#authorization_config}
         '''
         if isinstance(authorization_config, dict):
             authorization_config = AppsyncDatasourceHttpConfigAuthorizationConfig(**authorization_config)
@@ -1529,7 +1529,7 @@ class AppsyncDatasourceHttpConfig:
 
     @builtins.property
     def endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.'''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
         return typing.cast(builtins.str, result)
@@ -1540,7 +1540,7 @@ class AppsyncDatasourceHttpConfig:
     ) -> typing.Optional["AppsyncDatasourceHttpConfigAuthorizationConfig"]:
         '''authorization_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#authorization_config AppsyncDatasource#authorization_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#authorization_config AppsyncDatasource#authorization_config}
         '''
         result = self._values.get("authorization_config")
         return typing.cast(typing.Optional["AppsyncDatasourceHttpConfigAuthorizationConfig"], result)
@@ -1573,8 +1573,8 @@ class AppsyncDatasourceHttpConfigAuthorizationConfig:
         aws_iam_config: typing.Optional[typing.Union["AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#authorization_type AppsyncDatasource#authorization_type}.
-        :param aws_iam_config: aws_iam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#aws_iam_config AppsyncDatasource#aws_iam_config}
+        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#authorization_type AppsyncDatasource#authorization_type}.
+        :param aws_iam_config: aws_iam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#aws_iam_config AppsyncDatasource#aws_iam_config}
         '''
         if isinstance(aws_iam_config, dict):
             aws_iam_config = AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig(**aws_iam_config)
@@ -1590,7 +1590,7 @@ class AppsyncDatasourceHttpConfigAuthorizationConfig:
 
     @builtins.property
     def authorization_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#authorization_type AppsyncDatasource#authorization_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#authorization_type AppsyncDatasource#authorization_type}.'''
         result = self._values.get("authorization_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1600,7 +1600,7 @@ class AppsyncDatasourceHttpConfigAuthorizationConfig:
     ) -> typing.Optional["AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig"]:
         '''aws_iam_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#aws_iam_config AppsyncDatasource#aws_iam_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#aws_iam_config AppsyncDatasource#aws_iam_config}
         '''
         result = self._values.get("aws_iam_config")
         return typing.cast(typing.Optional["AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig"], result)
@@ -1633,8 +1633,8 @@ class AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig:
         signing_service_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param signing_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#signing_region AppsyncDatasource#signing_region}.
-        :param signing_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#signing_service_name AppsyncDatasource#signing_service_name}.
+        :param signing_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#signing_region AppsyncDatasource#signing_region}.
+        :param signing_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#signing_service_name AppsyncDatasource#signing_service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d885822cce22b57119de621793889f409416712ec87bad25f553ca3b1c14c38e)
@@ -1648,13 +1648,13 @@ class AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig:
 
     @builtins.property
     def signing_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#signing_region AppsyncDatasource#signing_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#signing_region AppsyncDatasource#signing_region}.'''
         result = self._values.get("signing_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def signing_service_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#signing_service_name AppsyncDatasource#signing_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#signing_service_name AppsyncDatasource#signing_service_name}.'''
         result = self._values.get("signing_service_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1778,8 +1778,8 @@ class AppsyncDatasourceHttpConfigAuthorizationConfigOutputReference(
         signing_service_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param signing_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#signing_region AppsyncDatasource#signing_region}.
-        :param signing_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#signing_service_name AppsyncDatasource#signing_service_name}.
+        :param signing_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#signing_region AppsyncDatasource#signing_region}.
+        :param signing_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#signing_service_name AppsyncDatasource#signing_service_name}.
         '''
         value = AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig(
             signing_region=signing_region, signing_service_name=signing_service_name
@@ -1872,8 +1872,8 @@ class AppsyncDatasourceHttpConfigOutputReference(
         aws_iam_config: typing.Optional[typing.Union[AppsyncDatasourceHttpConfigAuthorizationConfigAwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#authorization_type AppsyncDatasource#authorization_type}.
-        :param aws_iam_config: aws_iam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#aws_iam_config AppsyncDatasource#aws_iam_config}
+        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#authorization_type AppsyncDatasource#authorization_type}.
+        :param aws_iam_config: aws_iam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#aws_iam_config AppsyncDatasource#aws_iam_config}
         '''
         value = AppsyncDatasourceHttpConfigAuthorizationConfig(
             authorization_type=authorization_type, aws_iam_config=aws_iam_config
@@ -1940,7 +1940,7 @@ class AppsyncDatasourceHttpConfigOutputReference(
 class AppsyncDatasourceLambdaConfig:
     def __init__(self, *, function_arn: builtins.str) -> None:
         '''
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#function_arn AppsyncDatasource#function_arn}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#function_arn AppsyncDatasource#function_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b91ecbca2d1d0b958271d6cc33de56cb6575e0d02ba3fc5ca28440d89edd85f)
@@ -1951,7 +1951,7 @@ class AppsyncDatasourceLambdaConfig:
 
     @builtins.property
     def function_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#function_arn AppsyncDatasource#function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#function_arn AppsyncDatasource#function_arn}.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2034,8 +2034,8 @@ class AppsyncDatasourceOpensearchserviceConfig:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f15f149824ce18016b007f1a5e0c35f0e58a0ed487cd638fd6569cb8c2a2c71)
@@ -2049,14 +2049,14 @@ class AppsyncDatasourceOpensearchserviceConfig:
 
     @builtins.property
     def endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#endpoint AppsyncDatasource#endpoint}.'''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2164,8 +2164,8 @@ class AppsyncDatasourceRelationalDatabaseConfig:
         source_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_endpoint_config: http_endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#http_endpoint_config AppsyncDatasource#http_endpoint_config}
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#source_type AppsyncDatasource#source_type}.
+        :param http_endpoint_config: http_endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#http_endpoint_config AppsyncDatasource#http_endpoint_config}
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#source_type AppsyncDatasource#source_type}.
         '''
         if isinstance(http_endpoint_config, dict):
             http_endpoint_config = AppsyncDatasourceRelationalDatabaseConfigHttpEndpointConfig(**http_endpoint_config)
@@ -2185,14 +2185,14 @@ class AppsyncDatasourceRelationalDatabaseConfig:
     ) -> typing.Optional["AppsyncDatasourceRelationalDatabaseConfigHttpEndpointConfig"]:
         '''http_endpoint_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#http_endpoint_config AppsyncDatasource#http_endpoint_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#http_endpoint_config AppsyncDatasource#http_endpoint_config}
         '''
         result = self._values.get("http_endpoint_config")
         return typing.cast(typing.Optional["AppsyncDatasourceRelationalDatabaseConfigHttpEndpointConfig"], result)
 
     @builtins.property
     def source_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#source_type AppsyncDatasource#source_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#source_type AppsyncDatasource#source_type}.'''
         result = self._values.get("source_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2230,11 +2230,11 @@ class AppsyncDatasourceRelationalDatabaseConfigHttpEndpointConfig:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aws_secret_store_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#aws_secret_store_arn AppsyncDatasource#aws_secret_store_arn}.
-        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#db_cluster_identifier AppsyncDatasource#db_cluster_identifier}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#database_name AppsyncDatasource#database_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
-        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#schema AppsyncDatasource#schema}.
+        :param aws_secret_store_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#aws_secret_store_arn AppsyncDatasource#aws_secret_store_arn}.
+        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#db_cluster_identifier AppsyncDatasource#db_cluster_identifier}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#database_name AppsyncDatasource#database_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#schema AppsyncDatasource#schema}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c31cb65a8494c167d25f1816d0cf20dd8904265cbbb8fdbb0035e9e18532b5b9)
@@ -2256,33 +2256,33 @@ class AppsyncDatasourceRelationalDatabaseConfigHttpEndpointConfig:
 
     @builtins.property
     def aws_secret_store_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#aws_secret_store_arn AppsyncDatasource#aws_secret_store_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#aws_secret_store_arn AppsyncDatasource#aws_secret_store_arn}.'''
         result = self._values.get("aws_secret_store_arn")
         assert result is not None, "Required property 'aws_secret_store_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def db_cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#db_cluster_identifier AppsyncDatasource#db_cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#db_cluster_identifier AppsyncDatasource#db_cluster_identifier}.'''
         result = self._values.get("db_cluster_identifier")
         assert result is not None, "Required property 'db_cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#database_name AppsyncDatasource#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#database_name AppsyncDatasource#database_name}.'''
         result = self._values.get("database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schema(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#schema AppsyncDatasource#schema}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#schema AppsyncDatasource#schema}.'''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2464,11 +2464,11 @@ class AppsyncDatasourceRelationalDatabaseConfigOutputReference(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aws_secret_store_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#aws_secret_store_arn AppsyncDatasource#aws_secret_store_arn}.
-        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#db_cluster_identifier AppsyncDatasource#db_cluster_identifier}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#database_name AppsyncDatasource#database_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
-        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appsync_datasource#schema AppsyncDatasource#schema}.
+        :param aws_secret_store_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#aws_secret_store_arn AppsyncDatasource#aws_secret_store_arn}.
+        :param db_cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#db_cluster_identifier AppsyncDatasource#db_cluster_identifier}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#database_name AppsyncDatasource#database_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#region AppsyncDatasource#region}.
+        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appsync_datasource#schema AppsyncDatasource#schema}.
         '''
         value = AppsyncDatasourceRelationalDatabaseConfigHttpEndpointConfig(
             aws_secret_store_arn=aws_secret_store_arn,

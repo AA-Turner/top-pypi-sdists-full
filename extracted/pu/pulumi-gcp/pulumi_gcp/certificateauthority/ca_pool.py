@@ -344,6 +344,9 @@ class _CaPoolState:
 
 
 class CaPool(pulumi.CustomResource):
+
+    pulumi_type = "gcp:certificateauthority/caPool:CaPool"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -360,6 +363,12 @@ class CaPool(pulumi.CustomResource):
         A CaPool represents a group of CertificateAuthorities that form a trust anchor. A CaPool can be used to manage
         issuance policies for one or more CertificateAuthority resources and to rotate CA certificates in and out of the
         trust anchor.
+
+        To get more information about CaPool, see:
+
+        * [API documentation](https://cloud.google.com/certificate-authority-service/docs/reference/rest/v1/projects.locations.caPools)
+        * How-to Guides
+            * [Certificate Authority Service Overview](https://cloud.google.com/certificate-authority-service/docs/overview)
 
         ## Example Usage
 
@@ -573,6 +582,12 @@ class CaPool(pulumi.CustomResource):
         A CaPool represents a group of CertificateAuthorities that form a trust anchor. A CaPool can be used to manage
         issuance policies for one or more CertificateAuthority resources and to rotate CA certificates in and out of the
         trust anchor.
+
+        To get more information about CaPool, see:
+
+        * [API documentation](https://cloud.google.com/certificate-authority-service/docs/reference/rest/v1/projects.locations.caPools)
+        * How-to Guides
+            * [Certificate Authority Service Overview](https://cloud.google.com/certificate-authority-service/docs/overview)
 
         ## Example Usage
 

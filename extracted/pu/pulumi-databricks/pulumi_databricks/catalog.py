@@ -450,6 +450,9 @@ class _CatalogState:
 
 
 class Catalog(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/catalog:Catalog"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -469,11 +472,11 @@ class Catalog(pulumi.CustomResource):
                  storage_root: Optional[pulumi.Input[builtins.str]] = None,
                  __props__=None):
         """
-        > This resource can only be used with a workspace-level provider!
-
         Within a metastore, Unity Catalog provides a 3-level namespace for organizing data: Catalogs, Databases (also called Schemas), and Tables / Views.
 
         A `Catalog` is contained within Metastore and can contain databricks_schema. By default, Databricks creates `default` schema for every new catalog, but Pulumi plugin is removing this auto-created schema, so that resource destruction could be done in a clean way.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -530,11 +533,11 @@ class Catalog(pulumi.CustomResource):
                  args: Optional[CatalogArgs] = None,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        > This resource can only be used with a workspace-level provider!
-
         Within a metastore, Unity Catalog provides a 3-level namespace for organizing data: Catalogs, Databases (also called Schemas), and Tables / Views.
 
         A `Catalog` is contained within Metastore and can contain databricks_schema. By default, Databricks creates `default` schema for every new catalog, but Pulumi plugin is removing this auto-created schema, so that resource destruction could be done in a clean way.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

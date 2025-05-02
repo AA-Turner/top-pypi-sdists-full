@@ -11,8 +11,8 @@ from hypothesis.strategies import text
 from whenever import (
     Date,
     Instant,
-    LocalDateTime,
     OffsetDateTime,
+    PlainDateTime,
     RepeatedTime,
     SkippedTime,
     SystemDateTime,
@@ -37,6 +37,7 @@ from .common import (
     system_tz_ams,
     system_tz_nyc,
 )
+from .test_offset_datetime import INVALID_ISO_STRINGS
 
 
 class TestInit:
@@ -133,22 +134,25 @@ class TestInstant:
     @system_tz_ams()
     def test_common_time(self):
         d = SystemDateTime(2020, 8, 15, 11)
-        assert d.instant().exact_eq(Instant.from_utc(2020, 8, 15, 9))
+        assert d.to_instant().exact_eq(Instant.from_utc(2020, 8, 15, 9))
 
     @system_tz_ams()
     def test_amibiguous_time(self):
         d = SystemDateTime(2023, 10, 29, 2, 15, disambiguate="earlier")
-        assert d.instant().exact_eq(Instant.from_utc(2023, 10, 29, 0, 15))
+        assert d.to_instant().exact_eq(Instant.from_utc(2023, 10, 29, 0, 15))
         assert (
             d.replace(disambiguate="later")
-            .instant()
+            .to_instant()
             .exact_eq(Instant.from_utc(2023, 10, 29, 1, 15))
         )
 
 
-def test_local():
+def test_to_plain():
     d = SystemDateTime(2020, 8, 15, 12, 8, 30)
-    assert d.local() == LocalDateTime(2020, 8, 15, 12, 8, 30)
+    assert d.to_plain() == PlainDateTime(2020, 8, 15, 12, 8, 30)
+
+    with pytest.deprecated_call():
+        assert d.local() == d.to_plain()  # type: ignore[attr-defined]
 
 
 @system_tz_ams()
@@ -485,7 +489,7 @@ class TestComparison:
     @system_tz_ams()
     def test_utc(self):
         d = SystemDateTime(2020, 8, 15, 12, 30)
-        same = d.instant()
+        same = d.to_instant()
         later = same + minutes(1)
         earlier = same - minutes(1)
         assert d >= same
@@ -545,7 +549,7 @@ def test_exact_equality():
     same = a.replace(disambiguate="raise")
     with system_tz_nyc():
         same_moment = SystemDateTime(2020, 8, 15, 6, 8, 30, nanosecond=450)
-    assert same.instant() == same_moment.instant()
+    assert same.to_instant() == same_moment.to_instant()
     different = a.replace(hour=13, disambiguate="raise")
 
     assert a.exact_eq(same)
@@ -559,7 +563,7 @@ def test_exact_equality():
         a.exact_eq(42)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError):
-        a.exact_eq(a.instant())  # type: ignore[arg-type]
+        a.exact_eq(a.to_instant())  # type: ignore[arg-type]
 
 
 class TestParseCommonIso:
@@ -568,27 +572,27 @@ class TestParseCommonIso:
         [
             (
                 "2020-08-15T12:08:30+05:00",
-                LocalDateTime(2020, 8, 15, 12, 8, 30),
+                PlainDateTime(2020, 8, 15, 12, 8, 30),
                 hours(5),
             ),
             (
                 "2020-08-15T12:08:30+20:00",
-                LocalDateTime(2020, 8, 15, 12, 8, 30),
+                PlainDateTime(2020, 8, 15, 12, 8, 30),
                 hours(20),
             ),
             (
                 "2020-08-15T12:08:30.0034+05:00",
-                LocalDateTime(2020, 8, 15, 12, 8, 30, nanosecond=3_400_000),
+                PlainDateTime(2020, 8, 15, 12, 8, 30, nanosecond=3_400_000),
                 hours(5),
             ),
             (
                 "2020-08-15T12:08:30.000000010+05:00",
-                LocalDateTime(2020, 8, 15, 12, 8, 30, nanosecond=10),
+                PlainDateTime(2020, 8, 15, 12, 8, 30, nanosecond=10),
                 hours(5),
             ),
             (
                 "2020-08-15T12:08:30.0034-05:00:01",
-                LocalDateTime(
+                PlainDateTime(
                     2020,
                     8,
                     15,
@@ -601,52 +605,27 @@ class TestParseCommonIso:
             ),
             (
                 "2020-08-15T12:08:30+00:00",
-                LocalDateTime(2020, 8, 15, 12, 8, 30),
+                PlainDateTime(2020, 8, 15, 12, 8, 30),
                 hours(0),
             ),
             (
                 "2020-08-15T12:08:30-00:00",
-                LocalDateTime(2020, 8, 15, 12, 8, 30),
+                PlainDateTime(2020, 8, 15, 12, 8, 30),
                 hours(0),
             ),
             (
                 "2020-08-15T12:08:30Z",
-                LocalDateTime(2020, 8, 15, 12, 8, 30),
+                PlainDateTime(2020, 8, 15, 12, 8, 30),
                 hours(0),
             ),
         ],
     )
     def test_valid(self, s, expect, offset):
         dt = SystemDateTime.parse_common_iso(s)
-        assert dt.local() == expect
+        assert dt.to_plain() == expect
         assert dt.offset == offset
 
-    @pytest.mark.parametrize(
-        "s",
-        [
-            "2020-08-15T2:08:30+05:00:01",  # unpadded
-            "2020-8-15T12:8:30+05:00",  # unpadded
-            "2020-08-15T12:08:30+05",  # no minutes offset
-            "2020-08-15T12:08:30.0000000001+05:00",  # overly precise
-            "2020-08-15T12:08:30+05:00:01.0",  # fractional seconds in offset
-            "2020-08-15T12:08:30+05:00stuff",  # trailing stuff
-            "2020-08-15T12:08+04:00",  # no seconds
-            "2020-08-15",  # date only
-            "2020-08-15 12:08:30+05:00"  # wrong separator
-            "2020-08-15T12:08.30+05:00",  # wrong time separator
-            "2020-08-15T12:08:30+24:00",  # too large offset
-            "2020-08-15T23:12:09-99:00",  # invalid offset
-            "2020-08-15T12:08:30+09:80",  # invalid minutes
-            "2020-08-15T12:08:30-02:80:40",  # invalid minutes
-            "2020-08-15T12:08:30+09:40:80",  # invalid seconds
-            "2020-08-15T12:08:30-00:40:60",  # invalid seconds
-            "2020-08-15T12:𝟘8:30+00:00",  # non-ASCII
-            "2020-08-15T12:08:30.0034+05:𝟙0",  # non-ASCII
-            "",  # empty
-            "garbage",  # garbage
-            "20𝟚0-08-15T12:08:30+00:00",  # non-ASCII
-        ],
-    )
+    @pytest.mark.parametrize("s", INVALID_ISO_STRINGS)
     def test_invalid(self, s):
         with pytest.raises(ValueError, match="format.*" + re.escape(repr(s))):
             SystemDateTime.parse_common_iso(s)
@@ -758,11 +737,11 @@ class TestFromTimestamp:
 
         assert SystemDateTime.from_timestamp_millis(
             -4,
-        ).instant() == Instant.from_timestamp(0).subtract(milliseconds=4)
+        ).to_instant() == Instant.from_timestamp(0).subtract(milliseconds=4)
 
         assert SystemDateTime.from_timestamp_nanos(
             -4,
-        ).instant() == Instant.from_timestamp(0).subtract(nanoseconds=4)
+        ).to_instant() == Instant.from_timestamp(0).subtract(nanoseconds=4)
 
     @system_tz_ams()
     def test_nanos(self):

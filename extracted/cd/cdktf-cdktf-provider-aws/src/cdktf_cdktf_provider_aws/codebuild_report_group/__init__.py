@@ -1,7 +1,7 @@
 r'''
 # `aws_codebuild_report_group`
 
-Refer to the Terraform Registry for docs: [`aws_codebuild_report_group`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group).
+Refer to the Terraform Registry for docs: [`aws_codebuild_report_group`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodebuildReportGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codebuildReportGroup.CodebuildReportGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group aws_codebuild_report_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group aws_codebuild_report_group}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class CodebuildReportGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group aws_codebuild_report_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group aws_codebuild_report_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param export_config: export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#export_config CodebuildReportGroup#export_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#name CodebuildReportGroup#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
-        :param delete_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#delete_reports CodebuildReportGroup#delete_reports}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#id CodebuildReportGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#tags CodebuildReportGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#tags_all CodebuildReportGroup#tags_all}.
+        :param export_config: export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#export_config CodebuildReportGroup#export_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#name CodebuildReportGroup#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
+        :param delete_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#delete_reports CodebuildReportGroup#delete_reports}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#id CodebuildReportGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#tags CodebuildReportGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#tags_all CodebuildReportGroup#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class CodebuildReportGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodebuildReportGroup to import.
-        :param import_from_id: The id of the existing CodebuildReportGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodebuildReportGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodebuildReportGroup to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class CodebuildReportGroup(
         s3_destination: typing.Optional[typing.Union["CodebuildReportGroupExportConfigS3Destination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#s3_destination CodebuildReportGroup#s3_destination}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#s3_destination CodebuildReportGroup#s3_destination}
         '''
         value = CodebuildReportGroupExportConfig(
             type=type, s3_destination=s3_destination
@@ -359,13 +359,13 @@ class CodebuildReportGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param export_config: export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#export_config CodebuildReportGroup#export_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#name CodebuildReportGroup#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
-        :param delete_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#delete_reports CodebuildReportGroup#delete_reports}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#id CodebuildReportGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#tags CodebuildReportGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#tags_all CodebuildReportGroup#tags_all}.
+        :param export_config: export_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#export_config CodebuildReportGroup#export_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#name CodebuildReportGroup#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
+        :param delete_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#delete_reports CodebuildReportGroup#delete_reports}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#id CodebuildReportGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#tags CodebuildReportGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#tags_all CodebuildReportGroup#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -483,7 +483,7 @@ class CodebuildReportGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def export_config(self) -> "CodebuildReportGroupExportConfig":
         '''export_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#export_config CodebuildReportGroup#export_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#export_config CodebuildReportGroup#export_config}
         '''
         result = self._values.get("export_config")
         assert result is not None, "Required property 'export_config' is missing"
@@ -491,14 +491,14 @@ class CodebuildReportGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#name CodebuildReportGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#name CodebuildReportGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -507,13 +507,13 @@ class CodebuildReportGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_reports(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#delete_reports CodebuildReportGroup#delete_reports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#delete_reports CodebuildReportGroup#delete_reports}.'''
         result = self._values.get("delete_reports")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#id CodebuildReportGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#id CodebuildReportGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -523,13 +523,13 @@ class CodebuildReportGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#tags CodebuildReportGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#tags CodebuildReportGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#tags_all CodebuildReportGroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#tags_all CodebuildReportGroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -558,8 +558,8 @@ class CodebuildReportGroupExportConfig:
         s3_destination: typing.Optional[typing.Union["CodebuildReportGroupExportConfigS3Destination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#s3_destination CodebuildReportGroup#s3_destination}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#s3_destination CodebuildReportGroup#s3_destination}
         '''
         if isinstance(s3_destination, dict):
             s3_destination = CodebuildReportGroupExportConfigS3Destination(**s3_destination)
@@ -575,7 +575,7 @@ class CodebuildReportGroupExportConfig:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#type CodebuildReportGroup#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -586,7 +586,7 @@ class CodebuildReportGroupExportConfig:
     ) -> typing.Optional["CodebuildReportGroupExportConfigS3Destination"]:
         '''s3_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#s3_destination CodebuildReportGroup#s3_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#s3_destination CodebuildReportGroup#s3_destination}
         '''
         result = self._values.get("s3_destination")
         return typing.cast(typing.Optional["CodebuildReportGroupExportConfigS3Destination"], result)
@@ -634,11 +634,11 @@ class CodebuildReportGroupExportConfigOutputReference(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#bucket CodebuildReportGroup#bucket}.
-        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#encryption_key CodebuildReportGroup#encryption_key}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#encryption_disabled CodebuildReportGroup#encryption_disabled}.
-        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#packaging CodebuildReportGroup#packaging}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#path CodebuildReportGroup#path}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#bucket CodebuildReportGroup#bucket}.
+        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#encryption_key CodebuildReportGroup#encryption_key}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#encryption_disabled CodebuildReportGroup#encryption_disabled}.
+        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#packaging CodebuildReportGroup#packaging}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#path CodebuildReportGroup#path}.
         '''
         value = CodebuildReportGroupExportConfigS3Destination(
             bucket=bucket,
@@ -723,11 +723,11 @@ class CodebuildReportGroupExportConfigS3Destination:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#bucket CodebuildReportGroup#bucket}.
-        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#encryption_key CodebuildReportGroup#encryption_key}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#encryption_disabled CodebuildReportGroup#encryption_disabled}.
-        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#packaging CodebuildReportGroup#packaging}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#path CodebuildReportGroup#path}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#bucket CodebuildReportGroup#bucket}.
+        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#encryption_key CodebuildReportGroup#encryption_key}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#encryption_disabled CodebuildReportGroup#encryption_disabled}.
+        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#packaging CodebuildReportGroup#packaging}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#path CodebuildReportGroup#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e7fc9835c32f65b9548ee972e594f9417fc63d56d5850bf6c422ea030c9f230)
@@ -749,14 +749,14 @@ class CodebuildReportGroupExportConfigS3Destination:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#bucket CodebuildReportGroup#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#bucket CodebuildReportGroup#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def encryption_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#encryption_key CodebuildReportGroup#encryption_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#encryption_key CodebuildReportGroup#encryption_key}.'''
         result = self._values.get("encryption_key")
         assert result is not None, "Required property 'encryption_key' is missing"
         return typing.cast(builtins.str, result)
@@ -765,19 +765,19 @@ class CodebuildReportGroupExportConfigS3Destination:
     def encryption_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#encryption_disabled CodebuildReportGroup#encryption_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#encryption_disabled CodebuildReportGroup#encryption_disabled}.'''
         result = self._values.get("encryption_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def packaging(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#packaging CodebuildReportGroup#packaging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#packaging CodebuildReportGroup#packaging}.'''
         result = self._values.get("packaging")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_report_group#path CodebuildReportGroup#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_report_group#path CodebuildReportGroup#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 

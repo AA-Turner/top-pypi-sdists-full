@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyppmd
-Version: 1.1.1
+Version: 1.2.0
 Summary: PPMd compression/decompression library
 Author-email: Hiroshi Miura <miurahr@linux.com>
 License: LGPL-2.1-or-later
@@ -10,7 +10,6 @@ Project-URL: Documentation, https://pyppmd.readthedocs.io/en/stable/
 Project-URL: Bug Tracker, https://codeberg.org/miurahr/pyppmd/issues
 Project-URL: Changelog, https://pyppmd.readthedocs.io/en/latest/changelog.html
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -50,6 +49,7 @@ Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Provides-Extra: fuzzer
 Requires-Dist: atheris; extra == "fuzzer"
 Requires-Dist: hypothesis; extra == "fuzzer"
+Dynamic: license-file
 
 PyPPMd
 ======

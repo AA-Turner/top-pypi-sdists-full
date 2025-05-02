@@ -18,7 +18,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
+import json
+import threading
+from typing import Awaitable
+from unittest import mock
+
 from absl.testing import parameterized
+import aiofiles
 from etils import epath
 import flax
 import jax
@@ -26,15 +34,20 @@ from jax import numpy as jnp
 import numpy as np
 import optax
 from orbax.checkpoint import test_utils
-from orbax.checkpoint._src.multihost import multihost
+from orbax.checkpoint._src.path import atomicity
+from orbax.checkpoint._src.serialization import serialization
 from orbax.checkpoint._src.tree import utils as tree_utils
 import orbax.checkpoint.experimental.v1 as ocp
+from orbax.checkpoint.experimental.v1._src.path import types as path_types
+from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 from orbax.checkpoint.experimental.v1._src.testing import array_utils as array_test_utils
 from orbax.checkpoint.experimental.v1._src.testing import handler_utils
+from orbax.checkpoint.experimental.v1._src.testing import tree_utils as tree_test_utils
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
 
 PyTree = tree_types.PyTree
+Path = path_types.Path
 
 create_sharded_array = array_test_utils.create_sharded_array
 create_numpy_pytree = array_test_utils.create_numpy_pytree
@@ -42,11 +55,21 @@ create_sharded_pytree = array_test_utils.create_sharded_pytree
 as_abstract_type = array_test_utils.as_abstract_type
 
 PYTREE_CHECKPOINTABLE_KEY = 'pytree'
+PLACEHOLDER = tree_types.PLACEHOLDER
 
 Foo = handler_utils.Foo
 Bar = handler_utils.Bar
 AbstractFoo = handler_utils.AbstractFoo
 AbstractBar = handler_utils.AbstractBar
+
+ocp.handlers.register_handler(handler_utils.BazHandler)
+
+_original_create_paths = atomicity._create_paths
+
+
+async def _sleep_and_create_paths(*args, **kwargs):
+  await asyncio.sleep(2)
+  return await _original_create_paths(*args, **kwargs)
 
 
 class SaveLoadTestBase:
@@ -98,19 +121,42 @@ class SaveLoadTestBase:
       test_utils.assert_tree_equal(self, self.pytree, loaded)
 
     def test_save_pytree_async(self):
-      response = ocp.save_pytree_async(self.directory, self.pytree)
-      manifest_file = (
-          self.directory / PYTREE_CHECKPOINTABLE_KEY / 'manifest.ocdbt'
+      start_serialize = threading.Event()
+      original_serialize = serialization.async_serialize_from_host
+
+      def mock_serialize(*args, **kwargs):
+        start_serialize.wait()  # Wait for explicit signal before proceeding.
+        return original_serialize(*args, **kwargs)
+
+      # Serialization to disk does not start until receiving an explicit signal.
+      self.enter_context(
+          mock.patch.object(
+              serialization, 'async_serialize_from_host', new=mock_serialize
+          )
       )
-      self.assertFalse(manifest_file.exists())
-      self.assertFalse(self.directory.exists())  # Not finalized yet.
-      # But a tmp dir should have been created.
-      self.assertNotEmpty(list(self.directory.parent.iterdir()))
+
+      response = ocp.save_pytree_async(self.directory, self.pytree)
+      initial_d_files_mtimes = tree_test_utils.get_d_files_mtimes(
+          self.directory
+      )
+      self.assertFalse(
+          tree_test_utils.is_pytree_checkpoint_complete(self.directory)
+      )
+      start_serialize.set()
+
       response.result()
-      self.assertTrue(self.directory.exists())
-      self.assertTrue(manifest_file.exists())
-      loaded = ocp.load_pytree(self.directory, self.abstract_pytree)
-      test_utils.assert_tree_equal(self, self.pytree, loaded)
+      final_d_files_mtimes = tree_test_utils.get_d_files_mtimes(self.directory)
+      self.assertNotEmpty(final_d_files_mtimes)
+      self.assertNotEqual(initial_d_files_mtimes, final_d_files_mtimes)
+      self.assertTrue(
+          tree_test_utils.is_pytree_checkpoint_complete(self.directory)
+      )
+
+      restored = ocp.load_pytree(
+          self.directory,
+          self.abstract_pytree,
+      )
+      test_utils.assert_tree_equal(self, self.pytree, restored)
 
     @parameterized.parameters(
         (tuple([]),),
@@ -394,6 +440,13 @@ class SaveLoadTestBase:
         with self.assertRaisesRegex(ValueError, 'User-provided restore item'):
           ocp.load_pytree(self.directory, abstract_pytree)
 
+    def test_force_overwrites(self):
+      ocp.save_pytree(self.directory, self.pytree)
+      ocp.save_pytree(self.directory, self.numpy_pytree, force=True)
+      test_utils.assert_tree_equal(
+          self, self.numpy_pytree, ocp.load_pytree(self.directory)
+      )
+
     def test_multiple_pytrees(self):
       checkpointables = {
           'pytree': self.pytree,
@@ -439,7 +492,6 @@ class SaveLoadTestBase:
         test_utils.assert_tree_equal(self, self.pytree, loaded['numpy_pytree'])
 
     def test_missing_keys(self):
-      ocp.handlers.register_handler(handler_utils.BazHandler)
       checkpointables = {
           'numpy_pytree': self.numpy_pytree,
           'baz': handler_utils.Baz(123, 'hi'),
@@ -448,7 +500,7 @@ class SaveLoadTestBase:
 
       with self.subTest('load_pytree'):
         with self.assertRaisesRegex(
-            FileNotFoundError, 'does not contain a PyTree checkpointable'
+            FileNotFoundError, 'must contain a subdirectory named "pytree"'
         ):
           ocp.load_pytree(self.directory)
 
@@ -547,11 +599,26 @@ class SaveLoadTestBase:
       self.enter_context(
           ocp.Context(checkpointables_options=checkpointables_options)
       )
-      ocp.save_checkpointables(
-          directory, checkpointables
-      )
+      ocp.save_checkpointables(directory, checkpointables)
       self.assertTrue((directory / 'one' / 'data.txt').exists())
       self.assertFalse((directory / 'two' / 'data.txt').exists())
+
+    def test_save_checkpointables_deleted(self):
+      checkpointables = {
+          'one': {'a': 1, 'b': 2},
+          'two': {'c': 3, 'd': 4},
+      }
+      ocp.save_checkpointables(self.directory, checkpointables)
+      self.assertTrue((self.directory / 'one').exists())
+      self.assertTrue((self.directory / 'two').exists())
+
+      (self.directory / 'one').rmtree(missing_ok=True)
+
+      loaded = ocp.load_checkpointables(self.directory)
+      self.assertSameElements(['two'], loaded.keys())
+
+      with self.assertRaisesRegex(KeyError, 'not found in the checkpoint'):
+        ocp.load_checkpointables(self.directory, {'one': None})
 
 
     def test_abstract_pytree_types(self):
@@ -610,3 +677,135 @@ class SaveLoadTestBase:
       with self.subTest('none'):
         loaded = ocp.load_checkpointables(self.directory)
         self.assertEqual(checkpointables, loaded)
+
+    def test_async_directory_creation(self):
+      checkpointables_options = (
+          ocp.options.CheckpointablesOptions.create_with_handlers(
+              handler_utils.FooHandler,
+          )
+      )
+      self.enter_context(
+          ocp.Context(checkpointables_options=checkpointables_options)
+      )
+      self.enter_context(
+          mock.patch.object(atomicity, '_create_paths', _sleep_and_create_paths)
+      )
+      result = ocp.save_checkpointables_async(
+          self.directory, {'foo': Foo(123, 'hi')}
+      )
+      self.assertFalse(self.directory.exists())
+      self.assertEmpty(list(self.directory.parent.iterdir()))
+      result.result()
+      self.assertTrue(self.directory.exists())
+      self.assertLen(list(self.directory.parent.iterdir()), 1)
+
+    def test_async_directory_creation_failure(self):
+      class IncorrectFooHandler(handler_utils.FooHandler):
+
+        async def background_save(
+            self,
+            directory: path_types.PathAwaitingCreation,
+            checkpointable: Foo,
+        ):
+          directory = directory.path
+          # Note that we do not await contracted signals.
+          async with aiofiles.open(directory / 'foo.txt', 'w') as f:
+            contents = json.dumps(dataclasses.asdict(checkpointable))
+            await f.write(contents)
+
+        async def save(
+            self,
+            directory: path_types.PathAwaitingCreation,
+            checkpointable: Foo,
+        ) -> Awaitable[None]:
+          return self.background_save(
+              directory, Foo(**dataclasses.asdict(checkpointable))
+          )
+
+      checkpointables_options = (
+          ocp.options.CheckpointablesOptions.create_with_handlers(
+              IncorrectFooHandler,
+          )
+      )
+      self.enter_context(
+          ocp.Context(checkpointables_options=checkpointables_options)
+      )
+      self.enter_context(
+          mock.patch.object(atomicity, '_create_paths', _sleep_and_create_paths)
+      )
+      with self.assertRaisesRegex(
+          FileNotFoundError, 'No such file or directory'
+      ):
+        ocp.save_checkpointables(self.directory, {'foo': Foo(123, 'hi')})
+
+    def test_background_error(self):
+
+      async def raise_background_error(*args, **kwargs):
+        del args, kwargs  # Unused.
+        raise RuntimeError()
+
+      with mock.patch.object(
+          handler_utils.DataclassHandler,
+          'background_save',
+          raise_background_error,
+      ):
+        r = ocp.save_checkpointables_async(
+            self.directory, dict(baz=handler_utils.Baz(123, 'hi'))
+        )
+        with self.assertRaises(RuntimeError):
+          r.result()
+
+    @parameterized.parameters((True,), (False,))
+    def test_partial_restore_with_placeholder(self, use_async):
+      """Basic save and restore test."""
+      directory = self.directory / 'partial_restore'
+
+      self.save_and_wait(directory, self.pytree, use_async=use_async)
+
+      with self.subTest('success'):
+        reference_item = self.abstract_pytree.copy()
+        reference_item['b'] = PLACEHOLDER
+        reference_item['c']['e'] = PLACEHOLDER
+
+        expected = self.pytree.copy()
+        expected['b'] = PLACEHOLDER
+        expected['c']['e'] = PLACEHOLDER
+
+        test_utils.assert_tree_equal(
+            self,
+            expected,
+            self.load_and_wait(directory, reference_item, use_async=use_async),
+        )
+
+      with self.subTest('missing_leaf'):
+        reference_item = self.abstract_pytree.copy()
+        reference_item['b'] = PLACEHOLDER
+        reference_item['c']['e'] = PLACEHOLDER
+        del reference_item['c']['a']
+
+        with self.assertRaisesRegex(
+            ValueError, 'User-provided restore item and on-disk value'
+        ):
+          self.load_and_wait(directory, reference_item, use_async=use_async)
+
+      with self.subTest('non_leaf_placeholder'):
+        reference_item = self.abstract_pytree.copy()
+        reference_item['c'] = PLACEHOLDER
+
+        with self.assertRaisesRegex(
+            ValueError, 'User-provided restore item and on-disk value'
+        ):
+          self.load_and_wait(directory, reference_item, use_async=use_async)
+
+    def test_checkpointable_with_stateful_checkpointable(self):
+      point = handler_utils.Point(1, 2)
+      checkpointables = {'point': point}
+      ocp.save_checkpointables(self.directory, checkpointables)
+      self.assertTrue((self.directory / 'point' / 'foo.txt').exists())
+      loaded = ocp.load_checkpointables(
+          self.directory, {'point': handler_utils.Point(0, 0)}
+      )
+      self.assertEqual(1, loaded['point'].x)
+      self.assertEqual(2, loaded['point'].y)
+      # TODO(yaning) Add failure case where abstract_checkpointable is not
+      # provided.

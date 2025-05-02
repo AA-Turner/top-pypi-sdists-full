@@ -1,7 +1,7 @@
 r'''
 # `data_aws_service_principal`
 
-Refer to the Terraform Registry for docs: [`data_aws_service_principal`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal).
+Refer to the Terraform Registry for docs: [`data_aws_service_principal`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsServicePrincipal(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsServicePrincipal.DataAwsServicePrincipal",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal aws_service_principal}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal aws_service_principal}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataAwsServicePrincipal(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal aws_service_principal} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal aws_service_principal} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#service_name DataAwsServicePrincipal#service_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#region DataAwsServicePrincipal#region}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#service_name DataAwsServicePrincipal#service_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#region DataAwsServicePrincipal#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataAwsServicePrincipal(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsServicePrincipal to import.
-        :param import_from_id: The id of the existing DataAwsServicePrincipal that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsServicePrincipal that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsServicePrincipal to import is found.
         '''
         if __debug__:
@@ -221,8 +221,8 @@ class DataAwsServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#service_name DataAwsServicePrincipal#service_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#region DataAwsServicePrincipal#region}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#service_name DataAwsServicePrincipal#service_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#region DataAwsServicePrincipal#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -323,14 +323,14 @@ class DataAwsServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#service_name DataAwsServicePrincipal#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#service_name DataAwsServicePrincipal#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/service_principal#region DataAwsServicePrincipal#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/service_principal#region DataAwsServicePrincipal#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 

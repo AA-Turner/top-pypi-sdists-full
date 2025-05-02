@@ -12,6 +12,7 @@ COLOR_NAMES: Final = "/".join([style.name.lower() for style in list(AnsiFGColor)
 class Header:
     FILEPATH: Final = "filepath"
     TESTFUNC: Final = "function"
+    PARAMS: Final = "params"
     SUBTOTAL: Final = "SUBTOTAL"
 
 
@@ -65,8 +66,10 @@ class Option(Enum):
         dedent(
             """\
             Verbosity level for pytest-md-report.
+            0: output test results by test file.
+            1: output test results by test function.
+            2: output test results by test function's parameters.
             If not set, use the verbosity level of pytest.
-            Defaults to 0.
             """
         ),
     )

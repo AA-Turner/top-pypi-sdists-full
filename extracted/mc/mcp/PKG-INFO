@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp
-Version: 1.6.0
+Version: 1.7.0
 Summary: Model Context Protocol SDK
 Project-URL: Homepage, https://modelcontextprotocol.io
 Project-URL: Repository, https://github.com/modelcontextprotocol/python-sdk
@@ -24,9 +24,10 @@ Requires-Dist: httpx-sse>=0.4
 Requires-Dist: httpx>=0.27
 Requires-Dist: pydantic-settings>=2.5.2
 Requires-Dist: pydantic<3.0.0,>=2.7.2
+Requires-Dist: python-multipart>=0.0.9
 Requires-Dist: sse-starlette>=1.6.1
 Requires-Dist: starlette>=0.27
-Requires-Dist: uvicorn>=0.23.1
+Requires-Dist: uvicorn>=0.23.1; sys_platform != 'emscripten'
 Provides-Extra: cli
 Requires-Dist: python-dotenv>=1.0.0; extra == 'cli'
 Requires-Dist: typer>=0.12.4; extra == 'cli'
@@ -111,15 +112,24 @@ The Model Context Protocol allows applications to provide context for LLMs in a 
 
 ### Adding MCP to your python project
 
-We recommend using [uv](https://docs.astral.sh/uv/) to manage your Python projects. In a uv managed python project, add mcp to dependencies by:
+We recommend using [uv](https://docs.astral.sh/uv/) to manage your Python projects. 
 
-```bash
-uv add "mcp[cli]"
-```
+If you haven't created a uv-managed project yet, create one:
+
+   ```bash
+   uv init mcp-server-demo
+   cd mcp-server-demo
+   ```
+
+   Then add MCP to your project dependencies:
+
+   ```bash
+   uv add "mcp[cli]"
+   ```
 
 Alternatively, for projects using pip for dependencies:
 ```bash
-pip install mcp
+pip install "mcp[cli]"
 ```
 
 ### Running the standalone MCP development tools
@@ -223,7 +233,7 @@ mcp = FastMCP("My App", lifespan=app_lifespan)
 @mcp.tool()
 def query_db(ctx: Context) -> str:
     """Tool that uses initialized resources"""
-    db = ctx.request_context.lifespan_context["db"]
+    db = ctx.request_context.lifespan_context.db
     return db.query()
 ```
 
@@ -337,6 +347,33 @@ async def long_task(files: list[str], ctx: Context) -> str:
         data, mime_type = await ctx.read_resource(f"file://{file}")
     return "Processing complete"
 ```
+
+### Authentication
+
+Authentication can be used by servers that want to expose tools accessing protected resources.
+
+`mcp.server.auth` implements an OAuth 2.0 server interface, which servers can use by
+providing an implementation of the `OAuthServerProvider` protocol.
+
+```
+mcp = FastMCP("My App",
+        auth_provider=MyOAuthServerProvider(),
+        auth=AuthSettings(
+            issuer_url="https://myapp.com",
+            revocation_options=RevocationOptions(
+                enabled=True,
+            ),
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True,
+                valid_scopes=["myscope", "myotherscope"],
+                default_scopes=["myscope"],
+            ),
+            required_scopes=["myscope"],
+        ),
+)
+```
+
+See [OAuthServerProvider](mcp/server/auth/provider.py) for more details.
 
 ## Running Your Server
 

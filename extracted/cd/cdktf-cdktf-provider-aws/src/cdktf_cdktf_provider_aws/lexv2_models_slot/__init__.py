@@ -1,7 +1,7 @@
 r'''
 # `aws_lexv2models_slot`
 
-Refer to the Terraform Registry for docs: [`aws_lexv2models_slot`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot).
+Refer to the Terraform Registry for docs: [`aws_lexv2models_slot`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Lexv2ModelsSlot(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lexv2ModelsSlot.Lexv2ModelsSlot",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot aws_lexv2models_slot}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot aws_lexv2models_slot}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class Lexv2ModelsSlot(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot aws_lexv2models_slot} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot aws_lexv2models_slot} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#bot_id Lexv2ModelsSlot#bot_id}.
-        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#bot_version Lexv2ModelsSlot#bot_version}.
-        :param intent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#intent_id Lexv2ModelsSlot#intent_id}.
-        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#locale_id Lexv2ModelsSlot#locale_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#name Lexv2ModelsSlot#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#description Lexv2ModelsSlot#description}.
-        :param multiple_values_setting: multiple_values_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#multiple_values_setting Lexv2ModelsSlot#multiple_values_setting}
-        :param obfuscation_setting: obfuscation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#obfuscation_setting Lexv2ModelsSlot#obfuscation_setting}
-        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.
-        :param sub_slot_setting: sub_slot_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sub_slot_setting Lexv2ModelsSlot#sub_slot_setting}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeouts Lexv2ModelsSlot#timeouts}
-        :param value_elicitation_setting: value_elicitation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
+        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#bot_id Lexv2ModelsSlot#bot_id}.
+        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#bot_version Lexv2ModelsSlot#bot_version}.
+        :param intent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#intent_id Lexv2ModelsSlot#intent_id}.
+        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#locale_id Lexv2ModelsSlot#locale_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#name Lexv2ModelsSlot#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#description Lexv2ModelsSlot#description}.
+        :param multiple_values_setting: multiple_values_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#multiple_values_setting Lexv2ModelsSlot#multiple_values_setting}
+        :param obfuscation_setting: obfuscation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#obfuscation_setting Lexv2ModelsSlot#obfuscation_setting}
+        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.
+        :param sub_slot_setting: sub_slot_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sub_slot_setting Lexv2ModelsSlot#sub_slot_setting}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeouts Lexv2ModelsSlot#timeouts}
+        :param value_elicitation_setting: value_elicitation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class Lexv2ModelsSlot(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Lexv2ModelsSlot to import.
-        :param import_from_id: The id of the existing Lexv2ModelsSlot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Lexv2ModelsSlot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Lexv2ModelsSlot to import is found.
         '''
         if __debug__:
@@ -195,9 +195,9 @@ class Lexv2ModelsSlot(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#create Lexv2ModelsSlot#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#delete Lexv2ModelsSlot#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#update Lexv2ModelsSlot#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#create Lexv2ModelsSlot#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#delete Lexv2ModelsSlot#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#update Lexv2ModelsSlot#update}
         '''
         value = Lexv2ModelsSlotTimeouts(create=create, delete=delete, update=update)
 
@@ -504,18 +504,18 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#bot_id Lexv2ModelsSlot#bot_id}.
-        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#bot_version Lexv2ModelsSlot#bot_version}.
-        :param intent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#intent_id Lexv2ModelsSlot#intent_id}.
-        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#locale_id Lexv2ModelsSlot#locale_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#name Lexv2ModelsSlot#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#description Lexv2ModelsSlot#description}.
-        :param multiple_values_setting: multiple_values_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#multiple_values_setting Lexv2ModelsSlot#multiple_values_setting}
-        :param obfuscation_setting: obfuscation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#obfuscation_setting Lexv2ModelsSlot#obfuscation_setting}
-        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.
-        :param sub_slot_setting: sub_slot_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sub_slot_setting Lexv2ModelsSlot#sub_slot_setting}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeouts Lexv2ModelsSlot#timeouts}
-        :param value_elicitation_setting: value_elicitation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
+        :param bot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#bot_id Lexv2ModelsSlot#bot_id}.
+        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#bot_version Lexv2ModelsSlot#bot_version}.
+        :param intent_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#intent_id Lexv2ModelsSlot#intent_id}.
+        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#locale_id Lexv2ModelsSlot#locale_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#name Lexv2ModelsSlot#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#description Lexv2ModelsSlot#description}.
+        :param multiple_values_setting: multiple_values_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#multiple_values_setting Lexv2ModelsSlot#multiple_values_setting}
+        :param obfuscation_setting: obfuscation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#obfuscation_setting Lexv2ModelsSlot#obfuscation_setting}
+        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.
+        :param sub_slot_setting: sub_slot_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sub_slot_setting Lexv2ModelsSlot#sub_slot_setting}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeouts Lexv2ModelsSlot#timeouts}
+        :param value_elicitation_setting: value_elicitation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -644,42 +644,42 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bot_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#bot_id Lexv2ModelsSlot#bot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#bot_id Lexv2ModelsSlot#bot_id}.'''
         result = self._values.get("bot_id")
         assert result is not None, "Required property 'bot_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bot_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#bot_version Lexv2ModelsSlot#bot_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#bot_version Lexv2ModelsSlot#bot_version}.'''
         result = self._values.get("bot_version")
         assert result is not None, "Required property 'bot_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def intent_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#intent_id Lexv2ModelsSlot#intent_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#intent_id Lexv2ModelsSlot#intent_id}.'''
         result = self._values.get("intent_id")
         assert result is not None, "Required property 'intent_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def locale_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#locale_id Lexv2ModelsSlot#locale_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#locale_id Lexv2ModelsSlot#locale_id}.'''
         result = self._values.get("locale_id")
         assert result is not None, "Required property 'locale_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#name Lexv2ModelsSlot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#name Lexv2ModelsSlot#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#description Lexv2ModelsSlot#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#description Lexv2ModelsSlot#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -689,7 +689,7 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotMultipleValuesSetting"]]]:
         '''multiple_values_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#multiple_values_setting Lexv2ModelsSlot#multiple_values_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#multiple_values_setting Lexv2ModelsSlot#multiple_values_setting}
         '''
         result = self._values.get("multiple_values_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotMultipleValuesSetting"]]], result)
@@ -700,14 +700,14 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotObfuscationSetting"]]]:
         '''obfuscation_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#obfuscation_setting Lexv2ModelsSlot#obfuscation_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#obfuscation_setting Lexv2ModelsSlot#obfuscation_setting}
         '''
         result = self._values.get("obfuscation_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotObfuscationSetting"]]], result)
 
     @builtins.property
     def slot_type_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.'''
         result = self._values.get("slot_type_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -717,7 +717,7 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSetting"]]]:
         '''sub_slot_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sub_slot_setting Lexv2ModelsSlot#sub_slot_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sub_slot_setting Lexv2ModelsSlot#sub_slot_setting}
         '''
         result = self._values.get("sub_slot_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSetting"]]], result)
@@ -726,7 +726,7 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Lexv2ModelsSlotTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeouts Lexv2ModelsSlot#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeouts Lexv2ModelsSlot#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Lexv2ModelsSlotTimeouts"], result)
@@ -737,7 +737,7 @@ class Lexv2ModelsSlotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSetting"]]]:
         '''value_elicitation_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
         '''
         result = self._values.get("value_elicitation_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSetting"]]], result)
@@ -766,7 +766,7 @@ class Lexv2ModelsSlotMultipleValuesSetting:
         allow_multiple_values: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allow_multiple_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_multiple_values Lexv2ModelsSlot#allow_multiple_values}.
+        :param allow_multiple_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_multiple_values Lexv2ModelsSlot#allow_multiple_values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53e8a1e017f8eb3e9b2913c52edf4da2694e270e319af250f6643c08e42c5587)
@@ -779,7 +779,7 @@ class Lexv2ModelsSlotMultipleValuesSetting:
     def allow_multiple_values(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_multiple_values Lexv2ModelsSlot#allow_multiple_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_multiple_values Lexv2ModelsSlot#allow_multiple_values}.'''
         result = self._values.get("allow_multiple_values")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -968,7 +968,7 @@ class Lexv2ModelsSlotMultipleValuesSettingOutputReference(
 class Lexv2ModelsSlotObfuscationSetting:
     def __init__(self, *, obfuscation_setting_type: builtins.str) -> None:
         '''
-        :param obfuscation_setting_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#obfuscation_setting_type Lexv2ModelsSlot#obfuscation_setting_type}.
+        :param obfuscation_setting_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#obfuscation_setting_type Lexv2ModelsSlot#obfuscation_setting_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ebd832a42d3f7f75853c78db70547837db7f9f7a0496904677f09e5717bcc7a)
@@ -979,7 +979,7 @@ class Lexv2ModelsSlotObfuscationSetting:
 
     @builtins.property
     def obfuscation_setting_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#obfuscation_setting_type Lexv2ModelsSlot#obfuscation_setting_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#obfuscation_setting_type Lexv2ModelsSlot#obfuscation_setting_type}.'''
         result = self._values.get("obfuscation_setting_type")
         assert result is not None, "Required property 'obfuscation_setting_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1166,8 +1166,8 @@ class Lexv2ModelsSlotSubSlotSetting:
         slot_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#expression Lexv2ModelsSlot#expression}.
-        :param slot_specification: slot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_specification Lexv2ModelsSlot#slot_specification}
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#expression Lexv2ModelsSlot#expression}.
+        :param slot_specification: slot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_specification Lexv2ModelsSlot#slot_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__deb7fb6c34a35d7fa2defa99b27e94a0413fb7c137b350ad137a7c55e4067228)
@@ -1181,7 +1181,7 @@ class Lexv2ModelsSlotSubSlotSetting:
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#expression Lexv2ModelsSlot#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#expression Lexv2ModelsSlot#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1191,7 +1191,7 @@ class Lexv2ModelsSlotSubSlotSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecification"]]]:
         '''slot_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_specification Lexv2ModelsSlot#slot_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_specification Lexv2ModelsSlot#slot_specification}
         '''
         result = self._values.get("slot_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecification"]]], result)
@@ -1412,9 +1412,9 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecification:
         value_elicitation_setting: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.
-        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.
-        :param value_elicitation_setting: value_elicitation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
+        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.
+        :param slot_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.
+        :param value_elicitation_setting: value_elicitation_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77d25c41d5d77f812eb844d978151553ac53c39d4fb53bf7baad3171f7ceb5d0)
@@ -1430,14 +1430,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecification:
 
     @builtins.property
     def map_block_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.'''
         result = self._values.get("map_block_key")
         assert result is not None, "Required property 'map_block_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def slot_type_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_type_id Lexv2ModelsSlot#slot_type_id}.'''
         result = self._values.get("slot_type_id")
         assert result is not None, "Required property 'slot_type_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1448,7 +1448,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting"]]]:
         '''value_elicitation_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value_elicitation_setting Lexv2ModelsSlot#value_elicitation_setting}
         '''
         result = self._values.get("value_elicitation_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting"]]], result)
@@ -1687,10 +1687,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting:
         wait_and_continue_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_value_specification: default_value_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
-        :param prompt_specification: prompt_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
-        :param sample_utterance: sample_utterance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
-        :param wait_and_continue_specification: wait_and_continue_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
+        :param default_value_specification: default_value_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
+        :param prompt_specification: prompt_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
+        :param sample_utterance: sample_utterance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
+        :param wait_and_continue_specification: wait_and_continue_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fb26a0ba28dd14221ae0e0813b50a8a2ae21ec4f12b838350eeaf30431c8f7c)
@@ -1714,7 +1714,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefaultValueSpecification"]]]:
         '''default_value_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
         '''
         result = self._values.get("default_value_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefaultValueSpecification"]]], result)
@@ -1725,7 +1725,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecification"]]]:
         '''prompt_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
         '''
         result = self._values.get("prompt_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecification"]]], result)
@@ -1736,7 +1736,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingSampleUtterance"]]]:
         '''sample_utterance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
         '''
         result = self._values.get("sample_utterance")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingSampleUtterance"]]], result)
@@ -1747,7 +1747,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecification"]]]:
         '''wait_and_continue_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
         '''
         result = self._values.get("wait_and_continue_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecification"]]], result)
@@ -1776,7 +1776,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefau
         default_value_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_value_list: default_value_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
+        :param default_value_list: default_value_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cdd7516959bebb2df926fb6b505b1666bb8e3ae97e85443299e99eda24b6e46)
@@ -1791,7 +1791,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefau
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct"]]]:
         '''default_value_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
         '''
         result = self._values.get("default_value_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct"]]], result)
@@ -1816,7 +1816,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefau
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct:
     def __init__(self, *, default_value: builtins.str) -> None:
         '''
-        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.
+        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56b4c57c52f4f9692cf4d750b18e24c5198575fcb44abba8e13559cbd0e54031)
@@ -1827,7 +1827,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingDefau
 
     @builtins.property
     def default_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.'''
         result = self._values.get("default_value")
         assert result is not None, "Required property 'default_value' is missing"
         return typing.cast(builtins.str, result)
@@ -2449,11 +2449,11 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         prompt_attempts_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
-        :param message_selection_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.
-        :param prompt_attempts_specification: prompt_attempts_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param message_selection_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.
+        :param prompt_attempts_specification: prompt_attempts_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07cb82a94c67d09c8df0f965a28d2041058f4e94b2b3f253af1b5cb5e5e7acd2)
@@ -2476,7 +2476,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def max_retries(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.'''
         result = self._values.get("max_retries")
         assert result is not None, "Required property 'max_retries' is missing"
         return typing.cast(jsii.Number, result)
@@ -2485,7 +2485,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2495,14 +2495,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroup"]]], result)
 
     @builtins.property
     def message_selection_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.'''
         result = self._values.get("message_selection_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2512,7 +2512,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecification"]]]:
         '''prompt_attempts_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
         '''
         result = self._values.get("prompt_attempts_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecification"]]], result)
@@ -2635,8 +2635,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cf373d62e0fc73e56cf9d0b3ea38a11a250f6c513e0acb07ea64f618eb4f5a8)
@@ -2654,7 +2654,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessage"]]], result)
@@ -2665,7 +2665,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariation"]]], result)
@@ -2795,10 +2795,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6c4156eb6601855724d21751371faea975581a2ba112282d5a036985b5b7a46)
@@ -2822,7 +2822,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageCustomPayload"]]], result)
@@ -2833,7 +2833,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCard"]]], result)
@@ -2844,7 +2844,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessagePlainTextMessage"]]], result)
@@ -2855,7 +2855,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage"]]], result)
@@ -2880,7 +2880,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11ad2f293dbaec500231bd137a7d2e81f0056ba9605015b4208f2bae05647d31)
@@ -2891,7 +2891,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3082,10 +3082,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b597bdbc84e496d52b8425271c9458ee18db27429a7a364c1e81dfec270b726)
@@ -3105,7 +3105,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -3116,20 +3116,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3153,8 +3153,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12954bfd01f84dd650730fde131af25f77a68a82149046ada17dd75dcbeb14c7)
@@ -3167,14 +3167,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3858,7 +3858,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac71eb2c8f995e2b0b3fac343581beed39fa127e13942e9a97d021f619ae6bf7)
@@ -3869,7 +3869,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4048,7 +4048,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea84555d10f731ade76ee4e8cdbf296be689054ea5bc2ea1a3b674be999c0586)
@@ -4059,7 +4059,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4356,10 +4356,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61c49d8c119d811287df950b0e2b00c67926e71e4672a77ddf667569cddf24af)
@@ -4383,7 +4383,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationCustomPayload"]]], result)
@@ -4394,7 +4394,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCard"]]], result)
@@ -4405,7 +4405,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationPlainTextMessage"]]], result)
@@ -4416,7 +4416,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage"]]], result)
@@ -4441,7 +4441,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b70cd9c19f42bcbeaf8af929b7259f8e42033017075be8558a44acc30f052cc)
@@ -4452,7 +4452,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4643,10 +4643,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44b48ca38ab04c33b7b02a462d2eb7214237ea21001ace2c3dceb7028bc56b3d)
@@ -4666,7 +4666,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -4677,20 +4677,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4714,8 +4714,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e03f829c4dca241da50c74ccf3916739e32673df441795a0424e303dd199c0c)
@@ -4728,14 +4728,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5419,7 +5419,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__412a781f968067a7702ade010115eeccbbc6e25f3e2fde0352806a6f8d51ca0c)
@@ -5430,7 +5430,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5609,7 +5609,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5c34aaeb35a634109c9079347dab22a521ef545130d50cdbdd97e5dc8ad8465)
@@ -5620,7 +5620,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5985,11 +5985,11 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         text_input_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.
-        :param allowed_input_types: allowed_input_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param audio_and_dtmf_input_specification: audio_and_dtmf_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
-        :param text_input_specification: text_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
+        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.
+        :param allowed_input_types: allowed_input_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param audio_and_dtmf_input_specification: audio_and_dtmf_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
+        :param text_input_specification: text_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa6ea2401d2f7592c34bdf3ee132dca9f41c2f0b33ec4949f636e5a6fe9ef7d0)
@@ -6012,7 +6012,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def map_block_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.'''
         result = self._values.get("map_block_key")
         assert result is not None, "Required property 'map_block_key' is missing"
         return typing.cast(builtins.str, result)
@@ -6023,7 +6023,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAllowedInputTypes"]]]:
         '''allowed_input_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
         '''
         result = self._values.get("allowed_input_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAllowedInputTypes"]]], result)
@@ -6032,7 +6032,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6042,7 +6042,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecification"]]]:
         '''audio_and_dtmf_input_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
         '''
         result = self._values.get("audio_and_dtmf_input_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecification"]]], result)
@@ -6053,7 +6053,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification"]]]:
         '''text_input_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
         '''
         result = self._values.get("text_input_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification"]]], result)
@@ -6086,8 +6086,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         allow_dtmf_input: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param allow_audio_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.
-        :param allow_dtmf_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.
+        :param allow_audio_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.
+        :param allow_dtmf_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28ad63341149e5bb29907a9ca5adcc3fa8f231a90bd0b9973e0966a4c18ffecc)
@@ -6102,7 +6102,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     def allow_audio_input(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.'''
         result = self._values.get("allow_audio_input")
         assert result is not None, "Required property 'allow_audio_input' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -6111,7 +6111,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     def allow_dtmf_input(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.'''
         result = self._values.get("allow_dtmf_input")
         assert result is not None, "Required property 'allow_dtmf_input' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -6331,9 +6331,9 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         dtmf_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationDtmfSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
-        :param audio_specification: audio_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
-        :param dtmf_specification: dtmf_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
+        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
+        :param audio_specification: audio_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
+        :param dtmf_specification: dtmf_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b53728375158e51df9abd37fd79f6b1c458fde2188cd03b2c060bf20aef5b335)
@@ -6350,7 +6350,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def start_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
         result = self._values.get("start_timeout_ms")
         assert result is not None, "Required property 'start_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
@@ -6361,7 +6361,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationAudioSpecification"]]]:
         '''audio_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
         '''
         result = self._values.get("audio_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationAudioSpecification"]]], result)
@@ -6372,7 +6372,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationDtmfSpecification"]]]:
         '''dtmf_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
         '''
         result = self._values.get("dtmf_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationDtmfSpecification"]]], result)
@@ -6402,8 +6402,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         max_length_ms: jsii.Number,
     ) -> None:
         '''
-        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
-        :param max_length_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.
+        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
+        :param max_length_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__915b76933af5ef3e40a4d595f05131a2f5ed955464e45cc4a73f6f42de6b3d61)
@@ -6416,14 +6416,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def end_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
         result = self._values.get("end_timeout_ms")
         assert result is not None, "Required property 'end_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_length_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.'''
         result = self._values.get("max_length_ms")
         assert result is not None, "Required property 'max_length_ms' is missing"
         return typing.cast(jsii.Number, result)
@@ -6631,10 +6631,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
         max_length: jsii.Number,
     ) -> None:
         '''
-        :param deletion_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.
-        :param end_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.
-        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
-        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.
+        :param deletion_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.
+        :param end_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.
+        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
+        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af84b8930e4a43cce1f1c6edbca672ac6d99312e61880e0d0d277d3acd2f172d)
@@ -6651,28 +6651,28 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def deletion_character(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.'''
         result = self._values.get("deletion_character")
         assert result is not None, "Required property 'deletion_character' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def end_character(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.'''
         result = self._values.get("end_character")
         assert result is not None, "Required property 'end_character' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def end_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
         result = self._values.get("end_timeout_ms")
         assert result is not None, "Required property 'end_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_length(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.'''
         result = self._values.get("max_length")
         assert result is not None, "Required property 'max_length' is missing"
         return typing.cast(jsii.Number, result)
@@ -7393,7 +7393,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification:
     def __init__(self, *, start_timeout_ms: jsii.Number) -> None:
         '''
-        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
+        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6cc68e2c7dd271c5b53d72b5048ea449a6a68588ba6ce1f45b1735c77dd91a5a)
@@ -7404,7 +7404,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 
     @builtins.property
     def start_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
         result = self._values.get("start_timeout_ms")
         assert result is not None, "Required property 'start_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
@@ -7583,7 +7583,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingPromp
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingSampleUtterance:
     def __init__(self, *, utterance: builtins.str) -> None:
         '''
-        :param utterance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.
+        :param utterance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bc1b16b1acc31fccbe4797a8f3badfa1daa0e56c9c99d6488081406aae5d661)
@@ -7594,7 +7594,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingSampl
 
     @builtins.property
     def utterance(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.'''
         result = self._values.get("utterance")
         assert result is not None, "Required property 'utterance' is missing"
         return typing.cast(builtins.str, result)
@@ -7785,10 +7785,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         waiting_response: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponse", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.
-        :param continue_response: continue_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
-        :param still_waiting_response: still_waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
-        :param waiting_response: waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
+        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.
+        :param continue_response: continue_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
+        :param still_waiting_response: still_waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
+        :param waiting_response: waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2eabd949b8a9254b19bc5141276ece2bd7cf6df4030f5dcae7517d74c16c7e96)
@@ -7810,7 +7810,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     def active(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.'''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7820,7 +7820,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponse"]]]:
         '''continue_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
         '''
         result = self._values.get("continue_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponse"]]], result)
@@ -7831,7 +7831,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponse"]]]:
         '''still_waiting_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
         '''
         result = self._values.get("still_waiting_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponse"]]], result)
@@ -7842,7 +7842,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponse"]]]:
         '''waiting_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
         '''
         result = self._values.get("waiting_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponse"]]], result)
@@ -7875,8 +7875,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         message_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c7a3cd730618e1fd54bdae72edffb2001f5edbf965fca4deabda7f816ec4f63)
@@ -7892,7 +7892,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7902,7 +7902,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroup"]]], result)
@@ -8025,8 +8025,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb06b1d97f270308ee2993afc819858891f523cde69d03316809b256a7632c3c)
@@ -8044,7 +8044,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessage"]]], result)
@@ -8055,7 +8055,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariation"]]], result)
@@ -8185,10 +8185,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d12c20607ce61e30c1348b3fb610cf0aa6064d83ba4424c538a68374895ce645)
@@ -8212,7 +8212,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageCustomPayload"]]], result)
@@ -8223,7 +8223,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCard"]]], result)
@@ -8234,7 +8234,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessagePlainTextMessage"]]], result)
@@ -8245,7 +8245,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage"]]], result)
@@ -8270,7 +8270,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5299040955d208b4a1d63a9fae98d5e99bc0b0048dc35f2d3f05140c17106fca)
@@ -8281,7 +8281,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -8472,10 +8472,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aec64e743656345aa85e97cecb09b9ffb437014e4da7cd51a174bd33e0a59f5e)
@@ -8495,7 +8495,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -8506,20 +8506,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8543,8 +8543,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26ce872d52068775047fe995fde7769a89b1d8a9917d75cdbb657d2788928fa5)
@@ -8557,14 +8557,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9248,7 +9248,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74bf6f90ac9d93b3320501461ec935bee21881911302814b4c57fd035d428b01)
@@ -9259,7 +9259,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9438,7 +9438,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9fca2f77619dfb2c5fdbb0ef59d2244a03bef201f3720ac4677e52a2d6c236e)
@@ -9449,7 +9449,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9746,10 +9746,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3662064ba291fa8038ce82f779604d3a86b4df9f3dc350754dd6021b9b58b4a9)
@@ -9773,7 +9773,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationCustomPayload"]]], result)
@@ -9784,7 +9784,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCard"]]], result)
@@ -9795,7 +9795,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationPlainTextMessage"]]], result)
@@ -9806,7 +9806,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage"]]], result)
@@ -9831,7 +9831,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be61bbd6cac330bca760bce99c1488d670b2d56339fbd20a0668c3af4833dff2)
@@ -9842,7 +9842,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10033,10 +10033,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6357526dac1c726da25c5acc3ad6c2cbbbf5c371014dd75a7a04e58178d72d17)
@@ -10056,7 +10056,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -10067,20 +10067,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10104,8 +10104,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__556806eb68c76bb622994a5e9a15306d65bf208a3f765a0d195a0be5deac0fc4)
@@ -10118,14 +10118,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10809,7 +10809,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8284dcf7c635325c21d15e6165a42bddf5d81d9db77a3b368c5a21cf3fdd302b)
@@ -10820,7 +10820,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10999,7 +10999,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__571a74ea3e6325571d205e2843e261b200ddc3f4323a8cefff20d068bea7024a)
@@ -11010,7 +11010,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11560,10 +11560,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         message_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.
-        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.
+        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0ef6b6d0ef1fe309d65665448a4663d0d5fbb724f41d20bb1041f9a0a89ee9b)
@@ -11582,14 +11582,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def frequency_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.'''
         result = self._values.get("frequency_in_seconds")
         assert result is not None, "Required property 'frequency_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def timeout_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.'''
         result = self._values.get("timeout_in_seconds")
         assert result is not None, "Required property 'timeout_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -11598,7 +11598,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -11608,7 +11608,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroup"]]], result)
@@ -11731,8 +11731,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ef62c2003bb35bf8f7be92c2b65f4501229bbef491b506b659f1972c0424c4c)
@@ -11750,7 +11750,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessage"]]], result)
@@ -11761,7 +11761,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariation"]]], result)
@@ -11891,10 +11891,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72e431f671409f9b7c473d4eabbb64cee7b63243be8159b7f13be23ceba96c46)
@@ -11918,7 +11918,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageCustomPayload"]]], result)
@@ -11929,7 +11929,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCard"]]], result)
@@ -11940,7 +11940,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessagePlainTextMessage"]]], result)
@@ -11951,7 +11951,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage"]]], result)
@@ -11976,7 +11976,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a1e881636701ec078a1298004112b0a243dfb6dbd22cff340e280666f3cc710)
@@ -11987,7 +11987,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12178,10 +12178,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8bf585219a8999b7bb740d503307b95258b65b86fff180e67daeb68472d178d)
@@ -12201,7 +12201,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -12212,20 +12212,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12249,8 +12249,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1eaf0b96b7895185f72bd28a3c233588e5fc7133407dfbea23f0a2b5aa338519)
@@ -12263,14 +12263,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12954,7 +12954,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a08d4f09320759f25587664e6838fb5e9cb19341415b04b8344c21a30a9c2a1)
@@ -12965,7 +12965,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13144,7 +13144,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9382522ad2186a6cfbf3c12484207c1f827610a0974ed6f1115eb8499fa12fa0)
@@ -13155,7 +13155,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13452,10 +13452,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5c7c4826ccfb486a80705284a885ced825a801859e00ff691355e8024c98cfd)
@@ -13479,7 +13479,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationCustomPayload"]]], result)
@@ -13490,7 +13490,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCard"]]], result)
@@ -13501,7 +13501,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationPlainTextMessage"]]], result)
@@ -13512,7 +13512,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage"]]], result)
@@ -13537,7 +13537,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__399ca20a36c1b3f0fb739a3d19d04afafa124c3ae46baa5762849e3e81b44d98)
@@ -13548,7 +13548,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13739,10 +13739,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3888247f8e5b37452a924e997fb8f0917f05f8b71ad61ba9bbe4d01930f9f64)
@@ -13762,7 +13762,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -13773,20 +13773,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -13810,8 +13810,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__346c2b24289d0198848af42fd292f8a643bbec84a64e57e9e2ffa0943f0b7970)
@@ -13824,14 +13824,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -14515,7 +14515,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9321598f99e1d5c7d680d5118c30fc7ad54e57526d373238ad58632fb406becb)
@@ -14526,7 +14526,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -14705,7 +14705,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ee12bf0b3d54cd14f14f5bd280a9219ca835b2905e2dcf92aea19ef9169fc0f)
@@ -14716,7 +14716,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -15040,8 +15040,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         message_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13228a4dd532c5002cb379d86a0a5fa22c4e5e330ecd8118c341370e9148f097)
@@ -15057,7 +15057,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -15067,7 +15067,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroup"]]], result)
@@ -15190,8 +15190,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ea4048219648ba3bf2d1e678e9986874341f07498a78bbc04b5259c1e22349c)
@@ -15209,7 +15209,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessage"]]], result)
@@ -15220,7 +15220,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariation"]]], result)
@@ -15350,10 +15350,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4689648cbd0f72c0e4b033abbe4b1b6146dec4346337aa8e75f3d4a9247623af)
@@ -15377,7 +15377,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageCustomPayload"]]], result)
@@ -15388,7 +15388,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCard"]]], result)
@@ -15399,7 +15399,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessagePlainTextMessage"]]], result)
@@ -15410,7 +15410,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage"]]], result)
@@ -15435,7 +15435,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36e8e4ffed96917da9b6c797d15ff9a8f002422cb53c791ab9a7dc2edf143f1a)
@@ -15446,7 +15446,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -15637,10 +15637,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e46f737f6c9f02e1c332eeac88b1030dfe882426b13d22d4d030257659ed75c)
@@ -15660,7 +15660,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -15671,20 +15671,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -15708,8 +15708,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a8371774191636d0cbb224d8f62778415c9608da31e4c0d32e9511bb6e4c74e)
@@ -15722,14 +15722,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16413,7 +16413,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5638e3ff2ea95bf2b1675fd18d53228a74dd1843b63e7e37833192c20a59dde5)
@@ -16424,7 +16424,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16603,7 +16603,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94c1092030c4509ed017ee24e8bfd0cf504e3dd37b73629a1cdeb82b56362e73)
@@ -16614,7 +16614,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16911,10 +16911,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b9b80182b1aca803f2d10e92e94a99ebbe3e6f9d0f873ca5dd7a8be5f4e3711)
@@ -16938,7 +16938,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationCustomPayload"]]], result)
@@ -16949,7 +16949,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCard"]]], result)
@@ -16960,7 +16960,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationPlainTextMessage"]]], result)
@@ -16971,7 +16971,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage"]]], result)
@@ -16996,7 +16996,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72b395250e852c7a5685b6a0eb3e1102132da112c5209ebac060831a79bcffae)
@@ -17007,7 +17007,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -17198,10 +17198,10 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__679f0146cdf204ae260cb76c0ac3da565a744bec908b935de247f5fc586dc5bc)
@@ -17221,7 +17221,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -17232,20 +17232,20 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -17269,8 +17269,8 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2a2fad3084c0f54f2fbae6c20f7a4440bfcf473db0ddb76a1aa7ee736216827)
@@ -17283,14 +17283,14 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -17974,7 +17974,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3010bcb6de3f9bda4d18431a132e8f7bad02d084a5936019a43c6cac4827685)
@@ -17985,7 +17985,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -18164,7 +18164,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81c08aaab8b2d66ed87e6aa12bf3fbce4f18f6457a6e98be3ca1f97235565f1b)
@@ -18175,7 +18175,7 @@ class Lexv2ModelsSlotSubSlotSettingSlotSpecificationValueElicitationSettingWaitA
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -18463,9 +18463,9 @@ class Lexv2ModelsSlotTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#create Lexv2ModelsSlot#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#delete Lexv2ModelsSlot#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#update Lexv2ModelsSlot#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#create Lexv2ModelsSlot#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#delete Lexv2ModelsSlot#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#update Lexv2ModelsSlot#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e822882a7d2c445fda59b56c698fa2a029c901e27ce5f13dc82c4fbc18d9eec)
@@ -18484,7 +18484,7 @@ class Lexv2ModelsSlotTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#create Lexv2ModelsSlot#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#create Lexv2ModelsSlot#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18493,7 +18493,7 @@ class Lexv2ModelsSlotTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#delete Lexv2ModelsSlot#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#delete Lexv2ModelsSlot#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18502,7 +18502,7 @@ class Lexv2ModelsSlotTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#update Lexv2ModelsSlot#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#update Lexv2ModelsSlot#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18644,12 +18644,12 @@ class Lexv2ModelsSlotValueElicitationSetting:
         wait_and_continue_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param slot_constraint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_constraint Lexv2ModelsSlot#slot_constraint}.
-        :param default_value_specification: default_value_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
-        :param prompt_specification: prompt_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
-        :param sample_utterance: sample_utterance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
-        :param slot_resolution_setting: slot_resolution_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_resolution_setting Lexv2ModelsSlot#slot_resolution_setting}
-        :param wait_and_continue_specification: wait_and_continue_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
+        :param slot_constraint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_constraint Lexv2ModelsSlot#slot_constraint}.
+        :param default_value_specification: default_value_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
+        :param prompt_specification: prompt_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
+        :param sample_utterance: sample_utterance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
+        :param slot_resolution_setting: slot_resolution_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_resolution_setting Lexv2ModelsSlot#slot_resolution_setting}
+        :param wait_and_continue_specification: wait_and_continue_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__024d4848bc87d6474397daf463741168f98219e34b7aaa1ffc7ef8aebf039fe3)
@@ -18675,7 +18675,7 @@ class Lexv2ModelsSlotValueElicitationSetting:
 
     @builtins.property
     def slot_constraint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_constraint Lexv2ModelsSlot#slot_constraint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_constraint Lexv2ModelsSlot#slot_constraint}.'''
         result = self._values.get("slot_constraint")
         assert result is not None, "Required property 'slot_constraint' is missing"
         return typing.cast(builtins.str, result)
@@ -18686,7 +18686,7 @@ class Lexv2ModelsSlotValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecification"]]]:
         '''default_value_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_specification Lexv2ModelsSlot#default_value_specification}
         '''
         result = self._values.get("default_value_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecification"]]], result)
@@ -18697,7 +18697,7 @@ class Lexv2ModelsSlotValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecification"]]]:
         '''prompt_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_specification Lexv2ModelsSlot#prompt_specification}
         '''
         result = self._values.get("prompt_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecification"]]], result)
@@ -18708,7 +18708,7 @@ class Lexv2ModelsSlotValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingSampleUtterance"]]]:
         '''sample_utterance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#sample_utterance Lexv2ModelsSlot#sample_utterance}
         '''
         result = self._values.get("sample_utterance")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingSampleUtterance"]]], result)
@@ -18719,7 +18719,7 @@ class Lexv2ModelsSlotValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingSlotResolutionSetting"]]]:
         '''slot_resolution_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_resolution_setting Lexv2ModelsSlot#slot_resolution_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_resolution_setting Lexv2ModelsSlot#slot_resolution_setting}
         '''
         result = self._values.get("slot_resolution_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingSlotResolutionSetting"]]], result)
@@ -18730,7 +18730,7 @@ class Lexv2ModelsSlotValueElicitationSetting:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification"]]]:
         '''wait_and_continue_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#wait_and_continue_specification Lexv2ModelsSlot#wait_and_continue_specification}
         '''
         result = self._values.get("wait_and_continue_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification"]]], result)
@@ -18759,7 +18759,7 @@ class Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecification:
         default_value_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_value_list: default_value_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
+        :param default_value_list: default_value_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__812ca1338a7b88b673211695bbd9fe9516dc109a59d42f9952421605b554ba12)
@@ -18774,7 +18774,7 @@ class Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct"]]]:
         '''default_value_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value_list Lexv2ModelsSlot#default_value_list}
         '''
         result = self._values.get("default_value_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct"]]], result)
@@ -18799,7 +18799,7 @@ class Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecification:
 class Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecificationDefaultValueListStruct:
     def __init__(self, *, default_value: builtins.str) -> None:
         '''
-        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.
+        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec81f68aa98137283568c8cb6324b60d1b7ebdfc0f68fed8195f8e5c81f34c10)
@@ -18810,7 +18810,7 @@ class Lexv2ModelsSlotValueElicitationSettingDefaultValueSpecificationDefaultValu
 
     @builtins.property
     def default_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#default_value Lexv2ModelsSlot#default_value}.'''
         result = self._values.get("default_value")
         assert result is not None, "Required property 'default_value' is missing"
         return typing.cast(builtins.str, result)
@@ -19480,11 +19480,11 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecification:
         prompt_attempts_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
-        :param message_selection_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.
-        :param prompt_attempts_specification: prompt_attempts_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param message_selection_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.
+        :param prompt_attempts_specification: prompt_attempts_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dabe3314cf4c861f23fcd5f4530b165ea126e4060da5c90723be078943a5d10a)
@@ -19507,7 +19507,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecification:
 
     @builtins.property
     def max_retries(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_retries Lexv2ModelsSlot#max_retries}.'''
         result = self._values.get("max_retries")
         assert result is not None, "Required property 'max_retries' is missing"
         return typing.cast(jsii.Number, result)
@@ -19516,7 +19516,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecification:
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -19526,14 +19526,14 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroup"]]], result)
 
     @builtins.property
     def message_selection_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_selection_strategy Lexv2ModelsSlot#message_selection_strategy}.'''
         result = self._values.get("message_selection_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -19543,7 +19543,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecification"]]]:
         '''prompt_attempts_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#prompt_attempts_specification Lexv2ModelsSlot#prompt_attempts_specification}
         '''
         result = self._values.get("prompt_attempts_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecification"]]], result)
@@ -19666,8 +19666,8 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroup:
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d845288f3023a635f608933b07cbb2a2784197ee2b57ff2ea399527d516414a)
@@ -19685,7 +19685,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessage"]]], result)
@@ -19696,7 +19696,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariation"]]], result)
@@ -19826,10 +19826,10 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a821b75f7417ca4c68843f0b053387a493384a8ab62f4c55af6b4275812b3239)
@@ -19853,7 +19853,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageCustomPayload"]]], result)
@@ -19864,7 +19864,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCard"]]], result)
@@ -19875,7 +19875,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessagePlainTextMessage"]]], result)
@@ -19886,7 +19886,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage"]]], result)
@@ -19911,7 +19911,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5fad78791484e0ab24f6f9bc7ddd6a2bbc8396d661fe3225a1817fb6e4a20665)
@@ -19922,7 +19922,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -20113,10 +20113,10 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90a3af1bf16c04118e8f5bc5e210dfd5a24e1ea89a0623a24c6b7e9c45d0177a)
@@ -20136,7 +20136,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -20147,20 +20147,20 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -20184,8 +20184,8 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f56317d5f832d7b370066772faadcc9be07726ab89cd8ec4f4cd1cf1fde3da8)
@@ -20198,14 +20198,14 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -20889,7 +20889,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a858663d8d536f4651452db1888e86215147a912bfcc8c077b1816a30c0cad64)
@@ -20900,7 +20900,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -21079,7 +21079,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65aa28d960cc847298fc9299283d56d82a1e8f07ec87a7210ab6143e9dad996a)
@@ -21090,7 +21090,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupMessa
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -21387,10 +21387,10 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a78e2dbd30a2aa03af7a51c02cb6687cae2aac1f36208495d8e4c7f2cec1bc96)
@@ -21414,7 +21414,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationCustomPayload"]]], result)
@@ -21425,7 +21425,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCard"]]], result)
@@ -21436,7 +21436,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationPlainTextMessage"]]], result)
@@ -21447,7 +21447,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage"]]], result)
@@ -21472,7 +21472,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d9756926a4852bef046ead3e1dd586628be44cb90e579a4303469e65532c207)
@@ -21483,7 +21483,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -21674,10 +21674,10 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f86e7013e0b4d8ecd69d710e225627a7439cd632212c9a5612f1e537a6d6824)
@@ -21697,7 +21697,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -21708,20 +21708,20 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -21745,8 +21745,8 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f771d2627f709e8602561fd55d37cc8a272c862596008fe7c4d589fd629efc6c)
@@ -21759,14 +21759,14 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -22450,7 +22450,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85e6672a3f4e6da5026894ac7d45190806acba94ca15602bc3087c31a38d0a8c)
@@ -22461,7 +22461,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -22640,7 +22640,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ffc928890a4a187cc9da8bcf66bd12cff31372f5da10c99e7ca6899733d1cc0)
@@ -22651,7 +22651,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationMessageGroupVaria
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -23016,11 +23016,11 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
         text_input_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.
-        :param allowed_input_types: allowed_input_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param audio_and_dtmf_input_specification: audio_and_dtmf_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
-        :param text_input_specification: text_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
+        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.
+        :param allowed_input_types: allowed_input_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param audio_and_dtmf_input_specification: audio_and_dtmf_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
+        :param text_input_specification: text_input_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__834707ab779e59e8a037af7ada9fdf0d4445beef053b9fd3459698363e5f89c0)
@@ -23043,7 +23043,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 
     @builtins.property
     def map_block_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#map_block_key Lexv2ModelsSlot#map_block_key}.'''
         result = self._values.get("map_block_key")
         assert result is not None, "Required property 'map_block_key' is missing"
         return typing.cast(builtins.str, result)
@@ -23054,7 +23054,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAllowedInputTypes"]]]:
         '''allowed_input_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allowed_input_types Lexv2ModelsSlot#allowed_input_types}
         '''
         result = self._values.get("allowed_input_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAllowedInputTypes"]]], result)
@@ -23063,7 +23063,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -23073,7 +23073,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecification"]]]:
         '''audio_and_dtmf_input_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_and_dtmf_input_specification Lexv2ModelsSlot#audio_and_dtmf_input_specification}
         '''
         result = self._values.get("audio_and_dtmf_input_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecification"]]], result)
@@ -23084,7 +23084,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification"]]]:
         '''text_input_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text_input_specification Lexv2ModelsSlot#text_input_specification}
         '''
         result = self._values.get("text_input_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification"]]], result)
@@ -23117,8 +23117,8 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
         allow_dtmf_input: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param allow_audio_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.
-        :param allow_dtmf_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.
+        :param allow_audio_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.
+        :param allow_dtmf_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__576e2f426468284a31c776270bfac6d2adae97cba1fb9407d379d907e1e5b349)
@@ -23133,7 +23133,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     def allow_audio_input(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_audio_input Lexv2ModelsSlot#allow_audio_input}.'''
         result = self._values.get("allow_audio_input")
         assert result is not None, "Required property 'allow_audio_input' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -23142,7 +23142,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     def allow_dtmf_input(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_dtmf_input Lexv2ModelsSlot#allow_dtmf_input}.'''
         result = self._values.get("allow_dtmf_input")
         assert result is not None, "Required property 'allow_dtmf_input' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -23362,9 +23362,9 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
         dtmf_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationDtmfSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
-        :param audio_specification: audio_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
-        :param dtmf_specification: dtmf_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
+        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
+        :param audio_specification: audio_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
+        :param dtmf_specification: dtmf_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc9269d16e44191486c35526b8d3871c7a9491516ddd2d67765c0748e39ae24b)
@@ -23381,7 +23381,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 
     @builtins.property
     def start_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
         result = self._values.get("start_timeout_ms")
         assert result is not None, "Required property 'start_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
@@ -23392,7 +23392,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationAudioSpecification"]]]:
         '''audio_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#audio_specification Lexv2ModelsSlot#audio_specification}
         '''
         result = self._values.get("audio_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationAudioSpecification"]]], result)
@@ -23403,7 +23403,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationDtmfSpecification"]]]:
         '''dtmf_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#dtmf_specification Lexv2ModelsSlot#dtmf_specification}
         '''
         result = self._values.get("dtmf_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationAudioAndDtmfInputSpecificationDtmfSpecification"]]], result)
@@ -23433,8 +23433,8 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
         max_length_ms: jsii.Number,
     ) -> None:
         '''
-        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
-        :param max_length_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.
+        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
+        :param max_length_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fa62d77de59ffc0e1e33483f1afbeafc657c0522763846628acab342950b60e)
@@ -23447,14 +23447,14 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 
     @builtins.property
     def end_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
         result = self._values.get("end_timeout_ms")
         assert result is not None, "Required property 'end_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_length_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length_ms Lexv2ModelsSlot#max_length_ms}.'''
         result = self._values.get("max_length_ms")
         assert result is not None, "Required property 'max_length_ms' is missing"
         return typing.cast(jsii.Number, result)
@@ -23662,10 +23662,10 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
         max_length: jsii.Number,
     ) -> None:
         '''
-        :param deletion_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.
-        :param end_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.
-        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
-        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.
+        :param deletion_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.
+        :param end_character: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.
+        :param end_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.
+        :param max_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e57c2689048d4bc97b21706b4fc117f82c03b1f78ec352d3b409441a443c3254)
@@ -23682,28 +23682,28 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 
     @builtins.property
     def deletion_character(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#deletion_character Lexv2ModelsSlot#deletion_character}.'''
         result = self._values.get("deletion_character")
         assert result is not None, "Required property 'deletion_character' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def end_character(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_character Lexv2ModelsSlot#end_character}.'''
         result = self._values.get("end_character")
         assert result is not None, "Required property 'end_character' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def end_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#end_timeout_ms Lexv2ModelsSlot#end_timeout_ms}.'''
         result = self._values.get("end_timeout_ms")
         assert result is not None, "Required property 'end_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_length(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#max_length Lexv2ModelsSlot#max_length}.'''
         result = self._values.get("max_length")
         assert result is not None, "Required property 'max_length' is missing"
         return typing.cast(jsii.Number, result)
@@ -24424,7 +24424,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpecificationTextInputSpecification:
     def __init__(self, *, start_timeout_ms: jsii.Number) -> None:
         '''
-        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
+        :param start_timeout_ms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__448c42c085d0cc805264e99a2825d64c0998810fee849493b0f7fbe530decf30)
@@ -24435,7 +24435,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 
     @builtins.property
     def start_timeout_ms(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#start_timeout_ms Lexv2ModelsSlot#start_timeout_ms}.'''
         result = self._values.get("start_timeout_ms")
         assert result is not None, "Required property 'start_timeout_ms' is missing"
         return typing.cast(jsii.Number, result)
@@ -24614,7 +24614,7 @@ class Lexv2ModelsSlotValueElicitationSettingPromptSpecificationPromptAttemptsSpe
 class Lexv2ModelsSlotValueElicitationSettingSampleUtterance:
     def __init__(self, *, utterance: builtins.str) -> None:
         '''
-        :param utterance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.
+        :param utterance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27a059912e05d38cf46271fa2ec0d42bb54c5100a748d7becc7ad48719644cc8)
@@ -24625,7 +24625,7 @@ class Lexv2ModelsSlotValueElicitationSettingSampleUtterance:
 
     @builtins.property
     def utterance(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#utterance Lexv2ModelsSlot#utterance}.'''
         result = self._values.get("utterance")
         assert result is not None, "Required property 'utterance' is missing"
         return typing.cast(builtins.str, result)
@@ -24804,7 +24804,7 @@ class Lexv2ModelsSlotValueElicitationSettingSampleUtteranceOutputReference(
 class Lexv2ModelsSlotValueElicitationSettingSlotResolutionSetting:
     def __init__(self, *, slot_resolution_strategy: builtins.str) -> None:
         '''
-        :param slot_resolution_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_resolution_strategy Lexv2ModelsSlot#slot_resolution_strategy}.
+        :param slot_resolution_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_resolution_strategy Lexv2ModelsSlot#slot_resolution_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56b61b72f3532567d3f3b812e88afac3c2cf2143c5be28e03c78e8c3b81fa85e)
@@ -24815,7 +24815,7 @@ class Lexv2ModelsSlotValueElicitationSettingSlotResolutionSetting:
 
     @builtins.property
     def slot_resolution_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#slot_resolution_strategy Lexv2ModelsSlot#slot_resolution_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#slot_resolution_strategy Lexv2ModelsSlot#slot_resolution_strategy}.'''
         result = self._values.get("slot_resolution_strategy")
         assert result is not None, "Required property 'slot_resolution_strategy' is missing"
         return typing.cast(builtins.str, result)
@@ -25006,10 +25006,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification:
         waiting_response: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponse", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.
-        :param continue_response: continue_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
-        :param still_waiting_response: still_waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
-        :param waiting_response: waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
+        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.
+        :param continue_response: continue_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
+        :param still_waiting_response: still_waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
+        :param waiting_response: waiting_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01783cbfc4d7dcb96ff07d00979032da555e7fc4266f2d5a8538e14fb2a5383c)
@@ -25031,7 +25031,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification:
     def active(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#active Lexv2ModelsSlot#active}.'''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -25041,7 +25041,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponse"]]]:
         '''continue_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#continue_response Lexv2ModelsSlot#continue_response}
         '''
         result = self._values.get("continue_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponse"]]], result)
@@ -25052,7 +25052,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponse"]]]:
         '''still_waiting_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#still_waiting_response Lexv2ModelsSlot#still_waiting_response}
         '''
         result = self._values.get("still_waiting_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponse"]]], result)
@@ -25063,7 +25063,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponse"]]]:
         '''waiting_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#waiting_response Lexv2ModelsSlot#waiting_response}
         '''
         result = self._values.get("waiting_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponse"]]], result)
@@ -25096,8 +25096,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
         message_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d46db90fd9291beb0205b07bea49273e15870b5ccc8e11b951464555984b4c0)
@@ -25113,7 +25113,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -25123,7 +25123,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroup"]]], result)
@@ -25246,8 +25246,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be383f894fe2b23dbf61c8b81c31ae96091b77be33a8ba2966a75870c98d2023)
@@ -25265,7 +25265,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessage"]]], result)
@@ -25276,7 +25276,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariation"]]], result)
@@ -25406,10 +25406,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1981d8dde5a8374a67bfb0d3f10647bfba0d300d476c7d0419362a6bf49bab22)
@@ -25433,7 +25433,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageCustomPayload"]]], result)
@@ -25444,7 +25444,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCard"]]], result)
@@ -25455,7 +25455,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessagePlainTextMessage"]]], result)
@@ -25466,7 +25466,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage"]]], result)
@@ -25491,7 +25491,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__274b93b9acffcba30ec197016617005fd3a3db4bfdb4742d5739291ae236b7ab)
@@ -25502,7 +25502,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -25693,10 +25693,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60f120451b387f58d904847e859eff1bad179af734fa5eba2f4ea737c024e441)
@@ -25716,7 +25716,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -25727,20 +25727,20 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -25764,8 +25764,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7edd45fc5d946c25c5f7ae22b23d9e5de610738b675c41d1514d20a3ffe20853)
@@ -25778,14 +25778,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -26469,7 +26469,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92e43b462c298e35ffb44d4b4869639ca0a09db0a5cdfb6e61b850b790ee35d4)
@@ -26480,7 +26480,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -26659,7 +26659,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac9489cddc18076b3d023659879e77ae33c8427405c3a68595d9260362f3ccaf)
@@ -26670,7 +26670,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -26967,10 +26967,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8033995a28c034a95506f768abc82378192643407c8e45cc00702e09dd9362ff)
@@ -26994,7 +26994,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationCustomPayload"]]], result)
@@ -27005,7 +27005,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCard"]]], result)
@@ -27016,7 +27016,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationPlainTextMessage"]]], result)
@@ -27027,7 +27027,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage"]]], result)
@@ -27052,7 +27052,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dd55746ea5046b1abb41e13aac79cfa551126ee6f913bbcc4234ce32528bcee)
@@ -27063,7 +27063,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -27254,10 +27254,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0924e9ebec7ed4623d672bcda8152cbb2550fe20001b2ab911a7959f980b1626)
@@ -27277,7 +27277,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -27288,20 +27288,20 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -27325,8 +27325,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62737399c9ab51e9aa616883039d8343af2e8359b51ec13ca15b03737aa6c440)
@@ -27339,14 +27339,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -28030,7 +28030,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc4f69b90940fd4a0cfe9dac74a00513b34bf7ea2fd5efe7ee6e29849eb0eb29)
@@ -28041,7 +28041,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -28220,7 +28220,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinueResponseMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4f2377f5c5c92c9c8d2df3eba346a917789d17440fce0d3cae3fa26cf53471a)
@@ -28231,7 +28231,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationContinue
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -28781,10 +28781,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
         message_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.
-        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.
+        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fd2f6acf00578f2375b9e812f12fb7d706ec1f897cc303498c16b97cd745cc6)
@@ -28803,14 +28803,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def frequency_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#frequency_in_seconds Lexv2ModelsSlot#frequency_in_seconds}.'''
         result = self._values.get("frequency_in_seconds")
         assert result is not None, "Required property 'frequency_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def timeout_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#timeout_in_seconds Lexv2ModelsSlot#timeout_in_seconds}.'''
         result = self._values.get("timeout_in_seconds")
         assert result is not None, "Required property 'timeout_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -28819,7 +28819,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -28829,7 +28829,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroup"]]], result)
@@ -28952,8 +28952,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12e17e12ad0b4989fba7fae180b124c461453a5eb7253da7c6b59b0e741ec556)
@@ -28971,7 +28971,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessage"]]], result)
@@ -28982,7 +28982,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariation"]]], result)
@@ -29112,10 +29112,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf6a20487758d4d03efe153972dfea2193463eb4fb16cf2d8864e3a38993dfc3)
@@ -29139,7 +29139,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageCustomPayload"]]], result)
@@ -29150,7 +29150,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCard"]]], result)
@@ -29161,7 +29161,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessagePlainTextMessage"]]], result)
@@ -29172,7 +29172,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage"]]], result)
@@ -29197,7 +29197,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__591b24d071637e63a1f437b914a854ea0fb0d321c4131af9ba2c347c402868d5)
@@ -29208,7 +29208,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -29399,10 +29399,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83c7a1aacbd8e3233a82a12a81ffdba1c06e34bda80e22e8283cc6035ace0d02)
@@ -29422,7 +29422,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -29433,20 +29433,20 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -29470,8 +29470,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3846aecb65998fd7656fc8b93efde1e09172fcd6689e936f9f8fa6a217b511b0)
@@ -29484,14 +29484,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -30175,7 +30175,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74a2022f13949a30ecf310c9a4203e0b8b5f40a412a1d1324d4a929269af36d8)
@@ -30186,7 +30186,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -30365,7 +30365,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__035895acf0c57cd50bd630e8419c6c87f7b08fd7871b6b732f03f3023fa35888)
@@ -30376,7 +30376,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -30673,10 +30673,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e20e46898d8393e8b0823242a7cca2755a8100f81c00a2fe829f617bc537fe10)
@@ -30700,7 +30700,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationCustomPayload"]]], result)
@@ -30711,7 +30711,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCard"]]], result)
@@ -30722,7 +30722,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationPlainTextMessage"]]], result)
@@ -30733,7 +30733,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage"]]], result)
@@ -30758,7 +30758,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__763d6c886c8d0b2dfcfde73bc1c42d49be608053c4a6b8d29e57c1f4ff77ae27)
@@ -30769,7 +30769,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -30960,10 +30960,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31f47b9ba705661380f967c124343ea4a4862066afa5a6ab742a7227d91100dd)
@@ -30983,7 +30983,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -30994,20 +30994,20 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -31031,8 +31031,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74979dfdb9b1c0b36cb98c6bb1fb70961a0bda90442e2942dd96b99dde4e456f)
@@ -31045,14 +31045,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -31736,7 +31736,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11b074f38db55f569d595cb6c271063c8aebe027cc0fd23a3499794d87dfc53f)
@@ -31747,7 +31747,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -31926,7 +31926,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWaitingResponseMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba12c1939e62cf8e21336742b3b70e04488b8ae3c639e93613a2d9ec52b6f02e)
@@ -31937,7 +31937,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationStillWai
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -32261,8 +32261,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
         message_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
-        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        :param allow_interrupt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.
+        :param message_group: message_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66fc5325857ded71ce6aa13b94647428591c6f243d9ace3b92b197ab38d16256)
@@ -32278,7 +32278,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     def allow_interrupt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#allow_interrupt Lexv2ModelsSlot#allow_interrupt}.'''
         result = self._values.get("allow_interrupt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -32288,7 +32288,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroup"]]]:
         '''message_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message_group Lexv2ModelsSlot#message_group}
         '''
         result = self._values.get("message_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroup"]]], result)
@@ -32411,8 +32411,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
         variation: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariation", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
-        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        :param variation: variation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__158a7fb62e9bd661d691bc8953a9ff43f2ef08aaae178dbe93650e1deb32bebe)
@@ -32430,7 +32430,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#message Lexv2ModelsSlot#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessage"]]], result)
@@ -32441,7 +32441,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariation"]]]:
         '''variation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#variation Lexv2ModelsSlot#variation}
         '''
         result = self._values.get("variation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariation"]]], result)
@@ -32571,10 +32571,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a24b0afe16902a05c162a67fd682c2f3718bdf0e5abf0bb81e6fc5c7fc51447)
@@ -32598,7 +32598,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageCustomPayload"]]], result)
@@ -32609,7 +32609,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCard"]]], result)
@@ -32620,7 +32620,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessagePlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessagePlainTextMessage"]]], result)
@@ -32631,7 +32631,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage"]]], result)
@@ -32656,7 +32656,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6571149685f39221377aacf7a18a1c00858b068ad0f78fd32d8733928fe865a2)
@@ -32667,7 +32667,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -32858,10 +32858,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fc064c54d5146e5dec151f15b5f64198a8661c11f5a2f70cb831c930077d55a)
@@ -32881,7 +32881,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -32892,20 +32892,20 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -32929,8 +32929,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc3e9858d44ca5a97728b02861f6dcf27ad3d45de9dc56aa3bbc374154df152b)
@@ -32943,14 +32943,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -33634,7 +33634,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessagePlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__764800e0dd8a16257ae206a36da0c7d9f74ea0f884aedc6b2d9e666ccd1f8eec)
@@ -33645,7 +33645,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -33824,7 +33824,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupMessageSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61780ee85f3d635bd52daa66b33e88c09262363daa5e9ca62f792e2fe61ac5e0)
@@ -33835,7 +33835,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -34132,10 +34132,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
         ssml_message: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
-        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
-        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
-        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        :param custom_payload: custom_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        :param image_response_card: image_response_card block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        :param plain_text_message: plain_text_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        :param ssml_message: ssml_message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e17d6196f68dc272b486334b7db569de5cff76bdd57f639e043f392c409c1d7)
@@ -34159,7 +34159,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationCustomPayload"]]]:
         '''custom_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#custom_payload Lexv2ModelsSlot#custom_payload}
         '''
         result = self._values.get("custom_payload")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationCustomPayload"]]], result)
@@ -34170,7 +34170,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCard"]]]:
         '''image_response_card block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_response_card Lexv2ModelsSlot#image_response_card}
         '''
         result = self._values.get("image_response_card")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCard"]]], result)
@@ -34181,7 +34181,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationPlainTextMessage"]]]:
         '''plain_text_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#plain_text_message Lexv2ModelsSlot#plain_text_message}
         '''
         result = self._values.get("plain_text_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationPlainTextMessage"]]], result)
@@ -34192,7 +34192,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage"]]]:
         '''ssml_message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#ssml_message Lexv2ModelsSlot#ssml_message}
         '''
         result = self._values.get("ssml_message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage"]]], result)
@@ -34217,7 +34217,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationCustomPayload:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a96b587d06c50342b14a81e6fb4b807b57e664a26d4a503aeadeeb3041d66a24)
@@ -34228,7 +34228,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -34419,10 +34419,10 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
         subtitle: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
-        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
-        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
-        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.
+        :param button: button block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        :param image_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.
+        :param subtitle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__363c51262fda41018be4a69962fbce85ff54ceccc0aa86b289e8c36593eade01)
@@ -34442,7 +34442,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#title Lexv2ModelsSlot#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
@@ -34453,20 +34453,20 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCardButton"]]]:
         '''button block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#button Lexv2ModelsSlot#button}
         '''
         result = self._values.get("button")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCardButton"]]], result)
 
     @builtins.property
     def image_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#image_url Lexv2ModelsSlot#image_url}.'''
         result = self._values.get("image_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subtitle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#subtitle Lexv2ModelsSlot#subtitle}.'''
         result = self._values.get("subtitle")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -34490,8 +34490,8 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationImageResponseCardButton:
     def __init__(self, *, text: builtins.str, value: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63203398c7a9f68eb4cfe6609a637768958a7798c8a61b8639204315d53ace8a)
@@ -34504,14 +34504,14 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#text Lexv2ModelsSlot#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -35195,7 +35195,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationPlainTextMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce4d8818bd5148896f150cadb1a7413a68967d477d65723e66cb275f40f19a8d)
@@ -35206,7 +35206,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -35385,7 +35385,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingResponseMessageGroupVariationSsmlMessage:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f60d76b9f4ee62498c957dc6ee0f07a4bc641f2bba595be09497e58093f1df0)
@@ -35396,7 +35396,7 @@ class Lexv2ModelsSlotValueElicitationSettingWaitAndContinueSpecificationWaitingR
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lexv2models_slot#value Lexv2ModelsSlot#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

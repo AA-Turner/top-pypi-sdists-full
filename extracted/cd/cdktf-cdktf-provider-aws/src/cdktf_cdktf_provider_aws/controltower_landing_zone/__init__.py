@@ -1,7 +1,7 @@
 r'''
 # `aws_controltower_landing_zone`
 
-Refer to the Terraform Registry for docs: [`aws_controltower_landing_zone`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone).
+Refer to the Terraform Registry for docs: [`aws_controltower_landing_zone`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ControltowerLandingZone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.controltowerLandingZone.ControltowerLandingZone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone aws_controltower_landing_zone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone aws_controltower_landing_zone}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ControltowerLandingZone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone aws_controltower_landing_zone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone aws_controltower_landing_zone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param manifest_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#manifest_json ControltowerLandingZone#manifest_json}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#version ControltowerLandingZone#version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#id ControltowerLandingZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#tags ControltowerLandingZone#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#tags_all ControltowerLandingZone#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#timeouts ControltowerLandingZone#timeouts}
+        :param manifest_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#manifest_json ControltowerLandingZone#manifest_json}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#version ControltowerLandingZone#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#id ControltowerLandingZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#tags ControltowerLandingZone#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#tags_all ControltowerLandingZone#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#timeouts ControltowerLandingZone#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ControltowerLandingZone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ControltowerLandingZone to import.
-        :param import_from_id: The id of the existing ControltowerLandingZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ControltowerLandingZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ControltowerLandingZone to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class ControltowerLandingZone(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#create ControltowerLandingZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#delete ControltowerLandingZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#update ControltowerLandingZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#create ControltowerLandingZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#delete ControltowerLandingZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#update ControltowerLandingZone#update}.
         '''
         value = ControltowerLandingZoneTimeouts(
             create=create, delete=delete, update=update
@@ -337,12 +337,12 @@ class ControltowerLandingZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param manifest_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#manifest_json ControltowerLandingZone#manifest_json}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#version ControltowerLandingZone#version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#id ControltowerLandingZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#tags ControltowerLandingZone#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#tags_all ControltowerLandingZone#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#timeouts ControltowerLandingZone#timeouts}
+        :param manifest_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#manifest_json ControltowerLandingZone#manifest_json}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#version ControltowerLandingZone#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#id ControltowerLandingZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#tags ControltowerLandingZone#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#tags_all ControltowerLandingZone#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#timeouts ControltowerLandingZone#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -456,21 +456,21 @@ class ControltowerLandingZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def manifest_json(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#manifest_json ControltowerLandingZone#manifest_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#manifest_json ControltowerLandingZone#manifest_json}.'''
         result = self._values.get("manifest_json")
         assert result is not None, "Required property 'manifest_json' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#version ControltowerLandingZone#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#version ControltowerLandingZone#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#id ControltowerLandingZone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#id ControltowerLandingZone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -480,13 +480,13 @@ class ControltowerLandingZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#tags ControltowerLandingZone#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#tags ControltowerLandingZone#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#tags_all ControltowerLandingZone#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#tags_all ControltowerLandingZone#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -494,7 +494,7 @@ class ControltowerLandingZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ControltowerLandingZoneTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#timeouts ControltowerLandingZone#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#timeouts ControltowerLandingZone#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ControltowerLandingZoneTimeouts"], result)
@@ -669,9 +669,9 @@ class ControltowerLandingZoneTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#create ControltowerLandingZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#delete ControltowerLandingZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#update ControltowerLandingZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#create ControltowerLandingZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#delete ControltowerLandingZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#update ControltowerLandingZone#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b41287374f00d2dd0b08517b08496e2c5f17e845dec83c0b5c252afcaf4e83c5)
@@ -688,19 +688,19 @@ class ControltowerLandingZoneTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#create ControltowerLandingZone#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#create ControltowerLandingZone#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#delete ControltowerLandingZone#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#delete ControltowerLandingZone#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/controltower_landing_zone#update ControltowerLandingZone#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/controltower_landing_zone#update ControltowerLandingZone#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_analysis`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_analysis`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis).
+Refer to the Terraform Registry for docs: [`aws_quicksight_analysis`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightAnalysis(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightAnalysis.QuicksightAnalysis",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis aws_quicksight_analysis}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis aws_quicksight_analysis}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class QuicksightAnalysis(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis aws_quicksight_analysis} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis aws_quicksight_analysis} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param analysis_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#analysis_id QuicksightAnalysis#analysis_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#aws_account_id QuicksightAnalysis#aws_account_id}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#definition QuicksightAnalysis#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#id QuicksightAnalysis#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#parameters QuicksightAnalysis#parameters}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#permissions QuicksightAnalysis#permissions}
-        :param recovery_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#recovery_window_in_days QuicksightAnalysis#recovery_window_in_days}.
-        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#source_entity QuicksightAnalysis#source_entity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#tags QuicksightAnalysis#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#tags_all QuicksightAnalysis#tags_all}.
-        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#theme_arn QuicksightAnalysis#theme_arn}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#timeouts QuicksightAnalysis#timeouts}
+        :param analysis_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#analysis_id QuicksightAnalysis#analysis_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#aws_account_id QuicksightAnalysis#aws_account_id}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#definition QuicksightAnalysis#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#id QuicksightAnalysis#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#parameters QuicksightAnalysis#parameters}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#permissions QuicksightAnalysis#permissions}
+        :param recovery_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#recovery_window_in_days QuicksightAnalysis#recovery_window_in_days}.
+        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#source_entity QuicksightAnalysis#source_entity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#tags QuicksightAnalysis#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#tags_all QuicksightAnalysis#tags_all}.
+        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#theme_arn QuicksightAnalysis#theme_arn}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#timeouts QuicksightAnalysis#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class QuicksightAnalysis(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightAnalysis to import.
-        :param import_from_id: The id of the existing QuicksightAnalysis that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightAnalysis that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightAnalysis to import is found.
         '''
         if __debug__:
@@ -160,10 +160,10 @@ class QuicksightAnalysis(
         string_parameters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightAnalysisParametersStringParameters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#date_time_parameters QuicksightAnalysis#date_time_parameters}
-        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#decimal_parameters QuicksightAnalysis#decimal_parameters}
-        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#integer_parameters QuicksightAnalysis#integer_parameters}
-        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#string_parameters QuicksightAnalysis#string_parameters}
+        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#date_time_parameters QuicksightAnalysis#date_time_parameters}
+        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#decimal_parameters QuicksightAnalysis#decimal_parameters}
+        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#integer_parameters QuicksightAnalysis#integer_parameters}
+        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#string_parameters QuicksightAnalysis#string_parameters}
         '''
         value = QuicksightAnalysisParameters(
             date_time_parameters=date_time_parameters,
@@ -194,7 +194,7 @@ class QuicksightAnalysis(
         source_template: typing.Optional[typing.Union["QuicksightAnalysisSourceEntitySourceTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#source_template QuicksightAnalysis#source_template}
+        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#source_template QuicksightAnalysis#source_template}
         '''
         value = QuicksightAnalysisSourceEntity(source_template=source_template)
 
@@ -209,9 +209,9 @@ class QuicksightAnalysis(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#create QuicksightAnalysis#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#delete QuicksightAnalysis#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#update QuicksightAnalysis#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#create QuicksightAnalysis#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#delete QuicksightAnalysis#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#update QuicksightAnalysis#update}.
         '''
         value = QuicksightAnalysisTimeouts(create=create, delete=delete, update=update)
 
@@ -558,19 +558,19 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param analysis_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#analysis_id QuicksightAnalysis#analysis_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#aws_account_id QuicksightAnalysis#aws_account_id}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#definition QuicksightAnalysis#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#id QuicksightAnalysis#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#parameters QuicksightAnalysis#parameters}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#permissions QuicksightAnalysis#permissions}
-        :param recovery_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#recovery_window_in_days QuicksightAnalysis#recovery_window_in_days}.
-        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#source_entity QuicksightAnalysis#source_entity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#tags QuicksightAnalysis#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#tags_all QuicksightAnalysis#tags_all}.
-        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#theme_arn QuicksightAnalysis#theme_arn}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#timeouts QuicksightAnalysis#timeouts}
+        :param analysis_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#analysis_id QuicksightAnalysis#analysis_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#aws_account_id QuicksightAnalysis#aws_account_id}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#definition QuicksightAnalysis#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#id QuicksightAnalysis#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#parameters QuicksightAnalysis#parameters}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#permissions QuicksightAnalysis#permissions}
+        :param recovery_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#recovery_window_in_days QuicksightAnalysis#recovery_window_in_days}.
+        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#source_entity QuicksightAnalysis#source_entity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#tags QuicksightAnalysis#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#tags_all QuicksightAnalysis#tags_all}.
+        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#theme_arn QuicksightAnalysis#theme_arn}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#timeouts QuicksightAnalysis#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -709,21 +709,21 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def analysis_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#analysis_id QuicksightAnalysis#analysis_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#analysis_id QuicksightAnalysis#analysis_id}.'''
         result = self._values.get("analysis_id")
         assert result is not None, "Required property 'analysis_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#aws_account_id QuicksightAnalysis#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#aws_account_id QuicksightAnalysis#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -731,14 +731,14 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def definition(self) -> typing.Any:
         '''definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#definition QuicksightAnalysis#definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#definition QuicksightAnalysis#definition}
         '''
         result = self._values.get("definition")
         return typing.cast(typing.Any, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#id QuicksightAnalysis#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#id QuicksightAnalysis#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -750,7 +750,7 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parameters(self) -> typing.Optional["QuicksightAnalysisParameters"]:
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#parameters QuicksightAnalysis#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#parameters QuicksightAnalysis#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional["QuicksightAnalysisParameters"], result)
@@ -761,14 +761,14 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisPermissions"]]]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#permissions QuicksightAnalysis#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#permissions QuicksightAnalysis#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisPermissions"]]], result)
 
     @builtins.property
     def recovery_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#recovery_window_in_days QuicksightAnalysis#recovery_window_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#recovery_window_in_days QuicksightAnalysis#recovery_window_in_days}.'''
         result = self._values.get("recovery_window_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -776,26 +776,26 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_entity(self) -> typing.Optional["QuicksightAnalysisSourceEntity"]:
         '''source_entity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#source_entity QuicksightAnalysis#source_entity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#source_entity QuicksightAnalysis#source_entity}
         '''
         result = self._values.get("source_entity")
         return typing.cast(typing.Optional["QuicksightAnalysisSourceEntity"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#tags QuicksightAnalysis#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#tags QuicksightAnalysis#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#tags_all QuicksightAnalysis#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#tags_all QuicksightAnalysis#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def theme_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#theme_arn QuicksightAnalysis#theme_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#theme_arn QuicksightAnalysis#theme_arn}.'''
         result = self._values.get("theme_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -803,7 +803,7 @@ class QuicksightAnalysisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QuicksightAnalysisTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#timeouts QuicksightAnalysis#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#timeouts QuicksightAnalysis#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QuicksightAnalysisTimeouts"], result)
@@ -840,10 +840,10 @@ class QuicksightAnalysisParameters:
         string_parameters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightAnalysisParametersStringParameters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#date_time_parameters QuicksightAnalysis#date_time_parameters}
-        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#decimal_parameters QuicksightAnalysis#decimal_parameters}
-        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#integer_parameters QuicksightAnalysis#integer_parameters}
-        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#string_parameters QuicksightAnalysis#string_parameters}
+        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#date_time_parameters QuicksightAnalysis#date_time_parameters}
+        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#decimal_parameters QuicksightAnalysis#decimal_parameters}
+        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#integer_parameters QuicksightAnalysis#integer_parameters}
+        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#string_parameters QuicksightAnalysis#string_parameters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e496de3297d4253e4ddb554ae299238f9687c36710375df6d377c1d8376c25b)
@@ -867,7 +867,7 @@ class QuicksightAnalysisParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersDateTimeParameters"]]]:
         '''date_time_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#date_time_parameters QuicksightAnalysis#date_time_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#date_time_parameters QuicksightAnalysis#date_time_parameters}
         '''
         result = self._values.get("date_time_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersDateTimeParameters"]]], result)
@@ -878,7 +878,7 @@ class QuicksightAnalysisParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersDecimalParameters"]]]:
         '''decimal_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#decimal_parameters QuicksightAnalysis#decimal_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#decimal_parameters QuicksightAnalysis#decimal_parameters}
         '''
         result = self._values.get("decimal_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersDecimalParameters"]]], result)
@@ -889,7 +889,7 @@ class QuicksightAnalysisParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersIntegerParameters"]]]:
         '''integer_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#integer_parameters QuicksightAnalysis#integer_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#integer_parameters QuicksightAnalysis#integer_parameters}
         '''
         result = self._values.get("integer_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersIntegerParameters"]]], result)
@@ -900,7 +900,7 @@ class QuicksightAnalysisParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersStringParameters"]]]:
         '''string_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#string_parameters QuicksightAnalysis#string_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#string_parameters QuicksightAnalysis#string_parameters}
         '''
         result = self._values.get("string_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisParametersStringParameters"]]], result)
@@ -930,8 +930,8 @@ class QuicksightAnalysisParametersDateTimeParameters:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8ede19e49028c1b3a6c5b54d83f1c17a596d91cfc3be4a3303dd845a3026501)
@@ -944,14 +944,14 @@ class QuicksightAnalysisParametersDateTimeParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1152,8 +1152,8 @@ class QuicksightAnalysisParametersDecimalParameters:
         values: typing.Sequence[jsii.Number],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__690b810dd5c19a67c791ff3dcc9459bceccaa9acf47f9188c2e6b32c61942f52)
@@ -1166,14 +1166,14 @@ class QuicksightAnalysisParametersDecimalParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -1374,8 +1374,8 @@ class QuicksightAnalysisParametersIntegerParameters:
         values: typing.Sequence[jsii.Number],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__274dd8d1503c49f98365eb2a9b260ef5acf29767d79daf23c268e843d5232c11)
@@ -1388,14 +1388,14 @@ class QuicksightAnalysisParametersIntegerParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -1750,8 +1750,8 @@ class QuicksightAnalysisParametersStringParameters:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6afd942b36187d85fe6b1f769d54cc9722a711b901fa5c955ed2a76a6c74726a)
@@ -1764,14 +1764,14 @@ class QuicksightAnalysisParametersStringParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#name QuicksightAnalysis#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#values QuicksightAnalysis#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1972,8 +1972,8 @@ class QuicksightAnalysisPermissions:
         principal: builtins.str,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#actions QuicksightAnalysis#actions}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#principal QuicksightAnalysis#principal}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#actions QuicksightAnalysis#actions}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#principal QuicksightAnalysis#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2bd40c091ac9cf7de0a2979b74b4893e739fbc747730c621ddddabccf5d63e7)
@@ -1986,14 +1986,14 @@ class QuicksightAnalysisPermissions:
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#actions QuicksightAnalysis#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#actions QuicksightAnalysis#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#principal QuicksightAnalysis#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#principal QuicksightAnalysis#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -2190,7 +2190,7 @@ class QuicksightAnalysisSourceEntity:
         source_template: typing.Optional[typing.Union["QuicksightAnalysisSourceEntitySourceTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#source_template QuicksightAnalysis#source_template}
+        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#source_template QuicksightAnalysis#source_template}
         '''
         if isinstance(source_template, dict):
             source_template = QuicksightAnalysisSourceEntitySourceTemplate(**source_template)
@@ -2207,7 +2207,7 @@ class QuicksightAnalysisSourceEntity:
     ) -> typing.Optional["QuicksightAnalysisSourceEntitySourceTemplate"]:
         '''source_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#source_template QuicksightAnalysis#source_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#source_template QuicksightAnalysis#source_template}
         '''
         result = self._values.get("source_template")
         return typing.cast(typing.Optional["QuicksightAnalysisSourceEntitySourceTemplate"], result)
@@ -2252,8 +2252,8 @@ class QuicksightAnalysisSourceEntityOutputReference(
         data_set_references: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightAnalysisSourceEntitySourceTemplateDataSetReferences", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#arn QuicksightAnalysis#arn}.
-        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_references QuicksightAnalysis#data_set_references}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#arn QuicksightAnalysis#arn}.
+        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_references QuicksightAnalysis#data_set_references}
         '''
         value = QuicksightAnalysisSourceEntitySourceTemplate(
             arn=arn, data_set_references=data_set_references
@@ -2308,8 +2308,8 @@ class QuicksightAnalysisSourceEntitySourceTemplate:
         data_set_references: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightAnalysisSourceEntitySourceTemplateDataSetReferences", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#arn QuicksightAnalysis#arn}.
-        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_references QuicksightAnalysis#data_set_references}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#arn QuicksightAnalysis#arn}.
+        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_references QuicksightAnalysis#data_set_references}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6dba01601657c2e57638a5dc75f9b22828e44f0b5cea16be68033b524569602a)
@@ -2322,7 +2322,7 @@ class QuicksightAnalysisSourceEntitySourceTemplate:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#arn QuicksightAnalysis#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#arn QuicksightAnalysis#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2333,7 +2333,7 @@ class QuicksightAnalysisSourceEntitySourceTemplate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightAnalysisSourceEntitySourceTemplateDataSetReferences"]]:
         '''data_set_references block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_references QuicksightAnalysis#data_set_references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_references QuicksightAnalysis#data_set_references}
         '''
         result = self._values.get("data_set_references")
         assert result is not None, "Required property 'data_set_references' is missing"
@@ -2367,8 +2367,8 @@ class QuicksightAnalysisSourceEntitySourceTemplateDataSetReferences:
         data_set_placeholder: builtins.str,
     ) -> None:
         '''
-        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_arn QuicksightAnalysis#data_set_arn}.
-        :param data_set_placeholder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_placeholder QuicksightAnalysis#data_set_placeholder}.
+        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_arn QuicksightAnalysis#data_set_arn}.
+        :param data_set_placeholder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_placeholder QuicksightAnalysis#data_set_placeholder}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e15d3c7c0106a4ce5c4046a6d7b0857d215f32f280773d51706f9abd70db1577)
@@ -2381,14 +2381,14 @@ class QuicksightAnalysisSourceEntitySourceTemplateDataSetReferences:
 
     @builtins.property
     def data_set_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_arn QuicksightAnalysis#data_set_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_arn QuicksightAnalysis#data_set_arn}.'''
         result = self._values.get("data_set_arn")
         assert result is not None, "Required property 'data_set_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_set_placeholder(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#data_set_placeholder QuicksightAnalysis#data_set_placeholder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#data_set_placeholder QuicksightAnalysis#data_set_placeholder}.'''
         result = self._values.get("data_set_placeholder")
         assert result is not None, "Required property 'data_set_placeholder' is missing"
         return typing.cast(builtins.str, result)
@@ -2672,9 +2672,9 @@ class QuicksightAnalysisTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#create QuicksightAnalysis#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#delete QuicksightAnalysis#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#update QuicksightAnalysis#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#create QuicksightAnalysis#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#delete QuicksightAnalysis#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#update QuicksightAnalysis#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b13686061aea0300a0919e644dd66ed25508c88a7327071f6e133703c0ad47af)
@@ -2691,19 +2691,19 @@ class QuicksightAnalysisTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#create QuicksightAnalysis#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#create QuicksightAnalysis#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#delete QuicksightAnalysis#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#delete QuicksightAnalysis#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_analysis#update QuicksightAnalysis#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_analysis#update QuicksightAnalysis#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

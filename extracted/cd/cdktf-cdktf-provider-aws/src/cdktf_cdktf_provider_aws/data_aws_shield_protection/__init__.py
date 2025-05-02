@@ -1,7 +1,7 @@
 r'''
 # `data_aws_shield_protection`
 
-Refer to the Terraform Registry for docs: [`data_aws_shield_protection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection).
+Refer to the Terraform Registry for docs: [`data_aws_shield_protection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsShieldProtection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsShieldProtection.DataAwsShieldProtection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection aws_shield_protection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection aws_shield_protection}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataAwsShieldProtection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection aws_shield_protection} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection aws_shield_protection} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param protection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#protection_id DataAwsShieldProtection#protection_id}.
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#resource_arn DataAwsShieldProtection#resource_arn}.
+        :param protection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#protection_id DataAwsShieldProtection#protection_id}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#resource_arn DataAwsShieldProtection#resource_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataAwsShieldProtection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsShieldProtection to import.
-        :param import_from_id: The id of the existing DataAwsShieldProtection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsShieldProtection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsShieldProtection to import is found.
         '''
         if __debug__:
@@ -225,8 +225,8 @@ class DataAwsShieldProtectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param protection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#protection_id DataAwsShieldProtection#protection_id}.
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#resource_arn DataAwsShieldProtection#resource_arn}.
+        :param protection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#protection_id DataAwsShieldProtection#protection_id}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#resource_arn DataAwsShieldProtection#resource_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -327,13 +327,13 @@ class DataAwsShieldProtectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def protection_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#protection_id DataAwsShieldProtection#protection_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#protection_id DataAwsShieldProtection#protection_id}.'''
         result = self._values.get("protection_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/shield_protection#resource_arn DataAwsShieldProtection#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/shield_protection#resource_arn DataAwsShieldProtection#resource_arn}.'''
         result = self._values.get("resource_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 

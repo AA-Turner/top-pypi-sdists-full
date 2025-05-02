@@ -1,7 +1,7 @@
 r'''
 # `aws_ssmcontacts_rotation`
 
-Refer to the Terraform Registry for docs: [`aws_ssmcontacts_rotation`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation).
+Refer to the Terraform Registry for docs: [`aws_ssmcontacts_rotation`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SsmcontactsRotation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ssmcontactsRotation.SsmcontactsRotation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation aws_ssmcontacts_rotation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation aws_ssmcontacts_rotation}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SsmcontactsRotation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation aws_ssmcontacts_rotation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation aws_ssmcontacts_rotation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param contact_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#contact_ids SsmcontactsRotation#contact_ids}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#name SsmcontactsRotation#name}.
-        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#time_zone_id SsmcontactsRotation#time_zone_id}.
-        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#recurrence SsmcontactsRotation#recurrence}
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#start_time SsmcontactsRotation#start_time}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#tags SsmcontactsRotation#tags}.
+        :param contact_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#contact_ids SsmcontactsRotation#contact_ids}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#name SsmcontactsRotation#name}.
+        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#time_zone_id SsmcontactsRotation#time_zone_id}.
+        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#recurrence SsmcontactsRotation#recurrence}
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#start_time SsmcontactsRotation#start_time}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#tags SsmcontactsRotation#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SsmcontactsRotation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SsmcontactsRotation to import.
-        :param import_from_id: The id of the existing SsmcontactsRotation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SsmcontactsRotation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SsmcontactsRotation to import is found.
         '''
         if __debug__:
@@ -325,12 +325,12 @@ class SsmcontactsRotationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param contact_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#contact_ids SsmcontactsRotation#contact_ids}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#name SsmcontactsRotation#name}.
-        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#time_zone_id SsmcontactsRotation#time_zone_id}.
-        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#recurrence SsmcontactsRotation#recurrence}
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#start_time SsmcontactsRotation#start_time}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#tags SsmcontactsRotation#tags}.
+        :param contact_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#contact_ids SsmcontactsRotation#contact_ids}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#name SsmcontactsRotation#name}.
+        :param time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#time_zone_id SsmcontactsRotation#time_zone_id}.
+        :param recurrence: recurrence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#recurrence SsmcontactsRotation#recurrence}
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#start_time SsmcontactsRotation#start_time}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#tags SsmcontactsRotation#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -441,21 +441,21 @@ class SsmcontactsRotationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def contact_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#contact_ids SsmcontactsRotation#contact_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#contact_ids SsmcontactsRotation#contact_ids}.'''
         result = self._values.get("contact_ids")
         assert result is not None, "Required property 'contact_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#name SsmcontactsRotation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#name SsmcontactsRotation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#time_zone_id SsmcontactsRotation#time_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#time_zone_id SsmcontactsRotation#time_zone_id}.'''
         result = self._values.get("time_zone_id")
         assert result is not None, "Required property 'time_zone_id' is missing"
         return typing.cast(builtins.str, result)
@@ -466,20 +466,20 @@ class SsmcontactsRotationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrence"]]]:
         '''recurrence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#recurrence SsmcontactsRotation#recurrence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#recurrence SsmcontactsRotation#recurrence}
         '''
         result = self._values.get("recurrence")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrence"]]], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#start_time SsmcontactsRotation#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#start_time SsmcontactsRotation#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#tags SsmcontactsRotation#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#tags SsmcontactsRotation#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -519,12 +519,12 @@ class SsmcontactsRotationRecurrence:
         weekly_settings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SsmcontactsRotationRecurrenceWeeklySettings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param number_of_on_calls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#number_of_on_calls SsmcontactsRotation#number_of_on_calls}.
-        :param recurrence_multiplier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#recurrence_multiplier SsmcontactsRotation#recurrence_multiplier}.
-        :param daily_settings: daily_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#daily_settings SsmcontactsRotation#daily_settings}
-        :param monthly_settings: monthly_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#monthly_settings SsmcontactsRotation#monthly_settings}
-        :param shift_coverages: shift_coverages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#shift_coverages SsmcontactsRotation#shift_coverages}
-        :param weekly_settings: weekly_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#weekly_settings SsmcontactsRotation#weekly_settings}
+        :param number_of_on_calls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#number_of_on_calls SsmcontactsRotation#number_of_on_calls}.
+        :param recurrence_multiplier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#recurrence_multiplier SsmcontactsRotation#recurrence_multiplier}.
+        :param daily_settings: daily_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#daily_settings SsmcontactsRotation#daily_settings}
+        :param monthly_settings: monthly_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#monthly_settings SsmcontactsRotation#monthly_settings}
+        :param shift_coverages: shift_coverages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#shift_coverages SsmcontactsRotation#shift_coverages}
+        :param weekly_settings: weekly_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#weekly_settings SsmcontactsRotation#weekly_settings}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8064459abddccbaa8acc6c5de26ea4659520b1144b52b49dfaff2a8bb8d389b7)
@@ -549,14 +549,14 @@ class SsmcontactsRotationRecurrence:
 
     @builtins.property
     def number_of_on_calls(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#number_of_on_calls SsmcontactsRotation#number_of_on_calls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#number_of_on_calls SsmcontactsRotation#number_of_on_calls}.'''
         result = self._values.get("number_of_on_calls")
         assert result is not None, "Required property 'number_of_on_calls' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def recurrence_multiplier(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#recurrence_multiplier SsmcontactsRotation#recurrence_multiplier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#recurrence_multiplier SsmcontactsRotation#recurrence_multiplier}.'''
         result = self._values.get("recurrence_multiplier")
         assert result is not None, "Required property 'recurrence_multiplier' is missing"
         return typing.cast(jsii.Number, result)
@@ -567,7 +567,7 @@ class SsmcontactsRotationRecurrence:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceDailySettings"]]]:
         '''daily_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#daily_settings SsmcontactsRotation#daily_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#daily_settings SsmcontactsRotation#daily_settings}
         '''
         result = self._values.get("daily_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceDailySettings"]]], result)
@@ -578,7 +578,7 @@ class SsmcontactsRotationRecurrence:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceMonthlySettings"]]]:
         '''monthly_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#monthly_settings SsmcontactsRotation#monthly_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#monthly_settings SsmcontactsRotation#monthly_settings}
         '''
         result = self._values.get("monthly_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceMonthlySettings"]]], result)
@@ -589,7 +589,7 @@ class SsmcontactsRotationRecurrence:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoverages"]]]:
         '''shift_coverages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#shift_coverages SsmcontactsRotation#shift_coverages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#shift_coverages SsmcontactsRotation#shift_coverages}
         '''
         result = self._values.get("shift_coverages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoverages"]]], result)
@@ -600,7 +600,7 @@ class SsmcontactsRotationRecurrence:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceWeeklySettings"]]]:
         '''weekly_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#weekly_settings SsmcontactsRotation#weekly_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#weekly_settings SsmcontactsRotation#weekly_settings}
         '''
         result = self._values.get("weekly_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceWeeklySettings"]]], result)
@@ -630,8 +630,8 @@ class SsmcontactsRotationRecurrenceDailySettings:
         minute_of_hour: jsii.Number,
     ) -> None:
         '''
-        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
-        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
+        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
+        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22d592bb86195bc1d1890bd74dc72ee45f66dbb6283bb0b1df73f22fea77e806)
@@ -644,14 +644,14 @@ class SsmcontactsRotationRecurrenceDailySettings:
 
     @builtins.property
     def hour_of_day(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
         result = self._values.get("hour_of_day")
         assert result is not None, "Required property 'hour_of_day' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute_of_hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
         result = self._values.get("minute_of_hour")
         assert result is not None, "Required property 'minute_of_hour' is missing"
         return typing.cast(jsii.Number, result)
@@ -942,8 +942,8 @@ class SsmcontactsRotationRecurrenceMonthlySettings:
         hand_off_time: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SsmcontactsRotationRecurrenceMonthlySettingsHandOffTime", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#day_of_month SsmcontactsRotation#day_of_month}.
-        :param hand_off_time: hand_off_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
+        :param day_of_month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#day_of_month SsmcontactsRotation#day_of_month}.
+        :param hand_off_time: hand_off_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd27af24a892c467de7d7caf7a74b492fe8646c5637e4568dcb284c3a97e53cf)
@@ -957,7 +957,7 @@ class SsmcontactsRotationRecurrenceMonthlySettings:
 
     @builtins.property
     def day_of_month(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#day_of_month SsmcontactsRotation#day_of_month}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#day_of_month SsmcontactsRotation#day_of_month}.'''
         result = self._values.get("day_of_month")
         assert result is not None, "Required property 'day_of_month' is missing"
         return typing.cast(jsii.Number, result)
@@ -968,7 +968,7 @@ class SsmcontactsRotationRecurrenceMonthlySettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceMonthlySettingsHandOffTime"]]]:
         '''hand_off_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
         '''
         result = self._values.get("hand_off_time")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceMonthlySettingsHandOffTime"]]], result)
@@ -998,8 +998,8 @@ class SsmcontactsRotationRecurrenceMonthlySettingsHandOffTime:
         minute_of_hour: jsii.Number,
     ) -> None:
         '''
-        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
-        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
+        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
+        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__848aa8556c89d19ea1e5e232ce3712b60c942ad44c506d52f7bb421f5fcddfba)
@@ -1012,14 +1012,14 @@ class SsmcontactsRotationRecurrenceMonthlySettingsHandOffTime:
 
     @builtins.property
     def hour_of_day(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
         result = self._values.get("hour_of_day")
         assert result is not None, "Required property 'hour_of_day' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute_of_hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
         result = self._values.get("minute_of_hour")
         assert result is not None, "Required property 'minute_of_hour' is missing"
         return typing.cast(jsii.Number, result)
@@ -1599,8 +1599,8 @@ class SsmcontactsRotationRecurrenceShiftCoverages:
         coverage_times: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#map_block_key SsmcontactsRotation#map_block_key}.
-        :param coverage_times: coverage_times block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#coverage_times SsmcontactsRotation#coverage_times}
+        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#map_block_key SsmcontactsRotation#map_block_key}.
+        :param coverage_times: coverage_times block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#coverage_times SsmcontactsRotation#coverage_times}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0d19b3002356b89a8a0ff3405aef0af8a96d686966451a33168ebffaff38dd9)
@@ -1614,7 +1614,7 @@ class SsmcontactsRotationRecurrenceShiftCoverages:
 
     @builtins.property
     def map_block_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#map_block_key SsmcontactsRotation#map_block_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#map_block_key SsmcontactsRotation#map_block_key}.'''
         result = self._values.get("map_block_key")
         assert result is not None, "Required property 'map_block_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1625,7 +1625,7 @@ class SsmcontactsRotationRecurrenceShiftCoverages:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimes"]]]:
         '''coverage_times block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#coverage_times SsmcontactsRotation#coverage_times}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#coverage_times SsmcontactsRotation#coverage_times}
         '''
         result = self._values.get("coverage_times")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimes"]]], result)
@@ -1655,8 +1655,8 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimes:
         start: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesStart", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param end: end block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#end SsmcontactsRotation#end}
-        :param start: start block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#start SsmcontactsRotation#start}
+        :param end: end block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#end SsmcontactsRotation#end}
+        :param start: start block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#start SsmcontactsRotation#start}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36cb7a59367eaa31f6b305adc5d6d0f72db032c3cb4bdf001e25e8881aaa072b)
@@ -1674,7 +1674,7 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesEnd"]]]:
         '''end block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#end SsmcontactsRotation#end}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#end SsmcontactsRotation#end}
         '''
         result = self._values.get("end")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesEnd"]]], result)
@@ -1685,7 +1685,7 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesStart"]]]:
         '''start block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#start SsmcontactsRotation#start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#start SsmcontactsRotation#start}
         '''
         result = self._values.get("start")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesStart"]]], result)
@@ -1715,8 +1715,8 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesEnd:
         minute_of_hour: jsii.Number,
     ) -> None:
         '''
-        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
-        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
+        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
+        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d9e0dfe4713976c92a88f7db5a8d4d8500feb9420bd3797b482755d1358ed89)
@@ -1729,14 +1729,14 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesEnd:
 
     @builtins.property
     def hour_of_day(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
         result = self._values.get("hour_of_day")
         assert result is not None, "Required property 'hour_of_day' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute_of_hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
         result = self._values.get("minute_of_hour")
         assert result is not None, "Required property 'minute_of_hour' is missing"
         return typing.cast(jsii.Number, result)
@@ -2134,8 +2134,8 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesStart:
         minute_of_hour: jsii.Number,
     ) -> None:
         '''
-        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
-        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
+        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
+        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62369cab454dcf70fa55b52efc2dd1e8596b97ee8d63d44d592d0f58a2eb2309)
@@ -2148,14 +2148,14 @@ class SsmcontactsRotationRecurrenceShiftCoveragesCoverageTimesStart:
 
     @builtins.property
     def hour_of_day(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
         result = self._values.get("hour_of_day")
         assert result is not None, "Required property 'hour_of_day' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute_of_hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
         result = self._values.get("minute_of_hour")
         assert result is not None, "Required property 'minute_of_hour' is missing"
         return typing.cast(jsii.Number, result)
@@ -2541,8 +2541,8 @@ class SsmcontactsRotationRecurrenceWeeklySettings:
         hand_off_time: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SsmcontactsRotationRecurrenceWeeklySettingsHandOffTime", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#day_of_week SsmcontactsRotation#day_of_week}.
-        :param hand_off_time: hand_off_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
+        :param day_of_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#day_of_week SsmcontactsRotation#day_of_week}.
+        :param hand_off_time: hand_off_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b391b53b970812547996e467ecfa806a19097ea28a6eeea638c1c3d5a8746fb5)
@@ -2556,7 +2556,7 @@ class SsmcontactsRotationRecurrenceWeeklySettings:
 
     @builtins.property
     def day_of_week(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#day_of_week SsmcontactsRotation#day_of_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#day_of_week SsmcontactsRotation#day_of_week}.'''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
         return typing.cast(builtins.str, result)
@@ -2567,7 +2567,7 @@ class SsmcontactsRotationRecurrenceWeeklySettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceWeeklySettingsHandOffTime"]]]:
         '''hand_off_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hand_off_time SsmcontactsRotation#hand_off_time}
         '''
         result = self._values.get("hand_off_time")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsRotationRecurrenceWeeklySettingsHandOffTime"]]], result)
@@ -2597,8 +2597,8 @@ class SsmcontactsRotationRecurrenceWeeklySettingsHandOffTime:
         minute_of_hour: jsii.Number,
     ) -> None:
         '''
-        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
-        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
+        :param hour_of_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.
+        :param minute_of_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99d5fc80e424d769b8d5ef85dcca8dec35f68e8ebd6a4485e7c4b2ac799cd19e)
@@ -2611,14 +2611,14 @@ class SsmcontactsRotationRecurrenceWeeklySettingsHandOffTime:
 
     @builtins.property
     def hour_of_day(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#hour_of_day SsmcontactsRotation#hour_of_day}.'''
         result = self._values.get("hour_of_day")
         assert result is not None, "Required property 'hour_of_day' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minute_of_hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_rotation#minute_of_hour SsmcontactsRotation#minute_of_hour}.'''
         result = self._values.get("minute_of_hour")
         assert result is not None, "Required property 'minute_of_hour' is missing"
         return typing.cast(jsii.Number, result)

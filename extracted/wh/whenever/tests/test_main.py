@@ -12,9 +12,9 @@ from whenever import (
     DateTimeDelta,
     ImplicitlyIgnoringDST,
     Instant,
-    InvalidOffset,
-    LocalDateTime,
+    InvalidOffsetError,
     OffsetDateTime,
+    PlainDateTime,
     SystemDateTime,
     Time,
     TimeDelta,
@@ -45,13 +45,18 @@ def test_multiple_interpreters():
 
 def test_exceptions():
     assert issubclass(ImplicitlyIgnoringDST, TypeError)
-    assert issubclass(InvalidOffset, ValueError)
+    assert issubclass(InvalidOffsetError, ValueError)
 
 
 def test_version():
     from whenever import __version__
 
     assert isinstance(__version__, str)
+
+
+def test_no_attr_on_module():
+    with pytest.raises((AttributeError, ImportError), match="DoesntExist"):
+        from whenever import DoesntExist  # type: ignore[attr-defined] # noqa
 
 
 @pytest.mark.skipif(
@@ -111,7 +116,7 @@ def test_text_signature():
         OffsetDateTime,
         ZonedDateTime,
         SystemDateTime,
-        LocalDateTime,
+        PlainDateTime,
         Date,
         Time,
         TimeDelta,

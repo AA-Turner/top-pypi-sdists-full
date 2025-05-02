@@ -1,7 +1,7 @@
 r'''
 # `aws_codebuild_source_credential`
 
-Refer to the Terraform Registry for docs: [`aws_codebuild_source_credential`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential).
+Refer to the Terraform Registry for docs: [`aws_codebuild_source_credential`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodebuildSourceCredential(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codebuildSourceCredential.CodebuildSourceCredential",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential aws_codebuild_source_credential}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential aws_codebuild_source_credential}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class CodebuildSourceCredential(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential aws_codebuild_source_credential} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential aws_codebuild_source_credential} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#auth_type CodebuildSourceCredential#auth_type}.
-        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#server_type CodebuildSourceCredential#server_type}.
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#token CodebuildSourceCredential#token}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#id CodebuildSourceCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#user_name CodebuildSourceCredential#user_name}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#auth_type CodebuildSourceCredential#auth_type}.
+        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#server_type CodebuildSourceCredential#server_type}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#token CodebuildSourceCredential#token}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#id CodebuildSourceCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#user_name CodebuildSourceCredential#user_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class CodebuildSourceCredential(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodebuildSourceCredential to import.
-        :param import_from_id: The id of the existing CodebuildSourceCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodebuildSourceCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodebuildSourceCredential to import is found.
         '''
         if __debug__:
@@ -281,11 +281,11 @@ class CodebuildSourceCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#auth_type CodebuildSourceCredential#auth_type}.
-        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#server_type CodebuildSourceCredential#server_type}.
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#token CodebuildSourceCredential#token}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#id CodebuildSourceCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#user_name CodebuildSourceCredential#user_name}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#auth_type CodebuildSourceCredential#auth_type}.
+        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#server_type CodebuildSourceCredential#server_type}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#token CodebuildSourceCredential#token}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#id CodebuildSourceCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#user_name CodebuildSourceCredential#user_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -393,28 +393,28 @@ class CodebuildSourceCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#auth_type CodebuildSourceCredential#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#auth_type CodebuildSourceCredential#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#server_type CodebuildSourceCredential#server_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#server_type CodebuildSourceCredential#server_type}.'''
         result = self._values.get("server_type")
         assert result is not None, "Required property 'server_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#token CodebuildSourceCredential#token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#token CodebuildSourceCredential#token}.'''
         result = self._values.get("token")
         assert result is not None, "Required property 'token' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#id CodebuildSourceCredential#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#id CodebuildSourceCredential#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,7 +424,7 @@ class CodebuildSourceCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def user_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codebuild_source_credential#user_name CodebuildSourceCredential#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codebuild_source_credential#user_name CodebuildSourceCredential#user_name}.'''
         result = self._values.get("user_name")
         return typing.cast(typing.Optional[builtins.str], result)
 

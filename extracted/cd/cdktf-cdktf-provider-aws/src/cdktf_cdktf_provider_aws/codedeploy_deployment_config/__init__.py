@@ -1,7 +1,7 @@
 r'''
 # `aws_codedeploy_deployment_config`
 
-Refer to the Terraform Registry for docs: [`aws_codedeploy_deployment_config`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config).
+Refer to the Terraform Registry for docs: [`aws_codedeploy_deployment_config`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodedeployDeploymentConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codedeployDeploymentConfig.CodedeployDeploymentConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config aws_codedeploy_deployment_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config aws_codedeploy_deployment_config}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CodedeployDeploymentConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config aws_codedeploy_deployment_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config aws_codedeploy_deployment_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param deployment_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#deployment_config_name CodedeployDeploymentConfig#deployment_config_name}.
-        :param compute_platform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#compute_platform CodedeployDeploymentConfig#compute_platform}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#id CodedeployDeploymentConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param minimum_healthy_hosts: minimum_healthy_hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts CodedeployDeploymentConfig#minimum_healthy_hosts}
-        :param traffic_routing_config: traffic_routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#traffic_routing_config CodedeployDeploymentConfig#traffic_routing_config}
-        :param zonal_config: zonal_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#zonal_config CodedeployDeploymentConfig#zonal_config}
+        :param deployment_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#deployment_config_name CodedeployDeploymentConfig#deployment_config_name}.
+        :param compute_platform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#compute_platform CodedeployDeploymentConfig#compute_platform}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#id CodedeployDeploymentConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param minimum_healthy_hosts: minimum_healthy_hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts CodedeployDeploymentConfig#minimum_healthy_hosts}
+        :param traffic_routing_config: traffic_routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#traffic_routing_config CodedeployDeploymentConfig#traffic_routing_config}
+        :param zonal_config: zonal_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#zonal_config CodedeployDeploymentConfig#zonal_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CodedeployDeploymentConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodedeployDeploymentConfig to import.
-        :param import_from_id: The id of the existing CodedeployDeploymentConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodedeployDeploymentConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodedeployDeploymentConfig to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class CodedeployDeploymentConfig(
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
         '''
         value_ = CodedeployDeploymentConfigMinimumHealthyHosts(type=type, value=value)
 
@@ -153,9 +153,9 @@ class CodedeployDeploymentConfig(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param time_based_canary: time_based_canary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#time_based_canary CodedeployDeploymentConfig#time_based_canary}
-        :param time_based_linear: time_based_linear block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#time_based_linear CodedeployDeploymentConfig#time_based_linear}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
+        :param time_based_canary: time_based_canary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#time_based_canary CodedeployDeploymentConfig#time_based_canary}
+        :param time_based_linear: time_based_linear block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#time_based_linear CodedeployDeploymentConfig#time_based_linear}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
         '''
         value = CodedeployDeploymentConfigTrafficRoutingConfig(
             time_based_canary=time_based_canary,
@@ -174,9 +174,9 @@ class CodedeployDeploymentConfig(
         monitor_duration_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param first_zone_monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#first_zone_monitor_duration_in_seconds CodedeployDeploymentConfig#first_zone_monitor_duration_in_seconds}.
-        :param minimum_healthy_hosts_per_zone: minimum_healthy_hosts_per_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts_per_zone CodedeployDeploymentConfig#minimum_healthy_hosts_per_zone}
-        :param monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#monitor_duration_in_seconds CodedeployDeploymentConfig#monitor_duration_in_seconds}.
+        :param first_zone_monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#first_zone_monitor_duration_in_seconds CodedeployDeploymentConfig#first_zone_monitor_duration_in_seconds}.
+        :param minimum_healthy_hosts_per_zone: minimum_healthy_hosts_per_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts_per_zone CodedeployDeploymentConfig#minimum_healthy_hosts_per_zone}
+        :param monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#monitor_duration_in_seconds CodedeployDeploymentConfig#monitor_duration_in_seconds}.
         '''
         value = CodedeployDeploymentConfigZonalConfig(
             first_zone_monitor_duration_in_seconds=first_zone_monitor_duration_in_seconds,
@@ -366,12 +366,12 @@ class CodedeployDeploymentConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param deployment_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#deployment_config_name CodedeployDeploymentConfig#deployment_config_name}.
-        :param compute_platform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#compute_platform CodedeployDeploymentConfig#compute_platform}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#id CodedeployDeploymentConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param minimum_healthy_hosts: minimum_healthy_hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts CodedeployDeploymentConfig#minimum_healthy_hosts}
-        :param traffic_routing_config: traffic_routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#traffic_routing_config CodedeployDeploymentConfig#traffic_routing_config}
-        :param zonal_config: zonal_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#zonal_config CodedeployDeploymentConfig#zonal_config}
+        :param deployment_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#deployment_config_name CodedeployDeploymentConfig#deployment_config_name}.
+        :param compute_platform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#compute_platform CodedeployDeploymentConfig#compute_platform}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#id CodedeployDeploymentConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param minimum_healthy_hosts: minimum_healthy_hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts CodedeployDeploymentConfig#minimum_healthy_hosts}
+        :param traffic_routing_config: traffic_routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#traffic_routing_config CodedeployDeploymentConfig#traffic_routing_config}
+        :param zonal_config: zonal_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#zonal_config CodedeployDeploymentConfig#zonal_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -490,20 +490,20 @@ class CodedeployDeploymentConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def deployment_config_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#deployment_config_name CodedeployDeploymentConfig#deployment_config_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#deployment_config_name CodedeployDeploymentConfig#deployment_config_name}.'''
         result = self._values.get("deployment_config_name")
         assert result is not None, "Required property 'deployment_config_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def compute_platform(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#compute_platform CodedeployDeploymentConfig#compute_platform}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#compute_platform CodedeployDeploymentConfig#compute_platform}.'''
         result = self._values.get("compute_platform")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#id CodedeployDeploymentConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#id CodedeployDeploymentConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -517,7 +517,7 @@ class CodedeployDeploymentConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CodedeployDeploymentConfigMinimumHealthyHosts"]:
         '''minimum_healthy_hosts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts CodedeployDeploymentConfig#minimum_healthy_hosts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts CodedeployDeploymentConfig#minimum_healthy_hosts}
         '''
         result = self._values.get("minimum_healthy_hosts")
         return typing.cast(typing.Optional["CodedeployDeploymentConfigMinimumHealthyHosts"], result)
@@ -528,7 +528,7 @@ class CodedeployDeploymentConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CodedeployDeploymentConfigTrafficRoutingConfig"]:
         '''traffic_routing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#traffic_routing_config CodedeployDeploymentConfig#traffic_routing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#traffic_routing_config CodedeployDeploymentConfig#traffic_routing_config}
         '''
         result = self._values.get("traffic_routing_config")
         return typing.cast(typing.Optional["CodedeployDeploymentConfigTrafficRoutingConfig"], result)
@@ -537,7 +537,7 @@ class CodedeployDeploymentConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zonal_config(self) -> typing.Optional["CodedeployDeploymentConfigZonalConfig"]:
         '''zonal_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#zonal_config CodedeployDeploymentConfig#zonal_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#zonal_config CodedeployDeploymentConfig#zonal_config}
         '''
         result = self._values.get("zonal_config")
         return typing.cast(typing.Optional["CodedeployDeploymentConfigZonalConfig"], result)
@@ -567,8 +567,8 @@ class CodedeployDeploymentConfigMinimumHealthyHosts:
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67ff7b7bf8d3d23c171065321f8250ccfd6c0612958b8bbe995d7f8632552285)
@@ -582,13 +582,13 @@ class CodedeployDeploymentConfigMinimumHealthyHosts:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -702,9 +702,9 @@ class CodedeployDeploymentConfigTrafficRoutingConfig:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param time_based_canary: time_based_canary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#time_based_canary CodedeployDeploymentConfig#time_based_canary}
-        :param time_based_linear: time_based_linear block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#time_based_linear CodedeployDeploymentConfig#time_based_linear}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
+        :param time_based_canary: time_based_canary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#time_based_canary CodedeployDeploymentConfig#time_based_canary}
+        :param time_based_linear: time_based_linear block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#time_based_linear CodedeployDeploymentConfig#time_based_linear}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
         '''
         if isinstance(time_based_canary, dict):
             time_based_canary = CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedCanary(**time_based_canary)
@@ -729,7 +729,7 @@ class CodedeployDeploymentConfigTrafficRoutingConfig:
     ) -> typing.Optional["CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedCanary"]:
         '''time_based_canary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#time_based_canary CodedeployDeploymentConfig#time_based_canary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#time_based_canary CodedeployDeploymentConfig#time_based_canary}
         '''
         result = self._values.get("time_based_canary")
         return typing.cast(typing.Optional["CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedCanary"], result)
@@ -740,14 +740,14 @@ class CodedeployDeploymentConfigTrafficRoutingConfig:
     ) -> typing.Optional["CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedLinear"]:
         '''time_based_linear block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#time_based_linear CodedeployDeploymentConfig#time_based_linear}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#time_based_linear CodedeployDeploymentConfig#time_based_linear}
         '''
         result = self._values.get("time_based_linear")
         return typing.cast(typing.Optional["CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedLinear"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -791,8 +791,8 @@ class CodedeployDeploymentConfigTrafficRoutingConfigOutputReference(
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
-        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
+        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
         '''
         value = CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedCanary(
             interval=interval, percentage=percentage
@@ -808,8 +808,8 @@ class CodedeployDeploymentConfigTrafficRoutingConfigOutputReference(
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
-        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
+        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
         '''
         value = CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedLinear(
             interval=interval, percentage=percentage
@@ -905,8 +905,8 @@ class CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedCanary:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
-        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
+        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84a2addd845c969e0b8277d0a218e9796fc61260dd247c10917f6d9506f8a2f8)
@@ -920,13 +920,13 @@ class CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedCanary:
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.'''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1035,8 +1035,8 @@ class CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedLinear:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
-        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.
+        :param percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aaac61be9ca80e3b28c23172cb2f6034f5efbfa48e320398ca09021b99ce2939)
@@ -1050,13 +1050,13 @@ class CodedeployDeploymentConfigTrafficRoutingConfigTimeBasedLinear:
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#interval CodedeployDeploymentConfig#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#percentage CodedeployDeploymentConfig#percentage}.'''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1170,9 +1170,9 @@ class CodedeployDeploymentConfigZonalConfig:
         monitor_duration_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param first_zone_monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#first_zone_monitor_duration_in_seconds CodedeployDeploymentConfig#first_zone_monitor_duration_in_seconds}.
-        :param minimum_healthy_hosts_per_zone: minimum_healthy_hosts_per_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts_per_zone CodedeployDeploymentConfig#minimum_healthy_hosts_per_zone}
-        :param monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#monitor_duration_in_seconds CodedeployDeploymentConfig#monitor_duration_in_seconds}.
+        :param first_zone_monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#first_zone_monitor_duration_in_seconds CodedeployDeploymentConfig#first_zone_monitor_duration_in_seconds}.
+        :param minimum_healthy_hosts_per_zone: minimum_healthy_hosts_per_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts_per_zone CodedeployDeploymentConfig#minimum_healthy_hosts_per_zone}
+        :param monitor_duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#monitor_duration_in_seconds CodedeployDeploymentConfig#monitor_duration_in_seconds}.
         '''
         if isinstance(minimum_healthy_hosts_per_zone, dict):
             minimum_healthy_hosts_per_zone = CodedeployDeploymentConfigZonalConfigMinimumHealthyHostsPerZone(**minimum_healthy_hosts_per_zone)
@@ -1191,7 +1191,7 @@ class CodedeployDeploymentConfigZonalConfig:
 
     @builtins.property
     def first_zone_monitor_duration_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#first_zone_monitor_duration_in_seconds CodedeployDeploymentConfig#first_zone_monitor_duration_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#first_zone_monitor_duration_in_seconds CodedeployDeploymentConfig#first_zone_monitor_duration_in_seconds}.'''
         result = self._values.get("first_zone_monitor_duration_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1201,14 +1201,14 @@ class CodedeployDeploymentConfigZonalConfig:
     ) -> typing.Optional["CodedeployDeploymentConfigZonalConfigMinimumHealthyHostsPerZone"]:
         '''minimum_healthy_hosts_per_zone block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts_per_zone CodedeployDeploymentConfig#minimum_healthy_hosts_per_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#minimum_healthy_hosts_per_zone CodedeployDeploymentConfig#minimum_healthy_hosts_per_zone}
         '''
         result = self._values.get("minimum_healthy_hosts_per_zone")
         return typing.cast(typing.Optional["CodedeployDeploymentConfigZonalConfigMinimumHealthyHostsPerZone"], result)
 
     @builtins.property
     def monitor_duration_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#monitor_duration_in_seconds CodedeployDeploymentConfig#monitor_duration_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#monitor_duration_in_seconds CodedeployDeploymentConfig#monitor_duration_in_seconds}.'''
         result = self._values.get("monitor_duration_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1237,8 +1237,8 @@ class CodedeployDeploymentConfigZonalConfigMinimumHealthyHostsPerZone:
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22c6020c2ca6b98f47e19a52510d3cae586282efa98fda4f39d7b526d10b8573)
@@ -1252,13 +1252,13 @@ class CodedeployDeploymentConfigZonalConfigMinimumHealthyHostsPerZone:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1382,8 +1382,8 @@ class CodedeployDeploymentConfigZonalConfigOutputReference(
         value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#type CodedeployDeploymentConfig#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codedeploy_deployment_config#value CodedeployDeploymentConfig#value}.
         '''
         value_ = CodedeployDeploymentConfigZonalConfigMinimumHealthyHostsPerZone(
             type=type, value=value

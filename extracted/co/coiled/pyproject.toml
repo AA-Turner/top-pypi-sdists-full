@@ -32,6 +32,7 @@ dependencies = [
 ]
 description = "Python client for coiled.io dask clusters"
 dynamic = ["version"]
+license = "Elastic-2.0"
 maintainers = [{ name = "Coiled", email = "info@coiled.io" }]
 name = "coiled"
 readme = "README.md"

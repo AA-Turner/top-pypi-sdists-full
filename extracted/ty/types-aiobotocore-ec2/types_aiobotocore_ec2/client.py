@@ -1481,10 +1481,11 @@ from .waiter import (
 )
 
 if sys.version_info >= (3, 9):
+    from builtins import dict as Dict
     from builtins import type as Type
     from collections.abc import Mapping
 else:
-    from typing import Mapping, Type
+    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -3109,7 +3110,7 @@ class EC2Client(AioBaseClient):
         self, **kwargs: Unpack[DeleteFleetsRequestTypeDef]
     ) -> DeleteFleetsResultTypeDef:
         """
-        Deletes the specified EC2 Fleets.
+        Deletes the specified EC2 Fleet request.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_fleets.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_fleets)
@@ -3834,7 +3835,7 @@ class EC2Client(AioBaseClient):
 
     async def deregister_image(
         self, **kwargs: Unpack[DeregisterImageRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    ) -> Dict[str, Any]:
         """
         Deregisters the specified AMI.
 

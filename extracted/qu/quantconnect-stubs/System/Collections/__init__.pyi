@@ -339,6 +339,9 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
     def count(self) -> int:
         ...
 
+    def __contains__(self, key: typing.Any) -> bool:
+        ...
+
     def __getitem__(self, key: typing.Any) -> typing.Any:
         ...
 
@@ -414,6 +417,9 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
         
         Obsoletions.LegacyFormatterImplMessage
         """
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, key: typing.Any, value: typing.Any) -> None:

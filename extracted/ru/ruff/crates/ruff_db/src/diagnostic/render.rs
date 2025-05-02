@@ -7,9 +7,11 @@ use ruff_annotate_snippets::{
 use ruff_source_file::{LineIndex, OneIndexed, SourceCode};
 use ruff_text_size::{TextRange, TextSize};
 
+use crate::diagnostic::stylesheet::{fmt_styled, DiagnosticStylesheet};
 use crate::{
     files::File,
     source::{line_index, source_text, SourceText},
+    system::SystemPath,
     Db,
 };
 
@@ -47,6 +49,7 @@ impl<'a> DisplayDiagnostic<'a> {
         } else {
             AnnotateRenderer::plain()
         };
+
         DisplayDiagnostic {
             config,
             resolver,
@@ -58,31 +61,64 @@ impl<'a> DisplayDiagnostic<'a> {
 
 impl std::fmt::Display for DisplayDiagnostic<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if matches!(self.config.format, DiagnosticFormat::Concise) {
-            match self.diag.severity() {
-                Severity::Info => f.write_str("info")?,
-                Severity::Warning => f.write_str("warning")?,
-                Severity::Error => f.write_str("error")?,
-                Severity::Fatal => f.write_str("fatal")?,
-            }
+        let stylesheet = if self.config.color {
+            DiagnosticStylesheet::styled()
+        } else {
+            DiagnosticStylesheet::plain()
+        };
 
-            write!(f, "[{rule}]", rule = self.diag.id())?;
+        if matches!(self.config.format, DiagnosticFormat::Concise) {
+            let (severity, severity_style) = match self.diag.severity() {
+                Severity::Info => ("info", stylesheet.info),
+                Severity::Warning => ("warning", stylesheet.warning),
+                Severity::Error => ("error", stylesheet.error),
+                Severity::Fatal => ("fatal", stylesheet.error),
+            };
+
+            write!(
+                f,
+                "{severity}[{id}]",
+                severity = fmt_styled(severity, severity_style),
+                id = fmt_styled(self.diag.id(), stylesheet.emphasis)
+            )?;
+
             if let Some(span) = self.diag.primary_span() {
-                write!(f, " {path}", path = self.resolver.path(span.file()))?;
+                write!(
+                    f,
+                    " {path}",
+                    path = fmt_styled(self.resolver.path(span.file()), stylesheet.emphasis)
+                )?;
                 if let Some(range) = span.range() {
                     let input = self.resolver.input(span.file());
-                    let start = input.as_source_code().source_location(range.start());
-                    write!(f, ":{line}:{col}", line = start.row, col = start.column)?;
+                    let start = input.as_source_code().line_column(range.start());
+
+                    write!(
+                        f,
+                        ":{line}:{col}",
+                        line = fmt_styled(start.line, stylesheet.emphasis),
+                        col = fmt_styled(start.column, stylesheet.emphasis),
+                    )?;
                 }
                 write!(f, ":")?;
             }
-            return writeln!(f, " {}", self.diag.concise_message());
+            return writeln!(f, " {message}", message = self.diag.concise_message());
         }
+
+        let mut renderer = self.annotate_renderer.clone();
+        renderer = renderer
+            .error(stylesheet.error)
+            .warning(stylesheet.warning)
+            .info(stylesheet.info)
+            .note(stylesheet.note)
+            .help(stylesheet.help)
+            .line_no(stylesheet.line_no)
+            .emphasis(stylesheet.emphasis)
+            .none(stylesheet.none);
 
         let resolved = Resolved::new(&self.resolver, self.diag);
         let renderable = resolved.to_renderable(self.config.context);
         for diag in renderable.diagnostics.iter() {
-            writeln!(f, "{}", self.annotate_renderer.render(diag.to_annotate()))?;
+            writeln!(f, "{}", renderer.render(diag.to_annotate()))?;
         }
         writeln!(f)
     }
@@ -286,8 +322,7 @@ impl<'a> ResolvedAnnotation<'a> {
         let source = input.as_source_code();
         let (range, line_start, line_end) = match (ann.span.range(), ann.message.is_some()) {
             // An annotation with no range AND no message is probably(?)
-            // meaningless, so just ignore it.
-            (None, false) => return None,
+            // meaningless, but we should try to render it anyway.
             (None, _) => (
                 TextRange::empty(TextSize::new(0)),
                 OneIndexed::MIN,
@@ -605,7 +640,10 @@ impl<'a> FileResolver<'a> {
 
     /// Returns the path associated with the file given.
     fn path(&self, file: File) -> &'a str {
-        file.path(self.db).as_str()
+        relativize_path(
+            self.db.system().current_directory(),
+            file.path(self.db).as_str(),
+        )
     }
 
     /// Returns the input contents associated with the file given.
@@ -675,6 +713,14 @@ fn context_after(source: &SourceCode<'_, '_>, len: usize, start: OneIndexed) -> 
         line = line.saturating_sub(1);
     }
     line
+}
+
+/// Convert an absolute path to be relative to the current working directory.
+fn relativize_path<'p>(cwd: &SystemPath, path: &'p str) -> &'p str {
+    if let Ok(path) = SystemPath::new(path).strip_prefix(cwd) {
+        return path.as_str();
+    }
+    path
 }
 
 #[cfg(test)]
@@ -758,7 +804,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 | canary
         4 | dog
@@ -782,7 +828,7 @@ watermelon
             env.render(&diag),
             @r"
         warning: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 | canary
         4 | dog
@@ -802,7 +848,7 @@ watermelon
             env.render(&diag),
             @r"
         info: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 | canary
         4 | dog
@@ -810,6 +856,50 @@ watermelon
           | ^^^^^^^^
         6 | finch
         7 | gorilla
+          |
+        ",
+        );
+    }
+
+    #[test]
+    fn no_range() {
+        let mut env = TestEnvironment::new();
+        env.add("animals", ANIMALS);
+
+        let mut builder = env.err();
+        builder
+            .diag
+            .annotate(Annotation::primary(builder.env.path("animals")));
+        let diag = builder.build();
+        insta::assert_snapshot!(
+            env.render(&diag),
+            @r"
+        error: lint:test-diagnostic: main diagnostic message
+         --> animals:1:1
+          |
+        1 | aardvark
+          | ^
+        2 | beetle
+        3 | canary
+          |
+        ",
+        );
+
+        let mut builder = env.err();
+        builder.diag.annotate(
+            Annotation::primary(builder.env.path("animals")).message("primary annotation message"),
+        );
+        let diag = builder.build();
+        insta::assert_snapshot!(
+            env.render(&diag),
+            @r"
+        error: lint:test-diagnostic: main diagnostic message
+         --> animals:1:1
+          |
+        1 | aardvark
+          | ^ primary annotation message
+        2 | beetle
+        3 | canary
           |
         ",
         );
@@ -825,7 +915,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /non-ascii:5:1
+         --> non-ascii:5:1
           |
         3 | ΔΔΔΔΔΔΔΔΔΔΔΔ
         4 | ββββββββββββ
@@ -844,7 +934,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /non-ascii:2:2
+         --> non-ascii:2:2
           |
         1 | ☃☃☃☃☃☃☃☃☃☃☃☃
         2 | 💩💩💩💩💩💩💩💩💩💩💩💩
@@ -868,7 +958,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         4 | dog
         5 | elephant
@@ -885,7 +975,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         5 | elephant
           | ^^^^^^^^
@@ -900,7 +990,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:1:1
+         --> animals:1:1
           |
         1 | aardvark
           | ^^^^^^^^
@@ -917,7 +1007,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:11:1
+          --> animals:11:1
            |
          9 | inchworm
         10 | jackrabbit
@@ -934,7 +1024,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:5:1
+          --> animals:5:1
            |
          1 | aardvark
          2 | beetle
@@ -967,14 +1057,14 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:1:1
+          --> animals:1:1
            |
          1 | aardvark
            | ^^^^^^^^
          2 | beetle
          3 | canary
            |
-          ::: /animals:11:1
+          ::: animals:11:1
            |
          9 | inchworm
         10 | jackrabbit
@@ -1011,7 +1101,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:1:1
+         --> animals:1:1
           |
         1 | aardvark
           | ^^^^^^^^
@@ -1036,7 +1126,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:1:1
+         --> animals:1:1
           |
         1 | aardvark
           | ^^^^^^^^
@@ -1064,13 +1154,13 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:1:1
+         --> animals:1:1
           |
         1 | aardvark
           | ^^^^^^^^
         2 | beetle
           |
-         ::: /animals:5:1
+         ::: animals:5:1
           |
         4 | dog
         5 | elephant
@@ -1092,7 +1182,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:1:1
+         --> animals:1:1
           |
         1 | aardvark
           | ^^^^^^^^
@@ -1117,7 +1207,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:1:1
+          --> animals:1:1
            |
          1 | aardvark
            | ^^^^^^^^
@@ -1148,7 +1238,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:1:1
+          --> animals:1:1
            |
          1 | aardvark
            | ^^^^^^^^
@@ -1156,7 +1246,7 @@ watermelon
          3 | canary
          4 | dog
            |
-          ::: /animals:9:1
+          ::: animals:9:1
            |
          6 | finch
          7 | gorilla
@@ -1186,7 +1276,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /spacey-animals:8:1
+         --> spacey-animals:8:1
           |
         7 | dog
         8 | elephant
@@ -1203,7 +1293,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /spacey-animals:12:1
+          --> spacey-animals:12:1
            |
         11 | gorilla
         12 | hippopotamus
@@ -1221,7 +1311,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /spacey-animals:13:1
+          --> spacey-animals:13:1
            |
         11 | gorilla
         12 | hippopotamus
@@ -1261,12 +1351,12 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /spacey-animals:3:1
+         --> spacey-animals:3:1
           |
         3 | beetle
           | ^^^^^^
           |
-         ::: /spacey-animals:5:1
+         ::: spacey-animals:5:1
           |
         5 | canary
           | ^^^^^^
@@ -1290,7 +1380,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1299,7 +1389,7 @@ watermelon
         4 | dog
         5 | elephant
           |
-         ::: /fruits:3:1
+         ::: fruits:3:1
           |
         1 | apple
         2 | banana
@@ -1327,7 +1417,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1364,7 +1454,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1392,7 +1482,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1402,7 +1492,7 @@ watermelon
         5 | elephant
           |
         warning: sub-diagnostic message
-         --> /fruits:3:1
+         --> fruits:3:1
           |
         1 | apple
         2 | banana
@@ -1428,7 +1518,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1438,7 +1528,7 @@ watermelon
         5 | elephant
           |
         warning: sub-diagnostic message
-         --> /fruits:3:1
+         --> fruits:3:1
           |
         1 | apple
         2 | banana
@@ -1448,7 +1538,7 @@ watermelon
         5 | orange
           |
         warning: sub-diagnostic message
-          --> /animals:11:1
+          --> animals:11:1
            |
          9 | inchworm
         10 | jackrabbit
@@ -1467,7 +1557,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1477,7 +1567,7 @@ watermelon
         5 | elephant
           |
         warning: sub-diagnostic message
-          --> /animals:11:1
+          --> animals:11:1
            |
          9 | inchworm
         10 | jackrabbit
@@ -1485,7 +1575,7 @@ watermelon
            | ^^^^^^^^
            |
         warning: sub-diagnostic message
-         --> /fruits:3:1
+         --> fruits:3:1
           |
         1 | apple
         2 | banana
@@ -1515,7 +1605,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1525,7 +1615,7 @@ watermelon
         5 | elephant
           |
         warning: sub-diagnostic message
-         --> /animals:3:1
+         --> animals:3:1
           |
         1 | aardvark
         2 | beetle
@@ -1551,7 +1641,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 |   canary
         4 |   dog
@@ -1574,7 +1664,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 |   canary
         4 |   dog
@@ -1594,7 +1684,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 |   canary
         4 |   dog
@@ -1614,7 +1704,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:5:4
+          --> animals:5:4
            |
          3 |   canary
          4 |   dog
@@ -1636,7 +1726,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:5:4
+          --> animals:5:4
            |
          3 |   canary
          4 |   dog
@@ -1668,7 +1758,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:4:1
+         --> animals:4:1
           |
         2 |    beetle
         3 |    canary
@@ -1697,7 +1787,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:4:1
+         --> animals:4:1
           |
         2 |    beetle
         3 |    canary
@@ -1728,7 +1818,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 |    canary
         4 |    dog
@@ -1763,7 +1853,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 |    canary
         4 |    dog
@@ -1791,7 +1881,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         3 |    canary
         4 |    dog
@@ -1823,7 +1913,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:3
+         --> animals:5:3
           |
         3 | canary
         4 | dog
@@ -1845,7 +1935,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:3
+         --> animals:5:3
           |
         3 | canary
         4 | dog
@@ -1878,7 +1968,7 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:8:1
+          --> animals:8:1
            |
          6 | finch
          7 | gorilla
@@ -1887,7 +1977,7 @@ watermelon
          9 | inchworm
         10 | jackrabbit
            |
-          ::: /animals:1:1
+          ::: animals:1:1
            |
          1 | aardvark
            | -------- secondary
@@ -1918,27 +2008,27 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /animals:5:1
+         --> animals:5:1
           |
         5 | elephant
           | ^^^^^^^^ primary 5
           |
-         ::: /animals:9:1
+         ::: animals:9:1
           |
         9 | inchworm
           | ^^^^^^^^ primary 9
           |
-         ::: /animals:1:1
+         ::: animals:1:1
           |
         1 | aardvark
           | -------- secondary 1
           |
-         ::: /animals:3:1
+         ::: animals:3:1
           |
         3 | canary
           | ------ secondary 3
           |
-         ::: /animals:7:1
+         ::: animals:7:1
           |
         7 | gorilla
           | ------- secondary 7
@@ -1962,14 +2052,14 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-         --> /fruits:1:1
+         --> fruits:1:1
           |
         1 | apple
           | ^^^^^ primary
         2 | banana
         3 | cantelope
           |
-         ::: /animals:1:1
+         ::: animals:1:1
           |
         1 | aardvark
           | -------- secondary
@@ -1997,32 +2087,32 @@ watermelon
             env.render(&diag),
             @r"
         error: lint:test-diagnostic: main diagnostic message
-          --> /animals:11:1
+          --> animals:11:1
            |
         11 | kangaroo
            | ^^^^^^^^ primary animals 11
            |
-          ::: /animals:1:1
+          ::: animals:1:1
            |
          1 | aardvark
            | -------- secondary animals 1
            |
-          ::: /animals:3:1
+          ::: animals:3:1
            |
          3 | canary
            | ------ secondary animals 3
            |
-          ::: /animals:7:1
+          ::: animals:7:1
            |
          7 | gorilla
            | ------- secondary animals 7
            |
-          ::: /fruits:10:1
+          ::: fruits:10:1
            |
         10 | watermelon
            | ^^^^^^^^^^ primary fruits 10
            |
-          ::: /fruits:2:1
+          ::: fruits:2:1
            |
          2 | banana
            | ------ secondary fruits 2
@@ -2082,10 +2172,10 @@ watermelon
         /// otherwise, the span will end where the next line begins, and this
         /// confuses `ruff_annotate_snippets` as of 2025-03-13.)
         fn span(&self, path: &str, line_offset_start: &str, line_offset_end: &str) -> Span {
-            let file = system_path_to_file(&self.db, path).unwrap();
+            let span = self.path(path);
 
-            let text = source_text(&self.db, file);
-            let line_index = line_index(&self.db, file);
+            let text = source_text(&self.db, span.file());
+            let line_index = line_index(&self.db, span.file());
             let source = SourceCode::new(text.as_str(), &line_index);
 
             let (line_start, offset_start) = parse_line_offset(line_offset_start);
@@ -2099,7 +2189,13 @@ watermelon
                 None => source.line_end(line_end) - TextSize::from(1),
                 Some(offset) => source.line_start(line_end) + offset,
             };
-            Span::from(file).with_range(TextRange::new(start, end))
+            span.with_range(TextRange::new(start, end))
+        }
+
+        /// Like `span`, but only attaches a file path.
+        fn path(&self, path: &str) -> Span {
+            let file = system_path_to_file(&self.db, path).unwrap();
+            Span::from(file)
         }
 
         /// A convenience function for returning a builder for a diagnostic

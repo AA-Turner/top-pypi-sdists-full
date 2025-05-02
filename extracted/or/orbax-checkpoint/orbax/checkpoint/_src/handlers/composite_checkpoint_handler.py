@@ -48,7 +48,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import dataclasses
-from typing import Any, Coroutine, Dict, List, Mapping, MutableSet, Optional, Tuple, Type
+from typing import Any, Dict, List, Mapping, MutableSet, Optional, Tuple, Type
 
 from absl import logging
 from etils import epath
@@ -63,7 +63,6 @@ from orbax.checkpoint._src.handlers import async_checkpoint_handler
 from orbax.checkpoint._src.handlers import checkpoint_handler
 from orbax.checkpoint._src.handlers import handler_registration
 from orbax.checkpoint._src.handlers import handler_type_registry
-from orbax.checkpoint._src.handlers import proto_checkpoint_handler
 from orbax.checkpoint._src.metadata import checkpoint
 from orbax.checkpoint._src.metadata import step_metadata_serialization
 from orbax.checkpoint._src.path import atomicity
@@ -79,10 +78,6 @@ StepMetadata = checkpoint.StepMetadata
 CompositeItemMetadata = checkpoint.CompositeItemMetadata
 AsyncCheckpointHandler = async_checkpoint_handler.AsyncCheckpointHandler
 register_with_handler = checkpoint_args.register_with_handler
-ProtoCheckpointHandler = proto_checkpoint_handler.ProtoCheckpointHandler
-ProtoSaveArgs = proto_checkpoint_handler.ProtoSaveArgs
-ProtoRestoreArgs = proto_checkpoint_handler.ProtoRestoreArgs
-AsyncSaveCoroutine = Coroutine[Any, Any, Optional[List[Future]]]
 Composite = composite.Composite
 HandlerAwaitableSignal = synchronization.HandlerAwaitableSignal
 
@@ -833,15 +828,12 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
     # async-compatible barrier function.
     for item_name in sorted(args.keys()):
       arg = args[item_name]
-      handler = self._get_or_set_handler(item_name, arg)
-      if item_name not in existing_items and not hasattr(
-          handler,
-          'supports_restore_from_alternate_path',  # TODO(b/404987377): cleanup
-      ):
+      if item_name not in existing_items:
         raise KeyError(
             f'Item "{item_name}" was not found in the checkpoint. Available'
             f' items: {existing_items}'
         )
+      handler = self._get_or_set_handler(item_name, arg)
       restored[item_name] = handler.restore(
           self._get_item_directory(directory, item_name), args=arg
       )

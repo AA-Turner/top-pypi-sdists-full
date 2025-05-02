@@ -226,6 +226,9 @@ class _SqlGlobalConfigState:
 
 
 class SqlGlobalConfig(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/sqlGlobalConfig:SqlGlobalConfig"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -239,6 +242,8 @@ class SqlGlobalConfig(pulumi.CustomResource):
                  __props__=None):
         """
         This resource configures the security policy, databricks_instance_profile, and [data access properties](https://docs.databricks.com/sql/admin/data-access-configuration.html) for all SqlEndpoint of workspace. *Please note that changing parameters of this resource will restart all running databricks_sql_endpoint.*  To use this resource you need to be an administrator.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -314,6 +319,8 @@ class SqlGlobalConfig(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource configures the security policy, databricks_instance_profile, and [data access properties](https://docs.databricks.com/sql/admin/data-access-configuration.html) for all SqlEndpoint of workspace. *Please note that changing parameters of this resource will restart all running databricks_sql_endpoint.*  To use this resource you need to be an administrator.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

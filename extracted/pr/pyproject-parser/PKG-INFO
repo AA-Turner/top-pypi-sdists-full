@@ -1,0 +1,219 @@
+Metadata-Version: 2.4
+Name: pyproject-parser
+Version: 0.13.0
+Summary: Parser for 'pyproject.toml'
+Project-URL: Homepage, https://github.com/repo-helper/pyproject-parser
+Project-URL: Issue Tracker, https://github.com/repo-helper/pyproject-parser/issues
+Project-URL: Source Code, https://github.com/repo-helper/pyproject-parser
+Project-URL: Documentation, https://pyproject-parser.readthedocs.io/en/latest
+Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
+License: Copyright (c) 2021 Dominic Davis-Foster
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+        IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+        DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+        OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+        OR OTHER DEALINGS IN THE SOFTWARE.
+License-File: LICENSE
+Keywords: metadata,packaging,pep518,pep621,pyproject,toml
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Archiving :: Packaging
+Classifier: Typing :: Typed
+Requires-Python: >=3.6.1
+Requires-Dist: apeye-core>=1.0.0
+Requires-Dist: attrs>=20.3.0
+Requires-Dist: dom-toml>=2.0.0
+Requires-Dist: domdf-python-tools>=2.8.0
+Requires-Dist: natsort>=7.1.1
+Requires-Dist: packaging>=20.9
+Requires-Dist: shippinglabel>=1.0.0
+Requires-Dist: typing-extensions!=4.7.0,>=3.7.4.3
+Provides-Extra: all
+Requires-Dist: click>=7.1.2; extra == 'all'
+Requires-Dist: consolekit>=1.4.1; extra == 'all'
+Requires-Dist: docutils>=0.16; extra == 'all'
+Requires-Dist: readme-renderer[md]>=27.0; extra == 'all'
+Requires-Dist: sdjson>=0.3.1; extra == 'all'
+Provides-Extra: cli
+Requires-Dist: click>=7.1.2; extra == 'cli'
+Requires-Dist: consolekit>=1.4.1; extra == 'cli'
+Requires-Dist: sdjson>=0.3.1; extra == 'cli'
+Provides-Extra: readme
+Requires-Dist: docutils>=0.16; extra == 'readme'
+Requires-Dist: readme-renderer[md]>=27.0; extra == 'readme'
+Description-Content-Type: text/x-rst
+
+#################
+pyproject-parser
+#################
+
+.. start short_desc
+
+**Parser for 'pyproject.toml'**
+
+.. end short_desc
+
+
+.. start shields
+
+.. list-table::
+	:stub-columns: 1
+	:widths: 10 90
+
+	* - Docs
+	  - |docs| |docs_check|
+	* - Tests
+	  - |actions_linux| |actions_windows| |actions_macos| |coveralls|
+	* - PyPI
+	  - |pypi-version| |supported-versions| |supported-implementations| |wheel|
+	* - Anaconda
+	  - |conda-version| |conda-platform|
+	* - Activity
+	  - |commits-latest| |commits-since| |maintained| |pypi-downloads|
+	* - QA
+	  - |codefactor| |actions_flake8| |actions_mypy|
+	* - Other
+	  - |license| |language| |requires|
+
+.. |docs| image:: https://img.shields.io/readthedocs/pyproject-parser/latest?logo=read-the-docs
+	:target: https://pyproject-parser.readthedocs.io/en/latest
+	:alt: Documentation Build Status
+
+.. |docs_check| image:: https://github.com/repo-helper/pyproject-parser/workflows/Docs%20Check/badge.svg
+	:target: https://github.com/repo-helper/pyproject-parser/actions?query=workflow%3A%22Docs+Check%22
+	:alt: Docs Check Status
+
+.. |actions_linux| image:: https://github.com/repo-helper/pyproject-parser/workflows/Linux/badge.svg
+	:target: https://github.com/repo-helper/pyproject-parser/actions?query=workflow%3A%22Linux%22
+	:alt: Linux Test Status
+
+.. |actions_windows| image:: https://github.com/repo-helper/pyproject-parser/workflows/Windows/badge.svg
+	:target: https://github.com/repo-helper/pyproject-parser/actions?query=workflow%3A%22Windows%22
+	:alt: Windows Test Status
+
+.. |actions_macos| image:: https://github.com/repo-helper/pyproject-parser/workflows/macOS/badge.svg
+	:target: https://github.com/repo-helper/pyproject-parser/actions?query=workflow%3A%22macOS%22
+	:alt: macOS Test Status
+
+.. |actions_flake8| image:: https://github.com/repo-helper/pyproject-parser/workflows/Flake8/badge.svg
+	:target: https://github.com/repo-helper/pyproject-parser/actions?query=workflow%3A%22Flake8%22
+	:alt: Flake8 Status
+
+.. |actions_mypy| image:: https://github.com/repo-helper/pyproject-parser/workflows/mypy/badge.svg
+	:target: https://github.com/repo-helper/pyproject-parser/actions?query=workflow%3A%22mypy%22
+	:alt: mypy status
+
+.. |requires| image:: https://dependency-dash.repo-helper.uk/github/repo-helper/pyproject-parser/badge.svg
+	:target: https://dependency-dash.repo-helper.uk/github/repo-helper/pyproject-parser/
+	:alt: Requirements Status
+
+.. |coveralls| image:: https://img.shields.io/coveralls/github/repo-helper/pyproject-parser/master?logo=coveralls
+	:target: https://coveralls.io/github/repo-helper/pyproject-parser?branch=master
+	:alt: Coverage
+
+.. |codefactor| image:: https://img.shields.io/codefactor/grade/github/repo-helper/pyproject-parser?logo=codefactor
+	:target: https://www.codefactor.io/repository/github/repo-helper/pyproject-parser
+	:alt: CodeFactor Grade
+
+.. |pypi-version| image:: https://img.shields.io/pypi/v/pyproject-parser
+	:target: https://pypi.org/project/pyproject-parser/
+	:alt: PyPI - Package Version
+
+.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/pyproject-parser?logo=python&logoColor=white
+	:target: https://pypi.org/project/pyproject-parser/
+	:alt: PyPI - Supported Python Versions
+
+.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/pyproject-parser
+	:target: https://pypi.org/project/pyproject-parser/
+	:alt: PyPI - Supported Implementations
+
+.. |wheel| image:: https://img.shields.io/pypi/wheel/pyproject-parser
+	:target: https://pypi.org/project/pyproject-parser/
+	:alt: PyPI - Wheel
+
+.. |conda-version| image:: https://img.shields.io/conda/v/conda-forge/pyproject-parser?logo=anaconda
+	:target: https://anaconda.org/conda-forge/pyproject-parser
+	:alt: Conda - Package Version
+
+.. |conda-platform| image:: https://img.shields.io/conda/pn/conda-forge/pyproject-parser?label=conda%7Cplatform
+	:target: https://anaconda.org/conda-forge/pyproject-parser
+	:alt: Conda - Platform
+
+.. |license| image:: https://img.shields.io/github/license/repo-helper/pyproject-parser
+	:target: https://github.com/repo-helper/pyproject-parser/blob/master/LICENSE
+	:alt: License
+
+.. |language| image:: https://img.shields.io/github/languages/top/repo-helper/pyproject-parser
+	:alt: GitHub top language
+
+.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/pyproject-parser/v0.13.0
+	:target: https://github.com/repo-helper/pyproject-parser/pulse
+	:alt: GitHub commits since tagged version
+
+.. |commits-latest| image:: https://img.shields.io/github/last-commit/repo-helper/pyproject-parser
+	:target: https://github.com/repo-helper/pyproject-parser/commit/master
+	:alt: GitHub last commit
+
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2025
+	:alt: Maintenance
+
+.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/pyproject-parser
+	:target: https://pypi.org/project/pyproject-parser/
+	:alt: PyPI - Downloads
+
+.. end shields
+
+Installation
+--------------
+
+.. start installation
+
+``pyproject-parser`` can be installed from PyPI or Anaconda.
+
+To install with ``pip``:
+
+.. code-block:: bash
+
+	$ python -m pip install pyproject-parser
+
+To install with ``conda``:
+
+.. code-block:: bash
+
+	$ conda install -c conda-forge pyproject-parser
+
+.. end installation
+
+``pyproject-parser`` also has an optional README validation feature, which checks the README will render correctly on PyPI.
+This requires that the ``readme`` extra is installed:
+
+.. code-block:: bash
+
+	$ python -m pip install pyproject-parser[readme]

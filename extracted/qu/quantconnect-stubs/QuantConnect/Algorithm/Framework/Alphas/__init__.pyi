@@ -1147,6 +1147,15 @@ class InsightCollection(System.Object, typing.Iterable[QuantConnect.Algorithm.Fr
         """The total insight count"""
         ...
 
+    def __contains__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determines whether insights exist in this collection for the specified symbol
+        
+        :param symbol: The symbol key
+        :returns: True if there are insights for the symbol in this collection.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Dictionary accessor returns a list of insights for the specified symbol
@@ -1157,6 +1166,9 @@ class InsightCollection(System.Object, typing.Iterable[QuantConnect.Algorithm.Fr
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:

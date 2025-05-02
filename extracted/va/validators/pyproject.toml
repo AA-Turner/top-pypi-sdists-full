@@ -25,15 +25,15 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version"]
 dependencies = []
 
@@ -73,7 +73,6 @@ runner = ["tox>=4.18.0"]
 sast = ["bandit[toml]>=1.7.9"]
 testing = ["pytest>=8.3.2"]
 tooling = [
-    "black>=24.8.0",
     "ruff>=0.6.3",
     "pyright>=1.1.378",
     "pytest>=8.3.2",
@@ -107,10 +106,6 @@ exclude_dirs = [
     "tests",
 ]
 
-[tool.black]
-line-length = 100
-target-version = ["py38", "py39", "py310", "py311", "py312"]
-
 [tool.pyright]
 extraPaths = ["src"]
 exclude = [
@@ -121,12 +116,16 @@ exclude = [
     ".venv.dev/",
     "site/",
 ]
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 pythonPlatform = "All"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
+minversion = "6.0"
 pythonpath = ["src"]
+testpaths = "tests"
+addopts = ["--doctest-modules"]
+
 
 [tool.ruff]
 lint.select = [
@@ -145,7 +144,7 @@ lint.select = [
     "D",
 ]
 line-length = 100
-target-version = "py38"
+target-version = "py39"
 extend-exclude = ["**/__pycache__", ".pytest_cache", "site"]
 
 [tool.ruff.lint.isort]
@@ -164,7 +163,7 @@ legacy_tox_ini = """
 [tox]
 requires =
     tox>=4
-env_list = lint, type, format, sast, py{38,39,310,311,312}
+env_list = lint, type, format, sast, py{39,310,311,312,313}
 
 [testenv:lint]
 description = ruff linter
@@ -184,8 +183,8 @@ commands = pyright .
 [testenv:format]
 description = code formatter
 deps =
-    black
-commands = black .
+    ruff
+commands = ruff format .
 
 [testenv:sast]
 deps =

@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: petname
+Version: 2.6
+Summary: Generate human-readable, random object names
+Home-page: https://launchpad.net/python-petname
+Author: Dustin Kirkland
+Author-email: dustin.kirkland@gmail.com
+License: Apache2
+Description: UNKNOWN
+Keywords: random name uuid
+Platform: any

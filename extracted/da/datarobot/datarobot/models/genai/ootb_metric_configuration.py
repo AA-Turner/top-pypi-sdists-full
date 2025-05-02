@@ -101,12 +101,17 @@ class OOTBMetricConfigurationRequest(APIObject):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(ootb_metric_name={self.ootb_metric_name})"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, uppercase_llm_key: bool = False) -> Dict[str, Any]:
+        custom_model_llm_validation_id_key = (
+            "custom_modelLLM_validation_id"
+            if uppercase_llm_key
+            else "custom_model_llm_validation_id"
+        )
         return {
             "ootb_metric_name": self.ootb_metric_name,
             "custom_ootb_metric_name": self.custom_ootb_metric_name,
             "llm_id": self.llm_id,
-            "custom_model_llm_validation_id": self.custom_model_llm_validation_id,
+            custom_model_llm_validation_id_key: self.custom_model_llm_validation_id,
             "moderation_configuration": (
                 self.moderation_configuration.to_dict()
                 if self.moderation_configuration is not None
@@ -220,7 +225,7 @@ class PlaygroundOOTBMetricConfiguration(APIObject):
         """Create a new OOTB metric configurations."""
         payload = {
             "ootb_metric_configurations": [
-                config.to_dict() for config in ootb_metric_configurations
+                config.to_dict(uppercase_llm_key=True) for config in ootb_metric_configurations
             ],
         }
         url = f"{cls._client.domain}/{cls.path.format(playground_id=playground_id)}/"

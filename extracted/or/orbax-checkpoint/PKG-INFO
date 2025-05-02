@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.11.12
+Version: 0.11.13
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>

@@ -1245,7 +1245,7 @@ class CfnWorkspace(
         :param kms_key_arn: (optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace. For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
         :param logging_configuration: Contains information about the logging configuration for the workspace.
         :param tags: The list of tag keys and values that are associated with the workspace.
-        :param workspace_configuration: Workspace configuration.
+        :param workspace_configuration: Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d7d4de6c2c3c0a6cc1f746f35f29f98344da5c5d59e48a9d1e788ab80e3ef9b)
@@ -1411,7 +1411,7 @@ class CfnWorkspace(
     def workspace_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.WorkspaceConfigurationProperty"]]:
-        '''Workspace configuration.'''
+        '''Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.WorkspaceConfigurationProperty"]], jsii.get(self, "workspaceConfiguration"))
 
     @workspace_configuration.setter
@@ -1431,10 +1431,12 @@ class CfnWorkspace(
     )
     class LabelProperty:
         def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
-            '''Series label.
+            '''A label is a name:value pair used to add context to ingested metrics.
 
-            :param name: Name of the label.
-            :param value: Value of the label.
+            This structure defines the name and value for one label that is used in a label set. You can set ingestion limits on time series that match defined label sets, to help prevent a workspace from being overwhelmed with unexpected spikes in time series ingestion.
+
+            :param name: The name for this label.
+            :param value: The value for this label.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-label.html
             :exampleMetadata: fixture=_generated
@@ -1461,7 +1463,7 @@ class CfnWorkspace(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''Name of the label.
+            '''The name for this label.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-label.html#cfn-aps-workspace-label-name
             '''
@@ -1471,7 +1473,7 @@ class CfnWorkspace(
 
         @builtins.property
         def value(self) -> builtins.str:
-            '''Value of the label.
+            '''The value for this label.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-label.html#cfn-aps-workspace-label-value
             '''
@@ -1497,9 +1499,9 @@ class CfnWorkspace(
     )
     class LimitsPerLabelSetEntryProperty:
         def __init__(self, *, max_series: typing.Optional[jsii.Number] = None) -> None:
-            '''Limits that can be applied to a label set.
+            '''This structure contains the limits that apply to time series that match one label set.
 
-            :param max_series: The maximum number of active series that can be ingested for this label set.
+            :param max_series: The maximum number of active series that can be ingested that match this label set. Setting this to 0 causes no label set limit to be enforced, but it does cause Amazon Managed Service for Prometheus to vend label set metrics to CloudWatch
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelsetentry.html
             :exampleMetadata: fixture=_generated
@@ -1523,7 +1525,9 @@ class CfnWorkspace(
 
         @builtins.property
         def max_series(self) -> typing.Optional[jsii.Number]:
-            '''The maximum number of active series that can be ingested for this label set.
+            '''The maximum number of active series that can be ingested that match this label set.
+
+            Setting this to 0 causes no label set limit to be enforced, but it does cause Amazon Managed Service for Prometheus to vend label set metrics to CloudWatch
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelsetentry.html#cfn-aps-workspace-limitsperlabelsetentry-maxseries
             '''
@@ -1553,10 +1557,12 @@ class CfnWorkspace(
             label_set: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.LabelProperty", typing.Dict[builtins.str, typing.Any]]]]],
             limits: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.LimitsPerLabelSetEntryProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''Label set and its associated limits.
+            '''This defines a label set for the workspace, and defines the ingestion limit for active time series that match that label set.
 
-            :param label_set: An array of series labels.
-            :param limits: Limits that can be applied to a label set.
+            Each label name in a label set must be unique.
+
+            :param label_set: This defines one label set that will have an enforced ingestion limit. You can set ingestion limits on time series that match defined label sets, to help prevent a workspace from being overwhelmed with unexpected spikes in time series ingestion. Label values accept all UTF-8 characters with one exception. If the label name is metric name label ``__ *name* __`` , then the *metric* part of the name must conform to the following pattern: ``[a-zA-Z_:][a-zA-Z0-9_:]*``
+            :param limits: This structure contains the information about the limits that apply to time series that match this label set.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelset.html
             :exampleMetadata: fixture=_generated
@@ -1590,7 +1596,11 @@ class CfnWorkspace(
         def label_set(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LabelProperty"]]]:
-            '''An array of series labels.
+            '''This defines one label set that will have an enforced ingestion limit.
+
+            You can set ingestion limits on time series that match defined label sets, to help prevent a workspace from being overwhelmed with unexpected spikes in time series ingestion.
+
+            Label values accept all UTF-8 characters with one exception. If the label name is metric name label ``__ *name* __`` , then the *metric* part of the name must conform to the following pattern: ``[a-zA-Z_:][a-zA-Z0-9_:]*``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelset.html#cfn-aps-workspace-limitsperlabelset-labelset
             '''
@@ -1602,7 +1612,7 @@ class CfnWorkspace(
         def limits(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LimitsPerLabelSetEntryProperty"]:
-            '''Limits that can be applied to a label set.
+            '''This structure contains the information about the limits that apply to time series that match this label set.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-limitsperlabelset.html#cfn-aps-workspace-limitsperlabelset-limits
             '''
@@ -1693,10 +1703,10 @@ class CfnWorkspace(
             limits_per_label_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.LimitsPerLabelSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             retention_period_in_days: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''Workspace configuration.
+            '''Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
 
-            :param limits_per_label_sets: An array of label set and associated limits.
-            :param retention_period_in_days: How many days that metrics are retained in the workspace.
+            :param limits_per_label_sets: This is an array of structures, where each structure defines a label set for the workspace, and defines the ingestion limit for active time series for each of those label sets. Each label name in a label set must be unique.
+            :param retention_period_in_days: Specifies how many days that metrics will be retained in the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1734,7 +1744,9 @@ class CfnWorkspace(
         def limits_per_label_sets(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LimitsPerLabelSetProperty"]]]]:
-            '''An array of label set and associated limits.
+            '''This is an array of structures, where each structure defines a label set for the workspace, and defines the ingestion limit for active time series for each of those label sets.
+
+            Each label name in a label set must be unique.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html#cfn-aps-workspace-workspaceconfiguration-limitsperlabelsets
             '''
@@ -1743,7 +1755,7 @@ class CfnWorkspace(
 
         @builtins.property
         def retention_period_in_days(self) -> typing.Optional[jsii.Number]:
-            '''How many days that metrics are retained in the workspace.
+            '''Specifies how many days that metrics will be retained in the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html#cfn-aps-workspace-workspaceconfiguration-retentionperiodindays
             '''
@@ -1792,7 +1804,7 @@ class CfnWorkspaceProps:
         :param kms_key_arn: (optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace. For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
         :param logging_configuration: Contains information about the logging configuration for the workspace.
         :param tags: The list of tag keys and values that are associated with the workspace.
-        :param workspace_configuration: Workspace configuration.
+        :param workspace_configuration: Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html
         :exampleMetadata: fixture=_generated
@@ -1911,7 +1923,7 @@ class CfnWorkspaceProps:
     def workspace_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.WorkspaceConfigurationProperty]]:
-        '''Workspace configuration.
+        '''Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-workspaceconfiguration
         '''

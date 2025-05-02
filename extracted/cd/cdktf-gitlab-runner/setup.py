@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-gitlab-runner",
-    "version": "0.0.1251",
+    "version": "0.0.1252",
     "description": "The CDK for Terraform Construct for Gitlab Runner on GCP",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdktf-gitlab-runner.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_gitlab_runner._jsii": [
-            "cdktf-gitlab-runner@0.0.1251.jsii.tgz"
+            "cdktf-gitlab-runner@0.0.1252.jsii.tgz"
         ],
         "cdktf_gitlab_runner": [
             "py.typed"

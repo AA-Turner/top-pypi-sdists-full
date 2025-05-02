@@ -179,16 +179,15 @@ def get_default_hps(key):
 
 
 def get_preset_models(
-    freq: str,
+    freq: Optional[str],
     prediction_length: int,
     path: str,
-    eval_metric: TimeSeriesScorer,
-    eval_metric_seasonal_period: Optional[int],
+    eval_metric: Union[str, TimeSeriesScorer],
     hyperparameters: Union[str, Dict, None],
     hyperparameter_tune: bool,
-    metadata: CovariateMetadata,
+    covariate_metadata: CovariateMetadata,
     all_assigned_names: List[str],
-    excluded_model_types: List[str],
+    excluded_model_types: Optional[List[str]],
     multi_window: bool = False,
     **kwargs,
 ):
@@ -235,9 +234,6 @@ def get_preset_models(
                     "is present in `excluded_model_types` and will be removed."
                 )
                 continue
-            if "mxnet" in model.lower():
-                logger.info(f"\tMXNet model '{model}' given in `hyperparameters` is deprecated and won't be trained. ")
-                continue
             model_type = MODEL_TYPES[model]
         elif isinstance(model, type):
             if not issubclass(model, AbstractTimeSeriesModel):
@@ -263,8 +259,7 @@ def get_preset_models(
                 freq=freq,
                 prediction_length=prediction_length,
                 eval_metric=eval_metric,
-                eval_metric_seasonal_period=eval_metric_seasonal_period,
-                metadata=metadata,
+                covariate_metadata=covariate_metadata,
                 hyperparameters=model_hps,
                 **kwargs,
             )

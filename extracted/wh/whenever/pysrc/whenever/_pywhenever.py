@@ -25,20 +25,21 @@
 # - Why is everything in one file?
 #   - Flat is better than nested
 #   - It prevents circular imports since the classes 'know' about each other
-#   - It's easier to vendor (i.e. copy-paste) this library if needed
+#   - It's easier to vendor the main functionality, if needed.
 # - There is some code duplication in this file. This is intentional:
 #   - It makes it easier to understand the code
 #   - It's sometimes necessary for the type checker
 #   - It saves some overhead
+# - We don't make use of certain "obvious" modules like re or pathlib.
+#   This is to keep the import time down.
 from __future__ import annotations
 
-__version__ = "0.7.3"
-
 import enum
-import re
+import os.path
 import sys
+import warnings
 from abc import ABC, abstractmethod
-from calendar import monthrange
+from collections import OrderedDict
 from datetime import (
     date as _date,
     datetime as _datetime,
@@ -46,7 +47,7 @@ from datetime import (
     timedelta as _timedelta,
     timezone as _timezone,
 )
-from email.utils import format_datetime, parsedate_to_datetime
+from io import BytesIO
 from math import fmod
 from struct import pack, unpack
 from time import time_ns
@@ -57,12 +58,19 @@ from typing import (
     ClassVar,
     Literal,
     Mapping,
+    NewType,
+    NoReturn,
     TypeVar,
     Union,
+    cast,
     no_type_check,
     overload,
 )
-from zoneinfo import ZoneInfo
+from weakref import WeakValueDictionary
+
+# zoneinfo is a relatively expensive import, so we import it lazily
+if TYPE_CHECKING:
+    from zoneinfo import ZoneInfo
 
 __all__ = [
     # Date and time
@@ -74,7 +82,7 @@ __all__ = [
     "OffsetDateTime",
     "ZonedDateTime",
     "SystemDateTime",
-    "LocalDateTime",
+    "PlainDateTime",
     # Deltas and time units
     "DateDelta",
     "TimeDelta",
@@ -92,8 +100,9 @@ __all__ = [
     # Exceptions
     "SkippedTime",
     "RepeatedTime",
-    "InvalidOffset",
+    "InvalidOffsetError",
     "ImplicitlyIgnoringDST",
+    "TimeZoneNotFoundError",
     # Constants
     "MONDAY",
     "TUESDAY",
@@ -134,6 +143,8 @@ _MAX_DELTA_DAYS = 9999 * 366
 _MAX_DELTA_NANOS = _MAX_DELTA_DAYS * 24 * 3_600_000_000_000
 _UNSET = object()
 _PY312 = sys.version_info >= (3, 12)
+_PY311 = sys.version_info >= (3, 11)
+_Nanos = int  # type alias for subsecond nanoseconds
 
 
 class _ImmutableBase:
@@ -242,19 +253,19 @@ class Date(_ImmutableBase):
         """
         return Weekday(self._py_date.isoweekday())
 
-    def at(self, t: Time, /) -> LocalDateTime:
+    def at(self, t: Time, /) -> PlainDateTime:
         """Combine a date with a time to create a datetime
 
         Example
         -------
         >>> d = Date(2021, 1, 2)
         >>> d.at(Time(12, 30))
-        LocalDateTime(2021-01-02 12:30:00)
+        PlainDateTime(2021-01-02 12:30:00)
 
-        You can use methods like :meth:`~LocalDateTime.assume_utc`
-        or :meth:`~LocalDateTime.assume_tz` to make the result aware.
+        You can use methods like :meth:`~PlainDateTime.assume_utc`
+        or :meth:`~PlainDateTime.assume_tz` to find the corresponding exact time.
         """
-        return LocalDateTime._from_py_unchecked(
+        return PlainDateTime._from_py_unchecked(
             _datetime.combine(self._py_date, t._py_time), t._nanos
         )
 
@@ -298,8 +309,11 @@ class Date(_ImmutableBase):
 
     @classmethod
     def parse_common_iso(cls, s: str, /) -> Date:
-        """Create from the common ISO 8601 date format ``YYYY-MM-DD``.
-        Does not accept more "exotic" ISO 8601 formats.
+        """Parse a date from an ISO8601 string
+
+        The following formats are accepted:
+        - ``YYYY-MM-DD`` ("extended" format)
+        - ``YYYYMMDD`` ("basic" format)
 
         Inverse of :meth:`format_common_iso`
 
@@ -308,13 +322,7 @@ class Date(_ImmutableBase):
         >>> Date.parse_common_iso("2021-01-02")
         Date(2021-01-02)
         """
-        if s[5] == "W" or not s.isascii():
-            # prevent isoformat from parsing week dates
-            raise ValueError(f"Invalid format: {s!r}")
-        try:
-            return cls._from_py_unchecked(_date.fromisoformat(s))
-        except ValueError:
-            raise ValueError(f"Invalid format: {s!r}")
+        return cls._from_py_unchecked(_date_from_iso(s))
 
     def replace(self, **kwargs: Any) -> Date:
         """Create a new instance with the given fields replaced
@@ -422,7 +430,7 @@ class Date(_ImmutableBase):
         return Date(
             year_new,
             month_new,
-            min(self.day, monthrange(year_new, month_new)[1]),
+            min(self.day, _days_in_month(year_new, month_new)),
         )
 
     def _add_days(self, days: int) -> Date:
@@ -494,7 +502,7 @@ class Date(_ImmutableBase):
                     shifted = d._add_months(mos)
                     dys = (
                         -shifted.day
-                        - monthrange(self.year, self.month)[1]
+                        - _days_in_month(self.year, self.month)
                         + self.day
                     )
                 else:
@@ -505,7 +513,7 @@ class Date(_ImmutableBase):
                     shifted = d._add_months(mos)
                     dys = (
                         -shifted.day
-                        + monthrange(shifted.year, shifted.month)[1]
+                        + _days_in_month(shifted.year, shifted.month)
                         + self.day
                     )
                 else:
@@ -625,8 +633,7 @@ class YearMonth(_ImmutableBase):
 
     @classmethod
     def parse_common_iso(cls, s: str, /) -> YearMonth:
-        """Create from the common ISO 8601 format ``YYYY-MM``.
-        Does not accept more "exotic" ISO 8601 formats.
+        """Create from the common ISO 8601 format ``YYYY-MM`` or ``YYYYMM``.
 
         Inverse of :meth:`format_common_iso`
 
@@ -635,9 +642,7 @@ class YearMonth(_ImmutableBase):
         >>> YearMonth.parse_common_iso("2021-01")
         YearMonth(2021-01)
         """
-        if not _match_yearmonth(s):
-            raise ValueError(f"Invalid format: {s!r}")
-        return cls._from_py_unchecked(_date.fromisoformat(s + "-01"))
+        return cls._from_py_unchecked(_yearmonth_from_iso(s))
 
     def replace(self, **kwargs: Any) -> YearMonth:
         """Create a new instance with the given fields replaced
@@ -786,8 +791,7 @@ class MonthDay(_ImmutableBase):
 
     @classmethod
     def parse_common_iso(cls, s: str, /) -> MonthDay:
-        """Create from the common ISO 8601 format ``--MM-DD``.
-        Does not accept more "exotic" ISO 8601 formats.
+        """Create from the common ISO 8601 format ``--MM-DD`` or ``--MMDD``.
 
         Inverse of :meth:`format_common_iso`
 
@@ -796,11 +800,7 @@ class MonthDay(_ImmutableBase):
         >>> MonthDay.parse_common_iso("--11-23")
         MonthDay(--11-23)
         """
-        if not _match_monthday(s):
-            raise ValueError(f"Invalid format: {s!r}")
-        return cls._from_py_unchecked(
-            _date.fromisoformat(f"{_DUMMY_LEAP_YEAR:0>4}" + s[1:])
-        )
+        return cls._from_py_unchecked(_monthday_from_iso(s))
 
     def replace(self, **kwargs: Any) -> MonthDay:
         """Create a new instance with the given fields replaced
@@ -963,20 +963,20 @@ class Time(_ImmutableBase):
     def nanosecond(self) -> int:
         return self._nanos
 
-    def on(self, d: Date, /) -> LocalDateTime:
+    def on(self, d: Date, /) -> PlainDateTime:
         """Combine a time with a date to create a datetime
 
         Example
         -------
         >>> t = Time(12, 30)
         >>> t.on(Date(2021, 1, 2))
-        LocalDateTime(2021-01-02 12:30:00)
+        PlainDateTime(2021-01-02 12:30:00)
 
-        Then, use methods like :meth:`~LocalDateTime.assume_utc`
-        or :meth:`~LocalDateTime.assume_tz`
-        to make the result aware.
+        Then, use methods like :meth:`~PlainDateTime.assume_utc`
+        or :meth:`~PlainDateTime.assume_tz`
+        to find the corresponding exact time.
         """
-        return LocalDateTime._from_py_unchecked(
+        return PlainDateTime._from_py_unchecked(
             _datetime.combine(d._py_date, self._py_time),
             self._nanos,
         )
@@ -1026,8 +1026,7 @@ class Time(_ImmutableBase):
 
     @classmethod
     def parse_common_iso(cls, s: str, /) -> Time:
-        """Create from the common ISO 8601 time format ``HH:MM:SS``.
-        Does not accept more "exotic" ISO 8601 formats.
+        """Create from the common ISO 8601 time format
 
         Inverse of :meth:`format_common_iso`
 
@@ -1036,16 +1035,7 @@ class Time(_ImmutableBase):
         >>> Time.parse_common_iso("12:30:00")
         Time(12:30:00)
         """
-        if (match := _match_time(s)) is None:
-            raise ValueError(f"Invalid format: {s!r}")
-
-        hours_str, minutes_str, seconds_str, nanos_str = match.groups()
-
-        hours = int(hours_str)
-        minutes = int(minutes_str)
-        seconds = int(seconds_str)
-        nanos = int(nanos_str.ljust(9, "0")) if nanos_str else 0
-        return cls._from_py_unchecked(_time(hours, minutes, seconds), nanos)
+        return cls._from_py_unchecked(*_time_from_iso(s))
 
     def replace(self, **kwargs: Any) -> Time:
         """Create a new instance with the given fields replaced
@@ -1264,7 +1254,7 @@ class TimeDelta(_ImmutableBase):
     Examples
     --------
     >>> d = TimeDelta(hours=1, minutes=30)
-    TimeDelta(01:30:00)
+    TimeDelta(PT1h30m)
     >>> d.in_minutes()
     90.0
 
@@ -1427,8 +1417,10 @@ class TimeDelta(_ImmutableBase):
         Example
         -------
         >>> TimeDelta.from_py_timedelta(timedelta(seconds=5400))
-        TimeDelta(01:30:00)
+        TimeDelta(PT1h30m)
         """
+        if type(td) is not _timedelta:
+            raise TypeError("Expected datetime.timedelta exactly")
         return TimeDelta(
             microseconds=td.microseconds,
             seconds=td.seconds,
@@ -1470,8 +1462,8 @@ class TimeDelta(_ImmutableBase):
 
         Example
         -------
-        >>> TimeDelta.parse_common_iso("PT1H30M")
-        TimeDelta(01:30:00)
+        >>> TimeDelta.parse_common_iso("PT1H80M")
+        TimeDelta(PT2h20m)
 
         Note
         ----
@@ -1482,9 +1474,10 @@ class TimeDelta(_ImmutableBase):
         prev_unit = ""
         nanos = 0
 
-        if len(s) < 4:
+        if len(s) < 4 or not s.isascii():
             raise exc
 
+        s = s.upper()
         if s.startswith("PT"):
             sign = 1
             rest = s[2:]
@@ -1540,11 +1533,11 @@ class TimeDelta(_ImmutableBase):
         Examples
         --------
         >>> t = TimeDelta(seconds=12345)
-        TimeDelta(03:25:45)
+        TimeDelta(PT3h25m45s)
         >>> t.round("minute")
-        TimeDelta(03:26:00)
+        TimeDelta(PT3h26m)
         >>> t.round("second", increment=10, mode="floor")
-        Time(03:25:40)
+        TimeDelta(PT3h25m40s)
         """
         if unit == "day":  # type: ignore[comparison-overlap]
             raise ValueError(CANNOT_ROUND_DAY_MSG)
@@ -1578,7 +1571,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=30)
         >>> d + TimeDelta(minutes=30)
-        TimeDelta(02:00:00)
+        TimeDelta(PT2h)
         """
         if not isinstance(other, TimeDelta):
             return NotImplemented
@@ -1591,7 +1584,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=30)
         >>> d - TimeDelta(minutes=30)
-        TimeDelta(01:00:00)
+        TimeDelta(PT1h)
         """
         if not isinstance(other, TimeDelta):
             return NotImplemented
@@ -1654,7 +1647,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=30)
         >>> d * 2.5
-        TimeDelta(03:45:00)
+        TimeDelta(PT3h45m)
         """
         if not isinstance(other, (int, float)):
             return NotImplemented
@@ -1670,7 +1663,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=30)
         >>> -d
-        TimeDelta(-01:30:00)
+        TimeDelta(-PT1h30m)
         """
         return TimeDelta(nanoseconds=-self._total_ns)
 
@@ -1681,7 +1674,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=30)
         >>> +d
-        TimeDelta(01:30:00)
+        TimeDelta(PT1h30m)
         """
         return self
 
@@ -1698,7 +1691,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=30)
         >>> d / 2.5
-        TimeDelta(00:36:00)
+        TimeDelta(PT36m)
         >>> d / TimeDelta(minutes=30)
         3.0
 
@@ -1733,7 +1726,7 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=1, minutes=39)
         >>> d % TimeDelta(minutes=15)
-        TimeDelta(00:09:00)
+        TimeDelta(PT9m)
         """
         if not isinstance(other, TimeDelta):
             return NotImplemented
@@ -1746,19 +1739,17 @@ class TimeDelta(_ImmutableBase):
         -------
         >>> d = TimeDelta(hours=-1, minutes=-30)
         >>> abs(d)
-        TimeDelta(01:30:00)
+        TimeDelta(PT1h30m)
         """
         return TimeDelta._from_nanos_unchecked(abs(self._total_ns))
 
     __str__ = format_common_iso
 
     def __repr__(self) -> str:
-        hrs, mins, secs, ns = abs(self).in_hrs_mins_secs_nanos()
-        return (
-            f"TimeDelta({'-'*(self._total_ns < 0)}{hrs:02}:{mins:02}:{secs:02}"
-            + f".{ns:0>9}".rstrip("0") * bool(ns)
-            + ")"
-        )
+        iso = self.format_common_iso()
+        # lowercase everything besides the prefix (don't forget the sign!)
+        cased = iso[:3] + iso[3:].lower()
+        return f"TimeDelta({cased})"
 
     @no_type_check
     def __reduce__(self):
@@ -1781,18 +1772,39 @@ def _unpkl_tdelta(data: bytes) -> TimeDelta:
     return TimeDelta(seconds=s, nanoseconds=ns)
 
 
-def _parse_timedelta_component(s: str, exc: Exception) -> tuple[str, int, str]:
-    if (match := _match_next_timedelta_component(s)) is None:
+_MAX_TDELTA_DIGITS = 35  # consistent with Rust extension
+
+
+def _parse_timedelta_component(
+    fullstr: str, exc: Exception
+) -> tuple[str, int, Literal["H", "M", "S"]]:
+    try:
+        split_index, unit = next(
+            (i, c) for i, c in enumerate(fullstr) if c in "HMS"
+        )
+    except StopIteration:
         raise exc
-    digits_maybe_fractional, unit = match.groups()
+
+    raw, rest = fullstr[:split_index], fullstr[split_index + 1 :]
+
     if unit == "S":
-        value = int(float(digits_maybe_fractional) * 1_000_000_000)
-    else:
-        try:
-            value = int(digits_maybe_fractional)
-        except ValueError:
+        digits, sep, nanos_raw = _split_nextchar(raw, ".,")
+
+        if (
+            len(digits) > _MAX_TDELTA_DIGITS
+            or not digits.isdigit()
+            or len(nanos_raw) > 9
+            or (sep and not nanos_raw.isdigit())
+        ):
             raise exc
-    return s[len(digits_maybe_fractional) + 1 :], value, unit  # noqa[E203]
+
+        value = int(digits) * 1_000_000_000 + int(nanos_raw.ljust(9, "0"))
+    else:
+        if len(raw) > _MAX_TDELTA_DIGITS or not raw.isdigit():
+            raise exc
+        value = int(raw)
+
+    return rest, value, cast(Literal["H", "M", "S"], unit)
 
 
 TimeDelta.ZERO = TimeDelta()
@@ -1879,9 +1891,9 @@ class DateDelta(_ImmutableBase):
         Example
         -------
         >>> p = DateDelta(years=1, months=2, weeks=3, days=11)
-        >>> p.common_iso()
+        >>> p.format_common_iso()
         'P1Y2M3W11D'
-        >>> DateDelta().common_iso()
+        >>> DateDelta().format_common_iso()
         'P0D'
         """
         if self._months < 0 or self._days < 0:
@@ -1914,9 +1926,9 @@ class DateDelta(_ImmutableBase):
         Example
         -------
         >>> DateDelta.parse_common_iso("P1W11D")
-        DateDelta(P1W11D)
-        >>> DateDelta.parse_common_iso("-P3M")
-        DateDelta(-P3M)
+        DateDelta(P1w11d)
+        >>> DateDelta.parse_common_iso("-P3m")
+        DateDelta(-P3m)
 
         Note
         ----
@@ -1935,6 +1947,7 @@ class DateDelta(_ImmutableBase):
         if len(s) < 3 or not s.isascii():
             raise exc
 
+        s = s.upper()
         if s[0] == "P":
             sign = 1
             rest = s[1:]
@@ -1986,7 +1999,7 @@ class DateDelta(_ImmutableBase):
         -------
         >>> p = DateDelta(weeks=2, months=1)
         >>> p + DateDelta(weeks=1, days=4)
-        DateDelta(P1M25D)
+        DateDelta(P1m25d)
         """
         if isinstance(other, DateDelta):
             return DateDelta(
@@ -2024,7 +2037,7 @@ class DateDelta(_ImmutableBase):
         -------
         >>> p = DateDelta(weeks=2, days=3)
         >>> p - DateDelta(days=2)
-        DateDelta(P15D)
+        DateDelta(P15d)
         """
         if isinstance(other, DateDelta):
             return DateDelta(
@@ -2049,7 +2062,7 @@ class DateDelta(_ImmutableBase):
         Example
         -------
         >>> p = DateDelta(weeks=4, days=2)
-        DateDelta(P30D)
+        DateDelta(P30d)
         >>> p == DateDelta(weeks=3, days=9)
         True
         >>> p == DateDelta(weeks=2, days=4)
@@ -2077,7 +2090,10 @@ class DateDelta(_ImmutableBase):
         return bool(self._months or self._days)
 
     def __repr__(self) -> str:
-        return f"DateDelta({self})"
+        iso = self.format_common_iso()
+        # lowercase everything besides the prefix (don't forget the sign!)
+        cased = iso[:2] + iso[2:].lower()
+        return f"DateDelta({cased})"
 
     def __neg__(self) -> DateDelta:
         """Negate the contents
@@ -2086,7 +2102,7 @@ class DateDelta(_ImmutableBase):
         -------
         >>> p = DateDelta(weeks=2, days=3)
         >>> -p
-        DateDelta(-P17D)
+        DateDelta(-P17d)
         """
         return DateDelta(months=-self._months, days=-self._days)
 
@@ -2096,9 +2112,9 @@ class DateDelta(_ImmutableBase):
         Example
         -------
         >>> p = DateDelta(weeks=2, days=-3)
-        DateDelta(P11D)
+        DateDelta(P11d)
         >>> +p
-        DateDelta(P11D)
+        DateDelta(P11d)
         """
         return self
 
@@ -2109,7 +2125,7 @@ class DateDelta(_ImmutableBase):
         -------
         >>> p = DateDelta(years=1, weeks=2)
         >>> p * 2
-        DateDelta(P2Y28D)
+        DateDelta(P2y28d)
         """
         if not isinstance(other, int):
             return NotImplemented
@@ -2130,7 +2146,7 @@ class DateDelta(_ImmutableBase):
         -------
         >>> p = DateDelta(months=-2, days=-3)
         >>> abs(p)
-        DateDelta(P2M3D)
+        DateDelta(P2m3d)
         """
         return DateDelta(months=abs(self._months), days=abs(self._days))
 
@@ -2145,11 +2161,23 @@ def _unpkl_ddelta(months: int, days: int) -> DateDelta:
     return DateDelta(months=months, days=days)
 
 
+_MAX_DDELTA_DIGITS = 8  # consistent with Rust extension
+
+
 def _parse_datedelta_component(s: str, exc: Exception) -> tuple[str, int, str]:
-    if (match := _match_next_datedelta_component(s)) is None:
+    try:
+        split_index, unit = next(
+            (i, c) for i, c in enumerate(s) if c in "YMWD"
+        )
+    except StopIteration:
         raise exc
-    digits, unit = match.groups()
-    return s[len(digits) + 1 :], int(digits), unit  # noqa[E203]
+
+    raw, rest = s[:split_index], s[split_index + 1 :]
+
+    if not raw.isdigit() or len(raw) > _MAX_DDELTA_DIGITS:
+        raise exc
+
+    return rest, int(raw), unit
 
 
 DateDelta.ZERO = DateDelta()
@@ -2279,27 +2307,82 @@ class DateTimeDelta(_ImmutableBase):
         Example
         -------
         >>> DateTimeDelta.parse_common_iso("-P1W11DT4H")
-        DateTimeDelta(-P1W11DT4H)
+        DateTimeDelta(-P1w11dT4h)
         """
-        if (
-            not (match := _match_datetimedelta(s))
-            or len(s) < 3
-            or s.endswith("T")
-        ):
-            raise ValueError(f"Invalid format: {s!r}")
-        sign, years, months, weeks, days, hours, minutes, seconds = (
-            match.groups()
-        )
-        parsed = cls(
-            years=int(years or 0),
-            months=int(months or 0),
-            weeks=int(weeks or 0),
-            days=int(days or 0),
-            hours=int(hours or 0),
-            minutes=int(minutes or 0),
-            seconds=float(seconds or 0),
-        )
-        return -parsed if sign == "-" else parsed
+        exc = ValueError(f"Invalid format: {s!r}")
+        prev_unit = ""
+        months = 0
+        days = 0
+        nanos = 0
+
+        if len(s) < 3 or not s.isascii() or s.endswith("T"):
+            raise exc
+
+        s = s.upper()
+        if s[0] == "P":
+            sign = 1
+            rest = s[1:]
+        elif s.startswith("-P"):
+            sign = -1
+            rest = s[2:]
+        elif s.startswith("+P"):
+            sign = 1
+            rest = s[2:]
+        else:
+            raise exc
+
+        while rest and not rest.startswith("T"):
+            rest, value, unit = _parse_datedelta_component(rest, exc)
+
+            if unit == "Y" and prev_unit == "":
+                months += value * 12
+            elif unit == "M" and prev_unit in "Y":
+                months += value
+            elif unit == "W" and prev_unit in "YM":
+                days += value * 7
+            elif unit == "D" and prev_unit in "YMW":
+                days += value
+                break
+            else:
+                raise exc  # components out of order
+
+            prev_unit = unit
+
+        try:
+            ddelta = DateDelta(months=sign * months, days=sign * days)
+        except ValueError:
+            raise exc
+
+        prev_unit = ""
+        if rest and not rest.startswith("T"):
+            raise exc
+
+        # skip the "T" separator
+        rest = rest[1:]
+
+        while rest:
+            rest, value, unit = _parse_timedelta_component(rest, exc)
+
+            if unit == "H" and prev_unit == "":
+                nanos += value * 3_600_000_000_000
+            elif unit == "M" and prev_unit in "H":
+                nanos += value * 60_000_000_000
+            elif unit == "S":
+                nanos += value
+                if rest:
+                    raise exc
+                break
+            else:
+                raise exc
+
+            prev_unit = unit
+
+        if nanos > _MAX_DELTA_NANOS:
+            raise exc
+
+        tdelta = TimeDelta._from_nanos_unchecked(sign * nanos)
+
+        return cls._from_parts(ddelta, tdelta)
 
     def __add__(self, other: Delta) -> DateTimeDelta:
         """Add two deltas together
@@ -2308,7 +2391,7 @@ class DateTimeDelta(_ImmutableBase):
         -------
         >>> d = DateTimeDelta(weeks=1, days=11, hours=4)
         >>> d + DateTimeDelta(months=2, days=3, minutes=90)
-        DateTimeDelta(P1M1W14DT5H30M)
+        DateTimeDelta(P1m1w14dT5h30m)
         """
         new = _object_new(DateTimeDelta)
         if isinstance(other, DateTimeDelta):
@@ -2338,7 +2421,7 @@ class DateTimeDelta(_ImmutableBase):
         -------
         >>> d = DateTimeDelta(weeks=1, days=11, hours=4)
         >>> d - DateTimeDelta(months=2, days=3, minutes=90)
-        DateTimeDelta(-P2M1W8DT2H30M)
+        DateTimeDelta(-P2m1w8dT2h30m)
         """
         if isinstance(other, DateTimeDelta):
             d = self._date_part - other._date_part
@@ -2422,7 +2505,7 @@ class DateTimeDelta(_ImmutableBase):
         -------
         >>> d = DateTimeDelta(weeks=1, days=11, hours=4)
         >>> d * 2
-        DateTimeDelta(P2W22DT8H)
+        DateTimeDelta(P2w22dT8h)
         """
         # OPTIMIZE: use unchecked constructor
         return self._from_parts(
@@ -2439,7 +2522,7 @@ class DateTimeDelta(_ImmutableBase):
         -------
         >>> d = DateTimeDelta(days=11, hours=4)
         >>> -d
-        DateTimeDelta(-P11DT4H)
+        DateTimeDelta(-P11dT4h)
         """
         # OPTIMIZE: use unchecked constructor
         return self._from_parts(-self._date_part, -self._time_part)
@@ -2462,7 +2545,7 @@ class DateTimeDelta(_ImmutableBase):
         -------
         >>> d = DateTimeDelta(weeks=1, days=-11, hours=4)
         >>> abs(d)
-        DateTimeDelta(P1W11DT4H)
+        DateTimeDelta(P1w11dT4h)
         """
         new = _object_new(DateTimeDelta)
         new._date_part = abs(self._date_part)
@@ -2472,7 +2555,10 @@ class DateTimeDelta(_ImmutableBase):
     __str__ = format_common_iso
 
     def __repr__(self) -> str:
-        return f"DateTimeDelta({self})"
+        iso = self.format_common_iso()
+        # lowercase everything besides the prefix and separator
+        cased = "".join(c if c in "PT" else c.lower() for c in iso)
+        return f"DateTimeDelta({cased})"
 
     @classmethod
     def _from_parts(cls, d: DateDelta, t: TimeDelta) -> DateTimeDelta:
@@ -2515,7 +2601,7 @@ class _BasicConversions(_ImmutableBase, ABC):
     """Methods for types converting to/from the standard library and ISO8601:
 
     - :class:`Instant`
-    - :class:`LocalDateTime`
+    - :class:`PlainDateTime`
     - :class:`ZonedDateTime`
     - :class:`OffsetDateTime`
     - :class:`SystemDateTime`
@@ -2590,10 +2676,10 @@ class _BasicConversions(_ImmutableBase, ABC):
         return self
 
 
-class _KnowsLocal(_BasicConversions, ABC):
-    """Methods for types that know a local date and time:
+class _LocalTime(_BasicConversions, ABC):
+    """Methods for types that know a local date and time-of-day:
 
-    - :class:`LocalDateTime`
+    - :class:`PlainDateTime`
     - :class:`ZonedDateTime`
     - :class:`OffsetDateTime`
     - :class:`SystemDateTime`
@@ -2641,8 +2727,8 @@ class _KnowsLocal(_BasicConversions, ABC):
         Date(2021-01-02)
 
         To perform the inverse, use :meth:`Date.at` and a method
-        like :meth:`~LocalDateTime.assume_utc` or
-        :meth:`~LocalDateTime.assume_tz`:
+        like :meth:`~PlainDateTime.assume_utc` ortestoffset
+        :meth:`~PlainDateTime.assume_tz`:
 
         >>> date.at(time).assume_tz("Europe/London")
         """
@@ -2659,8 +2745,8 @@ class _KnowsLocal(_BasicConversions, ABC):
         Time(03:04:05)
 
         To perform the inverse, use :meth:`Time.on` and a method
-        like :meth:`~LocalDateTime.assume_utc` or
-        :meth:`~LocalDateTime.assume_tz`:
+        like :meth:`~PlainDateTime.assume_utc` or
+        :meth:`~PlainDateTime.assume_tz`:
 
         >>> time.on(date).assume_tz("Europe/Paris")
         """
@@ -2693,9 +2779,9 @@ class _KnowsLocal(_BasicConversions, ABC):
 
             Example
             -------
-            >>> d = LocalDateTime(2020, 8, 15, 23, 12)
+            >>> d = PlainDateTime(2020, 8, 15, 23, 12)
             >>> d.replace(year=2021)
-            LocalDateTime(2021-08-15 23:12:00)
+            PlainDateTime(2021-08-15 23:12:00)
             >>>
             >>> z = ZonedDateTime(2020, 8, 15, 23, 12, tz="Europe/London")
             >>> z.replace(year=2021)
@@ -2707,9 +2793,9 @@ class _KnowsLocal(_BasicConversions, ABC):
 
             Example
             -------
-            >>> d = LocalDateTime(2020, 8, 15, hour=4)
+            >>> d = PlainDateTime(2020, 8, 15, hour=4)
             >>> d.replace_date(Date(2021, 1, 1))
-            LocalDateTime(2021-01-01T04:00:00)
+            PlainDateTime(2021-01-01T04:00:00)
             >>> zdt = ZonedDateTime.now("Europe/London")
             >>> zdt.replace_date(Date(2021, 1, 1))
             ZonedDateTime(2021-01-01T13:00:00.23439+00:00[Europe/London])
@@ -2722,9 +2808,9 @@ class _KnowsLocal(_BasicConversions, ABC):
 
             Example
             -------
-            >>> d = LocalDateTime(2020, 8, 15, hour=4)
+            >>> d = PlainDateTime(2020, 8, 15, hour=4)
             >>> d.replace_time(Time(12, 30))
-            LocalDateTime(2020-08-15T12:30:00)
+            PlainDateTime(2020-08-15T12:30:00)
             >>> zdt = ZonedDateTime.now("Europe/London")
             >>> zdt.replace_time(Time(12, 30))
             ZonedDateTime(2024-06-15T12:30:00+01:00[Europe/London])
@@ -2817,7 +2903,7 @@ class _KnowsLocal(_BasicConversions, ABC):
             """
 
 
-class _KnowsInstant(_BasicConversions):
+class _ExactTime(_BasicConversions):
     """Methods for types that represent a specific moment in time.
 
     Implemented by:
@@ -2841,14 +2927,14 @@ class _KnowsInstant(_BasicConversions):
             """Create an instance from the current time.
 
             This method on :class:`~ZonedDateTime` and :class:`~OffsetDateTime` requires
-            a ``tz=`` and ``offset=`` kwarg, respectively.
+            an additional timezone or offset argument, respectively.
 
             Example
             -------
 
             >>> Instant.now()
             Instant(2021-08-15T22:12:00.49821Z)
-            >>> ZonedDateTime.now(tz="Europe/London")
+            >>> ZonedDateTime.now("Europe/London")
             ZonedDateTime(2021-08-15 23:12:00.50332+01:00[Europe/London])
 
             """
@@ -2886,7 +2972,7 @@ class _KnowsInstant(_BasicConversions):
         @classmethod
         def from_timestamp(cls: type[_T], i: int | float, /, **kwargs) -> _T:
             """Create an instance from a UNIX timestamp.
-            The inverse of :meth:`~_KnowsInstant.timestamp`.
+            The inverse of :meth:`~_ExactTime.timestamp`.
 
             :class:`~ZonedDateTime` and :class:`~OffsetDateTime` require
             a ``tz=`` and ``offset=`` kwarg, respectively.
@@ -2946,11 +3032,11 @@ class _KnowsInstant(_BasicConversions):
 
         Raises
         ------
-        ~zoneinfo.ZoneInfoNotFoundError
-            If the timezone ID is not found in the IANA database.
+        ~whenever.TimeZoneNotFoundError
+            If the timezone ID is not found in the system's timezone database.
         """
         return ZonedDateTime._from_py_unchecked(
-            self._py_dt.astimezone(ZoneInfo(tz)), self._nanos
+            self._py_dt.astimezone(_get_tz(tz)), self._nanos
         )
 
     def to_system_tz(self) -> SystemDateTime:
@@ -2987,12 +3073,12 @@ class _KnowsInstant(_BasicConversions):
             self._py_dt,  # type: ignore[attr-defined]
             self._py_dt.utcoffset(),  # type: ignore[attr-defined]
             self._nanos,  # type: ignore[attr-defined]
-            type(self._py_dt.tzinfo),  # type: ignore[attr-defined]
+            self._py_dt.tzinfo,  # type: ignore[attr-defined]
         ) == (
             other._py_dt,  # type: ignore[attr-defined]
             other._py_dt.utcoffset(),  # type: ignore[attr-defined]
             other._nanos,  # type: ignore[attr-defined]
-            type(other._py_dt.tzinfo),  # type: ignore[attr-defined]
+            other._py_dt.tzinfo,  # type: ignore[attr-defined]
         )
 
     def difference(
@@ -3027,7 +3113,7 @@ class _KnowsInstant(_BasicConversions):
         ... )
         True
         """
-        if not isinstance(other, _KnowsInstant):
+        if not isinstance(other, _ExactTime):
             return NotImplemented
         # We can't rely on simple equality, because it isn't equal
         # between two datetimes with different timezones if one of the
@@ -3039,7 +3125,7 @@ class _KnowsInstant(_BasicConversions):
             other._nanos,
         )
 
-    def __lt__(self, other: _KnowsInstant) -> bool:
+    def __lt__(self, other: _ExactTime) -> bool:
         """Compare two datetimes by when they occur in time
 
         ``a < b`` is equivalent to ``a.instant() < b.instant()``
@@ -3051,14 +3137,14 @@ class _KnowsInstant(_BasicConversions):
         ... )
         True
         """
-        if not isinstance(other, _KnowsInstant):
+        if not isinstance(other, _ExactTime):
             return NotImplemented
         return (self._py_dt.astimezone(_UTC), self._nanos) < (
             other._py_dt.astimezone(_UTC),
             other._nanos,
         )
 
-    def __le__(self, other: _KnowsInstant) -> bool:
+    def __le__(self, other: _ExactTime) -> bool:
         """Compare two datetimes by when they occur in time
 
         ``a <= b`` is equivalent to ``a.instant() <= b.instant()``
@@ -3070,14 +3156,14 @@ class _KnowsInstant(_BasicConversions):
         ... )
         True
         """
-        if not isinstance(other, _KnowsInstant):
+        if not isinstance(other, _ExactTime):
             return NotImplemented
         return (self._py_dt.astimezone(_UTC), self._nanos) <= (
             other._py_dt.astimezone(_UTC),
             other._nanos,
         )
 
-    def __gt__(self, other: _KnowsInstant) -> bool:
+    def __gt__(self, other: _ExactTime) -> bool:
         """Compare two datetimes by when they occur in time
 
         ``a > b`` is equivalent to ``a.instant() > b.instant()``
@@ -3089,14 +3175,14 @@ class _KnowsInstant(_BasicConversions):
         ... )
         True
         """
-        if not isinstance(other, _KnowsInstant):
+        if not isinstance(other, _ExactTime):
             return NotImplemented
         return (self._py_dt.astimezone(_UTC), self._nanos) > (
             other._py_dt.astimezone(_UTC),
             other._nanos,
         )
 
-    def __ge__(self, other: _KnowsInstant) -> bool:
+    def __ge__(self, other: _ExactTime) -> bool:
         """Compare two datetimes by when they occur in time
 
         ``a >= b`` is equivalent to ``a.instant() >= b.instant()``
@@ -3108,7 +3194,7 @@ class _KnowsInstant(_BasicConversions):
         ... )
         True
         """
-        if not isinstance(other, _KnowsInstant):
+        if not isinstance(other, _ExactTime):
             return NotImplemented
         return (self._py_dt.astimezone(_UTC), self._nanos) >= (
             other._py_dt.astimezone(_UTC),
@@ -3120,7 +3206,7 @@ class _KnowsInstant(_BasicConversions):
     if not TYPE_CHECKING:  # pragma: no branch
 
         @abstractmethod
-        def __sub__(self, other: _KnowsInstant) -> TimeDelta:
+        def __sub__(self, other: _ExactTime) -> TimeDelta:
             """Calculate the duration between two datetimes
 
             ``a - b`` is equivalent to ``a.instant() - b.instant()``
@@ -3135,7 +3221,7 @@ class _KnowsInstant(_BasicConversions):
             >>> d - ZonedDateTime(2020, 8, 15, hour=20, tz="Europe/Amsterdam")
             TimeDelta(05:00:00)
             """
-            if isinstance(other, _KnowsInstant):
+            if isinstance(other, _ExactTime):
                 py_delta = self._py_dt.astimezone(_UTC) - other._py_dt
                 return TimeDelta(
                     seconds=py_delta.days * 86_400 + py_delta.seconds,
@@ -3144,8 +3230,9 @@ class _KnowsInstant(_BasicConversions):
             return NotImplemented
 
 
-class _KnowsInstantAndLocal(_KnowsLocal, _KnowsInstant):
-    """Common behavior for all types that know both a local time and an instant:
+class _ExactAndLocalTime(_LocalTime, _ExactTime):
+    """Common behavior for all types that know an exact time and
+    corresponding local date and time-of-day.
 
     - :class:`ZonedDateTime`
     - :class:`OffsetDateTime`
@@ -3166,7 +3253,7 @@ class _KnowsInstantAndLocal(_KnowsLocal, _KnowsInstant):
             )
         )
 
-    def instant(self) -> Instant:
+    def to_instant(self) -> Instant:
         """Get the underlying instant in time
 
         Example
@@ -3180,22 +3267,36 @@ class _KnowsInstantAndLocal(_KnowsLocal, _KnowsInstant):
             self._py_dt.astimezone(_UTC), self._nanos
         )
 
-    def local(self) -> LocalDateTime:
-        """Get the underlying local date and time
+    def instant(self) -> Instant:
+        warnings.warn(
+            "instant() is deprecated. Use to_instant() instead.",
+            DeprecationWarning,
+        )
+        return self.to_instant()
 
-        As an inverse, :class:`LocalDateTime` has methods
-        :meth:`~LocalDateTime.assume_utc`, :meth:`~LocalDateTime.assume_fixed_offset`
-        , :meth:`~LocalDateTime.assume_tz`, and :meth:`~LocalDateTime.assume_system_tz`
+    def to_plain(self) -> PlainDateTime:
+        """Get the underlying date and time (without offset or timezone)
+
+        As an inverse, :class:`PlainDateTime` has methods
+        :meth:`~PlainDateTime.assume_utc`, :meth:`~PlainDateTime.assume_fixed_offset`
+        , :meth:`~PlainDateTime.assume_tz`, and :meth:`~PlainDateTime.assume_system_tz`
         which may require additional arguments.
         """
-        return LocalDateTime._from_py_unchecked(
+        return PlainDateTime._from_py_unchecked(
             self._py_dt.replace(tzinfo=None),
             self._nanos,
         )
 
+    def local(self) -> PlainDateTime:
+        warnings.warn(
+            "local() is deprecated. Use to_plain() instead.",
+            DeprecationWarning,
+        )
+        return self.to_plain()
+
 
 @final
-class Instant(_KnowsInstant):
+class Instant(_ExactTime):
     """Represents a moment in time with nanosecond precision.
 
     This class is great for representing a specific point in time independent
@@ -3295,7 +3396,7 @@ class Instant(_KnowsInstant):
         if d.tzinfo is None:
             raise ValueError(
                 "Cannot create Instant from a naive datetime. "
-                "Use LocalDateTime.from_py_datetime() for this."
+                "Use PlainDateTime.from_py_datetime() for this."
             )
         if d.utcoffset() is None:
             raise ValueError(
@@ -3320,39 +3421,36 @@ class Instant(_KnowsInstant):
 
     @classmethod
     def parse_common_iso(cls, s: str, /) -> Instant:
-        """Parse the popular ISO format ``YYYY-MM-DDTHH:MM:SSZ``
+        """Parse an ISO 8601 string. Supports basic and extended formats,
+        but not week dates or ordinal dates.
+
+        See the `docs on ISO8601 support <https://whenever.readthedocs.io/en/latest/overview.html#iso-8601>`_ for more information.
 
         The inverse of the ``format_common_iso()`` method.
-
-        Important
-        ---------
-        Nonzero offsets will *not* be implicitly converted to UTC,
-        but will raise a ``ValueError``.
-        Use ``OffsetDateTime.parse_common_iso`` if you'd like to
-        parse an ISO 8601 string with a nonzero offset.
         """
-        if (
-            (match := _match_utc_rfc3339(s)) is None
-            or s[10] != "T"
-            or s.endswith(("z", "-00:00"))
-        ):
-            raise ValueError(f"Invalid format: {s!r}")
-        nanos = int(match[7].ljust(9, "0")) if match[7] else 0
-        return cls._from_py_unchecked(
-            _fromisoformat(s[:19]).replace(tzinfo=_UTC), nanos
-        )
+        dt, nanos = _offset_dt_from_iso(s)
+        return cls._from_py_unchecked(dt.astimezone(_UTC), nanos)
 
     def format_rfc2822(self) -> str:
         """Format as an RFC 2822 string.
 
         The inverse of the ``parse_rfc2822()`` method.
 
+        Note
+        ----
+        The output is also compatible with the (stricter) RFC 9110 standard.
+
         Example
         -------
-        >>> Instant.from_utc(2020, 8, 15, hour=23, minute=12).format_rfc2822()
-        "Sat, 15 Aug 2020 23:12:00 GMT"
+        >>> Instant.from_utc(2020, 8, 8, hour=23, minute=12).format_rfc2822()
+        "Sat, 08 Aug 2020 23:12:00 GMT"
         """
-        return format_datetime(self._py_dt, usegmt=True)
+        return (
+            f"{_WEEKDAY_TO_RFC2822[self._py_dt.weekday()]}, "
+            f"{self._py_dt.day:02} "
+            f"{_MONTH_TO_RFC2822[self._py_dt.month]} {self._py_dt.year:04} "
+            f"{self._py_dt.time()} GMT"
+        )
 
     @classmethod
     def parse_rfc2822(cls, s: str, /) -> Instant:
@@ -3367,92 +3465,17 @@ class Instant(_KnowsInstant):
 
         >>> # also valid:
         >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 +0000")
+        >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 +0800")
         >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 -0000")
         >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 UT")
-        >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 UTC")
+        >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 MST")
 
-        >>> # Error: includes offset. Use OffsetDateTime.parse_rfc2822() instead
-        >>> Instant.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 +0200")
-
-        Important
-        ---------
-        - This function parses, but **does not validate** the input (yet).
-          This is due to the limitations of the underlying
-          function ``email.utils.parsedate_to_datetime()``.
-        - Nonzero offsets will not be implicitly converted to UTC.
-          Use ``OffsetDateTime.parse_rfc2822()`` if you'd like to
-          parse an RFC 2822 string with a nonzero offset.
+        Note
+        ----
+        - Although technically part of the RFC 2822 standard,
+          comments within folding whitespace are not supported.
         """
-        # FUTURE: disallow +0000
-        parsed = _parse_rfc2822(s)
-        # Nested ifs to keep happy path fast
-        if parsed.tzinfo is not _UTC:
-            if parsed.tzinfo is None:
-                if "-0000" not in s:
-                    raise ValueError(
-                        "Could not parse RFC 2822 string as UTC; missing "
-                        f"offset/zone: {s!r}"
-                    )
-                parsed = parsed.replace(tzinfo=_UTC)
-            else:
-                raise ValueError(
-                    "Could not parse RFC 2822 string as UTC; nonzero"
-                    f"offset: {s!r}"
-                )
-        return cls._from_py_unchecked(parsed, 0)
-
-    def format_rfc3339(self) -> str:
-        """Format as an RFC 3339 string ``YYYY-MM-DD HH:MM:SSZ``
-
-        If you prefer the ``T`` separator, use `format_common_iso()` instead.
-
-        The inverse of the ``parse_rfc3339()`` method.
-
-        Example
-        -------
-        >>> Instant.from_utc(2020, 8, 15, hour=23, minute=12).format_rfc3339()
-        "2020-08-15 23:12:00Z"
-        """
-        return (
-            self._py_dt.isoformat(sep=" ")[:-6]
-            + bool(self._nanos) * f".{self._nanos:09d}".rstrip("0")
-            + "Z"
-        )
-
-    @classmethod
-    def parse_rfc3339(cls, s: str, /) -> Instant:
-        """Parse a UTC datetime in RFC 3339 format.
-
-        The inverse of the ``format_rfc3339()`` method.
-
-        Example
-        -------
-        >>> Instant.parse_rfc3339("2020-08-15 23:12:00Z")
-        Instant(2020-08-15 23:12:00Z)
-        >>>
-        >>> # also valid:
-        >>> Instant.parse_rfc3339("2020-08-15T23:12:00+00:00")
-        >>> Instant.parse_rfc3339("2020-08-15_23:12:00.34Z")
-        >>> Instant.parse_rfc3339("2020-08-15t23:12:00z")
-        >>>
-        >>> # not valid (nonzero offset):
-        >>> Instant.parse_rfc3339("2020-08-15T23:12:00+02:00")
-
-        Important
-        ---------
-        Nonzero offsets will not be implicitly converted to UTC,
-        but will raise a ValueError.
-        Use :meth:`OffsetDateTime.parse_rfc3339` if you'd like to
-        parse an RFC 3339 string with a nonzero offset.
-        """
-        if (match := _match_utc_rfc3339(s)) is None:
-            raise ValueError(f"Invalid RFC 3339 format: {s!r}")
-        year, month, day, hour, minute, second = map(int, match.groups()[:6])
-        nanos = int(match.group(7).ljust(9, "0")) if match.group(7) else 0
-        return cls._from_py_unchecked(
-            _datetime(year, month, day, hour, minute, second, 0, _UTC),
-            nanos,
-        )
+        return cls._from_py_unchecked(_parse_rfc2822(s).astimezone(_UTC), 0)
 
     def add(
         self,
@@ -3560,16 +3583,16 @@ class Instant(_KnowsInstant):
         return NotImplemented
 
     @overload
-    def __sub__(self, other: _KnowsInstant) -> TimeDelta: ...
+    def __sub__(self, other: _ExactTime) -> TimeDelta: ...
 
     @overload
     def __sub__(self, other: TimeDelta) -> Instant: ...
 
-    def __sub__(self, other: TimeDelta | _KnowsInstant) -> Instant | TimeDelta:
+    def __sub__(self, other: TimeDelta | _ExactTime) -> Instant | TimeDelta:
         """Subtract another exact time or timedelta
 
         Subtraction of deltas happens in the same way as the :meth:`subtract` method.
-        Subtraction of instants happens the same way as the :meth:`~_KnowsInstant.difference` method.
+        Subtraction of instants happens the same way as the :meth:`~_ExactTime.difference` method.
 
         See the `docs on arithmetic <https://whenever.readthedocs.io/en/latest/overview.html#arithmetic>`_ for more information.
 
@@ -3581,7 +3604,7 @@ class Instant(_KnowsInstant):
         >>> d - Instant.from_utc(2020, 8, 14)
         TimeDelta(47:12:00)
         """
-        if isinstance(other, _KnowsInstant):
+        if isinstance(other, _ExactTime):
             return super().__sub__(other)  # type: ignore[misc, no-any-return]
         elif isinstance(other, TimeDelta):
             return self + -other
@@ -3596,22 +3619,15 @@ class Instant(_KnowsInstant):
     # a custom pickle implementation with a smaller payload
     def __reduce__(self) -> tuple[object, ...]:
         return (
-            _unpkl_utc,
-            (
-                pack(
-                    "<qL",
-                    int(self._py_dt.timestamp()) + _UNIX_INSTANT,
-                    self._nanos,
-                ),
-            ),
+            _unpkl_inst,
+            (pack("<qL", int(self._py_dt.timestamp()), self._nanos),),
         )
 
 
 _UNIX_INSTANT = -int(_datetime(1, 1, 1, tzinfo=_UTC).timestamp()) + 86_400
 
 
-# A separate unpickling function allows us to make backwards-compatible changes
-# to the pickling format in the future
+# Backwards compatibility for instances pickled before 0.8.0
 def _unpkl_utc(data: bytes) -> Instant:
     secs, nanos = unpack("<qL", data)
     return Instant._from_py_unchecked(
@@ -3619,10 +3635,18 @@ def _unpkl_utc(data: bytes) -> Instant:
     )
 
 
+# A separate unpickling function allows us to make backwards-compatible changes
+# to the pickling format in the future
+def _unpkl_inst(data: bytes) -> Instant:
+    secs, nanos = unpack("<qL", data)
+    return Instant._from_py_unchecked(_fromtimestamp(secs, _UTC), nanos)
+
+
 @final
-class OffsetDateTime(_KnowsInstantAndLocal):
+class OffsetDateTime(_ExactAndLocalTime):
     """A datetime with a fixed UTC offset.
-    Useful for representing the local time at a specific location.
+    Useful for representing a "static" local date and time-of-day
+    at a specific location.
 
     Example
     -------
@@ -3713,29 +3737,7 @@ class OffsetDateTime(_KnowsInstantAndLocal):
         >>> OffsetDateTime.parse_common_iso("2020-08-15T23:12:00+02:00")
         OffsetDateTime(2020-08-15 23:12:00+02:00)
         """
-        if (match := _match_offset_str(s)) is None:
-            raise ValueError(f"Invalid format: {s!r}")
-        nanos = int(match.group(7).ljust(9, "0")) if match.group(7) else 0
-        sign = -1 if match.group(8) == "-" else 1
-
-        offset_hrs_str, offset_mins_str, offset_secs_str = match.groups()[8:]
-        offset = 0
-        if offset_hrs_str:
-            offset += int(offset_hrs_str) * 3600 + int(offset_mins_str) * 60
-        if offset_secs_str:
-            offset += int(offset_secs_str)
-
-        if not -86400 < offset < 86400:
-            raise ValueError(f"Invalid format: {s!r}")
-
-        return cls._from_py_unchecked(
-            _check_utc_bounds(
-                _fromisoformat(s[:19]).replace(
-                    tzinfo=_timezone(_timedelta(seconds=offset * sign)),
-                )
-            ),
-            nanos,
-        )
+        return cls._from_py_unchecked(*_offset_dt_from_iso(s))
 
     @classmethod
     def from_timestamp(
@@ -3831,7 +3833,7 @@ class OffsetDateTime(_KnowsInstantAndLocal):
         if d.tzinfo is None:
             raise ValueError(
                 "Cannot create from a naive datetime. "
-                "Use LocalDateTime.from_py_datetime() for this."
+                "Use PlainDateTime.from_py_datetime() for this."
             )
         if (offset := d.utcoffset()) is None:
             raise ValueError(
@@ -3911,37 +3913,41 @@ class OffsetDateTime(_KnowsInstantAndLocal):
     def __hash__(self) -> int:
         return hash((self._py_dt, self._nanos))
 
-    def __sub__(self, other: _KnowsInstant) -> TimeDelta:
+    def __sub__(self, other: _ExactTime) -> TimeDelta:
         """Calculate the duration relative to another exact time."""
         if isinstance(other, (TimeDelta, DateDelta, DateTimeDelta)):
             raise ImplicitlyIgnoringDST(ADJUST_OFFSET_DATETIME_MSG)
         return super().__sub__(other)  # type: ignore[misc, no-any-return]
 
     @classmethod
-    def strptime(cls, s: str, /, fmt: str) -> OffsetDateTime:
-        """Simple alias for
-        ``OffsetDateTime.from_py_datetime(datetime.strptime(s, fmt))``
+    def parse_strptime(cls, s: str, /, *, format: str) -> OffsetDateTime:
+        """Parse a datetime with offset using the standard library ``strptime()`` method.
 
         Example
         -------
-        >>> OffsetDateTime.strptime("2020-08-15+0200", "%Y-%m-%d%z")
+        >>> OffsetDateTime.parse_strptime("2020-08-15+0200", format="%Y-%m-%d%z")
         OffsetDateTime(2020-08-15 00:00:00+02:00)
+
+        Note
+        ----
+        This method defers to the standard library ``strptime()`` method,
+        which may behave differently in different Python versions.
+        It also only supports up to microsecond precision.
 
         Important
         ---------
-        The parsed ``tzinfo`` must be a fixed offset
-        (``datetime.timezone`` instance).
-        This means you MUST include the directive ``%z``, ``%Z``, or ``%:z``
-        in the format string.
+        An offset *must* be present in the format string.
+        This means you MUST include the directive ``%z``, ``%Z``, or ``%:z``.
+        To parse a datetime without an offset, use ``PlainDateTime`` instead.
         """
-        parsed = _datetime.strptime(s, fmt)
-        # We only need to check for None, because the only other tzinfo
-        # returned from strptime is a fixed offset
-        if parsed.tzinfo is None:
+        parsed = _datetime.strptime(s, format)
+        if (offset := parsed.utcoffset()) is None:
             raise ValueError(
                 "Parsed datetime must have an offset. "
                 "Use %z, %Z, or %:z in the format string"
             )
+        if offset.microseconds:
+            raise ValueError("Sub-second offsets are not supported")
         return cls._from_py_unchecked(
             _check_utc_bounds(parsed.replace(microsecond=0)),
             parsed.microsecond * 1_000,
@@ -3957,7 +3963,18 @@ class OffsetDateTime(_KnowsInstantAndLocal):
         >>> OffsetDateTime(2020, 8, 15, 23, 12, offset=hours(2)).format_rfc2822()
         "Sat, 15 Aug 2020 23:12:00 +0200"
         """
-        return format_datetime(self._py_dt)
+        offset = int(self._py_dt.utcoffset().total_seconds())  # type: ignore[union-attr]
+        offset_sign = "-" if offset < 0 else "+"
+        offset = abs(offset)
+        offset_h = offset // 3600
+        offset_m = (offset % 3600) // 60
+        return (
+            f"{_WEEKDAY_TO_RFC2822[self._py_dt.weekday()]}, "
+            f"{self._py_dt.day:02} "
+            f"{_MONTH_TO_RFC2822[self._py_dt.month]} {self._py_dt.year:04} "
+            f"{self._py_dt.time()} "
+            f"{offset_sign}{offset_h:02}{offset_m:02}"
+        )
 
     @classmethod
     def parse_rfc2822(cls, s: str, /) -> OffsetDateTime:
@@ -3974,87 +3991,14 @@ class OffsetDateTime(_KnowsInstantAndLocal):
         >>> OffsetDateTime.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 GMT")
         >>> OffsetDateTime.parse_rfc2822("Sat, 15 Aug 2020 23:12:00 MST")
 
-        Warning
-        -------
-        - This function parses, but **does not validate** the input (yet).
-          This is due to the limitations of the underlying
-          function ``email.utils.parsedate_to_datetime()``.
-        - The offset ``-0000`` has special meaning in RFC 2822,
-          indicating a UTC time with unknown local offset.
-          Thus, it cannot be parsed to an :class:`OffsetDateTime`.
-        """
-        parsed = _parse_rfc2822(s)
-        if parsed.tzinfo is None:
-            raise ValueError(
-                "RFC 2822 string with missing or -0000 offset "
-                f"cannot be parsed as OffsetDateTime: {s!r}"
-            )
-        return cls._from_py_unchecked(parsed, 0)
-
-    def format_rfc3339(self) -> str:
-        """Format as an RFC 3339 string ``YYYY-MM-DD HH:MM:SS±HH:MM``
-
-        If you prefer the ``T`` separator, use ``format_common_iso()`` instead.
-
-        The inverse of the ``parse_rfc3339()`` method.
-
-        Example
-        -------
-        >>> OffsetDateTime(2020, 8, 15, hour=23, minute=12, offset=hours(4)).format_rfc3339()
-        "2020-08-15 23:12:00+04:00"
-
         Note
         ----
-        The RFC3339 format does not allow for second-level precision of the UTC offset.
-        This should not be a problem in practice, unless you're dealing with
-        pre-1950s timezones.
-        The ``format_common_iso()`` does support this precision.
+        - Strictly speaking, an offset of ``-0000`` means that the offset
+          is "unknown". Here, we treat it the same as +0000.
+        - Although technically part of the RFC 2822 standard,
+          comments within folding whitespace are not supported.
         """
-        py_isofmt = self._py_dt.isoformat(" ")
-        return (
-            py_isofmt[:19]  # without the offset
-            + bool(self._nanos) * f".{self._nanos:09d}".rstrip("0")
-            + py_isofmt[19:25]  # limit offset to minutes
-        )
-
-    @classmethod
-    def parse_rfc3339(cls, s: str, /) -> OffsetDateTime:
-        """Parse a fixed-offset datetime in RFC 3339 format.
-
-        The inverse of the ``format_rfc3339()`` method.
-
-        Example
-        -------
-        >>> OffsetDateTime.parse_rfc3339("2020-08-15 23:12:00+02:00")
-        OffsetDateTime(2020-08-15 23:12:00+02:00)
-        >>> # also valid:
-        >>> OffsetDateTime.parse_rfc3339("2020-08-15T23:12:00Z")
-        >>> OffsetDateTime.parse_rfc3339("2020-08-15_23:12:00.23-12:00")
-        >>> OffsetDateTime.parse_rfc3339("2020-08-15t23:12:00z")
-        """
-        if (match := _match_rfc3339(s)) is None:
-            raise ValueError(f"Invalid RFC 3339 format: {s!r}")
-        nanos = int(match[7].ljust(9, "0")) if match[7] else 0
-        offset_hrs_str, offset_mins_str = match.groups()[8:]
-
-        sign = -1 if match.group(8) == "-" else 1
-        offset = 0
-        if offset_hrs_str:
-            offset += int(offset_hrs_str) * 3600 + int(offset_mins_str) * 60
-
-        if not -86400 < offset < 86400:
-            raise ValueError(f"Invalid RFC 3339 format: {s!r}")
-
-        try:
-            py_dt = _check_utc_bounds(
-                _fromisoformat(s[:19]).replace(
-                    tzinfo=_timezone(_timedelta(seconds=offset * sign)),
-                )
-            )
-        except ValueError:
-            raise ValueError(f"Invalid RFC 3339 format: {s!r}")
-
-        return cls._from_py_unchecked(py_dt, nanos)
+        return cls._from_py_unchecked(_parse_rfc2822(s), 0)
 
     @no_type_check
     def add(self, *args, **kwargs) -> OffsetDateTime:
@@ -4198,7 +4142,7 @@ class OffsetDateTime(_KnowsInstantAndLocal):
         if ignore_dst is not True:
             raise ImplicitlyIgnoringDST(OFFSET_ROUNDING_DST_MSG)
         return (
-            self.local()
+            self.to_plain()
             ._round_unchecked(
                 increment_to_ns(unit, increment, any_hour_ok=False),
                 mode,
@@ -4216,7 +4160,7 @@ class OffsetDateTime(_KnowsInstantAndLocal):
             _unpkl_offset,
             (
                 pack(
-                    "<HBBBBBIl",
+                    "<HBBBBBil",
                     *self._py_dt.timetuple()[:6],
                     self._nanos,
                     int(self._py_dt.utcoffset().total_seconds()),  # type: ignore[union-attr]
@@ -4230,13 +4174,13 @@ class OffsetDateTime(_KnowsInstantAndLocal):
 # required by __reduce__.
 # Also, it allows backwards-compatible changes to the pickling format.
 def _unpkl_offset(data: bytes) -> OffsetDateTime:
-    *args, nanos, offset_secs = unpack("<HBBBBBIl", data)
+    *args, nanos, offset_secs = unpack("<HBBBBBil", data)
     args += (0, _timezone(_timedelta(seconds=offset_secs)))
     return OffsetDateTime._from_py_unchecked(_datetime(*args), nanos)
 
 
 @final
-class ZonedDateTime(_KnowsInstantAndLocal):
+class ZonedDateTime(_ExactAndLocalTime):
     """A datetime associated with a timezone in the IANA database.
     Useful for representing the exact time at a specific location.
 
@@ -4278,7 +4222,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
                 minute,
                 second,
                 0,
-                zone := ZoneInfo(tz),
+                zone := _get_tz(tz),
             ),
             zone,
             disambiguate,
@@ -4291,9 +4235,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
     def now(cls, tz: str, /) -> ZonedDateTime:
         """Create an instance from the current time in the given timezone."""
         secs, nanos = divmod(time_ns(), 1_000_000_000)
-        return cls._from_py_unchecked(
-            _fromtimestamp(secs, ZoneInfo(tz)), nanos
-        )
+        return cls._from_py_unchecked(_fromtimestamp(secs, _get_tz(tz)), nanos)
 
     def format_common_iso(self) -> str:
         """Convert to the popular ISO format ``YYYY-MM-DDTHH:MM:SS±HH:MM[TZ_ID]``
@@ -4335,33 +4277,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         The timezone ID is a recent extension to the ISO 8601 format (RFC 9557).
         Althought it is gaining popularity, it is not yet widely supported.
         """
-        if (match := _match_zoned_str(s)) is None:
-            raise ValueError(f"Invalid format: {s!r}")
-
-        nanos = int(match.group(7).ljust(9, "0")) if match[7] else 0
-        sign = -1 if match[8] == "-" else 1
-
-        offset_hrs_str, offset_mins_str, offset_secs_str = match.groups()[8:11]
-        offset_secs = 0
-        if offset_hrs_str:
-            offset_secs += (
-                int(offset_hrs_str) * 3600 + int(offset_mins_str) * 60
-            )
-        if offset_secs_str:
-            offset_secs += int(offset_secs_str)
-
-        if not -86400 < offset_secs < 86400:
-            raise ValueError(f"Invalid format: {s!r}")
-
-        offset = _timedelta(seconds=offset_secs * sign)
-        try:
-            naive_dt = _fromisoformat(s[:19])
-        except ValueError:
-            raise ValueError(f"Invalid format: {s!r}")
-        dt = _check_utc_bounds(naive_dt.replace(tzinfo=ZoneInfo(match[12])))
-        return cls._from_py_unchecked(
-            _adjust_fold_to_offset(dt, offset), nanos
-        )
+        return cls._from_py_unchecked(*_zdt_from_iso(s))
 
     @classmethod
     def from_timestamp(cls, i: int, /, *, tz: str) -> ZonedDateTime:
@@ -4371,7 +4287,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         """
         secs, fract = divmod(i, 1)
         return cls._from_py_unchecked(
-            _fromtimestamp(secs, ZoneInfo(tz)), int(fract * 1_000_000_000)
+            _fromtimestamp(secs, _get_tz(tz)), int(fract * 1_000_000_000)
         )
 
     @classmethod
@@ -4384,7 +4300,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
             raise TypeError("method requires an integer")
         secs, millis = divmod(i, 1_000)
         return cls._from_py_unchecked(
-            _fromtimestamp(secs, ZoneInfo(tz)), millis * 1_000_000
+            _fromtimestamp(secs, _get_tz(tz)), millis * 1_000_000
         )
 
     @classmethod
@@ -4396,9 +4312,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         if not isinstance(i, int):
             raise TypeError("method requires an integer")
         secs, nanos = divmod(i, 1_000_000_000)
-        return cls._from_py_unchecked(
-            _fromtimestamp(secs, ZoneInfo(tz)), nanos
-        )
+        return cls._from_py_unchecked(_fromtimestamp(secs, _get_tz(tz)), nanos)
 
     # FUTURE: optional `disambiguate` to override fold?
     @classmethod
@@ -4413,6 +4327,8 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         If the datetime is ambiguous (e.g. during a DST transition),
         the ``fold`` attribute is used to disambiguate the time.
         """
+        from zoneinfo import ZoneInfo
+
         if type(d.tzinfo) is not ZoneInfo:
             raise ValueError(
                 "Can only create ZonedDateTime from tzinfo=ZoneInfo (exactly), "
@@ -4420,7 +4336,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
             )
 
         # This ensures skipped times are disambiguated according to the fold.
-        d = d.astimezone(_UTC).astimezone(d.tzinfo)
+        d = d.astimezone(_UTC).astimezone(_get_tz(d.tzinfo.key))
         return cls._from_py_unchecked(
             _strip_subclasses(d.replace(microsecond=0)), d.microsecond * 1_000
         )
@@ -4487,7 +4403,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         except KeyError:
             pass
         else:
-            kwargs["tzinfo"] = zoneinfo_new = ZoneInfo(tz)
+            kwargs["tzinfo"] = zoneinfo_new = _get_tz(tz)
             if zoneinfo_new is not self._py_dt.tzinfo:
                 disambiguate = disambiguate or "compatible"
         nanos = _pop_nanos_kwarg(kwargs, self._nanos)
@@ -4537,20 +4453,18 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         return NotImplemented
 
     @overload
-    def __sub__(self, other: _KnowsInstant) -> TimeDelta: ...
+    def __sub__(self, other: _ExactTime) -> TimeDelta: ...
 
     @overload
     def __sub__(self, other: TimeDelta) -> ZonedDateTime: ...
 
-    def __sub__(
-        self, other: TimeDelta | _KnowsInstant
-    ) -> _KnowsInstant | TimeDelta:
+    def __sub__(self, other: TimeDelta | _ExactTime) -> _ExactTime | TimeDelta:
         """Subtract another datetime or duration.
 
         See `the docs <https://whenever.rtfd.io/en/latest/overview.html#arithmetic>`_
         for more information.
         """
-        if isinstance(other, _KnowsInstant):
+        if isinstance(other, _ExactTime):
             return super().__sub__(other)  # type: ignore[misc, no-any-return]
         elif isinstance(other, (TimeDelta, DateDelta, DateTimeDelta)):
             return self + -other
@@ -4649,7 +4563,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         )
 
     def is_ambiguous(self) -> bool:
-        """Whether the local time is ambiguous, e.g. due to a DST transition.
+        """Whether the date and time-of-day are ambiguous, e.g. due to a DST transition.
 
         Example
         -------
@@ -4737,7 +4651,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
         else:
             day_ns = 86_400_000_000_000
 
-        rounded_local = self.local()._round_unchecked(
+        rounded_local = self.to_plain()._round_unchecked(
             increment_ns, mode, day_ns
         )
         return self._from_py_unchecked(
@@ -4746,6 +4660,24 @@ class ZonedDateTime(_KnowsInstantAndLocal):
                 self._py_dt.utcoffset(),  # type: ignore[arg-type]
             ),
             rounded_local._nanos,
+        )
+
+    def py_datetime(self) -> _datetime:
+        # We convert to UTC first, then to a *non* file based ZoneInfo.
+        # We don't just `replace()` the timezone, because in theory
+        # they could disagree about the offset. This ensures we keep the
+        # same moment in time.
+        # FUTURE: write a test for this (a bit complicated)
+        from zoneinfo import ZoneInfo
+
+        return (
+            self._py_dt.astimezone(_UTC)
+            .astimezone(
+                ZoneInfo(self._py_dt.tzinfo.key)  # type: ignore[union-attr]
+            )
+            .replace(
+                microsecond=self._nanos // 1_000,
+            )
         )
 
     def __repr__(self) -> str:
@@ -4757,7 +4689,7 @@ class ZonedDateTime(_KnowsInstantAndLocal):
             _unpkl_zoned,
             (
                 pack(
-                    "<HBBBBBIl",
+                    "<HBBBBBil",
                     *self._py_dt.timetuple()[:6],
                     self._nanos,
                     int(self._py_dt.utcoffset().total_seconds()),  # type: ignore[union-attr]
@@ -4775,8 +4707,8 @@ def _unpkl_zoned(
     data: bytes,
     tz: str,
 ) -> ZonedDateTime:
-    *args, nanos, offset_secs = unpack("<HBBBBBIl", data)
-    args += (0, ZoneInfo(tz))
+    *args, nanos, offset_secs = unpack("<HBBBBBil", data)
+    args += (0, _get_tz(tz))
     return ZonedDateTime._from_py_unchecked(
         _adjust_fold_to_offset(
             _datetime(*args), _timedelta(seconds=offset_secs)
@@ -4786,7 +4718,7 @@ def _unpkl_zoned(
 
 
 @final
-class SystemDateTime(_KnowsInstantAndLocal):
+class SystemDateTime(_ExactAndLocalTime):
     """Represents a time in the system timezone.
     It is similar to ``OffsetDateTime``,
     but it knows about the system timezone and its DST transitions.
@@ -4867,8 +4799,7 @@ class SystemDateTime(_KnowsInstantAndLocal):
         See `the docs <https://whenever.rtfd.io/en/latest/overview.html#the-system-timezone>`_
         for more information.
         """
-        odt = OffsetDateTime.parse_common_iso(s)
-        return cls._from_py_unchecked(odt._py_dt, odt._nanos)
+        return cls._from_py_unchecked(*_offset_dt_from_iso(s))
 
     @classmethod
     def from_timestamp(cls, i: int | float, /) -> SystemDateTime:
@@ -5006,20 +4937,18 @@ class SystemDateTime(_KnowsInstantAndLocal):
         return NotImplemented
 
     @overload
-    def __sub__(self, other: _KnowsInstant) -> TimeDelta: ...
+    def __sub__(self, other: _ExactTime) -> TimeDelta: ...
 
     @overload
     def __sub__(self, other: TimeDelta) -> SystemDateTime: ...
 
-    def __sub__(
-        self, other: TimeDelta | _KnowsInstant
-    ) -> _KnowsInstant | Delta:
+    def __sub__(self, other: TimeDelta | _ExactTime) -> _ExactTime | Delta:
         """Subtract another datetime or duration
 
         See `the docs <https://whenever.rtfd.io/en/latest/overview.html#arithmetic>`_
         for more information.
         """
-        if isinstance(other, _KnowsInstant):
+        if isinstance(other, _ExactTime):
             return super().__sub__(other)  # type: ignore[misc, no-any-return]
         elif isinstance(other, (TimeDelta, DateDelta, DateTimeDelta)):
             return self + -other
@@ -5118,7 +5047,7 @@ class SystemDateTime(_KnowsInstantAndLocal):
         )
 
     def is_ambiguous(self) -> bool:
-        """Whether the local time is ambiguous, e.g. due to a DST transition.
+        """Whether the date and time-of-day is ambiguous, e.g. due to a DST transition.
 
         Example
         -------
@@ -5217,7 +5146,7 @@ class SystemDateTime(_KnowsInstantAndLocal):
         else:
             day_ns = 86_400_000_000_000
 
-        rounded_local = self.local()._round_unchecked(
+        rounded_local = self.to_plain()._round_unchecked(
             increment_ns, mode, day_ns
         )
         return self._from_py_unchecked(
@@ -5234,7 +5163,7 @@ class SystemDateTime(_KnowsInstantAndLocal):
             _unpkl_system,
             (
                 pack(
-                    "<HBBBBBIl",
+                    "<HBBBBBil",
                     *self._py_dt.timetuple()[:6],
                     self._nanos,
                     int(self._py_dt.utcoffset().total_seconds()),  # type: ignore[union-attr]
@@ -5248,17 +5177,20 @@ class SystemDateTime(_KnowsInstantAndLocal):
 # required by __reduce__.
 # Also, it allows backwards-compatible changes to the pickling format.
 def _unpkl_system(data: bytes) -> SystemDateTime:
-    *args, nanos, offset_secs = unpack("<HBBBBBIl", data)
+    *args, nanos, offset_secs = unpack("<HBBBBBil", data)
     args += (0, _timezone(_timedelta(seconds=offset_secs)))
     return SystemDateTime._from_py_unchecked(_datetime(*args), nanos)
 
 
 @final
-class LocalDateTime(_KnowsLocal):
-    """A local date and time, i.e. it would appear to people on a wall clock.
+class PlainDateTime(_LocalTime):
+    """A combination of date and time-of-day, without a timezone.
 
-    It can't be mixed with aware datetimes.
-    Conversion to aware datetimes can only be done by
+    Can be used to represent local time, i.e. how time appears to people
+    on a wall clock.
+
+    It can't be mixed with exact time types (e.g. ``Instant``, ``ZonedDateTime``)
+    Conversion to exact time types can only be done by
     explicitly assuming a timezone or offset.
 
     Examples of when to use this type:
@@ -5298,37 +5230,31 @@ class LocalDateTime(_KnowsLocal):
         )
 
     @classmethod
-    def parse_common_iso(cls, s: str, /) -> LocalDateTime:
+    def parse_common_iso(cls, s: str, /) -> PlainDateTime:
         """Parse the popular ISO format ``YYYY-MM-DDTHH:MM:SS``
 
         The inverse of the ``format_common_iso()`` method.
 
         Example
         -------
-        >>> LocalDateTime.parse_common_iso("2020-08-15T23:12:00")
-        LocalDateTime(2020-08-15 23:12:00)
+        >>> PlainDateTime.parse_common_iso("2020-08-15T23:12:00")
+        PlainDateTime(2020-08-15 23:12:00)
         """
-        if (match := _match_local_str(s)) is None:
-            raise ValueError(f"Invalid format: {s!r}")
-        year, month, day, hour, minute, second = map(int, match.groups()[:6])
-        nanos = int(match.group(7).ljust(9, "0")) if match.group(7) else 0
-        return cls._from_py_unchecked(
-            _datetime(year, month, day, hour, minute, second), nanos
-        )
+        return cls._from_py_unchecked(*_datetime_from_iso(s))
 
     @classmethod
-    def from_py_datetime(cls, d: _datetime, /) -> LocalDateTime:
+    def from_py_datetime(cls, d: _datetime, /) -> PlainDateTime:
         """Create an instance from a "naive" standard library ``datetime`` object"""
         if d.tzinfo is not None:
             raise ValueError(
-                "Can only create LocalDateTime from a naive datetime, "
+                "Can only create PlainDateTime from a naive datetime, "
                 f"got datetime with tzinfo={d.tzinfo!r}"
             )
         return cls._from_py_unchecked(
             _strip_subclasses(d.replace(microsecond=0)), d.microsecond * 1_000
         )
 
-    def replace(self, /, **kwargs: Any) -> LocalDateTime:
+    def replace(self, /, **kwargs: Any) -> PlainDateTime:
         """Construct a new instance with the given fields replaced."""
         if not _no_tzinfo_fold_or_ms(kwargs):
             raise TypeError(
@@ -5337,13 +5263,13 @@ class LocalDateTime(_KnowsLocal):
         nanos = _pop_nanos_kwarg(kwargs, self._nanos)
         return self._from_py_unchecked(self._py_dt.replace(**kwargs), nanos)
 
-    def replace_date(self, d: Date, /) -> LocalDateTime:
+    def replace_date(self, d: Date, /) -> PlainDateTime:
         """Construct a new instance with the date replaced."""
         return self._from_py_unchecked(
             _datetime.combine(d._py_date, self._py_dt.time()), self._nanos
         )
 
-    def replace_time(self, t: Time, /) -> LocalDateTime:
+    def replace_time(self, t: Time, /) -> PlainDateTime:
         """Construct a new instance with the time replaced."""
         return self._from_py_unchecked(
             _datetime.combine(self._py_dt.date(), t._py_time), t._nanos
@@ -5354,7 +5280,7 @@ class LocalDateTime(_KnowsLocal):
 
     def __eq__(self, other: object) -> bool:
         """Compare objects for equality.
-        Only ever equal to other :class:`LocalDateTime` instances with the
+        Only ever equal to other :class:`PlainDateTime` instances with the
         same values.
 
         Warning
@@ -5369,43 +5295,43 @@ class LocalDateTime(_KnowsLocal):
 
         Example
         -------
-        >>> LocalDateTime(2020, 8, 15, 23) == LocalDateTime(2020, 8, 15, 23)
+        >>> PlainDateTime(2020, 8, 15, 23) == PlainDateTime(2020, 8, 15, 23)
         True
-        >>> LocalDateTime(2020, 8, 15, 23, 1) == LocalDateTime(2020, 8, 15, 23)
+        >>> PlainDateTime(2020, 8, 15, 23, 1) == PlainDateTime(2020, 8, 15, 23)
         False
-        >>> LocalDateTime(2020, 8, 15) == Instant.from_utc(2020, 8, 15)
+        >>> PlainDateTime(2020, 8, 15) == Instant.from_utc(2020, 8, 15)
         False  # Use mypy's --strict-equality flag to detect this.
         """
-        if not isinstance(other, LocalDateTime):
+        if not isinstance(other, PlainDateTime):
             return NotImplemented
         return (self._py_dt, self._nanos) == (other._py_dt, other._nanos)
 
-    MIN: ClassVar[LocalDateTime]
+    MIN: ClassVar[PlainDateTime]
     """The minimum representable value of this type."""
-    MAX: ClassVar[LocalDateTime]
+    MAX: ClassVar[PlainDateTime]
     """The maximum representable value of this type."""
 
-    def __lt__(self, other: LocalDateTime) -> bool:
-        if not isinstance(other, LocalDateTime):
+    def __lt__(self, other: PlainDateTime) -> bool:
+        if not isinstance(other, PlainDateTime):
             return NotImplemented
         return (self._py_dt, self._nanos) < (other._py_dt, other._nanos)
 
-    def __le__(self, other: LocalDateTime) -> bool:
-        if not isinstance(other, LocalDateTime):
+    def __le__(self, other: PlainDateTime) -> bool:
+        if not isinstance(other, PlainDateTime):
             return NotImplemented
         return (self._py_dt, self._nanos) <= (other._py_dt, other._nanos)
 
-    def __gt__(self, other: LocalDateTime) -> bool:
-        if not isinstance(other, LocalDateTime):
+    def __gt__(self, other: PlainDateTime) -> bool:
+        if not isinstance(other, PlainDateTime):
             return NotImplemented
         return (self._py_dt, self._nanos) > (other._py_dt, other._nanos)
 
-    def __ge__(self, other: LocalDateTime) -> bool:
-        if not isinstance(other, LocalDateTime):
+    def __ge__(self, other: PlainDateTime) -> bool:
+        if not isinstance(other, PlainDateTime):
             return NotImplemented
         return (self._py_dt, self._nanos) >= (other._py_dt, other._nanos)
 
-    def __add__(self, delta: DateDelta) -> LocalDateTime:
+    def __add__(self, delta: DateDelta) -> PlainDateTime:
         """Add a delta to this datetime.
 
         See :ref:`the docs on arithmetic <arithmetic>` for more information.
@@ -5422,7 +5348,7 @@ class LocalDateTime(_KnowsLocal):
             raise ImplicitlyIgnoringDST(SHIFT_LOCAL_MSG)
         return NotImplemented
 
-    def __sub__(self, other: DateDelta) -> LocalDateTime:
+    def __sub__(self, other: DateDelta) -> PlainDateTime:
         """Subtract another datetime or delta
 
         See :ref:`the docs on arithmetic <arithmetic>` for more information.
@@ -5430,18 +5356,18 @@ class LocalDateTime(_KnowsLocal):
         # Handling these extra types allows for descriptive error messages
         if isinstance(other, (DateDelta, TimeDelta, DateTimeDelta)):
             return self + -other
-        elif isinstance(other, LocalDateTime):
+        elif isinstance(other, PlainDateTime):
             raise ImplicitlyIgnoringDST(DIFF_OPERATOR_LOCAL_MSG)
         return NotImplemented
 
     def difference(
-        self, other: LocalDateTime, /, *, ignore_dst: bool = False
+        self, other: PlainDateTime, /, *, ignore_dst: bool = False
     ) -> TimeDelta:
-        """Calculate the difference between two local datetimes.
+        """Calculate the difference between two times without a timezone.
 
         Important
         ---------
-        The difference between two local datetimes implicitly ignores
+        The difference between two datetimes without a timezone implicitly ignores
         DST transitions and other timezone changes.
         To perform DST-safe operations, convert to a ``ZonedDateTime`` first.
         Or, if you don't know the timezone and accept potentially incorrect results
@@ -5459,12 +5385,12 @@ class LocalDateTime(_KnowsLocal):
         )
 
     @no_type_check
-    def add(self, *args, **kwargs) -> LocalDateTime:
+    def add(self, *args, **kwargs) -> PlainDateTime:
         """Add a time amount to this datetime.
 
         Important
         ---------
-        Shifting a ``LocalDateTime`` with **exact units** (e.g. hours, seconds)
+        Shifting a ``PlainDateTime`` with **exact units** (e.g. hours, seconds)
         implicitly ignores DST transitions and other timezone changes.
         If you need to account for these, convert to a ``ZonedDateTime`` first.
         Or, if you don't know the timezone and accept potentially incorrect results
@@ -5476,12 +5402,12 @@ class LocalDateTime(_KnowsLocal):
         return self._shift(1, *args, **kwargs)
 
     @no_type_check
-    def subtract(self, *args, **kwargs) -> LocalDateTime:
+    def subtract(self, *args, **kwargs) -> PlainDateTime:
         """Subtract a time amount from this datetime.
 
         Important
         ---------
-        Shifting a ``LocalDateTime`` with **exact units** (e.g. hours, seconds)
+        Shifting a ``PlainDateTime`` with **exact units** (e.g. hours, seconds)
         implicitly ignores DST transitions and other timezone changes.
         If you need to account for these, convert to a ``ZonedDateTime`` first.
         Or, if you don't know the timezone and accept potentially incorrect results
@@ -5501,7 +5427,7 @@ class LocalDateTime(_KnowsLocal):
         *,
         ignore_dst: bool = False,
         **kwargs,
-    ) -> LocalDateTime:
+    ) -> PlainDateTime:
         if kwargs:
             if arg is _UNSET:
                 return self._shift_kwargs(sign, ignore_dst, **kwargs)
@@ -5533,7 +5459,7 @@ class LocalDateTime(_KnowsLocal):
         milliseconds: float = 0,
         microseconds: float = 0,
         nanoseconds: int = 0,
-    ) -> LocalDateTime:
+    ) -> PlainDateTime:
         py_dt_with_new_date = self.replace_date(
             self.date()
             ._add_months(sign * (years * 12 + months))
@@ -5560,22 +5486,27 @@ class LocalDateTime(_KnowsLocal):
         )
 
     @classmethod
-    def strptime(cls, s: str, /, fmt: str) -> LocalDateTime:
-        """Simple alias for
-        ``LocalDateTime.from_py_datetime(datetime.strptime(s, fmt))``
+    def parse_strptime(cls, s: str, /, *, format: str) -> PlainDateTime:
+        """Parse a plain datetime using the standard library ``strptime()`` method.
 
         Example
         -------
-        >>> LocalDateTime.strptime("2020-08-15", "%Y-%m-%d")
-        LocalDateTime(2020-08-15 00:00:00)
+        >>> PlainDateTime.parse_strptime("2020-08-15", format="%d/%m/%Y_%H:%M")
+        PlainDateTime(2020-08-15 00:00:00)
 
         Note
         ----
-        The parsed ``tzinfo`` must be be ``None``.
-        This means you CANNOT include the directives ``%z``, ``%Z``, or ``%:z``
-        in the format string.
+        This method defers to the standard library ``strptime()`` method,
+        which may behave differently in different Python versions.
+        It also only supports up to microsecond precision.
+
+        Important
+        ---------
+        There may not be an offset in the format string.
+        This means you CANNOT use the directives ``%z``, ``%Z``, or ``%:z``.
+        Use ``OffsetDateTime`` to parse datetimes with an offset.
         """
-        parsed = _datetime.strptime(s, fmt)
+        parsed = _datetime.strptime(s, format)
         if parsed.tzinfo is not None:
             raise ValueError(
                 "Parsed datetime can't have an offset. "
@@ -5590,7 +5521,7 @@ class LocalDateTime(_KnowsLocal):
 
         Example
         -------
-        >>> LocalDateTime(2020, 8, 15, 23, 12).assume_utc()
+        >>> PlainDateTime(2020, 8, 15, 23, 12).assume_utc()
         Instant(2020-08-15 23:12:00Z)
         """
         return Instant._from_py_unchecked(
@@ -5604,7 +5535,7 @@ class LocalDateTime(_KnowsLocal):
 
         Example
         -------
-        >>> LocalDateTime(2020, 8, 15, 23, 12).assume_fixed_offset(+2)
+        >>> PlainDateTime(2020, 8, 15, 23, 12).assume_fixed_offset(+2)
         OffsetDateTime(2020-08-15 23:12:00+02:00)
         """
         return OffsetDateTime._from_py_unchecked(
@@ -5619,7 +5550,7 @@ class LocalDateTime(_KnowsLocal):
 
         Note
         ----
-        The local datetime may be ambiguous in the given timezone
+        The local time may be ambiguous in the given timezone
         (e.g. during a DST transition). Therefore, you must explicitly
         specify how to handle such a situation using the ``disambiguate`` argument.
         See `the documentation <https://whenever.rtfd.io/en/latest/overview.html#ambiguity-in-timezones>`_
@@ -5627,13 +5558,13 @@ class LocalDateTime(_KnowsLocal):
 
         Example
         -------
-        >>> d = LocalDateTime(2020, 8, 15, 23, 12)
+        >>> d = PlainDateTime(2020, 8, 15, 23, 12)
         >>> d.assume_tz("Europe/Amsterdam", disambiguate="raise")
         ZonedDateTime(2020-08-15 23:12:00+02:00[Europe/Amsterdam])
         """
         return ZonedDateTime._from_py_unchecked(
             _resolve_ambiguity(
-                self._py_dt.replace(tzinfo=(zone := ZoneInfo(tz))),
+                self._py_dt.replace(tzinfo=(zone := _get_tz(tz))),
                 zone,
                 disambiguate,
             ),
@@ -5648,7 +5579,7 @@ class LocalDateTime(_KnowsLocal):
 
         Note
         ----
-        The local datetime may be ambiguous in the system timezone
+        The local time may be ambiguous in the system timezone
         (e.g. during a DST transition). Therefore, you must explicitly
         specify how to handle such a situation using the ``disambiguate`` argument.
         See `the documentation <https://whenever.rtfd.io/en/latest/overview.html#ambiguity-in-timezones>`_
@@ -5656,7 +5587,7 @@ class LocalDateTime(_KnowsLocal):
 
         Example
         -------
-        >>> d = LocalDateTime(2020, 8, 15, 23, 12)
+        >>> d = PlainDateTime(2020, 8, 15, 23, 12)
         >>> # assuming system timezone is America/New_York
         >>> d.assume_system_tz(disambiguate="raise")
         SystemDateTime(2020-08-15 23:12:00-04:00)
@@ -5681,17 +5612,17 @@ class LocalDateTime(_KnowsLocal):
         mode: Literal[
             "ceil", "floor", "half_ceil", "half_floor", "half_even"
         ] = "half_even",
-    ) -> LocalDateTime:
+    ) -> PlainDateTime:
         """Round the datetime to the specified unit and increment.
         Different rounding modes are available.
 
         Examples
         --------
-        >>> d = LocalDateTime(2020, 8, 15, 23, 24, 18)
+        >>> d = PlainDateTime(2020, 8, 15, 23, 24, 18)
         >>> d.round("day")
-        LocalDateTime(2020-08-16 00:00:00)
+        PlainDateTime(2020-08-16 00:00:00)
         >>> d.round("minute", increment=15, mode="floor")
-        LocalDateTime(2020-08-15 23:15:00)
+        PlainDateTime(2020-08-15 23:15:00)
 
         Note
         ----
@@ -5706,32 +5637,32 @@ class LocalDateTime(_KnowsLocal):
 
     def _round_unchecked(
         self, increment_ns: int, mode: str, day_ns: int
-    ) -> LocalDateTime:
+    ) -> PlainDateTime:
         rounded_time, next_day = self.time()._round_unchecked(
             increment_ns, mode, day_ns
         )
         return self.date()._add_days(next_day).at(rounded_time)
 
     def __repr__(self) -> str:
-        return f"LocalDateTime({str(self).replace('T', ' ')})"
+        return f"PlainDateTime({str(self).replace('T', ' ')})"
 
     # a custom pickle implementation with a smaller payload
     def __reduce__(self) -> tuple[object, ...]:
         return (
             _unpkl_local,
-            (pack("<HBBBBBI", *self._py_dt.timetuple()[:6], self._nanos),),
+            (pack("<HBBBBBi", *self._py_dt.timetuple()[:6], self._nanos),),
         )
 
 
 # A separate unpickling function allows us to make backwards-compatible changes
 # to the pickling format in the future
 @no_type_check
-def _unpkl_local(data: bytes) -> LocalDateTime:
-    *args, nanos = unpack("<HBBBBBI", data)
-    return LocalDateTime._from_py_unchecked(_datetime(*args), nanos)
+def _unpkl_local(data: bytes) -> PlainDateTime:
+    *args, nanos = unpack("<HBBBBBi", data)
+    return PlainDateTime._from_py_unchecked(_datetime(*args), nanos)
 
 
-class RepeatedTime(Exception):
+class RepeatedTime(ValueError):
     """A datetime is repeated in a timezone, e.g. because of DST"""
 
     @classmethod
@@ -5747,7 +5678,7 @@ class RepeatedTime(Exception):
         )
 
 
-class SkippedTime(Exception):
+class SkippedTime(ValueError):
     """A datetime is skipped in a timezone, e.g. because of DST"""
 
     @classmethod
@@ -5763,12 +5694,20 @@ class SkippedTime(Exception):
         )
 
 
-class InvalidOffset(ValueError):
+class InvalidOffsetError(ValueError):
     """A string has an invalid offset for the given zone"""
 
 
 class ImplicitlyIgnoringDST(TypeError):
     """A calculation was performed that implicitly ignored DST"""
+
+
+class TimeZoneNotFoundError(ValueError):
+    """A timezone with the given ID was not found"""
+
+    @classmethod
+    def for_key(cls, key: str) -> TimeZoneNotFoundError:
+        return cls(f"No time zone found for key: {key!r}")
 
 
 _IGNORE_DST_SUGGESTION = (
@@ -5780,19 +5719,19 @@ _IGNORE_DST_SUGGESTION = (
 
 
 SHIFT_LOCAL_MSG = (
-    "Adding or subtracting a (date)time delta to a local datetime "
+    "Adding or subtracting a (date)time delta to a datetime without timezone "
     "implicitly ignores DST transitions and other timezone "
     "changes. Use the `add` or `subtract` method instead."
 )
 
 DIFF_OPERATOR_LOCAL_MSG = (
-    "The difference between two local datetimes implicitly ignores "
+    "The difference between two datetimes without timezone implicitly ignores "
     "DST transitions and other timezone changes. "
     "Use the `difference` method instead."
 )
 
 DIFF_LOCAL_MSG = (
-    "The difference between two local datetimes implicitly ignores "
+    "The difference between two datetimes without timezone implicitly ignores "
     "DST transitions and other timezone changes. " + _IGNORE_DST_SUGGESTION
 )
 
@@ -5831,7 +5770,7 @@ ADJUST_OFFSET_DATETIME_MSG = (
 )
 
 ADJUST_LOCAL_DATETIME_MSG = (
-    "Adjusting a local datetime by time units (e.g. hours and minutess) ignores "
+    "Adjusting a datetime without timezone by time units (e.g. hours and minutess) ignores "
     "DST and other timezone changes. " + _IGNORE_DST_SUGGESTION
 )
 
@@ -5951,49 +5890,425 @@ def _load_offset(offset: int | TimeDelta, /) -> _timezone:
 
 # Helpers that pre-compute/lookup as much as possible
 _no_tzinfo_fold_or_ms = {"tzinfo", "fold", "microsecond"}.isdisjoint
-_fromisoformat = _datetime.fromisoformat
 _fromtimestamp = _datetime.fromtimestamp
-_DT_RE_GROUPED = r"(\d{4})-([0-2]\d)-([0-3]\d)T([0-2]\d):([0-5]\d):([0-5]\d)(?:\.(\d{1,9}))?"
-_OFFSET_DATETIME_RE = (
-    _DT_RE_GROUPED + r"(?:([+-])([0-2]\d):([0-5]\d)(?::([0-5]\d))?|Z)"
-)
-_match_local_str = re.compile(_DT_RE_GROUPED, re.ASCII).fullmatch
-_match_offset_str = re.compile(_OFFSET_DATETIME_RE, re.ASCII).fullmatch
-_match_zoned_str = re.compile(
-    _OFFSET_DATETIME_RE + r"\[([^\]]{1,255})\]", re.ASCII
-).fullmatch
-_match_utc_rfc3339 = re.compile(
-    r"(\d{4})-([0-1]\d)-([0-3]\d)[ _Tt]([0-2]\d):([0-5]\d):([0-6]\d)(?:\.(\d{1,9}))?(?:[Zz]|[+-]00:00)",
-    re.ASCII,
-).fullmatch
-_match_rfc3339 = re.compile(
-    r"(\d{4})-([0-2]\d)-([0-3]\d)[Tt_ ]([0-2]\d):([0-5]\d):([0-5]\d)(?:\.(\d{1,9}))?"
-    r"(?:[Zz]|([+-])(\d{2}):([0-5]\d))",
-    re.ASCII,
-).fullmatch
-_match_datetimedelta = re.compile(
-    r"([-+]?)P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?"
-    r"(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d{1,9})?)?S)?)?",
-    re.ASCII,
-).fullmatch
-_match_time = re.compile(
-    r"([0-2]\d):([0-5]\d):([0-5]\d)(?:\.(\d{1,9}))?", re.ASCII
-).fullmatch
-_match_next_timedelta_component = re.compile(
-    r"^(\d{1,35}(?:\.\d{1,9})?)([HMS])", re.ASCII
-).match
-_match_next_datedelta_component = re.compile(
-    r"^(\d{1,8})([YMWD])", re.ASCII
-).match
-_match_yearmonth = re.compile(r"\d{4}-\d{2}", re.ASCII).fullmatch
-_match_monthday = re.compile(r"--\d{2}-\d{2}", re.ASCII).fullmatch
+
+
+def _parse_err(s: str) -> NoReturn:
+    raise ValueError(f"Invalid format: {s!r}") from None
+
+
+def _parse_nanos(s: str) -> _Nanos:
+    if len(s) > 9 or not s.isdigit() or not s.isascii():
+        raise ValueError("Invalid decimals")
+    return int(s.ljust(9, "0"))
+
+
+def _split_nextchar(
+    s: str, chars: str, start: int = 0, end: int = -1
+) -> tuple[str, str | None, str]:
+    for c in chars:
+        if (idx := s.find(c, start, end)) != -1:
+            return (s[:idx], c, s[idx + 1 :])
+    return (s, None, "")
+
+
+_is_sep = " Tt".__contains__
+
+
+def _offset_from_iso(s: str) -> _timedelta:
+    if len(s) == 5 and s[2] == ":" and s[3] < "6":  # most common: HH:MM
+        return _timedelta(hours=int(s[:2]), minutes=int(s[3:]))
+    elif len(s) == 4 and s[2] < "6":  # HHMM
+        return _timedelta(hours=int(s[:2]), minutes=int(s[2:]))
+    elif len(s) == 2:  # HH
+        return _timedelta(hours=int(s))
+    elif (
+        len(s) == 8
+        and s[2] == ":"
+        and s[5] == ":"
+        and s[3] < "6"
+        and s[6] < "6"
+    ):  # HH:MM:SS
+        return _timedelta(
+            hours=int(s[:2]), minutes=int(s[3:5]), seconds=int(s[6:])
+        )
+    elif len(s) == 6:  # HHMMSS
+        return _timedelta(
+            hours=int(s[:2]), minutes=int(s[2:4]), seconds=int(s[4:])
+        )
+    else:
+        raise ValueError("Invalid offset format")
+
+
+def _datetime_from_iso(s: str) -> tuple[_datetime, _Nanos]:
+    if len(s) < 11 or "W" in s or not s.isascii():
+        _parse_err(s)
+
+    # OPTIMIZE: the happy path can be faster
+    try:
+        if _is_sep(s[10]):  # date in extended format
+            rest, date = s[11:], _date.fromisoformat(s[:10])
+        elif _is_sep(s[8]):  # date in basic format
+            rest, date = s[9:], __date_from_iso_basic(s[:8])
+        else:
+            _parse_err(s)
+        time, nanos = _time_from_iso(rest)
+    except ValueError:
+        _parse_err(s)
+
+    return _datetime.combine(date, time), nanos
+
+
+def _offset_dt_from_iso(s: str) -> tuple[_datetime, _Nanos]:
+    if len(s) < 11 or "W" in s[:11] or not s.isascii():
+        _parse_err(s)
+
+    try:
+        if _is_sep(s[10]):  # date in extended format
+            rest, date = s[11:], _date.fromisoformat(s[:10])
+        elif _is_sep(s[8]):  # date in basic format
+            rest, date = s[9:], __date_from_iso_basic(s[:8])
+        else:
+            _parse_err(s)
+        time, nanos, offset, _ = _time_offset_tz_from_iso(rest)
+        if offset is None:
+            raise ValueError("Missing offset")
+        elif offset == "Z":
+            tzinfo = _UTC
+        else:
+            assert isinstance(offset, _timedelta)
+            tzinfo = _timezone(offset)
+
+        return (
+            _check_utc_bounds(_datetime.combine(date, time, tzinfo)),
+            nanos,
+        )
+    except ValueError:
+        _parse_err(s)
+
+
+def _zdt_from_iso(s: str) -> tuple[_datetime, _Nanos]:
+    if len(s) < 11 or "W" in s[:11] or not s.isascii():
+        _parse_err(s)
+
+    try:
+        if _is_sep(s[10]):  # date in extended format
+            rest, date = s[11:], _date.fromisoformat(s[:10])
+        elif _is_sep(s[8]):  # date in basic format
+            rest, date = s[9:], __date_from_iso_basic(s[:8])
+        else:
+            _parse_err(s)
+        time, nanos, offset, tzid = _time_offset_tz_from_iso(rest)
+    except ValueError:
+        _parse_err(s)
+
+    if tzid is None:
+        _parse_err(s)
+
+    tz = _get_tz(tzid)
+
+    if offset is None:
+        dt = _resolve_ambiguity(
+            _datetime.combine(date, time, tz),
+            tz,
+            "compatible",
+        )
+    elif offset == "Z":
+        dt = _datetime.combine(date, time, _UTC).astimezone(tz)
+    else:
+        assert isinstance(offset, _timedelta)
+        try:
+            _timezone(offset)  # check if offset is <24 hours
+        except ValueError:
+            _parse_err(s)
+        dt = _datetime.combine(date, time, tz)
+        # detect a gap
+        dt_norm = dt.astimezone(_UTC).astimezone(tz)
+        if dt_norm != dt:
+            raise InvalidOffsetError()
+        elif dt.utcoffset() != offset:
+            dt = dt.replace(fold=1)
+            if dt.utcoffset() != offset:
+                raise InvalidOffsetError()
+
+    return (dt, nanos)
+
+
+def _time_from_iso(s_orig: str) -> tuple[_time, _Nanos]:
+    s, sep, nanos_raw = _split_nextchar(s_orig, ".,", 6, 9)
+
+    try:
+        return (
+            __time_from_iso_nofrac(s),
+            _parse_nanos(nanos_raw) if sep else 0,
+        )
+    except ValueError:
+        _parse_err(s_orig)
+
+
+# Parse the time, UTC offset, and timezone ID
+def _time_offset_tz_from_iso(
+    s: str,
+) -> tuple[_time, _Nanos, _timedelta | Literal["Z"] | None, _BenignKey | None]:
+    # ditch the bracketted timezone (if present)
+    if s.endswith("]"):
+        # NOTE: sorry for the unicode escape sequences. Literal brackets
+        # break my LSP's indentation detection. \x5b is open bracket ']'
+        s, tz_raw = s[:-1].rsplit("\x5b", 1)
+        tz = _validate_key(tz_raw)
+    else:
+        tz = None
+
+    # determine the offset
+    offset: Literal["Z"] | _timedelta | None
+    if s.endswith(("Z", "z")):
+        s_time = s[:-1]
+        offset = "Z"
+    else:
+        s_time, sign, s_offset = _split_nextchar(s, "+-")
+        if sign is None:
+            offset = None
+        else:
+            offset = _offset_from_iso(s_offset)
+            if sign == "-":
+                offset = -offset
+
+    time, nanos = _time_from_iso(s_time)
+    return (time, nanos, offset, tz)
+
+
+def _yearmonth_from_iso(s: str) -> _date:
+    if not s.isascii():
+        _parse_err(s)
+    try:
+        if len(s) == 7 and s[4] == "-":
+            year, month = int(s[:4]), int(s[5:])
+        elif len(s) == 6:
+            year, month = int(s[:4]), int(s[4:])
+        else:
+            _parse_err(s)
+        return _date(year, month, 1)
+    except ValueError:
+        _parse_err(s)
+
+
+def _monthday_from_iso(s: str) -> _date:
+    if not (s.startswith("--") and s.isascii()):
+        _parse_err(s)
+    try:
+        if len(s) == 7 and s[4] == "-":
+            month, day = int(s[2:4]), int(s[5:])
+        elif len(s) == 6:
+            month, day = int(s[2:4]), int(s[4:])
+        else:
+            _parse_err(s)
+        return _date(_DUMMY_LEAP_YEAR, month, day)
+    except ValueError:
+        _parse_err(s)
+
+
+# The ISO parsing functions were improved in Python 3.11,
+# so we use them if available.
+if _PY311:
+
+    __date_from_iso_basic = _date.fromisoformat
+
+    def __time_from_iso_nofrac(s: str) -> _time:
+        # Compensate for a bug in CPython where times like "12:34:56:78" are
+        # accepted as valid times. This is only fixed in Python 3.14+
+        if s.count(":") > 2:
+            raise ValueError()
+        if all(map("0123456789:".__contains__, s)):
+            return _time.fromisoformat(s)
+        raise ValueError()
+
+    def _date_from_iso(s: str) -> _date:
+        # prevent isoformat from parsing stuff we don't want it to
+        if "W" in s or not s.isascii():
+            _parse_err(s)
+        try:
+            return _date.fromisoformat(s)
+        except ValueError:
+            _parse_err(s)
+
+else:  # pragma: no cover
+
+    def __date_from_iso_basic(s: str, /) -> _date:
+        return _date.fromisoformat(s[:4] + "-" + s[4:6] + "-" + s[6:8])
+
+    def __time_from_iso_nofrac(s: str) -> _time:
+        # Compensate for the fact that Python's isoformat
+        # doesn't support basic ISO 8601 formats
+        if len(s) == 4:
+            s = s[:2] + ":" + s[2:]
+        elif len(s) == 6:
+            s = s[:2] + ":" + s[2:4] + ":" + s[4:]
+        if all(map("0123456789:".__contains__, s)):
+            return _time.fromisoformat(s)
+        raise ValueError()
+
+    def _date_from_iso(s: str) -> _date:
+        if not s.isascii():
+            _parse_err(s)
+        try:
+            if len(s) == 8:
+                return __date_from_iso_basic(s)
+            return _date.fromisoformat(s)
+        except ValueError:
+            _parse_err(s)
+
+
+_RFC2822_WEEKDAY_TO_ISO = {
+    "mon": 1,
+    "tue": 2,
+    "wed": 3,
+    "thu": 4,
+    "fri": 5,
+    "sat": 6,
+    "sun": 7,
+}
+
+_WEEKDAY_TO_RFC2822 = [s.title() for s in _RFC2822_WEEKDAY_TO_ISO]
+
+_RFC2822_MONTH_NAMES = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+
+_MONTH_TO_RFC2822 = [s.title() for s in _RFC2822_MONTH_NAMES]
+_MONTH_TO_RFC2822.insert(0, "")  # 1-indexed
+
+_RFC2822_ZONES = {
+    "EST": -5,
+    "EDT": -4,
+    "CST": -6,
+    "CDT": -5,
+    "MST": -7,
+    "MDT": -6,
+    "PST": -8,
+    "PDT": -7,
+    "UT": 0,
+    "GMT": 0,
+}
+
+
+def _parse_rfc2822(s: str) -> _datetime:
+    # Technically, only tab, space and CRLF are allowed in RFC2822,
+    # but we allow any ASCII whitespace
+    if not s.isascii():
+        _parse_err(s)
+
+    # Parse the weekday
+    try:
+        first, second, *parts = s.split()
+        if first.isdigit():
+            iso_weekday = None
+            parts = [first, second, *parts]
+        else:
+            # Case: Mon, 23 Jan
+            if len(first) == 4 and first[3] == ",":
+                weekday_raw = first[:3]
+                parts = [second, *parts]
+            # Case: Mon , 23 Jan
+            elif len(first) == 3 and second == ",":
+                weekday_raw = first
+            # Case: Mon ,23 Jan
+            elif len(first) == 3 and second.startswith(","):
+                weekday_raw = first
+                parts = [second[1:], *parts]
+            # Case: Mon,23 Jan
+            elif len(first) > 4 and first[3] == ",":
+                weekday_raw = first[:3]
+                parts = [first[4:], second, *parts]
+            else:
+                _parse_err(s)
+
+            iso_weekday = _RFC2822_WEEKDAY_TO_ISO[weekday_raw.lower()]
+    except (ValueError, KeyError):
+        _parse_err(s)
+
+    # Parse the date
+    try:
+        day_raw, month_raw, year_raw, *parts = parts
+        if len(day_raw) > 2:
+            _parse_err(s)
+        day = int(day_raw)
+        month = _RFC2822_MONTH_NAMES[month_raw.lower()]
+        if len(year_raw) == 4:
+            year = int(year_raw)
+        elif len(year_raw) == 2:
+            year = int(year_raw)
+            if year < 50:
+                year += 2000
+            else:
+                year += 1900
+        elif len(year_raw) == 3:
+            year = int(year_raw) + 1900
+        else:
+            _parse_err(s)
+        date = _date(year, month, day)
+    except (ValueError, KeyError):
+        _parse_err(s)
+
+    if iso_weekday and iso_weekday != date.isoweekday():
+        _parse_err(s)
+
+    # Parse the time
+    try:
+        # time components may be separated by whitespace
+        *time_parts, offset_raw = parts
+        time_raw = "".join(time_parts)
+        if len(time_raw) == 5 and time_raw[2] == ":":
+            time = _time(int(time_raw[:2]), int(time_raw[3:]))
+        elif len(time_raw) == 8 and time_raw[2] == ":" and time_raw[5] == ":":
+            time = _time(
+                int(time_raw[:2]), int(time_raw[3:5]), int(time_raw[6:])
+            )
+        else:
+            _parse_err(s)
+    except ValueError:
+        _parse_err(s)
+
+    # Parse the offset
+    try:
+        if offset_raw.startswith(("+", "-")) and len(offset_raw) == 5:
+            sign = 1 if offset_raw[0] == "+" else -1
+            offset = (
+                _timedelta(
+                    hours=int(offset_raw[1:3]), minutes=int(offset_raw[3:5])
+                )
+                * sign
+            )
+        elif offset_raw.isalpha():
+            # According to the spec, unknown timezones should
+            # just be treated at -0000 (UTC with unknown offset)
+            offset = _timedelta(
+                hours=_RFC2822_ZONES.get(offset_raw.upper(), 0)
+            )
+        else:
+            _parse_err(s)
+        tzinfo = _timezone(offset)
+    except ValueError:
+        _parse_err(s)
+
+    return _check_utc_bounds(_datetime.combine(date, time, tzinfo=tzinfo))
 
 
 def _check_utc_bounds(dt: _datetime) -> _datetime:
     try:
         dt.astimezone(_UTC)
     except (OverflowError, ValueError):
-        raise ValueError("datetime out of range for UTC")
+        raise ValueError("Instant out of range")
     return dt
 
 
@@ -6011,6 +6326,18 @@ def _pop_nanos_kwarg(kwargs: Any, default: int) -> int:
     elif not 0 <= nanos < 1_000_000_000:
         raise ValueError("Invalid nanosecond value")
     return nanos
+
+
+def _isleap(year: int) -> bool:
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+
+# 1-indexed days per month
+_monthdays = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _days_in_month(year: int, month: int) -> int:
+    return _monthdays[month] + (month == 2 and _isleap(year))
 
 
 # Use this to strip any incoming datetime classes down to instances
@@ -6032,19 +6359,6 @@ def _strip_subclasses(dt: _datetime) -> _datetime:
         )
 
 
-if sys.version_info < (3, 11):  # pragma: no cover
-
-    def _parse_rfc2822(s: str) -> _datetime:
-        try:
-            return parsedate_to_datetime(s)
-        except TypeError:
-            if isinstance(s, str):
-                raise ValueError(f"Invalid RFC2822 string: {s!r}")
-            raise
-
-else:
-    _parse_rfc2822 = parsedate_to_datetime
-
 Instant.MIN = Instant._from_py_unchecked(
     _datetime.min.replace(tzinfo=_UTC),
     0,
@@ -6053,8 +6367,8 @@ Instant.MAX = Instant._from_py_unchecked(
     _datetime.max.replace(tzinfo=_UTC, microsecond=0),
     999_999_999,
 )
-LocalDateTime.MIN = LocalDateTime._from_py_unchecked(_datetime.min, 0)
-LocalDateTime.MAX = LocalDateTime._from_py_unchecked(
+PlainDateTime.MIN = PlainDateTime._from_py_unchecked(_datetime.min, 0)
+PlainDateTime.MAX = PlainDateTime._from_py_unchecked(
     _datetime.max.replace(microsecond=0), 999_999_999
 )
 Disambiguate = Literal["compatible", "earlier", "later", "raise"]
@@ -6070,8 +6384,8 @@ _disambiguate_to_fold: Mapping[str, Fold] = {
 def _adjust_fold_to_offset(dt: _datetime, offset: _timedelta) -> _datetime:
     if offset != dt.utcoffset():  # offset/zone mismatch: try other fold
         dt = dt.replace(fold=1)
-        if dt.utcoffset() != offset:
-            raise InvalidOffset()
+        if dt.utcoffset() != offset:  # pragma: no cover (#39)
+            raise InvalidOffsetError()
     return dt
 
 
@@ -6155,9 +6469,7 @@ def nanoseconds(i: int, /) -> TimeDelta:
 # We expose the public members in the root of the module.
 # For clarity, we remove the "_pywhenever" part from the names,
 # since this is an implementation detail.
-for name in (
-    __all__ + "_KnowsLocal _KnowsInstant _KnowsInstantAndLocal".split()
-):
+for name in __all__ + "_LocalTime _ExactTime _ExactAndLocalTime".split():
     member = locals()[name]
     if getattr(member, "__module__", None) == __name__:  # pragma: no branch
         member.__module__ = "whenever"
@@ -6185,17 +6497,13 @@ for _unpkl in (
 
 # disable further subclassing
 final(_ImmutableBase)
-final(_KnowsInstant)
-final(_KnowsLocal)
-final(_KnowsInstantAndLocal)
+final(_ExactTime)
+final(_LocalTime)
+final(_ExactAndLocalTime)
 final(_BasicConversions)
 
 
-_time_patch = None
-
-
 def _patch_time_frozen(inst: Instant) -> None:
-    global _time_patch
     global time_ns
 
     def time_ns() -> int:
@@ -6203,7 +6511,6 @@ def _patch_time_frozen(inst: Instant) -> None:
 
 
 def _patch_time_keep_ticking(inst: Instant) -> None:
-    global _time_patch
     global time_ns
 
     _patched_at = time_ns()
@@ -6214,7 +6521,114 @@ def _patch_time_keep_ticking(inst: Instant) -> None:
 
 
 def _unpatch_time() -> None:
-    global _time_patch
     global time_ns
 
     from time import time_ns
+
+
+_TZPATH: tuple[str, ...] = ()
+
+# Our cache for loaded tz files. The design is based off zoneinfo.
+# Why roll our own? To ensure it works independently of zoneinfo,
+# and thus works identically to the Rust extension.
+_TZCACHE_LRU_SIZE = 8
+_tzcache_lru: OrderedDict[str, ZoneInfo] = OrderedDict()
+_tzcache_lookup: WeakValueDictionary[str, ZoneInfo] = WeakValueDictionary()
+
+
+def _set_tzpath(to: tuple[str, ...]) -> None:
+    global _TZPATH
+    _TZPATH = to
+
+
+def _clear_tz_cache() -> None:
+    _tzcache_lru.clear()
+    _tzcache_lookup.clear()
+
+
+def _clear_tz_cache_by_keys(keys: tuple[str, ...]) -> None:
+    for k in keys:
+        _tzcache_lookup.pop(k, None)
+        _tzcache_lru.pop(k, None)
+
+
+def _get_tz(key: str) -> ZoneInfo:
+    try:
+        zinfo = _tzcache_lookup[key]
+    except KeyError:
+        zinfo = _tzcache_lookup[key] = _load_tz(_validate_key(key))
+    # Update the LRU
+    _tzcache_lru[key] = _tzcache_lru.pop(key, zinfo)
+    if len(_tzcache_lru) > _TZCACHE_LRU_SIZE:
+        _tzcache_lru.popitem(last=False)
+    return zinfo
+
+
+def _validate_key(key: str) -> _BenignKey:
+    """Checks for invalid characters and path traversal in the key."""
+    if (
+        key.isascii()
+        # There's no standard limit on IANA tz IDs, but we have to draw
+        # the line somewhere to prevent abuse.
+        and 0 < len(key) < 100
+        and all(b.isalnum() or b in "-_+/." for b in key)
+        # specific sequences not allowed
+        and ".." not in key
+        and "//" not in key
+        and "/./" not in key
+        # specic restrictions on the first and list characters
+        and key[0] not in "-+/"
+        and key[-1] != "/"
+    ):
+        return _BenignKey(key)
+    else:
+        raise TimeZoneNotFoundError.for_key(key)
+
+
+# Alias for a TZ key that has been confirmed not to be a path traversal
+# or contain other "bad" characters.
+_BenignKey = NewType("_BenignKey", str)
+
+
+def _try_tzif_from_path(key: _BenignKey) -> bytes | None:
+    for search_path in _TZPATH:
+        target = os.path.join(search_path, key)
+        if os.path.isfile(target):
+            with open(target, "rb") as f:
+                return f.read()
+    return None
+
+
+def _tzif_from_tzdata(key: _BenignKey) -> bytes:
+    try:
+        tzdata_path = __import__("tzdata.zoneinfo").zoneinfo.__path__[0]
+        # We check before we read, since the resulting exceptions vary
+        # on different platforms
+        if os.path.isfile(
+            relpath := os.path.join(tzdata_path, *key.split("/"))
+        ):
+            with open(relpath, "rb") as f:
+                return f.read()
+        else:
+            raise FileNotFoundError()
+    # Several exceptions amount to "can't find the key"
+    except (
+        ImportError,
+        FileNotFoundError,
+        UnicodeEncodeError,
+    ):
+        raise TimeZoneNotFoundError.for_key(key)
+
+
+def _load_tz(key: _BenignKey) -> ZoneInfo:
+    from zoneinfo import ZoneInfo
+
+    # Reminder: we load manually from files to ensure we operate
+    # independently of zoneinfo's own caching mechanism
+    tzif = _try_tzif_from_path(key) or _tzif_from_tzdata(key)
+    if not tzif.startswith(b"TZif"):
+        # We've found a file, but doesn't look like a TZif file.
+        # Stop here instead of getting a cryptic error later.
+        raise TimeZoneNotFoundError.for_key(key)
+
+    return ZoneInfo.from_file(BytesIO(tzif), key)

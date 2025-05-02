@@ -1,7 +1,7 @@
 r'''
 # `aws_sesv2_account_suppression_attributes`
 
-Refer to the Terraform Registry for docs: [`aws_sesv2_account_suppression_attributes`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes).
+Refer to the Terraform Registry for docs: [`aws_sesv2_account_suppression_attributes`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Sesv2AccountSuppressionAttributes(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sesv2AccountSuppressionAttributes.Sesv2AccountSuppressionAttributes",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes aws_sesv2_account_suppression_attributes}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes aws_sesv2_account_suppression_attributes}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class Sesv2AccountSuppressionAttributes(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes aws_sesv2_account_suppression_attributes} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes aws_sesv2_account_suppression_attributes} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param suppressed_reasons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes#suppressed_reasons Sesv2AccountSuppressionAttributes#suppressed_reasons}.
+        :param suppressed_reasons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes#suppressed_reasons Sesv2AccountSuppressionAttributes#suppressed_reasons}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class Sesv2AccountSuppressionAttributes(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Sesv2AccountSuppressionAttributes to import.
-        :param import_from_id: The id of the existing Sesv2AccountSuppressionAttributes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Sesv2AccountSuppressionAttributes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Sesv2AccountSuppressionAttributes to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class Sesv2AccountSuppressionAttributesConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param suppressed_reasons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes#suppressed_reasons Sesv2AccountSuppressionAttributes#suppressed_reasons}.
+        :param suppressed_reasons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes#suppressed_reasons Sesv2AccountSuppressionAttributes#suppressed_reasons}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -283,7 +283,7 @@ class Sesv2AccountSuppressionAttributesConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def suppressed_reasons(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sesv2_account_suppression_attributes#suppressed_reasons Sesv2AccountSuppressionAttributes#suppressed_reasons}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sesv2_account_suppression_attributes#suppressed_reasons Sesv2AccountSuppressionAttributes#suppressed_reasons}.'''
         result = self._values.get("suppressed_reasons")
         assert result is not None, "Required property 'suppressed_reasons' is missing"
         return typing.cast(typing.List[builtins.str], result)

@@ -1,7 +1,7 @@
 r'''
 # `aws_redshift_usage_limit`
 
-Refer to the Terraform Registry for docs: [`aws_redshift_usage_limit`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit).
+Refer to the Terraform Registry for docs: [`aws_redshift_usage_limit`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedshiftUsageLimit(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.redshiftUsageLimit.RedshiftUsageLimit",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit aws_redshift_usage_limit}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit aws_redshift_usage_limit}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class RedshiftUsageLimit(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit aws_redshift_usage_limit} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit aws_redshift_usage_limit} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#amount RedshiftUsageLimit#amount}.
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#cluster_identifier RedshiftUsageLimit#cluster_identifier}.
-        :param feature_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#feature_type RedshiftUsageLimit#feature_type}.
-        :param limit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#limit_type RedshiftUsageLimit#limit_type}.
-        :param breach_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#breach_action RedshiftUsageLimit#breach_action}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#id RedshiftUsageLimit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#period RedshiftUsageLimit#period}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#tags RedshiftUsageLimit#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#tags_all RedshiftUsageLimit#tags_all}.
+        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#amount RedshiftUsageLimit#amount}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#cluster_identifier RedshiftUsageLimit#cluster_identifier}.
+        :param feature_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#feature_type RedshiftUsageLimit#feature_type}.
+        :param limit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#limit_type RedshiftUsageLimit#limit_type}.
+        :param breach_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#breach_action RedshiftUsageLimit#breach_action}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#id RedshiftUsageLimit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#period RedshiftUsageLimit#period}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#tags RedshiftUsageLimit#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#tags_all RedshiftUsageLimit#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class RedshiftUsageLimit(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedshiftUsageLimit to import.
-        :param import_from_id: The id of the existing RedshiftUsageLimit that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedshiftUsageLimit that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedshiftUsageLimit to import is found.
         '''
         if __debug__:
@@ -383,15 +383,15 @@ class RedshiftUsageLimitConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#amount RedshiftUsageLimit#amount}.
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#cluster_identifier RedshiftUsageLimit#cluster_identifier}.
-        :param feature_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#feature_type RedshiftUsageLimit#feature_type}.
-        :param limit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#limit_type RedshiftUsageLimit#limit_type}.
-        :param breach_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#breach_action RedshiftUsageLimit#breach_action}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#id RedshiftUsageLimit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#period RedshiftUsageLimit#period}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#tags RedshiftUsageLimit#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#tags_all RedshiftUsageLimit#tags_all}.
+        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#amount RedshiftUsageLimit#amount}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#cluster_identifier RedshiftUsageLimit#cluster_identifier}.
+        :param feature_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#feature_type RedshiftUsageLimit#feature_type}.
+        :param limit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#limit_type RedshiftUsageLimit#limit_type}.
+        :param breach_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#breach_action RedshiftUsageLimit#breach_action}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#id RedshiftUsageLimit#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#period RedshiftUsageLimit#period}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#tags RedshiftUsageLimit#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#tags_all RedshiftUsageLimit#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -510,41 +510,41 @@ class RedshiftUsageLimitConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def amount(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#amount RedshiftUsageLimit#amount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#amount RedshiftUsageLimit#amount}.'''
         result = self._values.get("amount")
         assert result is not None, "Required property 'amount' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#cluster_identifier RedshiftUsageLimit#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#cluster_identifier RedshiftUsageLimit#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def feature_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#feature_type RedshiftUsageLimit#feature_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#feature_type RedshiftUsageLimit#feature_type}.'''
         result = self._values.get("feature_type")
         assert result is not None, "Required property 'feature_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def limit_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#limit_type RedshiftUsageLimit#limit_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#limit_type RedshiftUsageLimit#limit_type}.'''
         result = self._values.get("limit_type")
         assert result is not None, "Required property 'limit_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def breach_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#breach_action RedshiftUsageLimit#breach_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#breach_action RedshiftUsageLimit#breach_action}.'''
         result = self._values.get("breach_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#id RedshiftUsageLimit#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#id RedshiftUsageLimit#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -554,19 +554,19 @@ class RedshiftUsageLimitConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def period(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#period RedshiftUsageLimit#period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#period RedshiftUsageLimit#period}.'''
         result = self._values.get("period")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#tags RedshiftUsageLimit#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#tags RedshiftUsageLimit#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_usage_limit#tags_all RedshiftUsageLimit#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_usage_limit#tags_all RedshiftUsageLimit#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

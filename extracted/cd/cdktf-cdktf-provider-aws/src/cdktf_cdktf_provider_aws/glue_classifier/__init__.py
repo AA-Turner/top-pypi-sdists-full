@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_classifier`
 
-Refer to the Terraform Registry for docs: [`aws_glue_classifier`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier).
+Refer to the Terraform Registry for docs: [`aws_glue_classifier`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueClassifier(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueClassifier.GlueClassifier",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier aws_glue_classifier}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier aws_glue_classifier}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GlueClassifier(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier aws_glue_classifier} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier aws_glue_classifier} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#name GlueClassifier#name}.
-        :param csv_classifier: csv_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#csv_classifier GlueClassifier#csv_classifier}
-        :param grok_classifier: grok_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#grok_classifier GlueClassifier#grok_classifier}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#id GlueClassifier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param json_classifier: json_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#json_classifier GlueClassifier#json_classifier}
-        :param xml_classifier: xml_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#xml_classifier GlueClassifier#xml_classifier}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#name GlueClassifier#name}.
+        :param csv_classifier: csv_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#csv_classifier GlueClassifier#csv_classifier}
+        :param grok_classifier: grok_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#grok_classifier GlueClassifier#grok_classifier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#id GlueClassifier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param json_classifier: json_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#json_classifier GlueClassifier#json_classifier}
+        :param xml_classifier: xml_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#xml_classifier GlueClassifier#xml_classifier}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GlueClassifier(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueClassifier to import.
-        :param import_from_id: The id of the existing GlueClassifier that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueClassifier that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueClassifier to import is found.
         '''
         if __debug__:
@@ -144,15 +144,15 @@ class GlueClassifier(
         serde: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_single_column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#allow_single_column GlueClassifier#allow_single_column}.
-        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#contains_header GlueClassifier#contains_header}.
-        :param custom_datatype_configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_datatype_configured GlueClassifier#custom_datatype_configured}.
-        :param custom_datatypes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_datatypes GlueClassifier#custom_datatypes}.
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#delimiter GlueClassifier#delimiter}.
-        :param disable_value_trimming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#disable_value_trimming GlueClassifier#disable_value_trimming}.
-        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#header GlueClassifier#header}.
-        :param quote_symbol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#quote_symbol GlueClassifier#quote_symbol}.
-        :param serde: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#serde GlueClassifier#serde}.
+        :param allow_single_column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#allow_single_column GlueClassifier#allow_single_column}.
+        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#contains_header GlueClassifier#contains_header}.
+        :param custom_datatype_configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_datatype_configured GlueClassifier#custom_datatype_configured}.
+        :param custom_datatypes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_datatypes GlueClassifier#custom_datatypes}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#delimiter GlueClassifier#delimiter}.
+        :param disable_value_trimming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#disable_value_trimming GlueClassifier#disable_value_trimming}.
+        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#header GlueClassifier#header}.
+        :param quote_symbol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#quote_symbol GlueClassifier#quote_symbol}.
+        :param serde: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#serde GlueClassifier#serde}.
         '''
         value = GlueClassifierCsvClassifier(
             allow_single_column=allow_single_column,
@@ -177,9 +177,9 @@ class GlueClassifier(
         custom_patterns: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
-        :param grok_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#grok_pattern GlueClassifier#grok_pattern}.
-        :param custom_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_patterns GlueClassifier#custom_patterns}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
+        :param grok_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#grok_pattern GlueClassifier#grok_pattern}.
+        :param custom_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_patterns GlueClassifier#custom_patterns}.
         '''
         value = GlueClassifierGrokClassifier(
             classification=classification,
@@ -192,7 +192,7 @@ class GlueClassifier(
     @jsii.member(jsii_name="putJsonClassifier")
     def put_json_classifier(self, *, json_path: builtins.str) -> None:
         '''
-        :param json_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#json_path GlueClassifier#json_path}.
+        :param json_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#json_path GlueClassifier#json_path}.
         '''
         value = GlueClassifierJsonClassifier(json_path=json_path)
 
@@ -206,8 +206,8 @@ class GlueClassifier(
         row_tag: builtins.str,
     ) -> None:
         '''
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
-        :param row_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#row_tag GlueClassifier#row_tag}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
+        :param row_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#row_tag GlueClassifier#row_tag}.
         '''
         value = GlueClassifierXmlClassifier(
             classification=classification, row_tag=row_tag
@@ -368,12 +368,12 @@ class GlueClassifierConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#name GlueClassifier#name}.
-        :param csv_classifier: csv_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#csv_classifier GlueClassifier#csv_classifier}
-        :param grok_classifier: grok_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#grok_classifier GlueClassifier#grok_classifier}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#id GlueClassifier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param json_classifier: json_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#json_classifier GlueClassifier#json_classifier}
-        :param xml_classifier: xml_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#xml_classifier GlueClassifier#xml_classifier}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#name GlueClassifier#name}.
+        :param csv_classifier: csv_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#csv_classifier GlueClassifier#csv_classifier}
+        :param grok_classifier: grok_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#grok_classifier GlueClassifier#grok_classifier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#id GlueClassifier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param json_classifier: json_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#json_classifier GlueClassifier#json_classifier}
+        :param xml_classifier: xml_classifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#xml_classifier GlueClassifier#xml_classifier}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -494,7 +494,7 @@ class GlueClassifierConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#name GlueClassifier#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#name GlueClassifier#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -503,7 +503,7 @@ class GlueClassifierConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def csv_classifier(self) -> typing.Optional["GlueClassifierCsvClassifier"]:
         '''csv_classifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#csv_classifier GlueClassifier#csv_classifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#csv_classifier GlueClassifier#csv_classifier}
         '''
         result = self._values.get("csv_classifier")
         return typing.cast(typing.Optional["GlueClassifierCsvClassifier"], result)
@@ -512,14 +512,14 @@ class GlueClassifierConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def grok_classifier(self) -> typing.Optional["GlueClassifierGrokClassifier"]:
         '''grok_classifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#grok_classifier GlueClassifier#grok_classifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#grok_classifier GlueClassifier#grok_classifier}
         '''
         result = self._values.get("grok_classifier")
         return typing.cast(typing.Optional["GlueClassifierGrokClassifier"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#id GlueClassifier#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#id GlueClassifier#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -531,7 +531,7 @@ class GlueClassifierConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def json_classifier(self) -> typing.Optional["GlueClassifierJsonClassifier"]:
         '''json_classifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#json_classifier GlueClassifier#json_classifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#json_classifier GlueClassifier#json_classifier}
         '''
         result = self._values.get("json_classifier")
         return typing.cast(typing.Optional["GlueClassifierJsonClassifier"], result)
@@ -540,7 +540,7 @@ class GlueClassifierConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def xml_classifier(self) -> typing.Optional["GlueClassifierXmlClassifier"]:
         '''xml_classifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#xml_classifier GlueClassifier#xml_classifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#xml_classifier GlueClassifier#xml_classifier}
         '''
         result = self._values.get("xml_classifier")
         return typing.cast(typing.Optional["GlueClassifierXmlClassifier"], result)
@@ -587,15 +587,15 @@ class GlueClassifierCsvClassifier:
         serde: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_single_column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#allow_single_column GlueClassifier#allow_single_column}.
-        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#contains_header GlueClassifier#contains_header}.
-        :param custom_datatype_configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_datatype_configured GlueClassifier#custom_datatype_configured}.
-        :param custom_datatypes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_datatypes GlueClassifier#custom_datatypes}.
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#delimiter GlueClassifier#delimiter}.
-        :param disable_value_trimming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#disable_value_trimming GlueClassifier#disable_value_trimming}.
-        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#header GlueClassifier#header}.
-        :param quote_symbol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#quote_symbol GlueClassifier#quote_symbol}.
-        :param serde: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#serde GlueClassifier#serde}.
+        :param allow_single_column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#allow_single_column GlueClassifier#allow_single_column}.
+        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#contains_header GlueClassifier#contains_header}.
+        :param custom_datatype_configured: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_datatype_configured GlueClassifier#custom_datatype_configured}.
+        :param custom_datatypes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_datatypes GlueClassifier#custom_datatypes}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#delimiter GlueClassifier#delimiter}.
+        :param disable_value_trimming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#disable_value_trimming GlueClassifier#disable_value_trimming}.
+        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#header GlueClassifier#header}.
+        :param quote_symbol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#quote_symbol GlueClassifier#quote_symbol}.
+        :param serde: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#serde GlueClassifier#serde}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bf384b2033682e5f43e199a8a85dad8fdc7181cab76acfb58d56f7d91e88a5c)
@@ -632,13 +632,13 @@ class GlueClassifierCsvClassifier:
     def allow_single_column(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#allow_single_column GlueClassifier#allow_single_column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#allow_single_column GlueClassifier#allow_single_column}.'''
         result = self._values.get("allow_single_column")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def contains_header(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#contains_header GlueClassifier#contains_header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#contains_header GlueClassifier#contains_header}.'''
         result = self._values.get("contains_header")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -646,19 +646,19 @@ class GlueClassifierCsvClassifier:
     def custom_datatype_configured(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_datatype_configured GlueClassifier#custom_datatype_configured}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_datatype_configured GlueClassifier#custom_datatype_configured}.'''
         result = self._values.get("custom_datatype_configured")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def custom_datatypes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_datatypes GlueClassifier#custom_datatypes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_datatypes GlueClassifier#custom_datatypes}.'''
         result = self._values.get("custom_datatypes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def delimiter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#delimiter GlueClassifier#delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#delimiter GlueClassifier#delimiter}.'''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -666,25 +666,25 @@ class GlueClassifierCsvClassifier:
     def disable_value_trimming(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#disable_value_trimming GlueClassifier#disable_value_trimming}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#disable_value_trimming GlueClassifier#disable_value_trimming}.'''
         result = self._values.get("disable_value_trimming")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def header(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#header GlueClassifier#header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#header GlueClassifier#header}.'''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def quote_symbol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#quote_symbol GlueClassifier#quote_symbol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#quote_symbol GlueClassifier#quote_symbol}.'''
         result = self._values.get("quote_symbol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def serde(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#serde GlueClassifier#serde}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#serde GlueClassifier#serde}.'''
         result = self._values.get("serde")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -964,9 +964,9 @@ class GlueClassifierGrokClassifier:
         custom_patterns: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
-        :param grok_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#grok_pattern GlueClassifier#grok_pattern}.
-        :param custom_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_patterns GlueClassifier#custom_patterns}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
+        :param grok_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#grok_pattern GlueClassifier#grok_pattern}.
+        :param custom_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_patterns GlueClassifier#custom_patterns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13f9563c226ca9fb1eadfb4e77c752e7304db3634f5215862d141abc6440baa3)
@@ -982,21 +982,21 @@ class GlueClassifierGrokClassifier:
 
     @builtins.property
     def classification(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.'''
         result = self._values.get("classification")
         assert result is not None, "Required property 'classification' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def grok_pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#grok_pattern GlueClassifier#grok_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#grok_pattern GlueClassifier#grok_pattern}.'''
         result = self._values.get("grok_pattern")
         assert result is not None, "Required property 'grok_pattern' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def custom_patterns(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#custom_patterns GlueClassifier#custom_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#custom_patterns GlueClassifier#custom_patterns}.'''
         result = self._values.get("custom_patterns")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1111,7 +1111,7 @@ class GlueClassifierGrokClassifierOutputReference(
 class GlueClassifierJsonClassifier:
     def __init__(self, *, json_path: builtins.str) -> None:
         '''
-        :param json_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#json_path GlueClassifier#json_path}.
+        :param json_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#json_path GlueClassifier#json_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dee8b808df81d2c48cddcb548d3bf2199d48a2f8668217e6f68c90717937f3e)
@@ -1122,7 +1122,7 @@ class GlueClassifierJsonClassifier:
 
     @builtins.property
     def json_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#json_path GlueClassifier#json_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#json_path GlueClassifier#json_path}.'''
         result = self._values.get("json_path")
         assert result is not None, "Required property 'json_path' is missing"
         return typing.cast(builtins.str, result)
@@ -1200,8 +1200,8 @@ class GlueClassifierJsonClassifierOutputReference(
 class GlueClassifierXmlClassifier:
     def __init__(self, *, classification: builtins.str, row_tag: builtins.str) -> None:
         '''
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
-        :param row_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#row_tag GlueClassifier#row_tag}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.
+        :param row_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#row_tag GlueClassifier#row_tag}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d0cba07eca4763aa94920efceee794fdb14b8cf75105ad9d4b3bc4f0b90563d)
@@ -1214,14 +1214,14 @@ class GlueClassifierXmlClassifier:
 
     @builtins.property
     def classification(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#classification GlueClassifier#classification}.'''
         result = self._values.get("classification")
         assert result is not None, "Required property 'classification' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def row_tag(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_classifier#row_tag GlueClassifier#row_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_classifier#row_tag GlueClassifier#row_tag}.'''
         result = self._values.get("row_tag")
         assert result is not None, "Required property 'row_tag' is missing"
         return typing.cast(builtins.str, result)

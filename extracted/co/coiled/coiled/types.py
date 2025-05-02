@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from logging import getLogger
 from pathlib import Path
@@ -152,6 +153,31 @@ class SoftwareEnvSpec(TypedDict):
     raw_conda: Optional[CondaEnvSchema]
 
 
+# KNOWN_SUBDIRS is copied from conda's known subdirs
+KNOWN_SUBDIRS = (
+    "noarch",
+    "emscripten-wasm32",
+    "wasi-wasm32",
+    "freebsd-64",
+    "linux-32",
+    "linux-64",
+    "linux-aarch64",
+    "linux-armv6l",
+    "linux-armv7l",
+    "linux-ppc64",
+    "linux-ppc64le",
+    "linux-riscv64",
+    "linux-s390x",
+    "osx-64",
+    "osx-arm64",
+    "win-32",
+    "win-64",
+    "win-arm64",
+    "zos-z",
+)
+KNOWN_SUBDIR_RE = re.compile(r"(?:/|^)(?:" + "|".join(KNOWN_SUBDIRS) + r")(?:/|$)", flags=re.IGNORECASE)
+
+
 # This function is in this module to prevent circular import issues
 def parse_conda_channel(package_name: str, channel: str, subdir: str) -> Tuple[Optional[str], str]:
     """Return a channel and channel_url for a conda package with any extra information removed."""
@@ -159,10 +185,20 @@ def parse_conda_channel(package_name: str, channel: str, subdir: str) -> Tuple[O
     if channel == "<unknown>":
         logger.warning(f"Channel for {package_name} is unknown, setting to conda-forge")
         channel = "conda-forge"
-    # Strip subdir from channel
-    for subdir_suffix in (f"/{subdir}", f"/{subdir}/"):
-        if channel.endswith(subdir_suffix):
-            channel = channel[: -len(subdir_suffix)]
+    # Remove all known subdirs from channel for noarch packages, because
+    # some versions of conda set the channel to the platform-specific
+    # channel, even if the package is noarch. This is a workaround for
+    # https://github.com/conda/conda/issues/14790
+    if subdir == "noarch":
+        channel = KNOWN_SUBDIR_RE.sub("", channel)
+    else:
+        # Strip correct subdir from channel (e.g. "linux-64" or "osx-arm64")
+        # We are conservative in this case, because theoretically
+        # a private channel could have a different subdir in its name
+        for subdir_suffix in (f"/{subdir}", f"/{subdir}/"):
+            if channel.endswith(subdir_suffix):
+                channel = channel[: -len(subdir_suffix)]
+
     # Handle channel urls
     if channel.startswith(("http:", "https:")):
         channel_url = channel

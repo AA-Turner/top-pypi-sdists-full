@@ -1,7 +1,7 @@
 r'''
 # `aws_accessanalyzer_analyzer`
 
-Refer to the Terraform Registry for docs: [`aws_accessanalyzer_analyzer`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer).
+Refer to the Terraform Registry for docs: [`aws_accessanalyzer_analyzer`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AccessanalyzerAnalyzer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer aws_accessanalyzer_analyzer}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer aws_accessanalyzer_analyzer}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class AccessanalyzerAnalyzer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer aws_accessanalyzer_analyzer} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer aws_accessanalyzer_analyzer} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param analyzer_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#analyzer_name AccessanalyzerAnalyzer#analyzer_name}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#configuration AccessanalyzerAnalyzer#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#id AccessanalyzerAnalyzer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#tags AccessanalyzerAnalyzer#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#tags_all AccessanalyzerAnalyzer#tags_all}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#type AccessanalyzerAnalyzer#type}.
+        :param analyzer_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#analyzer_name AccessanalyzerAnalyzer#analyzer_name}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#configuration AccessanalyzerAnalyzer#configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#id AccessanalyzerAnalyzer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#tags AccessanalyzerAnalyzer#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#tags_all AccessanalyzerAnalyzer#tags_all}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#type AccessanalyzerAnalyzer#type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class AccessanalyzerAnalyzer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AccessanalyzerAnalyzer to import.
-        :param import_from_id: The id of the existing AccessanalyzerAnalyzer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AccessanalyzerAnalyzer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AccessanalyzerAnalyzer to import is found.
         '''
         if __debug__:
@@ -136,7 +136,7 @@ class AccessanalyzerAnalyzer(
         unused_access: typing.Optional[typing.Union["AccessanalyzerAnalyzerConfigurationUnusedAccess", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param unused_access: unused_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#unused_access AccessanalyzerAnalyzer#unused_access}
+        :param unused_access: unused_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#unused_access AccessanalyzerAnalyzer#unused_access}
         '''
         value = AccessanalyzerAnalyzerConfiguration(unused_access=unused_access)
 
@@ -325,12 +325,12 @@ class AccessanalyzerAnalyzerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param analyzer_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#analyzer_name AccessanalyzerAnalyzer#analyzer_name}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#configuration AccessanalyzerAnalyzer#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#id AccessanalyzerAnalyzer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#tags AccessanalyzerAnalyzer#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#tags_all AccessanalyzerAnalyzer#tags_all}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#type AccessanalyzerAnalyzer#type}.
+        :param analyzer_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#analyzer_name AccessanalyzerAnalyzer#analyzer_name}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#configuration AccessanalyzerAnalyzer#configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#id AccessanalyzerAnalyzer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#tags AccessanalyzerAnalyzer#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#tags_all AccessanalyzerAnalyzer#tags_all}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#type AccessanalyzerAnalyzer#type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -445,7 +445,7 @@ class AccessanalyzerAnalyzerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def analyzer_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#analyzer_name AccessanalyzerAnalyzer#analyzer_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#analyzer_name AccessanalyzerAnalyzer#analyzer_name}.'''
         result = self._values.get("analyzer_name")
         assert result is not None, "Required property 'analyzer_name' is missing"
         return typing.cast(builtins.str, result)
@@ -454,14 +454,14 @@ class AccessanalyzerAnalyzerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["AccessanalyzerAnalyzerConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#configuration AccessanalyzerAnalyzer#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#configuration AccessanalyzerAnalyzer#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["AccessanalyzerAnalyzerConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#id AccessanalyzerAnalyzer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#id AccessanalyzerAnalyzer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -471,19 +471,19 @@ class AccessanalyzerAnalyzerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#tags AccessanalyzerAnalyzer#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#tags AccessanalyzerAnalyzer#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#tags_all AccessanalyzerAnalyzer#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#tags_all AccessanalyzerAnalyzer#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#type AccessanalyzerAnalyzer#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#type AccessanalyzerAnalyzer#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -511,7 +511,7 @@ class AccessanalyzerAnalyzerConfiguration:
         unused_access: typing.Optional[typing.Union["AccessanalyzerAnalyzerConfigurationUnusedAccess", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param unused_access: unused_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#unused_access AccessanalyzerAnalyzer#unused_access}
+        :param unused_access: unused_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#unused_access AccessanalyzerAnalyzer#unused_access}
         '''
         if isinstance(unused_access, dict):
             unused_access = AccessanalyzerAnalyzerConfigurationUnusedAccess(**unused_access)
@@ -528,7 +528,7 @@ class AccessanalyzerAnalyzerConfiguration:
     ) -> typing.Optional["AccessanalyzerAnalyzerConfigurationUnusedAccess"]:
         '''unused_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#unused_access AccessanalyzerAnalyzer#unused_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#unused_access AccessanalyzerAnalyzer#unused_access}
         '''
         result = self._values.get("unused_access")
         return typing.cast(typing.Optional["AccessanalyzerAnalyzerConfigurationUnusedAccess"], result)
@@ -569,13 +569,15 @@ class AccessanalyzerAnalyzerConfigurationOutputReference(
     def put_unused_access(
         self,
         *,
+        analysis_rule: typing.Optional[typing.Union["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule", typing.Dict[builtins.str, typing.Any]]] = None,
         unused_access_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param unused_access_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#unused_access_age AccessanalyzerAnalyzer#unused_access_age}.
+        :param analysis_rule: analysis_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#analysis_rule AccessanalyzerAnalyzer#analysis_rule}
+        :param unused_access_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#unused_access_age AccessanalyzerAnalyzer#unused_access_age}.
         '''
         value = AccessanalyzerAnalyzerConfigurationUnusedAccess(
-            unused_access_age=unused_access_age
+            analysis_rule=analysis_rule, unused_access_age=unused_access_age
         )
 
         return typing.cast(None, jsii.invoke(self, "putUnusedAccess", [value]))
@@ -617,27 +619,48 @@ class AccessanalyzerAnalyzerConfigurationOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzerConfigurationUnusedAccess",
     jsii_struct_bases=[],
-    name_mapping={"unused_access_age": "unusedAccessAge"},
+    name_mapping={
+        "analysis_rule": "analysisRule",
+        "unused_access_age": "unusedAccessAge",
+    },
 )
 class AccessanalyzerAnalyzerConfigurationUnusedAccess:
     def __init__(
         self,
         *,
+        analysis_rule: typing.Optional[typing.Union["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule", typing.Dict[builtins.str, typing.Any]]] = None,
         unused_access_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param unused_access_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#unused_access_age AccessanalyzerAnalyzer#unused_access_age}.
+        :param analysis_rule: analysis_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#analysis_rule AccessanalyzerAnalyzer#analysis_rule}
+        :param unused_access_age: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#unused_access_age AccessanalyzerAnalyzer#unused_access_age}.
         '''
+        if isinstance(analysis_rule, dict):
+            analysis_rule = AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule(**analysis_rule)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57c7ad702f6824ee3c018d3db7d0654122724f0d9685c76f9d7466226b3f4949)
+            check_type(argname="argument analysis_rule", value=analysis_rule, expected_type=type_hints["analysis_rule"])
             check_type(argname="argument unused_access_age", value=unused_access_age, expected_type=type_hints["unused_access_age"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if analysis_rule is not None:
+            self._values["analysis_rule"] = analysis_rule
         if unused_access_age is not None:
             self._values["unused_access_age"] = unused_access_age
 
     @builtins.property
+    def analysis_rule(
+        self,
+    ) -> typing.Optional["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule"]:
+        '''analysis_rule block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#analysis_rule AccessanalyzerAnalyzer#analysis_rule}
+        '''
+        result = self._values.get("analysis_rule")
+        return typing.cast(typing.Optional["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule"], result)
+
+    @builtins.property
     def unused_access_age(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/accessanalyzer_analyzer#unused_access_age AccessanalyzerAnalyzer#unused_access_age}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#unused_access_age AccessanalyzerAnalyzer#unused_access_age}.'''
         result = self._values.get("unused_access_age")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -651,6 +674,357 @@ class AccessanalyzerAnalyzerConfigurationUnusedAccess:
         return "AccessanalyzerAnalyzerConfigurationUnusedAccess(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule",
+    jsii_struct_bases=[],
+    name_mapping={"exclusion": "exclusion"},
+)
+class AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule:
+    def __init__(
+        self,
+        *,
+        exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#exclusion AccessanalyzerAnalyzer#exclusion}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b46e48bda1d1f79dd5f227261ca466b57a42a66dc9042f7ad9939d129e1d93e7)
+            check_type(argname="argument exclusion", value=exclusion, expected_type=type_hints["exclusion"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if exclusion is not None:
+            self._values["exclusion"] = exclusion
+
+    @builtins.property
+    def exclusion(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion"]]]:
+        '''exclusion block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#exclusion AccessanalyzerAnalyzer#exclusion}
+        '''
+        result = self._values.get("exclusion")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion",
+    jsii_struct_bases=[],
+    name_mapping={"account_ids": "accountIds", "resource_tags": "resourceTags"},
+)
+class AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion:
+    def __init__(
+        self,
+        *,
+        account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Mapping[builtins.str, builtins.str]]]] = None,
+    ) -> None:
+        '''
+        :param account_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#account_ids AccessanalyzerAnalyzer#account_ids}.
+        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#resource_tags AccessanalyzerAnalyzer#resource_tags}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__435f3ee0ebdf2108b0e948b8f43381742e405d928fcefddb11b5acadabf9a45b)
+            check_type(argname="argument account_ids", value=account_ids, expected_type=type_hints["account_ids"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if account_ids is not None:
+            self._values["account_ids"] = account_ids
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+
+    @builtins.property
+    def account_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#account_ids AccessanalyzerAnalyzer#account_ids}.'''
+        result = self._values.get("account_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#resource_tags AccessanalyzerAnalyzer#resource_tags}.'''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b372488a471555c5eae77c71f6615636eaee8520471a063c2ab954d022a8a688)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a1b4eeb955b70cb4e5ff13803fb1b9a7c885f2d542acd838606cc989ec3f6ce)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__752a8e400e580af42760ee77b24e5d6e435cb6f04f6bdaa3998ccd7c83d28c84)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b9341ff901515c68a8c82b890748e6ebd6729eb1e8cbfc8bcc886244dc028e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1efbacd2c9f529c2b36227415e6a5e7708fe495543531433489f8c51555e77d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d57f92ed09396751cba7fa258a5edb58705987a82d7e68bc99d516a2b3db0ad9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56c566c92388e44bac51eff1be5e84ae98a340806ceaa15a02f3a578b4d9991d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetAccountIds")
+    def reset_account_ids(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAccountIds", []))
+
+    @jsii.member(jsii_name="resetResourceTags")
+    def reset_resource_tags(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetResourceTags", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountIdsInput")
+    def account_ids_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "accountIdsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceTagsInput")
+    def resource_tags_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]]], jsii.get(self, "resourceTagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountIds")
+    def account_ids(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "accountIds"))
+
+    @account_ids.setter
+    def account_ids(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf0feeca738068b65fc9cd9b9ec36ea26874137e1bd735f57f32a60fef941e20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accountIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceTags")
+    def resource_tags(
+        self,
+    ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]]:
+        return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "resourceTags"))
+
+    @resource_tags.setter
+    def resource_tags(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__663fb4e83cfbd33aa3d207ba112666b4c1e767456e9e15afd130be1e2d240604)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, _cdktf_9a9027ec.IResolvable]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a88f9b7f055d5581558cadbde8d4665f8aa1b8dd70712210d705e8eec0f351b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.accessanalyzerAnalyzer.AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e00f849932a55d93fa5c9a26a33bfffd56058d348ba6f7f2d299977915b835c)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putExclusion")
+    def put_exclusion(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2155ac453c16898d1529aba7ad69143a722b00fb18ac539d7b1efbc79287002d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putExclusion", [value]))
+
+    @jsii.member(jsii_name="resetExclusion")
+    def reset_exclusion(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExclusion", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="exclusion")
+    def exclusion(
+        self,
+    ) -> AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionList:
+        return typing.cast(AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionList, jsii.get(self, "exclusion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="exclusionInput")
+    def exclusion_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion]]], jsii.get(self, "exclusionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule]:
+        return typing.cast(typing.Optional[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85d36cf2dc37a7446a3f8f1710558b19e50d0c84ec924cf25daec6c7d9fe5e84)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class AccessanalyzerAnalyzerConfigurationUnusedAccessOutputReference(
@@ -673,9 +1047,42 @@ class AccessanalyzerAnalyzerConfigurationUnusedAccessOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putAnalysisRule")
+    def put_analysis_rule(
+        self,
+        *,
+        exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/accessanalyzer_analyzer#exclusion AccessanalyzerAnalyzer#exclusion}
+        '''
+        value = AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule(
+            exclusion=exclusion
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putAnalysisRule", [value]))
+
+    @jsii.member(jsii_name="resetAnalysisRule")
+    def reset_analysis_rule(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAnalysisRule", []))
+
     @jsii.member(jsii_name="resetUnusedAccessAge")
     def reset_unused_access_age(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetUnusedAccessAge", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="analysisRule")
+    def analysis_rule(
+        self,
+    ) -> AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleOutputReference:
+        return typing.cast(AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleOutputReference, jsii.get(self, "analysisRule"))
+
+    @builtins.property
+    @jsii.member(jsii_name="analysisRuleInput")
+    def analysis_rule_input(
+        self,
+    ) -> typing.Optional[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule]:
+        return typing.cast(typing.Optional[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule], jsii.get(self, "analysisRuleInput"))
 
     @builtins.property
     @jsii.member(jsii_name="unusedAccessAgeInput")
@@ -718,6 +1125,11 @@ __all__ = [
     "AccessanalyzerAnalyzerConfiguration",
     "AccessanalyzerAnalyzerConfigurationOutputReference",
     "AccessanalyzerAnalyzerConfigurationUnusedAccess",
+    "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule",
+    "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion",
+    "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionList",
+    "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusionOutputReference",
+    "AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleOutputReference",
     "AccessanalyzerAnalyzerConfigurationUnusedAccessOutputReference",
 ]
 
@@ -824,7 +1236,107 @@ def _typecheckingstub__58ce9f78df8458a424e135db3cd735ecd6b08abb0e44d687e24c87a90
 
 def _typecheckingstub__57c7ad702f6824ee3c018d3db7d0654122724f0d9685c76f9d7466226b3f4949(
     *,
+    analysis_rule: typing.Optional[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule, typing.Dict[builtins.str, typing.Any]]] = None,
     unused_access_age: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b46e48bda1d1f79dd5f227261ca466b57a42a66dc9042f7ad9939d129e1d93e7(
+    *,
+    exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__435f3ee0ebdf2108b0e948b8f43381742e405d928fcefddb11b5acadabf9a45b(
+    *,
+    account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Mapping[builtins.str, builtins.str]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b372488a471555c5eae77c71f6615636eaee8520471a063c2ab954d022a8a688(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a1b4eeb955b70cb4e5ff13803fb1b9a7c885f2d542acd838606cc989ec3f6ce(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__752a8e400e580af42760ee77b24e5d6e435cb6f04f6bdaa3998ccd7c83d28c84(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b9341ff901515c68a8c82b890748e6ebd6729eb1e8cbfc8bcc886244dc028e5(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1efbacd2c9f529c2b36227415e6a5e7708fe495543531433489f8c51555e77d6(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d57f92ed09396751cba7fa258a5edb58705987a82d7e68bc99d516a2b3db0ad9(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56c566c92388e44bac51eff1be5e84ae98a340806ceaa15a02f3a578b4d9991d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf0feeca738068b65fc9cd9b9ec36ea26874137e1bd735f57f32a60fef941e20(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__663fb4e83cfbd33aa3d207ba112666b4c1e767456e9e15afd130be1e2d240604(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a88f9b7f055d5581558cadbde8d4665f8aa1b8dd70712210d705e8eec0f351b(
+    value: typing.Optional[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, _cdktf_9a9027ec.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e00f849932a55d93fa5c9a26a33bfffd56058d348ba6f7f2d299977915b835c(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2155ac453c16898d1529aba7ad69143a722b00fb18ac539d7b1efbc79287002d(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRuleExclusion, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85d36cf2dc37a7446a3f8f1710558b19e50d0c84ec924cf25daec6c7d9fe5e84(
+    value: typing.Optional[AccessanalyzerAnalyzerConfigurationUnusedAccessAnalysisRule],
 ) -> None:
     """Type checking stubs"""
     pass

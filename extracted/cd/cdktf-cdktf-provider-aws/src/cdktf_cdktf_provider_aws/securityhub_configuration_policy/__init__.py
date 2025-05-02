@@ -1,7 +1,7 @@
 r'''
 # `aws_securityhub_configuration_policy`
 
-Refer to the Terraform Registry for docs: [`aws_securityhub_configuration_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy).
+Refer to the Terraform Registry for docs: [`aws_securityhub_configuration_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityhubConfigurationPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securityhubConfigurationPolicy.SecurityhubConfigurationPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy aws_securityhub_configuration_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy aws_securityhub_configuration_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SecurityhubConfigurationPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy aws_securityhub_configuration_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy aws_securityhub_configuration_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param configuration_policy: configuration_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#configuration_policy SecurityhubConfigurationPolicy#configuration_policy}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#description SecurityhubConfigurationPolicy#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#id SecurityhubConfigurationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param configuration_policy: configuration_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#configuration_policy SecurityhubConfigurationPolicy#configuration_policy}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#description SecurityhubConfigurationPolicy#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#id SecurityhubConfigurationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SecurityhubConfigurationPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityhubConfigurationPolicy to import.
-        :param import_from_id: The id of the existing SecurityhubConfigurationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityhubConfigurationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityhubConfigurationPolicy to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class SecurityhubConfigurationPolicy(
         security_controls_configuration: typing.Optional[typing.Union["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param service_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#service_enabled SecurityhubConfigurationPolicy#service_enabled}.
-        :param enabled_standard_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enabled_standard_arns SecurityhubConfigurationPolicy#enabled_standard_arns}.
-        :param security_controls_configuration: security_controls_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_controls_configuration SecurityhubConfigurationPolicy#security_controls_configuration}
+        :param service_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#service_enabled SecurityhubConfigurationPolicy#service_enabled}.
+        :param enabled_standard_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enabled_standard_arns SecurityhubConfigurationPolicy#enabled_standard_arns}.
+        :param security_controls_configuration: security_controls_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_controls_configuration SecurityhubConfigurationPolicy#security_controls_configuration}
         '''
         value = SecurityhubConfigurationPolicyConfigurationPolicy(
             service_enabled=service_enabled,
@@ -277,10 +277,10 @@ class SecurityhubConfigurationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param configuration_policy: configuration_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#configuration_policy SecurityhubConfigurationPolicy#configuration_policy}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#description SecurityhubConfigurationPolicy#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#id SecurityhubConfigurationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param configuration_policy: configuration_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#configuration_policy SecurityhubConfigurationPolicy#configuration_policy}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#description SecurityhubConfigurationPolicy#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#id SecurityhubConfigurationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -392,7 +392,7 @@ class SecurityhubConfigurationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> "SecurityhubConfigurationPolicyConfigurationPolicy":
         '''configuration_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#configuration_policy SecurityhubConfigurationPolicy#configuration_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#configuration_policy SecurityhubConfigurationPolicy#configuration_policy}
         '''
         result = self._values.get("configuration_policy")
         assert result is not None, "Required property 'configuration_policy' is missing"
@@ -400,20 +400,20 @@ class SecurityhubConfigurationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#description SecurityhubConfigurationPolicy#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#description SecurityhubConfigurationPolicy#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#id SecurityhubConfigurationPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#id SecurityhubConfigurationPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -451,9 +451,9 @@ class SecurityhubConfigurationPolicyConfigurationPolicy:
         security_controls_configuration: typing.Optional[typing.Union["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param service_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#service_enabled SecurityhubConfigurationPolicy#service_enabled}.
-        :param enabled_standard_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enabled_standard_arns SecurityhubConfigurationPolicy#enabled_standard_arns}.
-        :param security_controls_configuration: security_controls_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_controls_configuration SecurityhubConfigurationPolicy#security_controls_configuration}
+        :param service_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#service_enabled SecurityhubConfigurationPolicy#service_enabled}.
+        :param enabled_standard_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enabled_standard_arns SecurityhubConfigurationPolicy#enabled_standard_arns}.
+        :param security_controls_configuration: security_controls_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_controls_configuration SecurityhubConfigurationPolicy#security_controls_configuration}
         '''
         if isinstance(security_controls_configuration, dict):
             security_controls_configuration = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfiguration(**security_controls_configuration)
@@ -474,14 +474,14 @@ class SecurityhubConfigurationPolicyConfigurationPolicy:
     def service_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#service_enabled SecurityhubConfigurationPolicy#service_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#service_enabled SecurityhubConfigurationPolicy#service_enabled}.'''
         result = self._values.get("service_enabled")
         assert result is not None, "Required property 'service_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def enabled_standard_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enabled_standard_arns SecurityhubConfigurationPolicy#enabled_standard_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enabled_standard_arns SecurityhubConfigurationPolicy#enabled_standard_arns}.'''
         result = self._values.get("enabled_standard_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -491,7 +491,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicy:
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfiguration"]:
         '''security_controls_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_controls_configuration SecurityhubConfigurationPolicy#security_controls_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_controls_configuration SecurityhubConfigurationPolicy#security_controls_configuration}
         '''
         result = self._values.get("security_controls_configuration")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfiguration"], result)
@@ -537,9 +537,9 @@ class SecurityhubConfigurationPolicyConfigurationPolicyOutputReference(
         security_control_custom_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param disabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#disabled_control_identifiers SecurityhubConfigurationPolicy#disabled_control_identifiers}.
-        :param enabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enabled_control_identifiers SecurityhubConfigurationPolicy#enabled_control_identifiers}.
-        :param security_control_custom_parameter: security_control_custom_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_control_custom_parameter SecurityhubConfigurationPolicy#security_control_custom_parameter}
+        :param disabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#disabled_control_identifiers SecurityhubConfigurationPolicy#disabled_control_identifiers}.
+        :param enabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enabled_control_identifiers SecurityhubConfigurationPolicy#enabled_control_identifiers}.
+        :param security_control_custom_parameter: security_control_custom_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_control_custom_parameter SecurityhubConfigurationPolicy#security_control_custom_parameter}
         '''
         value = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfiguration(
             disabled_control_identifiers=disabled_control_identifiers,
@@ -648,9 +648,9 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
         security_control_custom_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param disabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#disabled_control_identifiers SecurityhubConfigurationPolicy#disabled_control_identifiers}.
-        :param enabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enabled_control_identifiers SecurityhubConfigurationPolicy#enabled_control_identifiers}.
-        :param security_control_custom_parameter: security_control_custom_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_control_custom_parameter SecurityhubConfigurationPolicy#security_control_custom_parameter}
+        :param disabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#disabled_control_identifiers SecurityhubConfigurationPolicy#disabled_control_identifiers}.
+        :param enabled_control_identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enabled_control_identifiers SecurityhubConfigurationPolicy#enabled_control_identifiers}.
+        :param security_control_custom_parameter: security_control_custom_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_control_custom_parameter SecurityhubConfigurationPolicy#security_control_custom_parameter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28b80eaba30b778d4937a11392e131ed64c009a5b73c8ab7fc0f7f78931cb4eb)
@@ -669,13 +669,13 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     def disabled_control_identifiers(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#disabled_control_identifiers SecurityhubConfigurationPolicy#disabled_control_identifiers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#disabled_control_identifiers SecurityhubConfigurationPolicy#disabled_control_identifiers}.'''
         result = self._values.get("disabled_control_identifiers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def enabled_control_identifiers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enabled_control_identifiers SecurityhubConfigurationPolicy#enabled_control_identifiers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enabled_control_identifiers SecurityhubConfigurationPolicy#enabled_control_identifiers}.'''
         result = self._values.get("enabled_control_identifiers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -685,7 +685,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameter"]]]:
         '''security_control_custom_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_control_custom_parameter SecurityhubConfigurationPolicy#security_control_custom_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_control_custom_parameter SecurityhubConfigurationPolicy#security_control_custom_parameter}
         '''
         result = self._values.get("security_control_custom_parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameter"]]], result)
@@ -833,8 +833,8 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
         security_control_id: builtins.str,
     ) -> None:
         '''
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#parameter SecurityhubConfigurationPolicy#parameter}
-        :param security_control_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_control_id SecurityhubConfigurationPolicy#security_control_id}.
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#parameter SecurityhubConfigurationPolicy#parameter}
+        :param security_control_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_control_id SecurityhubConfigurationPolicy#security_control_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68d69dd5a0bfaf98fb4f6a696d5316a098726a1767a17c633bdbedc2e393394c)
@@ -851,7 +851,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameter"]]:
         '''parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#parameter SecurityhubConfigurationPolicy#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#parameter SecurityhubConfigurationPolicy#parameter}
         '''
         result = self._values.get("parameter")
         assert result is not None, "Required property 'parameter' is missing"
@@ -859,7 +859,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def security_control_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#security_control_id SecurityhubConfigurationPolicy#security_control_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#security_control_id SecurityhubConfigurationPolicy#security_control_id}.'''
         result = self._values.get("security_control_id")
         assert result is not None, "Required property 'security_control_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1089,16 +1089,16 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
         string_list: typing.Optional[typing.Union["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterStringListStruct", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.
-        :param value_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value_type SecurityhubConfigurationPolicy#value_type}.
-        :param bool: bool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#bool SecurityhubConfigurationPolicy#bool}
-        :param double: double block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#double SecurityhubConfigurationPolicy#double}
-        :param enum: enum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enum SecurityhubConfigurationPolicy#enum}
-        :param enum_list: enum_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enum_list SecurityhubConfigurationPolicy#enum_list}
-        :param int: int block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#int SecurityhubConfigurationPolicy#int}
-        :param int_list: int_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#int_list SecurityhubConfigurationPolicy#int_list}
-        :param string: string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#string SecurityhubConfigurationPolicy#string}
-        :param string_list: string_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#string_list SecurityhubConfigurationPolicy#string_list}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.
+        :param value_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value_type SecurityhubConfigurationPolicy#value_type}.
+        :param bool: bool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#bool SecurityhubConfigurationPolicy#bool}
+        :param double: double block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#double SecurityhubConfigurationPolicy#double}
+        :param enum: enum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enum SecurityhubConfigurationPolicy#enum}
+        :param enum_list: enum_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enum_list SecurityhubConfigurationPolicy#enum_list}
+        :param int: int block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#int SecurityhubConfigurationPolicy#int}
+        :param int_list: int_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#int_list SecurityhubConfigurationPolicy#int_list}
+        :param string: string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#string SecurityhubConfigurationPolicy#string}
+        :param string_list: string_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#string_list SecurityhubConfigurationPolicy#string_list}
         '''
         if isinstance(bool, dict):
             bool = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterBool(**bool)
@@ -1151,14 +1151,14 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#name SecurityhubConfigurationPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value_type SecurityhubConfigurationPolicy#value_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value_type SecurityhubConfigurationPolicy#value_type}.'''
         result = self._values.get("value_type")
         assert result is not None, "Required property 'value_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1169,7 +1169,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterBool"]:
         '''bool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#bool SecurityhubConfigurationPolicy#bool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#bool SecurityhubConfigurationPolicy#bool}
         '''
         result = self._values.get("bool")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterBool"], result)
@@ -1180,7 +1180,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterDouble"]:
         '''double block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#double SecurityhubConfigurationPolicy#double}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#double SecurityhubConfigurationPolicy#double}
         '''
         result = self._values.get("double")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterDouble"], result)
@@ -1191,7 +1191,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnum"]:
         '''enum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enum SecurityhubConfigurationPolicy#enum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enum SecurityhubConfigurationPolicy#enum}
         '''
         result = self._values.get("enum")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnum"], result)
@@ -1202,7 +1202,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnumListStruct"]:
         '''enum_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#enum_list SecurityhubConfigurationPolicy#enum_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#enum_list SecurityhubConfigurationPolicy#enum_list}
         '''
         result = self._values.get("enum_list")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnumListStruct"], result)
@@ -1213,7 +1213,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterInt"]:
         '''int block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#int SecurityhubConfigurationPolicy#int}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#int SecurityhubConfigurationPolicy#int}
         '''
         result = self._values.get("int")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterInt"], result)
@@ -1224,7 +1224,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterIntListStruct"]:
         '''int_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#int_list SecurityhubConfigurationPolicy#int_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#int_list SecurityhubConfigurationPolicy#int_list}
         '''
         result = self._values.get("int_list")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterIntListStruct"], result)
@@ -1235,7 +1235,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterString"]:
         '''string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#string SecurityhubConfigurationPolicy#string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#string SecurityhubConfigurationPolicy#string}
         '''
         result = self._values.get("string")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterString"], result)
@@ -1246,7 +1246,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     ) -> typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterStringListStruct"]:
         '''string_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#string_list SecurityhubConfigurationPolicy#string_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#string_list SecurityhubConfigurationPolicy#string_list}
         '''
         result = self._values.get("string_list")
         return typing.cast(typing.Optional["SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterStringListStruct"], result)
@@ -1275,7 +1275,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
         value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee9f1c11086da24e89dfe48949e04c82fcc1ae13e07d2a27a4ad4398439c0075)
@@ -1286,7 +1286,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1371,7 +1371,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterDouble:
     def __init__(self, *, value: jsii.Number) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f7b0468f7b288c2fdeb784b930159789cbae9a7d90389dbc9494c90f3abfe14)
@@ -1382,7 +1382,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1462,7 +1462,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnum:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9412ec9e9de7de767d871fe5c797174f5d1ede0b8e33280184df34732187d609)
@@ -1473,7 +1473,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1498,7 +1498,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnumListStruct:
     def __init__(self, *, value: typing.Sequence[builtins.str]) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f101bebc82b8a5cf8ed1e94196d3b00cf81296825f946408f6cb2301c244966)
@@ -1509,7 +1509,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1644,7 +1644,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterInt:
     def __init__(self, *, value: jsii.Number) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5267e6eb5de54ebd6a0871718675302963d99579bfe0d20e636ea913785d2277)
@@ -1655,7 +1655,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1680,7 +1680,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterIntListStruct:
     def __init__(self, *, value: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__918c61131d31722e47d71cb558a4f51b26bcefd6cd0649349bcf2de28a710795)
@@ -1691,7 +1691,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -1944,7 +1944,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
         value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterBool(
             value=value
@@ -1955,7 +1955,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putDouble")
     def put_double(self, *, value: jsii.Number) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterDouble(
             value=value
@@ -1966,7 +1966,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putEnum")
     def put_enum(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnum(
             value=value
@@ -1977,7 +1977,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putEnumList")
     def put_enum_list(self, *, value: typing.Sequence[builtins.str]) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterEnumListStruct(
             value=value
@@ -1988,7 +1988,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putInt")
     def put_int(self, *, value: jsii.Number) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterInt(
             value=value
@@ -1999,7 +1999,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putIntList")
     def put_int_list(self, *, value: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterIntListStruct(
             value=value
@@ -2010,7 +2010,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putString")
     def put_string(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterString(
             value=value
@@ -2021,7 +2021,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
     @jsii.member(jsii_name="putStringList")
     def put_string_list(self, *, value: typing.Sequence[builtins.str]) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         value_ = SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterStringListStruct(
             value=value
@@ -2233,7 +2233,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterString:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__136aeb8df72b246a5db9da9f1996602d60369d56bbc06ed1a7e13aab0db79d7c)
@@ -2244,7 +2244,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2269,7 +2269,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigurationSecurityControlCustomParameterParameterStringListStruct:
     def __init__(self, *, value: typing.Sequence[builtins.str]) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0dd6ff87c1198f476e9fa727189b2bcf6201c00c5a929ce641756d89dfae46b)
@@ -2280,7 +2280,7 @@ class SecurityhubConfigurationPolicyConfigurationPolicySecurityControlsConfigura
 
     @builtins.property
     def value(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_configuration_policy#value SecurityhubConfigurationPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(typing.List[builtins.str], result)

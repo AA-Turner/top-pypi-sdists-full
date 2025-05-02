@@ -1,7 +1,7 @@
 r'''
 # `aws_pinpoint_app`
 
-Refer to the Terraform Registry for docs: [`aws_pinpoint_app`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app).
+Refer to the Terraform Registry for docs: [`aws_pinpoint_app`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PinpointApp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.pinpointApp.PinpointApp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app aws_pinpoint_app}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app aws_pinpoint_app}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class PinpointApp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app aws_pinpoint_app} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app aws_pinpoint_app} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param campaign_hook: campaign_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#campaign_hook PinpointApp#campaign_hook}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#id PinpointApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#limits PinpointApp#limits}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#name PinpointApp#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#name_prefix PinpointApp#name_prefix}.
-        :param quiet_time: quiet_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#quiet_time PinpointApp#quiet_time}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#tags PinpointApp#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#tags_all PinpointApp#tags_all}.
+        :param campaign_hook: campaign_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#campaign_hook PinpointApp#campaign_hook}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#id PinpointApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#limits PinpointApp#limits}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#name PinpointApp#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#name_prefix PinpointApp#name_prefix}.
+        :param quiet_time: quiet_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#quiet_time PinpointApp#quiet_time}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#tags PinpointApp#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#tags_all PinpointApp#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class PinpointApp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PinpointApp to import.
-        :param import_from_id: The id of the existing PinpointApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PinpointApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PinpointApp to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class PinpointApp(
         web_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lambda_function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#lambda_function_name PinpointApp#lambda_function_name}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#mode PinpointApp#mode}.
-        :param web_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#web_url PinpointApp#web_url}.
+        :param lambda_function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#lambda_function_name PinpointApp#lambda_function_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#mode PinpointApp#mode}.
+        :param web_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#web_url PinpointApp#web_url}.
         '''
         value = PinpointAppCampaignHook(
             lambda_function_name=lambda_function_name, mode=mode, web_url=web_url
@@ -164,10 +164,10 @@ class PinpointApp(
         total: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param daily: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#daily PinpointApp#daily}.
-        :param maximum_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#maximum_duration PinpointApp#maximum_duration}.
-        :param messages_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#messages_per_second PinpointApp#messages_per_second}.
-        :param total: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#total PinpointApp#total}.
+        :param daily: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#daily PinpointApp#daily}.
+        :param maximum_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#maximum_duration PinpointApp#maximum_duration}.
+        :param messages_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#messages_per_second PinpointApp#messages_per_second}.
+        :param total: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#total PinpointApp#total}.
         '''
         value = PinpointAppLimits(
             daily=daily,
@@ -186,8 +186,8 @@ class PinpointApp(
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#end PinpointApp#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#start PinpointApp#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#end PinpointApp#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#start PinpointApp#start}.
         '''
         value = PinpointAppQuietTime(end=end, start=start)
 
@@ -384,9 +384,9 @@ class PinpointAppCampaignHook:
         web_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lambda_function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#lambda_function_name PinpointApp#lambda_function_name}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#mode PinpointApp#mode}.
-        :param web_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#web_url PinpointApp#web_url}.
+        :param lambda_function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#lambda_function_name PinpointApp#lambda_function_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#mode PinpointApp#mode}.
+        :param web_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#web_url PinpointApp#web_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__727777b3885318c597f55c4caf4cbe7a7a3edead178327d9e7fe0c5a4968aae1)
@@ -403,19 +403,19 @@ class PinpointAppCampaignHook:
 
     @builtins.property
     def lambda_function_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#lambda_function_name PinpointApp#lambda_function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#lambda_function_name PinpointApp#lambda_function_name}.'''
         result = self._values.get("lambda_function_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#mode PinpointApp#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#mode PinpointApp#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def web_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#web_url PinpointApp#web_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#web_url PinpointApp#web_url}.'''
         result = self._values.get("web_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -576,14 +576,14 @@ class PinpointAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param campaign_hook: campaign_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#campaign_hook PinpointApp#campaign_hook}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#id PinpointApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#limits PinpointApp#limits}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#name PinpointApp#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#name_prefix PinpointApp#name_prefix}.
-        :param quiet_time: quiet_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#quiet_time PinpointApp#quiet_time}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#tags PinpointApp#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#tags_all PinpointApp#tags_all}.
+        :param campaign_hook: campaign_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#campaign_hook PinpointApp#campaign_hook}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#id PinpointApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#limits PinpointApp#limits}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#name PinpointApp#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#name_prefix PinpointApp#name_prefix}.
+        :param quiet_time: quiet_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#quiet_time PinpointApp#quiet_time}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#tags PinpointApp#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#tags_all PinpointApp#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -710,14 +710,14 @@ class PinpointAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def campaign_hook(self) -> typing.Optional[PinpointAppCampaignHook]:
         '''campaign_hook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#campaign_hook PinpointApp#campaign_hook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#campaign_hook PinpointApp#campaign_hook}
         '''
         result = self._values.get("campaign_hook")
         return typing.cast(typing.Optional[PinpointAppCampaignHook], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#id PinpointApp#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#id PinpointApp#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -729,20 +729,20 @@ class PinpointAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def limits(self) -> typing.Optional["PinpointAppLimits"]:
         '''limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#limits PinpointApp#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#limits PinpointApp#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional["PinpointAppLimits"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#name PinpointApp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#name PinpointApp#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#name_prefix PinpointApp#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#name_prefix PinpointApp#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -750,20 +750,20 @@ class PinpointAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def quiet_time(self) -> typing.Optional["PinpointAppQuietTime"]:
         '''quiet_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#quiet_time PinpointApp#quiet_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#quiet_time PinpointApp#quiet_time}
         '''
         result = self._values.get("quiet_time")
         return typing.cast(typing.Optional["PinpointAppQuietTime"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#tags PinpointApp#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#tags PinpointApp#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#tags_all PinpointApp#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#tags_all PinpointApp#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -799,10 +799,10 @@ class PinpointAppLimits:
         total: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param daily: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#daily PinpointApp#daily}.
-        :param maximum_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#maximum_duration PinpointApp#maximum_duration}.
-        :param messages_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#messages_per_second PinpointApp#messages_per_second}.
-        :param total: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#total PinpointApp#total}.
+        :param daily: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#daily PinpointApp#daily}.
+        :param maximum_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#maximum_duration PinpointApp#maximum_duration}.
+        :param messages_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#messages_per_second PinpointApp#messages_per_second}.
+        :param total: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#total PinpointApp#total}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0149aa5a4dd3fc6a021847b25fbc72fa6db998bcb52d23c1856f2a407446d20b)
@@ -822,25 +822,25 @@ class PinpointAppLimits:
 
     @builtins.property
     def daily(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#daily PinpointApp#daily}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#daily PinpointApp#daily}.'''
         result = self._values.get("daily")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_duration(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#maximum_duration PinpointApp#maximum_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#maximum_duration PinpointApp#maximum_duration}.'''
         result = self._values.get("maximum_duration")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def messages_per_second(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#messages_per_second PinpointApp#messages_per_second}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#messages_per_second PinpointApp#messages_per_second}.'''
         result = self._values.get("messages_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def total(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#total PinpointApp#total}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#total PinpointApp#total}.'''
         result = self._values.get("total")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -986,8 +986,8 @@ class PinpointAppQuietTime:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#end PinpointApp#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#start PinpointApp#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#end PinpointApp#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#start PinpointApp#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e628e5cd54349e39c890531dcccfbe063fd8dde758292335a0897a16caf1272b)
@@ -1001,13 +1001,13 @@ class PinpointAppQuietTime:
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#end PinpointApp#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#end PinpointApp#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_app#start PinpointApp#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_app#start PinpointApp#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,16 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: langgraph-checkpoint-sqlite
-Version: 2.0.6
+Version: 2.0.7
 Summary: Library with a SQLite implementation of LangGraph checkpoint saver.
-Home-page: https://www.github.com/langchain-ai/langgraph
 License: MIT
-Requires-Python: >=3.9.0,<4.0.0
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: aiosqlite (>=0.20,<0.22)
 Requires-Dist: langgraph-checkpoint (>=2.0.15,<3.0.0)
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
@@ -30,7 +30,7 @@ read_config = {"configurable": {"thread_id": "1"}}
 
 with SqliteSaver.from_conn_string(":memory:") as checkpointer:
     checkpoint = {
-        "v": 1,
+        "v": 2,
         "ts": "2024-07-31T20:14:19.804150+00:00",
         "id": "1ef4f797-8335-6428-8001-8a1503f9b875",
         "channel_values": {
@@ -72,7 +72,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 async with AsyncSqliteSaver.from_conn_string(":memory:") as checkpointer:
     checkpoint = {
-        "v": 1,
+        "v": 2,
         "ts": "2024-07-31T20:14:19.804150+00:00",
         "id": "1ef4f797-8335-6428-8001-8a1503f9b875",
         "channel_values": {

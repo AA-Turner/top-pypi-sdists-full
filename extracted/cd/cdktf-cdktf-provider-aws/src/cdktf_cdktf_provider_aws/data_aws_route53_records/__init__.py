@@ -1,7 +1,7 @@
 r'''
 # `data_aws_route53_records`
 
-Refer to the Terraform Registry for docs: [`data_aws_route53_records`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records).
+Refer to the Terraform Registry for docs: [`data_aws_route53_records`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsRoute53Records(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsRoute53Records.DataAwsRoute53Records",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records aws_route53_records}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records aws_route53_records}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataAwsRoute53Records(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records aws_route53_records} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records aws_route53_records} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#zone_id DataAwsRoute53Records#zone_id}.
-        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#name_regex DataAwsRoute53Records#name_regex}.
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#zone_id DataAwsRoute53Records#zone_id}.
+        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#name_regex DataAwsRoute53Records#name_regex}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataAwsRoute53Records(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsRoute53Records to import.
-        :param import_from_id: The id of the existing DataAwsRoute53Records that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsRoute53Records that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsRoute53Records to import is found.
         '''
         if __debug__:
@@ -211,8 +211,8 @@ class DataAwsRoute53RecordsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#zone_id DataAwsRoute53Records#zone_id}.
-        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#name_regex DataAwsRoute53Records#name_regex}.
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#zone_id DataAwsRoute53Records#zone_id}.
+        :param name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#name_regex DataAwsRoute53Records#name_regex}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -313,14 +313,14 @@ class DataAwsRoute53RecordsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#zone_id DataAwsRoute53Records#zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#zone_id DataAwsRoute53Records#zone_id}.'''
         result = self._values.get("zone_id")
         assert result is not None, "Required property 'zone_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/route53_records#name_regex DataAwsRoute53Records#name_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/route53_records#name_regex DataAwsRoute53Records#name_regex}.'''
         result = self._values.get("name_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 

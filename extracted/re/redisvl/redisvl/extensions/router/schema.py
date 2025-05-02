@@ -62,7 +62,7 @@ class RoutingConfig(BaseModel):
     """Configuration for routing behavior."""
 
     """The maximum number of top matches to return."""
-    max_k: Annotated[int, Field(strict=True, default=1, gt=0)] = 1
+    max_k: Annotated[int, Field(strict=True, gt=0)] = 1
     """Aggregation method to use to classify queries."""
     aggregation_method: DistanceAggregationMethod = Field(
         default=DistanceAggregationMethod.avg
@@ -100,6 +100,7 @@ class SemanticRouterIndexSchema(IndexSchema):
         return cls(
             index={"name": name, "prefix": name},  # type: ignore
             fields=[  # type: ignore
+                {"name": "reference_id", "type": "tag"},
                 {"name": "route_name", "type": "tag"},
                 {"name": "reference", "type": "text"},
                 {

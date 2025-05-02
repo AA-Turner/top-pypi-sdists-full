@@ -1,0 +1,312 @@
+Metadata-Version: 2.4
+Name: fev
+Version: 0.4.1
+Summary: fev: Forecast evaluation library
+Project-URL: Homepage, https://github.com/autogluon/fev
+Project-URL: Issues, https://github.com/autogluon/fev/issues
+Author-email: Oleksandr Shchur <shchuro@amazon.com>, Lorenzo Stella <stellalo@amazon.com>, Caner Turkmen <atturkm@amazon.com>, Abdul Fatir Ansari <ansarnd@amazon.com>
+License: 
+                                         Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+License-File: LICENSE
+License-File: NOTICE
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Requires-Dist: datasets[s3]<4.0,>=2.15
+Requires-Dist: numpy
+Requires-Dist: pydantic~=2.0
+Requires-Dist: scipy
+Provides-Extra: test
+Requires-Dist: autogluon-timeseries>=1.1.1; extra == 'test'
+Requires-Dist: jupyter; extra == 'test'
+Requires-Dist: nbconvert; extra == 'test'
+Requires-Dist: nbformat; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Description-Content-Type: text/markdown
+
+# fev
+A lightweight library that makes it easy to benchmark time series forecasting models.
+
+- Extensible: Easy to define your own forecasting tasks and benchmarks.
+- Reproducible: Ensures that the results obtained by different users are comparable.
+- Easy to use: Compatible with most popular forecasting libraries.
+- Minimal dependencies: Just a thin wrapper on top of 🤗[`datasets`](https://huggingface.co/docs/datasets/en/index).
+
+### How is `fev` different from other benchmarking tools?
+
+Existing forecasting benchmarks usually fall into one of two categories:
+
+- Standalone datasets without any supporting infrastructure. These provide no guarantees that the results obtained by different users are comparable. For example, changing the start date or duration of the forecast horizon totally changes the meaning of the scores.
+- Bespoke end-to-end systems that combine models, datasets and forecasting tasks. Such packages usually come with lots of dependencies and assumptions, which makes extending or integrating these libraries into existing systems difficult.
+
+`fev` aims for the middle ground - it provides the core benchmarking functionality without introducing unnecessary constraints or bloated dependencies. The library supports point & probabilistic forecasting, different types of covariates, as well as all popular forecasting metrics.
+
+## Installation
+```
+pip install fev
+```
+
+## Quickstart
+
+Create a task from a dataset stored on Hugging Face Hub
+```python
+import fev
+
+task = fev.Task(
+    dataset_path="autogluon/chronos_datasets",
+    dataset_config="monash_kdd_cup_2018",
+    horizon=12,
+)
+```
+Load data available as input to the forecasting model
+```python
+past_data, future_data = task.get_input_data()
+```
+- `past_data` contains the past data before the forecast horizon (item ID, past timestamps, target, all covariates).
+- `future_data` contains future data that is known at prediction time (item ID, future timestamps, and known covariates)
+
+Make predictions
+```python
+def naive_forecast(y: list, horizon: int) -> list:
+    return [y[-1] for _ in range(horizon)]
+
+predictions = []
+for ts in past_data:
+    predictions.append(
+        {"predictions": naive_forecast(y=ts[task.target_column], horizon=task.horizon)}
+    )
+```
+Get an evaluation summary
+```python
+task.evaluation_summary(predictions, model_name="naive")
+# {'model_name': 'naive',
+#  'dataset_name': 'chronos_datasets_monash_kdd_cup_2018',
+#  'dataset_fingerprint': '8a50d3417859652b',
+#  'dataset_path': 'autogluon/chronos_datasets',
+#  'dataset_config': 'monash_kdd_cup_2018',
+#  'horizon': 12,
+#  'cutoff': -12,
+#  'lead_time': 1,
+#  'min_ts_length': 13,
+#  'max_context_length': None,
+#  'seasonality': 1,
+#  'eval_metric': 'MASE',
+#  'extra_metrics': [],
+#  'quantile_levels': None,
+#  'id_column': 'id',
+#  'timestamp_column': 'timestamp',
+#  'target_column': 'target',
+#  'multiple_target_columns': None,
+#  'past_dynamic_columns': [],
+#  'excluded_columns': [],
+#  'test_error': 3.3784518,
+#  'training_time_s': None,
+#  'inference_time_s': None,
+#  'trained_on_this_dataset': False,
+#  'fev_version': '0.3.0',
+#  'MASE': 3.3784518}
+```
+The evaluation summary contains all information necessary to uniquely identify the forecasting task.
+
+Multiple evaluation summaries produced by different models on different tasks can be aggregated into a single table.
+```python
+# Dataframes, dicts, JSON or CSV files supported
+summaries = "https://raw.githubusercontent.com/autogluon/fev/refs/heads/main/benchmarks/example/results/results.csv"
+fev.leaderboard(summaries)
+# | model_name     |   gmean_relative_error |   avg_rank |   avg_inference_time_s |   ... |
+# |:---------------|-----------------------:|-----------:|-----------------------:|------:|
+# | auto_theta     |                  0.874 |      2     |                  5.501 |   ... |
+# | auto_arima     |                  0.887 |      2     |                 21.799 |   ... |
+# | auto_ets       |                  0.951 |      2.667 |                  0.737 |   ... |
+# | seasonal_naive |                  1     |      3.333 |                  0.004 |   ... |
+```
+
+## Tutorials
+- [Quickstart](./docs/01-quickstart.ipynb): Define a task and evaluate a model.
+- [Datasets](./docs/02-dataset-format.ipynb): Use `fev` with your own datasets.
+- [Tasks & benchmarks](./docs/03-tasks-and-benchmarks.ipynb): Advanced features for defining tasks and benchmarks.
+- [Models](./docs/04-models.ipynb): Evaluate your models and submit results to the leaderboard.
+
+Examples of model implementations compatible with `fev` are available in [`examples/`](./examples/).
+
+
+## Leaderboards
+We host leaderboards obtained using `fev` under https://huggingface.co/spaces/autogluon/fev-leaderboard.
+
+Currently, the leaderboard includes the results from the Benchmark II introduced in [Chronos: Learning the Language of Time Series](https://arxiv.org/abs/2403.07815). We expect to extend this list in the future.

@@ -1,7 +1,7 @@
 r'''
 # `aws_ses_receipt_rule`
 
-Refer to the Terraform Registry for docs: [`aws_ses_receipt_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule).
+Refer to the Terraform Registry for docs: [`aws_ses_receipt_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SesReceiptRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sesReceiptRule.SesReceiptRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule aws_ses_receipt_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule aws_ses_receipt_rule}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class SesReceiptRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule aws_ses_receipt_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule aws_ses_receipt_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#name SesReceiptRule#name}.
-        :param rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#rule_set_name SesReceiptRule#rule_set_name}.
-        :param add_header_action: add_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#add_header_action SesReceiptRule#add_header_action}
-        :param after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#after SesReceiptRule#after}.
-        :param bounce_action: bounce_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#bounce_action SesReceiptRule#bounce_action}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#enabled SesReceiptRule#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#id SesReceiptRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_action: lambda_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#lambda_action SesReceiptRule#lambda_action}
-        :param recipients: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#recipients SesReceiptRule#recipients}.
-        :param s3_action: s3_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#s3_action SesReceiptRule#s3_action}
-        :param scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#scan_enabled SesReceiptRule#scan_enabled}.
-        :param sns_action: sns_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#sns_action SesReceiptRule#sns_action}
-        :param stop_action: stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#stop_action SesReceiptRule#stop_action}
-        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#tls_policy SesReceiptRule#tls_policy}.
-        :param workmail_action: workmail_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#workmail_action SesReceiptRule#workmail_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#name SesReceiptRule#name}.
+        :param rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#rule_set_name SesReceiptRule#rule_set_name}.
+        :param add_header_action: add_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#add_header_action SesReceiptRule#add_header_action}
+        :param after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#after SesReceiptRule#after}.
+        :param bounce_action: bounce_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#bounce_action SesReceiptRule#bounce_action}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#enabled SesReceiptRule#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#id SesReceiptRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_action: lambda_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#lambda_action SesReceiptRule#lambda_action}
+        :param recipients: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#recipients SesReceiptRule#recipients}.
+        :param s3_action: s3_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#s3_action SesReceiptRule#s3_action}
+        :param scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#scan_enabled SesReceiptRule#scan_enabled}.
+        :param sns_action: sns_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#sns_action SesReceiptRule#sns_action}
+        :param stop_action: stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#stop_action SesReceiptRule#stop_action}
+        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#tls_policy SesReceiptRule#tls_policy}.
+        :param workmail_action: workmail_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#workmail_action SesReceiptRule#workmail_action}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class SesReceiptRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SesReceiptRule to import.
-        :param import_from_id: The id of the existing SesReceiptRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SesReceiptRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SesReceiptRule to import is found.
         '''
         if __debug__:
@@ -566,9 +566,9 @@ class SesReceiptRuleAddHeaderAction:
         position: jsii.Number,
     ) -> None:
         '''
-        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#header_name SesReceiptRule#header_name}.
-        :param header_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#header_value SesReceiptRule#header_value}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#header_name SesReceiptRule#header_name}.
+        :param header_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#header_value SesReceiptRule#header_value}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d027be450e5e3cba5f5a118cadf67f76bcc432401c47987bdd5b0a469f99c074)
@@ -583,21 +583,21 @@ class SesReceiptRuleAddHeaderAction:
 
     @builtins.property
     def header_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#header_name SesReceiptRule#header_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#header_name SesReceiptRule#header_name}.'''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def header_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#header_value SesReceiptRule#header_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#header_value SesReceiptRule#header_value}.'''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
@@ -823,12 +823,12 @@ class SesReceiptRuleBounceAction:
         topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#message SesReceiptRule#message}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
-        :param sender: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#sender SesReceiptRule#sender}.
-        :param smtp_reply_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#smtp_reply_code SesReceiptRule#smtp_reply_code}.
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#status_code SesReceiptRule#status_code}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#message SesReceiptRule#message}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param sender: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#sender SesReceiptRule#sender}.
+        :param smtp_reply_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#smtp_reply_code SesReceiptRule#smtp_reply_code}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#status_code SesReceiptRule#status_code}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__791903c0eecf70851f0cbd499df7a3a85095f2d61b219cb5b0b20de5011fe3ba)
@@ -851,41 +851,41 @@ class SesReceiptRuleBounceAction:
 
     @builtins.property
     def message(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#message SesReceiptRule#message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#message SesReceiptRule#message}.'''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def sender(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#sender SesReceiptRule#sender}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#sender SesReceiptRule#sender}.'''
         result = self._values.get("sender")
         assert result is not None, "Required property 'sender' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def smtp_reply_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#smtp_reply_code SesReceiptRule#smtp_reply_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#smtp_reply_code SesReceiptRule#smtp_reply_code}.'''
         result = self._values.get("smtp_reply_code")
         assert result is not None, "Required property 'smtp_reply_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def status_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#status_code SesReceiptRule#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#status_code SesReceiptRule#status_code}.'''
         result = self._values.get("status_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1208,21 +1208,21 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#name SesReceiptRule#name}.
-        :param rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#rule_set_name SesReceiptRule#rule_set_name}.
-        :param add_header_action: add_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#add_header_action SesReceiptRule#add_header_action}
-        :param after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#after SesReceiptRule#after}.
-        :param bounce_action: bounce_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#bounce_action SesReceiptRule#bounce_action}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#enabled SesReceiptRule#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#id SesReceiptRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_action: lambda_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#lambda_action SesReceiptRule#lambda_action}
-        :param recipients: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#recipients SesReceiptRule#recipients}.
-        :param s3_action: s3_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#s3_action SesReceiptRule#s3_action}
-        :param scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#scan_enabled SesReceiptRule#scan_enabled}.
-        :param sns_action: sns_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#sns_action SesReceiptRule#sns_action}
-        :param stop_action: stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#stop_action SesReceiptRule#stop_action}
-        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#tls_policy SesReceiptRule#tls_policy}.
-        :param workmail_action: workmail_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#workmail_action SesReceiptRule#workmail_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#name SesReceiptRule#name}.
+        :param rule_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#rule_set_name SesReceiptRule#rule_set_name}.
+        :param add_header_action: add_header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#add_header_action SesReceiptRule#add_header_action}
+        :param after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#after SesReceiptRule#after}.
+        :param bounce_action: bounce_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#bounce_action SesReceiptRule#bounce_action}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#enabled SesReceiptRule#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#id SesReceiptRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_action: lambda_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#lambda_action SesReceiptRule#lambda_action}
+        :param recipients: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#recipients SesReceiptRule#recipients}.
+        :param s3_action: s3_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#s3_action SesReceiptRule#s3_action}
+        :param scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#scan_enabled SesReceiptRule#scan_enabled}.
+        :param sns_action: sns_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#sns_action SesReceiptRule#sns_action}
+        :param stop_action: stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#stop_action SesReceiptRule#stop_action}
+        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#tls_policy SesReceiptRule#tls_policy}.
+        :param workmail_action: workmail_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#workmail_action SesReceiptRule#workmail_action}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1361,14 +1361,14 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#name SesReceiptRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#name SesReceiptRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_set_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#rule_set_name SesReceiptRule#rule_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#rule_set_name SesReceiptRule#rule_set_name}.'''
         result = self._values.get("rule_set_name")
         assert result is not None, "Required property 'rule_set_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1379,14 +1379,14 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SesReceiptRuleAddHeaderAction]]]:
         '''add_header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#add_header_action SesReceiptRule#add_header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#add_header_action SesReceiptRule#add_header_action}
         '''
         result = self._values.get("add_header_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SesReceiptRuleAddHeaderAction]]], result)
 
     @builtins.property
     def after(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#after SesReceiptRule#after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#after SesReceiptRule#after}.'''
         result = self._values.get("after")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1396,7 +1396,7 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SesReceiptRuleBounceAction]]]:
         '''bounce_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#bounce_action SesReceiptRule#bounce_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#bounce_action SesReceiptRule#bounce_action}
         '''
         result = self._values.get("bounce_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SesReceiptRuleBounceAction]]], result)
@@ -1405,13 +1405,13 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#enabled SesReceiptRule#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#enabled SesReceiptRule#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#id SesReceiptRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#id SesReceiptRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1425,14 +1425,14 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleLambdaAction"]]]:
         '''lambda_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#lambda_action SesReceiptRule#lambda_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#lambda_action SesReceiptRule#lambda_action}
         '''
         result = self._values.get("lambda_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleLambdaAction"]]], result)
 
     @builtins.property
     def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#recipients SesReceiptRule#recipients}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#recipients SesReceiptRule#recipients}.'''
         result = self._values.get("recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1442,7 +1442,7 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleS3Action"]]]:
         '''s3_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#s3_action SesReceiptRule#s3_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#s3_action SesReceiptRule#s3_action}
         '''
         result = self._values.get("s3_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleS3Action"]]], result)
@@ -1451,7 +1451,7 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scan_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#scan_enabled SesReceiptRule#scan_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#scan_enabled SesReceiptRule#scan_enabled}.'''
         result = self._values.get("scan_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1461,7 +1461,7 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleSnsAction"]]]:
         '''sns_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#sns_action SesReceiptRule#sns_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#sns_action SesReceiptRule#sns_action}
         '''
         result = self._values.get("sns_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleSnsAction"]]], result)
@@ -1472,14 +1472,14 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleStopAction"]]]:
         '''stop_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#stop_action SesReceiptRule#stop_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#stop_action SesReceiptRule#stop_action}
         '''
         result = self._values.get("stop_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleStopAction"]]], result)
 
     @builtins.property
     def tls_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#tls_policy SesReceiptRule#tls_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#tls_policy SesReceiptRule#tls_policy}.'''
         result = self._values.get("tls_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1489,7 +1489,7 @@ class SesReceiptRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleWorkmailAction"]]]:
         '''workmail_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#workmail_action SesReceiptRule#workmail_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#workmail_action SesReceiptRule#workmail_action}
         '''
         result = self._values.get("workmail_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SesReceiptRuleWorkmailAction"]]], result)
@@ -1526,10 +1526,10 @@ class SesReceiptRuleLambdaAction:
         topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#function_arn SesReceiptRule#function_arn}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
-        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#invocation_type SesReceiptRule#invocation_type}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#function_arn SesReceiptRule#function_arn}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param invocation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#invocation_type SesReceiptRule#invocation_type}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22404a2edc44d32d40b684624b4f3af74363b903a5bff8bd0f4393dde89e1b2a)
@@ -1548,27 +1548,27 @@ class SesReceiptRuleLambdaAction:
 
     @builtins.property
     def function_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#function_arn SesReceiptRule#function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#function_arn SesReceiptRule#function_arn}.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def invocation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#invocation_type SesReceiptRule#invocation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#invocation_type SesReceiptRule#invocation_type}.'''
         result = self._values.get("invocation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1818,12 +1818,12 @@ class SesReceiptRuleS3Action:
         topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#bucket_name SesReceiptRule#bucket_name}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#iam_role_arn SesReceiptRule#iam_role_arn}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#kms_key_arn SesReceiptRule#kms_key_arn}.
-        :param object_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#object_key_prefix SesReceiptRule#object_key_prefix}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#bucket_name SesReceiptRule#bucket_name}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#iam_role_arn SesReceiptRule#iam_role_arn}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#kms_key_arn SesReceiptRule#kms_key_arn}.
+        :param object_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#object_key_prefix SesReceiptRule#object_key_prefix}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cba0e508700898fae7ece0a100fff0951ffa6385777f3e461d6d839f55e52497)
@@ -1848,39 +1848,39 @@ class SesReceiptRuleS3Action:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#bucket_name SesReceiptRule#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#bucket_name SesReceiptRule#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#iam_role_arn SesReceiptRule#iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#iam_role_arn SesReceiptRule#iam_role_arn}.'''
         result = self._values.get("iam_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#kms_key_arn SesReceiptRule#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#kms_key_arn SesReceiptRule#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def object_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#object_key_prefix SesReceiptRule#object_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#object_key_prefix SesReceiptRule#object_key_prefix}.'''
         result = self._values.get("object_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2166,9 +2166,9 @@ class SesReceiptRuleSnsAction:
         encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
-        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#encoding SesReceiptRule#encoding}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
+        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#encoding SesReceiptRule#encoding}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc1175f32d36b82d5625b79ce7b7d2f0caaea16a7aaf6bf9593ba6f19acd3f52)
@@ -2184,21 +2184,21 @@ class SesReceiptRuleSnsAction:
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def topic_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
         result = self._values.get("topic_arn")
         assert result is not None, "Required property 'topic_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def encoding(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#encoding SesReceiptRule#encoding}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#encoding SesReceiptRule#encoding}.'''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2417,9 +2417,9 @@ class SesReceiptRuleStopAction:
         topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#scope SesReceiptRule#scope}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#scope SesReceiptRule#scope}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7ea1e2436985c5c727e0a6b9761a5c44d8f94eb68acee536b670a9a8858a852)
@@ -2435,21 +2435,21 @@ class SesReceiptRuleStopAction:
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#scope SesReceiptRule#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#scope SesReceiptRule#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2672,9 +2672,9 @@ class SesReceiptRuleWorkmailAction:
         topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param organization_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#organization_arn SesReceiptRule#organization_arn}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
+        :param organization_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#organization_arn SesReceiptRule#organization_arn}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de2234b7f3aaa0e95b4c1b7dbfe8f8e5bb8ba84509c691f6a2fe4d44c6add5b9)
@@ -2690,21 +2690,21 @@ class SesReceiptRuleWorkmailAction:
 
     @builtins.property
     def organization_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#organization_arn SesReceiptRule#organization_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#organization_arn SesReceiptRule#organization_arn}.'''
         result = self._values.get("organization_arn")
         assert result is not None, "Required property 'organization_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def position(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#position SesReceiptRule#position}.'''
         result = self._values.get("position")
         assert result is not None, "Required property 'position' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_receipt_rule#topic_arn SesReceiptRule#topic_arn}.'''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 

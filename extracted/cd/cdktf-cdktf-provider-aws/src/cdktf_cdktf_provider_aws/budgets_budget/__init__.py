@@ -1,7 +1,7 @@
 r'''
 # `aws_budgets_budget`
 
-Refer to the Terraform Registry for docs: [`aws_budgets_budget`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget).
+Refer to the Terraform Registry for docs: [`aws_budgets_budget`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BudgetsBudget(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.budgetsBudget.BudgetsBudget",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget aws_budgets_budget}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget aws_budgets_budget}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class BudgetsBudget(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget aws_budgets_budget} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget aws_budgets_budget} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param budget_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#budget_type BudgetsBudget#budget_type}.
-        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_unit BudgetsBudget#time_unit}.
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#account_id BudgetsBudget#account_id}.
-        :param auto_adjust_data: auto_adjust_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#auto_adjust_data BudgetsBudget#auto_adjust_data}
-        :param cost_filter: cost_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#cost_filter BudgetsBudget#cost_filter}
-        :param cost_types: cost_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#cost_types BudgetsBudget#cost_types}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#id BudgetsBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param limit_amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#limit_amount BudgetsBudget#limit_amount}.
-        :param limit_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#limit_unit BudgetsBudget#limit_unit}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name BudgetsBudget#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name_prefix BudgetsBudget#name_prefix}.
-        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#notification BudgetsBudget#notification}
-        :param planned_limit: planned_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#planned_limit BudgetsBudget#planned_limit}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#tags BudgetsBudget#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#tags_all BudgetsBudget#tags_all}.
-        :param time_period_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_period_end BudgetsBudget#time_period_end}.
-        :param time_period_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_period_start BudgetsBudget#time_period_start}.
+        :param budget_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#budget_type BudgetsBudget#budget_type}.
+        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_unit BudgetsBudget#time_unit}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#account_id BudgetsBudget#account_id}.
+        :param auto_adjust_data: auto_adjust_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#auto_adjust_data BudgetsBudget#auto_adjust_data}
+        :param cost_filter: cost_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#cost_filter BudgetsBudget#cost_filter}
+        :param cost_types: cost_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#cost_types BudgetsBudget#cost_types}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#id BudgetsBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param limit_amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#limit_amount BudgetsBudget#limit_amount}.
+        :param limit_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#limit_unit BudgetsBudget#limit_unit}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name BudgetsBudget#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name_prefix BudgetsBudget#name_prefix}.
+        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#notification BudgetsBudget#notification}
+        :param planned_limit: planned_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#planned_limit BudgetsBudget#planned_limit}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#tags BudgetsBudget#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#tags_all BudgetsBudget#tags_all}.
+        :param time_period_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_period_end BudgetsBudget#time_period_end}.
+        :param time_period_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_period_start BudgetsBudget#time_period_start}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class BudgetsBudget(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BudgetsBudget to import.
-        :param import_from_id: The id of the existing BudgetsBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BudgetsBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BudgetsBudget to import is found.
         '''
         if __debug__:
@@ -170,8 +170,8 @@ class BudgetsBudget(
         historical_options: typing.Optional[typing.Union["BudgetsBudgetAutoAdjustDataHistoricalOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_adjust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#auto_adjust_type BudgetsBudget#auto_adjust_type}.
-        :param historical_options: historical_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#historical_options BudgetsBudget#historical_options}
+        :param auto_adjust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#auto_adjust_type BudgetsBudget#auto_adjust_type}.
+        :param historical_options: historical_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#historical_options BudgetsBudget#historical_options}
         '''
         value = BudgetsBudgetAutoAdjustData(
             auto_adjust_type=auto_adjust_type, historical_options=historical_options
@@ -209,17 +209,17 @@ class BudgetsBudget(
         use_blended: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param include_credit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_credit BudgetsBudget#include_credit}.
-        :param include_discount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_discount BudgetsBudget#include_discount}.
-        :param include_other_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_other_subscription BudgetsBudget#include_other_subscription}.
-        :param include_recurring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_recurring BudgetsBudget#include_recurring}.
-        :param include_refund: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_refund BudgetsBudget#include_refund}.
-        :param include_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_subscription BudgetsBudget#include_subscription}.
-        :param include_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_support BudgetsBudget#include_support}.
-        :param include_tax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_tax BudgetsBudget#include_tax}.
-        :param include_upfront: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_upfront BudgetsBudget#include_upfront}.
-        :param use_amortized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#use_amortized BudgetsBudget#use_amortized}.
-        :param use_blended: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#use_blended BudgetsBudget#use_blended}.
+        :param include_credit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_credit BudgetsBudget#include_credit}.
+        :param include_discount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_discount BudgetsBudget#include_discount}.
+        :param include_other_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_other_subscription BudgetsBudget#include_other_subscription}.
+        :param include_recurring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_recurring BudgetsBudget#include_recurring}.
+        :param include_refund: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_refund BudgetsBudget#include_refund}.
+        :param include_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_subscription BudgetsBudget#include_subscription}.
+        :param include_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_support BudgetsBudget#include_support}.
+        :param include_tax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_tax BudgetsBudget#include_tax}.
+        :param include_upfront: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_upfront BudgetsBudget#include_upfront}.
+        :param use_amortized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#use_amortized BudgetsBudget#use_amortized}.
+        :param use_blended: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#use_blended BudgetsBudget#use_blended}.
         '''
         value = BudgetsBudgetCostTypes(
             include_credit=include_credit,
@@ -620,8 +620,8 @@ class BudgetsBudgetAutoAdjustData:
         historical_options: typing.Optional[typing.Union["BudgetsBudgetAutoAdjustDataHistoricalOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_adjust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#auto_adjust_type BudgetsBudget#auto_adjust_type}.
-        :param historical_options: historical_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#historical_options BudgetsBudget#historical_options}
+        :param auto_adjust_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#auto_adjust_type BudgetsBudget#auto_adjust_type}.
+        :param historical_options: historical_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#historical_options BudgetsBudget#historical_options}
         '''
         if isinstance(historical_options, dict):
             historical_options = BudgetsBudgetAutoAdjustDataHistoricalOptions(**historical_options)
@@ -637,7 +637,7 @@ class BudgetsBudgetAutoAdjustData:
 
     @builtins.property
     def auto_adjust_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#auto_adjust_type BudgetsBudget#auto_adjust_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#auto_adjust_type BudgetsBudget#auto_adjust_type}.'''
         result = self._values.get("auto_adjust_type")
         assert result is not None, "Required property 'auto_adjust_type' is missing"
         return typing.cast(builtins.str, result)
@@ -648,7 +648,7 @@ class BudgetsBudgetAutoAdjustData:
     ) -> typing.Optional["BudgetsBudgetAutoAdjustDataHistoricalOptions"]:
         '''historical_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#historical_options BudgetsBudget#historical_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#historical_options BudgetsBudget#historical_options}
         '''
         result = self._values.get("historical_options")
         return typing.cast(typing.Optional["BudgetsBudgetAutoAdjustDataHistoricalOptions"], result)
@@ -673,7 +673,7 @@ class BudgetsBudgetAutoAdjustData:
 class BudgetsBudgetAutoAdjustDataHistoricalOptions:
     def __init__(self, *, budget_adjustment_period: jsii.Number) -> None:
         '''
-        :param budget_adjustment_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#budget_adjustment_period BudgetsBudget#budget_adjustment_period}.
+        :param budget_adjustment_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#budget_adjustment_period BudgetsBudget#budget_adjustment_period}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e41879269066a1fe681c22e33ce747f9e4e84712a9a3077f15e06acc4769810)
@@ -684,7 +684,7 @@ class BudgetsBudgetAutoAdjustDataHistoricalOptions:
 
     @builtins.property
     def budget_adjustment_period(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#budget_adjustment_period BudgetsBudget#budget_adjustment_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#budget_adjustment_period BudgetsBudget#budget_adjustment_period}.'''
         result = self._values.get("budget_adjustment_period")
         assert result is not None, "Required property 'budget_adjustment_period' is missing"
         return typing.cast(jsii.Number, result)
@@ -784,7 +784,7 @@ class BudgetsBudgetAutoAdjustDataOutputReference(
     @jsii.member(jsii_name="putHistoricalOptions")
     def put_historical_options(self, *, budget_adjustment_period: jsii.Number) -> None:
         '''
-        :param budget_adjustment_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#budget_adjustment_period BudgetsBudget#budget_adjustment_period}.
+        :param budget_adjustment_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#budget_adjustment_period BudgetsBudget#budget_adjustment_period}.
         '''
         value = BudgetsBudgetAutoAdjustDataHistoricalOptions(
             budget_adjustment_period=budget_adjustment_period
@@ -915,23 +915,23 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param budget_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#budget_type BudgetsBudget#budget_type}.
-        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_unit BudgetsBudget#time_unit}.
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#account_id BudgetsBudget#account_id}.
-        :param auto_adjust_data: auto_adjust_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#auto_adjust_data BudgetsBudget#auto_adjust_data}
-        :param cost_filter: cost_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#cost_filter BudgetsBudget#cost_filter}
-        :param cost_types: cost_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#cost_types BudgetsBudget#cost_types}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#id BudgetsBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param limit_amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#limit_amount BudgetsBudget#limit_amount}.
-        :param limit_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#limit_unit BudgetsBudget#limit_unit}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name BudgetsBudget#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name_prefix BudgetsBudget#name_prefix}.
-        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#notification BudgetsBudget#notification}
-        :param planned_limit: planned_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#planned_limit BudgetsBudget#planned_limit}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#tags BudgetsBudget#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#tags_all BudgetsBudget#tags_all}.
-        :param time_period_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_period_end BudgetsBudget#time_period_end}.
-        :param time_period_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_period_start BudgetsBudget#time_period_start}.
+        :param budget_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#budget_type BudgetsBudget#budget_type}.
+        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_unit BudgetsBudget#time_unit}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#account_id BudgetsBudget#account_id}.
+        :param auto_adjust_data: auto_adjust_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#auto_adjust_data BudgetsBudget#auto_adjust_data}
+        :param cost_filter: cost_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#cost_filter BudgetsBudget#cost_filter}
+        :param cost_types: cost_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#cost_types BudgetsBudget#cost_types}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#id BudgetsBudget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param limit_amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#limit_amount BudgetsBudget#limit_amount}.
+        :param limit_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#limit_unit BudgetsBudget#limit_unit}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name BudgetsBudget#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name_prefix BudgetsBudget#name_prefix}.
+        :param notification: notification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#notification BudgetsBudget#notification}
+        :param planned_limit: planned_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#planned_limit BudgetsBudget#planned_limit}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#tags BudgetsBudget#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#tags_all BudgetsBudget#tags_all}.
+        :param time_period_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_period_end BudgetsBudget#time_period_end}.
+        :param time_period_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_period_start BudgetsBudget#time_period_start}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1080,21 +1080,21 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def budget_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#budget_type BudgetsBudget#budget_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#budget_type BudgetsBudget#budget_type}.'''
         result = self._values.get("budget_type")
         assert result is not None, "Required property 'budget_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_unit BudgetsBudget#time_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_unit BudgetsBudget#time_unit}.'''
         result = self._values.get("time_unit")
         assert result is not None, "Required property 'time_unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#account_id BudgetsBudget#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#account_id BudgetsBudget#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1102,7 +1102,7 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_adjust_data(self) -> typing.Optional[BudgetsBudgetAutoAdjustData]:
         '''auto_adjust_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#auto_adjust_data BudgetsBudget#auto_adjust_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#auto_adjust_data BudgetsBudget#auto_adjust_data}
         '''
         result = self._values.get("auto_adjust_data")
         return typing.cast(typing.Optional[BudgetsBudgetAutoAdjustData], result)
@@ -1113,7 +1113,7 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetCostFilter"]]]:
         '''cost_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#cost_filter BudgetsBudget#cost_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#cost_filter BudgetsBudget#cost_filter}
         '''
         result = self._values.get("cost_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetCostFilter"]]], result)
@@ -1122,14 +1122,14 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cost_types(self) -> typing.Optional["BudgetsBudgetCostTypes"]:
         '''cost_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#cost_types BudgetsBudget#cost_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#cost_types BudgetsBudget#cost_types}
         '''
         result = self._values.get("cost_types")
         return typing.cast(typing.Optional["BudgetsBudgetCostTypes"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#id BudgetsBudget#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#id BudgetsBudget#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1139,25 +1139,25 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def limit_amount(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#limit_amount BudgetsBudget#limit_amount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#limit_amount BudgetsBudget#limit_amount}.'''
         result = self._values.get("limit_amount")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def limit_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#limit_unit BudgetsBudget#limit_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#limit_unit BudgetsBudget#limit_unit}.'''
         result = self._values.get("limit_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name BudgetsBudget#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name BudgetsBudget#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name_prefix BudgetsBudget#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name_prefix BudgetsBudget#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1167,7 +1167,7 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetNotification"]]]:
         '''notification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#notification BudgetsBudget#notification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#notification BudgetsBudget#notification}
         '''
         result = self._values.get("notification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetNotification"]]], result)
@@ -1178,32 +1178,32 @@ class BudgetsBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetPlannedLimit"]]]:
         '''planned_limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#planned_limit BudgetsBudget#planned_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#planned_limit BudgetsBudget#planned_limit}
         '''
         result = self._values.get("planned_limit")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetPlannedLimit"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#tags BudgetsBudget#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#tags BudgetsBudget#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#tags_all BudgetsBudget#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#tags_all BudgetsBudget#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def time_period_end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_period_end BudgetsBudget#time_period_end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_period_end BudgetsBudget#time_period_end}.'''
         result = self._values.get("time_period_end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def time_period_start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#time_period_start BudgetsBudget#time_period_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#time_period_start BudgetsBudget#time_period_start}.'''
         result = self._values.get("time_period_start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1232,8 +1232,8 @@ class BudgetsBudgetCostFilter:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name BudgetsBudget#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#values BudgetsBudget#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name BudgetsBudget#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#values BudgetsBudget#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0f7856b9a6fc7082b68c4f0c28a63d2477fd8d27af4ec21e345385da20c593e)
@@ -1246,14 +1246,14 @@ class BudgetsBudgetCostFilter:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#name BudgetsBudget#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#name BudgetsBudget#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#values BudgetsBudget#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#values BudgetsBudget#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1472,17 +1472,17 @@ class BudgetsBudgetCostTypes:
         use_blended: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param include_credit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_credit BudgetsBudget#include_credit}.
-        :param include_discount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_discount BudgetsBudget#include_discount}.
-        :param include_other_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_other_subscription BudgetsBudget#include_other_subscription}.
-        :param include_recurring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_recurring BudgetsBudget#include_recurring}.
-        :param include_refund: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_refund BudgetsBudget#include_refund}.
-        :param include_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_subscription BudgetsBudget#include_subscription}.
-        :param include_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_support BudgetsBudget#include_support}.
-        :param include_tax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_tax BudgetsBudget#include_tax}.
-        :param include_upfront: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_upfront BudgetsBudget#include_upfront}.
-        :param use_amortized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#use_amortized BudgetsBudget#use_amortized}.
-        :param use_blended: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#use_blended BudgetsBudget#use_blended}.
+        :param include_credit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_credit BudgetsBudget#include_credit}.
+        :param include_discount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_discount BudgetsBudget#include_discount}.
+        :param include_other_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_other_subscription BudgetsBudget#include_other_subscription}.
+        :param include_recurring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_recurring BudgetsBudget#include_recurring}.
+        :param include_refund: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_refund BudgetsBudget#include_refund}.
+        :param include_subscription: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_subscription BudgetsBudget#include_subscription}.
+        :param include_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_support BudgetsBudget#include_support}.
+        :param include_tax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_tax BudgetsBudget#include_tax}.
+        :param include_upfront: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_upfront BudgetsBudget#include_upfront}.
+        :param use_amortized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#use_amortized BudgetsBudget#use_amortized}.
+        :param use_blended: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#use_blended BudgetsBudget#use_blended}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ef390bbf108c94fe329f32d5f4d9887d688412b3262f07301045430c2248134)
@@ -1525,7 +1525,7 @@ class BudgetsBudgetCostTypes:
     def include_credit(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_credit BudgetsBudget#include_credit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_credit BudgetsBudget#include_credit}.'''
         result = self._values.get("include_credit")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1533,7 +1533,7 @@ class BudgetsBudgetCostTypes:
     def include_discount(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_discount BudgetsBudget#include_discount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_discount BudgetsBudget#include_discount}.'''
         result = self._values.get("include_discount")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1541,7 +1541,7 @@ class BudgetsBudgetCostTypes:
     def include_other_subscription(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_other_subscription BudgetsBudget#include_other_subscription}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_other_subscription BudgetsBudget#include_other_subscription}.'''
         result = self._values.get("include_other_subscription")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1549,7 +1549,7 @@ class BudgetsBudgetCostTypes:
     def include_recurring(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_recurring BudgetsBudget#include_recurring}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_recurring BudgetsBudget#include_recurring}.'''
         result = self._values.get("include_recurring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1557,7 +1557,7 @@ class BudgetsBudgetCostTypes:
     def include_refund(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_refund BudgetsBudget#include_refund}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_refund BudgetsBudget#include_refund}.'''
         result = self._values.get("include_refund")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1565,7 +1565,7 @@ class BudgetsBudgetCostTypes:
     def include_subscription(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_subscription BudgetsBudget#include_subscription}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_subscription BudgetsBudget#include_subscription}.'''
         result = self._values.get("include_subscription")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1573,7 +1573,7 @@ class BudgetsBudgetCostTypes:
     def include_support(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_support BudgetsBudget#include_support}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_support BudgetsBudget#include_support}.'''
         result = self._values.get("include_support")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1581,7 +1581,7 @@ class BudgetsBudgetCostTypes:
     def include_tax(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_tax BudgetsBudget#include_tax}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_tax BudgetsBudget#include_tax}.'''
         result = self._values.get("include_tax")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1589,7 +1589,7 @@ class BudgetsBudgetCostTypes:
     def include_upfront(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#include_upfront BudgetsBudget#include_upfront}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#include_upfront BudgetsBudget#include_upfront}.'''
         result = self._values.get("include_upfront")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1597,7 +1597,7 @@ class BudgetsBudgetCostTypes:
     def use_amortized(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#use_amortized BudgetsBudget#use_amortized}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#use_amortized BudgetsBudget#use_amortized}.'''
         result = self._values.get("use_amortized")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1605,7 +1605,7 @@ class BudgetsBudgetCostTypes:
     def use_blended(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#use_blended BudgetsBudget#use_blended}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#use_blended BudgetsBudget#use_blended}.'''
         result = self._values.get("use_blended")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1980,12 +1980,12 @@ class BudgetsBudgetNotification:
         subscriber_sns_topic_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparison_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#comparison_operator BudgetsBudget#comparison_operator}.
-        :param notification_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#notification_type BudgetsBudget#notification_type}.
-        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#threshold BudgetsBudget#threshold}.
-        :param threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#threshold_type BudgetsBudget#threshold_type}.
-        :param subscriber_email_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#subscriber_email_addresses BudgetsBudget#subscriber_email_addresses}.
-        :param subscriber_sns_topic_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#subscriber_sns_topic_arns BudgetsBudget#subscriber_sns_topic_arns}.
+        :param comparison_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#comparison_operator BudgetsBudget#comparison_operator}.
+        :param notification_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#notification_type BudgetsBudget#notification_type}.
+        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#threshold BudgetsBudget#threshold}.
+        :param threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#threshold_type BudgetsBudget#threshold_type}.
+        :param subscriber_email_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#subscriber_email_addresses BudgetsBudget#subscriber_email_addresses}.
+        :param subscriber_sns_topic_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#subscriber_sns_topic_arns BudgetsBudget#subscriber_sns_topic_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__489f5993f9e95df5392dec0c5722efea38dcb15210b718270e98e469f4cda731)
@@ -2008,41 +2008,41 @@ class BudgetsBudgetNotification:
 
     @builtins.property
     def comparison_operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#comparison_operator BudgetsBudget#comparison_operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#comparison_operator BudgetsBudget#comparison_operator}.'''
         result = self._values.get("comparison_operator")
         assert result is not None, "Required property 'comparison_operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notification_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#notification_type BudgetsBudget#notification_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#notification_type BudgetsBudget#notification_type}.'''
         result = self._values.get("notification_type")
         assert result is not None, "Required property 'notification_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#threshold BudgetsBudget#threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#threshold BudgetsBudget#threshold}.'''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def threshold_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#threshold_type BudgetsBudget#threshold_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#threshold_type BudgetsBudget#threshold_type}.'''
         result = self._values.get("threshold_type")
         assert result is not None, "Required property 'threshold_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscriber_email_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#subscriber_email_addresses BudgetsBudget#subscriber_email_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#subscriber_email_addresses BudgetsBudget#subscriber_email_addresses}.'''
         result = self._values.get("subscriber_email_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subscriber_sns_topic_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#subscriber_sns_topic_arns BudgetsBudget#subscriber_sns_topic_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#subscriber_sns_topic_arns BudgetsBudget#subscriber_sns_topic_arns}.'''
         result = self._values.get("subscriber_sns_topic_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2320,9 +2320,9 @@ class BudgetsBudgetPlannedLimit:
         unit: builtins.str,
     ) -> None:
         '''
-        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#amount BudgetsBudget#amount}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#start_time BudgetsBudget#start_time}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#unit BudgetsBudget#unit}.
+        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#amount BudgetsBudget#amount}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#start_time BudgetsBudget#start_time}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#unit BudgetsBudget#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__997df2f30e93319ca275edb98ad0098d7edd28b88286494943fd091af05534e2)
@@ -2337,21 +2337,21 @@ class BudgetsBudgetPlannedLimit:
 
     @builtins.property
     def amount(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#amount BudgetsBudget#amount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#amount BudgetsBudget#amount}.'''
         result = self._values.get("amount")
         assert result is not None, "Required property 'amount' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#start_time BudgetsBudget#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#start_time BudgetsBudget#start_time}.'''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget#unit BudgetsBudget#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget#unit BudgetsBudget#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)

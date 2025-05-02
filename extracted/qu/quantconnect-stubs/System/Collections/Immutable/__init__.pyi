@@ -97,6 +97,15 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
             """See IReadOnlyDictionary{TKey, TValue}"""
             ...
 
+        def __contains__(self, key: System_Collections_Immutable_ImmutableDictionary_TKey) -> bool:
+            """
+            Determines whether the IDictionary{TKey, TValue} contains an element with the specified key.
+            
+            :param key: The key to locate in the IDictionary{TKey, TValue}.
+            :returns: true if the IDictionary{TKey, TValue} contains an element with the key; otherwise, false.
+            """
+            ...
+
         def __getitem__(self, key: System_Collections_Immutable_ImmutableDictionary_TKey) -> System_Collections_Immutable_ImmutableDictionary_TValue:
             """
             Gets or sets the element with the specified key.
@@ -106,6 +115,9 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
             ...
 
         def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]:
+            ...
+
+        def __len__(self) -> int:
             ...
 
         def __setitem__(self, key: System_Collections_Immutable_ImmutableDictionary_TKey, value: System_Collections_Immutable_ImmutableDictionary_TValue) -> None:
@@ -287,11 +299,23 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
         """Gets the values in the map."""
         ...
 
+    def __contains__(self, key: System_Collections_Immutable_ImmutableDictionary_TKey) -> bool:
+        """
+        Determines whether the specified key contains key.
+        
+        :param key: The key.
+        :returns: true if the specified key contains key; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, key: System_Collections_Immutable_ImmutableDictionary_TKey) -> System_Collections_Immutable_ImmutableDictionary_TValue:
         """Gets the TValue with the specified key."""
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def add(self, key: System_Collections_Immutable_ImmutableDictionary_TKey, value: System_Collections_Immutable_ImmutableDictionary_TValue) -> System.Collections.Immutable.ImmutableDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]:
@@ -432,6 +456,10 @@ class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_Immu
         def value_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
             ...
 
+        def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
         def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
             """
             Gets or sets the value for a given key.
@@ -442,6 +470,9 @@ class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_Immu
             ...
 
         def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
+            ...
+
+        def __len__(self) -> int:
             ...
 
         def __setitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
@@ -613,11 +644,18 @@ class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_Immu
         """See the IImmutableDictionary{TKey, TValue} interface."""
         ...
 
+    def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
     def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
         """Gets the TValue with the specified key."""
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:

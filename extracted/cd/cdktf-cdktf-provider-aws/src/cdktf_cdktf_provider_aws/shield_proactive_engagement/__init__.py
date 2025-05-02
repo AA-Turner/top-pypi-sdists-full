@@ -1,7 +1,7 @@
 r'''
 # `aws_shield_proactive_engagement`
 
-Refer to the Terraform Registry for docs: [`aws_shield_proactive_engagement`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement).
+Refer to the Terraform Registry for docs: [`aws_shield_proactive_engagement`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ShieldProactiveEngagement(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.shieldProactiveEngagement.ShieldProactiveEngagement",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement aws_shield_proactive_engagement}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement aws_shield_proactive_engagement}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ShieldProactiveEngagement(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement aws_shield_proactive_engagement} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement aws_shield_proactive_engagement} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#enabled ShieldProactiveEngagement#enabled}.
-        :param emergency_contact: emergency_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#emergency_contact ShieldProactiveEngagement#emergency_contact}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#enabled ShieldProactiveEngagement#enabled}.
+        :param emergency_contact: emergency_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#emergency_contact ShieldProactiveEngagement#emergency_contact}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ShieldProactiveEngagement(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ShieldProactiveEngagement to import.
-        :param import_from_id: The id of the existing ShieldProactiveEngagement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ShieldProactiveEngagement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ShieldProactiveEngagement to import is found.
         '''
         if __debug__:
@@ -224,8 +224,8 @@ class ShieldProactiveEngagementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#enabled ShieldProactiveEngagement#enabled}.
-        :param emergency_contact: emergency_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#emergency_contact ShieldProactiveEngagement#emergency_contact}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#enabled ShieldProactiveEngagement#enabled}.
+        :param emergency_contact: emergency_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#emergency_contact ShieldProactiveEngagement#emergency_contact}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -326,7 +326,7 @@ class ShieldProactiveEngagementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#enabled ShieldProactiveEngagement#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#enabled ShieldProactiveEngagement#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -337,7 +337,7 @@ class ShieldProactiveEngagementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ShieldProactiveEngagementEmergencyContact"]]]:
         '''emergency_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#emergency_contact ShieldProactiveEngagement#emergency_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#emergency_contact ShieldProactiveEngagement#emergency_contact}
         '''
         result = self._values.get("emergency_contact")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ShieldProactiveEngagementEmergencyContact"]]], result)
@@ -372,9 +372,9 @@ class ShieldProactiveEngagementEmergencyContact:
         phone_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#email_address ShieldProactiveEngagement#email_address}.
-        :param contact_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#contact_notes ShieldProactiveEngagement#contact_notes}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#phone_number ShieldProactiveEngagement#phone_number}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#email_address ShieldProactiveEngagement#email_address}.
+        :param contact_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#contact_notes ShieldProactiveEngagement#contact_notes}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#phone_number ShieldProactiveEngagement#phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3d31bf94e34f16aa817f6d043b0849af0a42d027c6f74757d561e6ce8269598)
@@ -391,20 +391,20 @@ class ShieldProactiveEngagementEmergencyContact:
 
     @builtins.property
     def email_address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#email_address ShieldProactiveEngagement#email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#email_address ShieldProactiveEngagement#email_address}.'''
         result = self._values.get("email_address")
         assert result is not None, "Required property 'email_address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def contact_notes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#contact_notes ShieldProactiveEngagement#contact_notes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#contact_notes ShieldProactiveEngagement#contact_notes}.'''
         result = self._values.get("contact_notes")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_proactive_engagement#phone_number ShieldProactiveEngagement#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_proactive_engagement#phone_number ShieldProactiveEngagement#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -7,14 +7,13 @@ maintainers = [
     {name = "Arie Bovenberg", email = "a.c.bovenberg@gmail.com"},
 ]
 readme = "README.md"
-version = "0.7.3"
-license = {text = "MIT"}
+version = "0.8.0"
+license = "MIT"
 description = "Modern datetime library for Python"
 requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
@@ -35,7 +34,7 @@ dependencies = [
 ]
 keywords = [
     "datetime", "typesafe", "rust", "date", "time", "timezone", "utc",
-    "aware", "zoneinfo", "tzdata", "tzdb"
+    "zoneinfo", "tzdata", "tzdb"
 ]
 
 
@@ -43,7 +42,7 @@ keywords = [
 Documentation = "https://whenever.readthedocs.io"
 Repository = "https://github.com/ariebovenberg/whenever"
 Issues = "https://github.com/ariebovenberg/whenever/issues"
-Changelog = "https://github.com/ariebovenberg/whenever/blob/master/CHANGELOG.rst"
+Changelog = "https://github.com/ariebovenberg/whenever/blob/main/CHANGELOG.md"
 
 [tool.black]
 line-length = 79
@@ -82,6 +81,7 @@ disable_error_code = ["no-untyped-def"]
 module = [
     "whenever._whenever",
     "_interpreters",
+    "tzdata",
 ]
 ignore_missing_imports = true
 

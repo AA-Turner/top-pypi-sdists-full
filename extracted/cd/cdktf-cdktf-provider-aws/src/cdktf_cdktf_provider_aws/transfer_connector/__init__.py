@@ -1,7 +1,7 @@
 r'''
 # `aws_transfer_connector`
 
-Refer to the Terraform Registry for docs: [`aws_transfer_connector`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector).
+Refer to the Terraform Registry for docs: [`aws_transfer_connector`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TransferConnector(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transferConnector.TransferConnector",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector aws_transfer_connector}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector aws_transfer_connector}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class TransferConnector(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector aws_transfer_connector} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector aws_transfer_connector} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#url TransferConnector#url}.
-        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
-        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
-        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#tags TransferConnector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
+        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#url TransferConnector#url}.
+        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
+        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
+        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#tags TransferConnector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class TransferConnector(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TransferConnector to import.
-        :param import_from_id: The id of the existing TransferConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TransferConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TransferConnector to import is found.
         '''
         if __debug__:
@@ -152,14 +152,14 @@ class TransferConnector(
         message_subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#compression TransferConnector#compression}.
-        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
-        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
-        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
-        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
-        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
-        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
-        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#compression TransferConnector#compression}.
+        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
+        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
+        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
+        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
+        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
+        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
+        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
         '''
         value = TransferConnectorAs2Config(
             compression=compression,
@@ -182,8 +182,8 @@ class TransferConnector(
         user_secret_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
-        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
+        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
+        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
         '''
         value = TransferConnectorSftpConfig(
             trusted_host_keys=trusted_host_keys, user_secret_id=user_secret_id
@@ -412,14 +412,14 @@ class TransferConnectorAs2Config:
         message_subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#compression TransferConnector#compression}.
-        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
-        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
-        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
-        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
-        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
-        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
-        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#compression TransferConnector#compression}.
+        :param encryption_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.
+        :param local_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.
+        :param mdn_response: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.
+        :param partner_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.
+        :param signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.
+        :param mdn_signing_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.
+        :param message_subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26c0f80590f8bd58e3c9c26f029020edc326448199cf237d5d92e6b01c87d8d0)
@@ -446,55 +446,55 @@ class TransferConnectorAs2Config:
 
     @builtins.property
     def compression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#compression TransferConnector#compression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#compression TransferConnector#compression}.'''
         result = self._values.get("compression")
         assert result is not None, "Required property 'compression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def encryption_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#encryption_algorithm TransferConnector#encryption_algorithm}.'''
         result = self._values.get("encryption_algorithm")
         assert result is not None, "Required property 'encryption_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def local_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#local_profile_id TransferConnector#local_profile_id}.'''
         result = self._values.get("local_profile_id")
         assert result is not None, "Required property 'local_profile_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mdn_response(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#mdn_response TransferConnector#mdn_response}.'''
         result = self._values.get("mdn_response")
         assert result is not None, "Required property 'mdn_response' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partner_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#partner_profile_id TransferConnector#partner_profile_id}.'''
         result = self._values.get("partner_profile_id")
         assert result is not None, "Required property 'partner_profile_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def signing_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#signing_algorithm TransferConnector#signing_algorithm}.'''
         result = self._values.get("signing_algorithm")
         assert result is not None, "Required property 'signing_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mdn_signing_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#mdn_signing_algorithm TransferConnector#mdn_signing_algorithm}.'''
         result = self._values.get("mdn_signing_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def message_subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#message_subject TransferConnector#message_subject}.'''
         result = self._values.get("message_subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -741,15 +741,15 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#url TransferConnector#url}.
-        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
-        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
-        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#tags TransferConnector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
+        :param access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#url TransferConnector#url}.
+        :param as2_config: as2_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#id TransferConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.
+        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.
+        :param sftp_config: sftp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#tags TransferConnector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -874,14 +874,14 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def access_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#access_role TransferConnector#access_role}.'''
         result = self._values.get("access_role")
         assert result is not None, "Required property 'access_role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#url TransferConnector#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#url TransferConnector#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
@@ -890,14 +890,14 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def as2_config(self) -> typing.Optional[TransferConnectorAs2Config]:
         '''as2_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#as2_config TransferConnector#as2_config}
         '''
         result = self._values.get("as2_config")
         return typing.cast(typing.Optional[TransferConnectorAs2Config], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#id TransferConnector#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#id TransferConnector#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -907,13 +907,13 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def logging_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#logging_role TransferConnector#logging_role}.'''
         result = self._values.get("logging_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_policy_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#security_policy_name TransferConnector#security_policy_name}.'''
         result = self._values.get("security_policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -921,20 +921,20 @@ class TransferConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sftp_config(self) -> typing.Optional["TransferConnectorSftpConfig"]:
         '''sftp_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#sftp_config TransferConnector#sftp_config}
         '''
         result = self._values.get("sftp_config")
         return typing.cast(typing.Optional["TransferConnectorSftpConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#tags TransferConnector#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#tags TransferConnector#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#tags_all TransferConnector#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -966,8 +966,8 @@ class TransferConnectorSftpConfig:
         user_secret_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
-        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
+        :param trusted_host_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.
+        :param user_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__465816d9fa093d439128cce499af83ca014d8f583001b5326212ee0d2a6a4c87)
@@ -981,13 +981,13 @@ class TransferConnectorSftpConfig:
 
     @builtins.property
     def trusted_host_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#trusted_host_keys TransferConnector#trusted_host_keys}.'''
         result = self._values.get("trusted_host_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def user_secret_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_connector#user_secret_id TransferConnector#user_secret_id}.'''
         result = self._values.get("user_secret_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

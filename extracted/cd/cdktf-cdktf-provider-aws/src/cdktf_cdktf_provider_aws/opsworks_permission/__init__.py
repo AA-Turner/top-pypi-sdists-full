@@ -1,7 +1,7 @@
 r'''
 # `aws_opsworks_permission`
 
-Refer to the Terraform Registry for docs: [`aws_opsworks_permission`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission).
+Refer to the Terraform Registry for docs: [`aws_opsworks_permission`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpsworksPermission(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.opsworksPermission.OpsworksPermission",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission aws_opsworks_permission}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission aws_opsworks_permission}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class OpsworksPermission(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission aws_opsworks_permission} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission aws_opsworks_permission} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#stack_id OpsworksPermission#stack_id}.
-        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#user_arn OpsworksPermission#user_arn}.
-        :param allow_ssh: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#allow_ssh OpsworksPermission#allow_ssh}.
-        :param allow_sudo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#allow_sudo OpsworksPermission#allow_sudo}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#id OpsworksPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#level OpsworksPermission#level}.
+        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#stack_id OpsworksPermission#stack_id}.
+        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#user_arn OpsworksPermission#user_arn}.
+        :param allow_ssh: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#allow_ssh OpsworksPermission#allow_ssh}.
+        :param allow_sudo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#allow_sudo OpsworksPermission#allow_sudo}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#id OpsworksPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#level OpsworksPermission#level}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class OpsworksPermission(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpsworksPermission to import.
-        :param import_from_id: The id of the existing OpsworksPermission that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpsworksPermission that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpsworksPermission to import is found.
         '''
         if __debug__:
@@ -316,12 +316,12 @@ class OpsworksPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#stack_id OpsworksPermission#stack_id}.
-        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#user_arn OpsworksPermission#user_arn}.
-        :param allow_ssh: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#allow_ssh OpsworksPermission#allow_ssh}.
-        :param allow_sudo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#allow_sudo OpsworksPermission#allow_sudo}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#id OpsworksPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#level OpsworksPermission#level}.
+        :param stack_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#stack_id OpsworksPermission#stack_id}.
+        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#user_arn OpsworksPermission#user_arn}.
+        :param allow_ssh: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#allow_ssh OpsworksPermission#allow_ssh}.
+        :param allow_sudo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#allow_sudo OpsworksPermission#allow_sudo}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#id OpsworksPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#level OpsworksPermission#level}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -433,14 +433,14 @@ class OpsworksPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def stack_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#stack_id OpsworksPermission#stack_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#stack_id OpsworksPermission#stack_id}.'''
         result = self._values.get("stack_id")
         assert result is not None, "Required property 'stack_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#user_arn OpsworksPermission#user_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#user_arn OpsworksPermission#user_arn}.'''
         result = self._values.get("user_arn")
         assert result is not None, "Required property 'user_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -449,7 +449,7 @@ class OpsworksPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_ssh(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#allow_ssh OpsworksPermission#allow_ssh}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#allow_ssh OpsworksPermission#allow_ssh}.'''
         result = self._values.get("allow_ssh")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -457,13 +457,13 @@ class OpsworksPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_sudo(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#allow_sudo OpsworksPermission#allow_sudo}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#allow_sudo OpsworksPermission#allow_sudo}.'''
         result = self._values.get("allow_sudo")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#id OpsworksPermission#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#id OpsworksPermission#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -473,7 +473,7 @@ class OpsworksPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_permission#level OpsworksPermission#level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_permission#level OpsworksPermission#level}.'''
         result = self._values.get("level")
         return typing.cast(typing.Optional[builtins.str], result)
 

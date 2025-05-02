@@ -96,6 +96,9 @@ class _GroupRoleState:
 
 
 class GroupRole(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/groupRole:GroupRole"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -105,6 +108,8 @@ class GroupRole(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to attach a role to databricks_group. This role could be a pre-defined role such as account admin, or an instance profile ARN.
+
+        > This resource can be used with an account or workspace-level provider.
 
         ## Example Usage
 
@@ -164,6 +169,8 @@ class GroupRole(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to attach a role to databricks_group. This role could be a pre-defined role such as account admin, or an instance profile ARN.
+
+        > This resource can be used with an account or workspace-level provider.
 
         ## Example Usage
 

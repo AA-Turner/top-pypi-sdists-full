@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_ml_transform`
 
-Refer to the Terraform Registry for docs: [`aws_glue_ml_transform`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform).
+Refer to the Terraform Registry for docs: [`aws_glue_ml_transform`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueMlTransform(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueMlTransform.GlueMlTransform",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform aws_glue_ml_transform}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform aws_glue_ml_transform}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class GlueMlTransform(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform aws_glue_ml_transform} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform aws_glue_ml_transform} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param input_record_tables: input_record_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#input_record_tables GlueMlTransform#input_record_tables}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#name GlueMlTransform#name}.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#parameters GlueMlTransform#parameters}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#role_arn GlueMlTransform#role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#description GlueMlTransform#description}.
-        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#glue_version GlueMlTransform#glue_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#id GlueMlTransform#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#max_capacity GlueMlTransform#max_capacity}.
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#max_retries GlueMlTransform#max_retries}.
-        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#number_of_workers GlueMlTransform#number_of_workers}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#tags GlueMlTransform#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#tags_all GlueMlTransform#tags_all}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#timeout GlueMlTransform#timeout}.
-        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#worker_type GlueMlTransform#worker_type}.
+        :param input_record_tables: input_record_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#input_record_tables GlueMlTransform#input_record_tables}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#name GlueMlTransform#name}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#parameters GlueMlTransform#parameters}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#role_arn GlueMlTransform#role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#description GlueMlTransform#description}.
+        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#glue_version GlueMlTransform#glue_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#id GlueMlTransform#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#max_capacity GlueMlTransform#max_capacity}.
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#max_retries GlueMlTransform#max_retries}.
+        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#number_of_workers GlueMlTransform#number_of_workers}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#tags GlueMlTransform#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#tags_all GlueMlTransform#tags_all}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#timeout GlueMlTransform#timeout}.
+        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#worker_type GlueMlTransform#worker_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class GlueMlTransform(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueMlTransform to import.
-        :param import_from_id: The id of the existing GlueMlTransform that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueMlTransform that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueMlTransform to import is found.
         '''
         if __debug__:
@@ -174,8 +174,8 @@ class GlueMlTransform(
         transform_type: builtins.str,
     ) -> None:
         '''
-        :param find_matches_parameters: find_matches_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#find_matches_parameters GlueMlTransform#find_matches_parameters}
-        :param transform_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#transform_type GlueMlTransform#transform_type}.
+        :param find_matches_parameters: find_matches_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#find_matches_parameters GlueMlTransform#find_matches_parameters}
+        :param transform_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#transform_type GlueMlTransform#transform_type}.
         '''
         value = GlueMlTransformParameters(
             find_matches_parameters=find_matches_parameters,
@@ -542,20 +542,20 @@ class GlueMlTransformConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param input_record_tables: input_record_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#input_record_tables GlueMlTransform#input_record_tables}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#name GlueMlTransform#name}.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#parameters GlueMlTransform#parameters}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#role_arn GlueMlTransform#role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#description GlueMlTransform#description}.
-        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#glue_version GlueMlTransform#glue_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#id GlueMlTransform#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#max_capacity GlueMlTransform#max_capacity}.
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#max_retries GlueMlTransform#max_retries}.
-        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#number_of_workers GlueMlTransform#number_of_workers}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#tags GlueMlTransform#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#tags_all GlueMlTransform#tags_all}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#timeout GlueMlTransform#timeout}.
-        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#worker_type GlueMlTransform#worker_type}.
+        :param input_record_tables: input_record_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#input_record_tables GlueMlTransform#input_record_tables}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#name GlueMlTransform#name}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#parameters GlueMlTransform#parameters}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#role_arn GlueMlTransform#role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#description GlueMlTransform#description}.
+        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#glue_version GlueMlTransform#glue_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#id GlueMlTransform#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#max_capacity GlueMlTransform#max_capacity}.
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#max_retries GlueMlTransform#max_retries}.
+        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#number_of_workers GlueMlTransform#number_of_workers}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#tags GlueMlTransform#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#tags_all GlueMlTransform#tags_all}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#timeout GlueMlTransform#timeout}.
+        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#worker_type GlueMlTransform#worker_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -695,7 +695,7 @@ class GlueMlTransformConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueMlTransformInputRecordTables"]]:
         '''input_record_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#input_record_tables GlueMlTransform#input_record_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#input_record_tables GlueMlTransform#input_record_tables}
         '''
         result = self._values.get("input_record_tables")
         assert result is not None, "Required property 'input_record_tables' is missing"
@@ -703,7 +703,7 @@ class GlueMlTransformConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#name GlueMlTransform#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#name GlueMlTransform#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -712,7 +712,7 @@ class GlueMlTransformConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parameters(self) -> "GlueMlTransformParameters":
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#parameters GlueMlTransform#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#parameters GlueMlTransform#parameters}
         '''
         result = self._values.get("parameters")
         assert result is not None, "Required property 'parameters' is missing"
@@ -720,26 +720,26 @@ class GlueMlTransformConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#role_arn GlueMlTransform#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#role_arn GlueMlTransform#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#description GlueMlTransform#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#description GlueMlTransform#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#glue_version GlueMlTransform#glue_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#glue_version GlueMlTransform#glue_version}.'''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#id GlueMlTransform#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#id GlueMlTransform#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -749,43 +749,43 @@ class GlueMlTransformConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#max_capacity GlueMlTransform#max_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#max_capacity GlueMlTransform#max_capacity}.'''
         result = self._values.get("max_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#max_retries GlueMlTransform#max_retries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#max_retries GlueMlTransform#max_retries}.'''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#number_of_workers GlueMlTransform#number_of_workers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#number_of_workers GlueMlTransform#number_of_workers}.'''
         result = self._values.get("number_of_workers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#tags GlueMlTransform#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#tags GlueMlTransform#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#tags_all GlueMlTransform#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#tags_all GlueMlTransform#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#timeout GlueMlTransform#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#timeout GlueMlTransform#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def worker_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#worker_type GlueMlTransform#worker_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#worker_type GlueMlTransform#worker_type}.'''
         result = self._values.get("worker_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -821,10 +821,10 @@ class GlueMlTransformInputRecordTables:
         connection_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#database_name GlueMlTransform#database_name}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#table_name GlueMlTransform#table_name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#catalog_id GlueMlTransform#catalog_id}.
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#connection_name GlueMlTransform#connection_name}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#database_name GlueMlTransform#database_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#table_name GlueMlTransform#table_name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#catalog_id GlueMlTransform#catalog_id}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#connection_name GlueMlTransform#connection_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7bc9c76999ab9f5a0ad6c7a7a5249e6a972a98e47809a762124f48480a177db)
@@ -843,27 +843,27 @@ class GlueMlTransformInputRecordTables:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#database_name GlueMlTransform#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#database_name GlueMlTransform#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#table_name GlueMlTransform#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#table_name GlueMlTransform#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#catalog_id GlueMlTransform#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#catalog_id GlueMlTransform#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#connection_name GlueMlTransform#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#connection_name GlueMlTransform#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1108,8 +1108,8 @@ class GlueMlTransformParameters:
         transform_type: builtins.str,
     ) -> None:
         '''
-        :param find_matches_parameters: find_matches_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#find_matches_parameters GlueMlTransform#find_matches_parameters}
-        :param transform_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#transform_type GlueMlTransform#transform_type}.
+        :param find_matches_parameters: find_matches_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#find_matches_parameters GlueMlTransform#find_matches_parameters}
+        :param transform_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#transform_type GlueMlTransform#transform_type}.
         '''
         if isinstance(find_matches_parameters, dict):
             find_matches_parameters = GlueMlTransformParametersFindMatchesParameters(**find_matches_parameters)
@@ -1128,7 +1128,7 @@ class GlueMlTransformParameters:
     ) -> "GlueMlTransformParametersFindMatchesParameters":
         '''find_matches_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#find_matches_parameters GlueMlTransform#find_matches_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#find_matches_parameters GlueMlTransform#find_matches_parameters}
         '''
         result = self._values.get("find_matches_parameters")
         assert result is not None, "Required property 'find_matches_parameters' is missing"
@@ -1136,7 +1136,7 @@ class GlueMlTransformParameters:
 
     @builtins.property
     def transform_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#transform_type GlueMlTransform#transform_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#transform_type GlueMlTransform#transform_type}.'''
         result = self._values.get("transform_type")
         assert result is not None, "Required property 'transform_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1173,10 +1173,10 @@ class GlueMlTransformParametersFindMatchesParameters:
         primary_key_column_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accuracy_cost_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#accuracy_cost_trade_off GlueMlTransform#accuracy_cost_trade_off}.
-        :param enforce_provided_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#enforce_provided_labels GlueMlTransform#enforce_provided_labels}.
-        :param precision_recall_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#precision_recall_trade_off GlueMlTransform#precision_recall_trade_off}.
-        :param primary_key_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#primary_key_column_name GlueMlTransform#primary_key_column_name}.
+        :param accuracy_cost_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#accuracy_cost_trade_off GlueMlTransform#accuracy_cost_trade_off}.
+        :param enforce_provided_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#enforce_provided_labels GlueMlTransform#enforce_provided_labels}.
+        :param precision_recall_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#precision_recall_trade_off GlueMlTransform#precision_recall_trade_off}.
+        :param primary_key_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#primary_key_column_name GlueMlTransform#primary_key_column_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cad661a09b685c0790d6d36f656219d1f38f79a3342e189acb30987b072ac7e2)
@@ -1196,7 +1196,7 @@ class GlueMlTransformParametersFindMatchesParameters:
 
     @builtins.property
     def accuracy_cost_trade_off(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#accuracy_cost_trade_off GlueMlTransform#accuracy_cost_trade_off}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#accuracy_cost_trade_off GlueMlTransform#accuracy_cost_trade_off}.'''
         result = self._values.get("accuracy_cost_trade_off")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1204,19 +1204,19 @@ class GlueMlTransformParametersFindMatchesParameters:
     def enforce_provided_labels(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#enforce_provided_labels GlueMlTransform#enforce_provided_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#enforce_provided_labels GlueMlTransform#enforce_provided_labels}.'''
         result = self._values.get("enforce_provided_labels")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def precision_recall_trade_off(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#precision_recall_trade_off GlueMlTransform#precision_recall_trade_off}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#precision_recall_trade_off GlueMlTransform#precision_recall_trade_off}.'''
         result = self._values.get("precision_recall_trade_off")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def primary_key_column_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#primary_key_column_name GlueMlTransform#primary_key_column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#primary_key_column_name GlueMlTransform#primary_key_column_name}.'''
         result = self._values.get("primary_key_column_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1391,10 +1391,10 @@ class GlueMlTransformParametersOutputReference(
         primary_key_column_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accuracy_cost_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#accuracy_cost_trade_off GlueMlTransform#accuracy_cost_trade_off}.
-        :param enforce_provided_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#enforce_provided_labels GlueMlTransform#enforce_provided_labels}.
-        :param precision_recall_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#precision_recall_trade_off GlueMlTransform#precision_recall_trade_off}.
-        :param primary_key_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_ml_transform#primary_key_column_name GlueMlTransform#primary_key_column_name}.
+        :param accuracy_cost_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#accuracy_cost_trade_off GlueMlTransform#accuracy_cost_trade_off}.
+        :param enforce_provided_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#enforce_provided_labels GlueMlTransform#enforce_provided_labels}.
+        :param precision_recall_trade_off: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#precision_recall_trade_off GlueMlTransform#precision_recall_trade_off}.
+        :param primary_key_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_ml_transform#primary_key_column_name GlueMlTransform#primary_key_column_name}.
         '''
         value = GlueMlTransformParametersFindMatchesParameters(
             accuracy_cost_trade_off=accuracy_cost_trade_off,

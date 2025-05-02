@@ -1,7 +1,7 @@
 r'''
 # `aws_ssoadmin_application`
 
-Refer to the Terraform Registry for docs: [`aws_ssoadmin_application`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application).
+Refer to the Terraform Registry for docs: [`aws_ssoadmin_application`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SsoadminApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ssoadminApplication.SsoadminApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application aws_ssoadmin_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application aws_ssoadmin_application}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SsoadminApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application aws_ssoadmin_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application aws_ssoadmin_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#application_provider_arn SsoadminApplication#application_provider_arn}.
-        :param instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#instance_arn SsoadminApplication#instance_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#name SsoadminApplication#name}.
-        :param client_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#client_token SsoadminApplication#client_token}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#description SsoadminApplication#description}.
-        :param portal_options: portal_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#portal_options SsoadminApplication#portal_options}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#status SsoadminApplication#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#tags SsoadminApplication#tags}.
+        :param application_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#application_provider_arn SsoadminApplication#application_provider_arn}.
+        :param instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#instance_arn SsoadminApplication#instance_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#name SsoadminApplication#name}.
+        :param client_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#client_token SsoadminApplication#client_token}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#description SsoadminApplication#description}.
+        :param portal_options: portal_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#portal_options SsoadminApplication#portal_options}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#status SsoadminApplication#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#tags SsoadminApplication#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SsoadminApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SsoadminApplication to import.
-        :param import_from_id: The id of the existing SsoadminApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SsoadminApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SsoadminApplication to import is found.
         '''
         if __debug__:
@@ -382,14 +382,14 @@ class SsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#application_provider_arn SsoadminApplication#application_provider_arn}.
-        :param instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#instance_arn SsoadminApplication#instance_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#name SsoadminApplication#name}.
-        :param client_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#client_token SsoadminApplication#client_token}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#description SsoadminApplication#description}.
-        :param portal_options: portal_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#portal_options SsoadminApplication#portal_options}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#status SsoadminApplication#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#tags SsoadminApplication#tags}.
+        :param application_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#application_provider_arn SsoadminApplication#application_provider_arn}.
+        :param instance_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#instance_arn SsoadminApplication#instance_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#name SsoadminApplication#name}.
+        :param client_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#client_token SsoadminApplication#client_token}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#description SsoadminApplication#description}.
+        :param portal_options: portal_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#portal_options SsoadminApplication#portal_options}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#status SsoadminApplication#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#tags SsoadminApplication#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -506,34 +506,34 @@ class SsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def application_provider_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#application_provider_arn SsoadminApplication#application_provider_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#application_provider_arn SsoadminApplication#application_provider_arn}.'''
         result = self._values.get("application_provider_arn")
         assert result is not None, "Required property 'application_provider_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#instance_arn SsoadminApplication#instance_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#instance_arn SsoadminApplication#instance_arn}.'''
         result = self._values.get("instance_arn")
         assert result is not None, "Required property 'instance_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#name SsoadminApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#name SsoadminApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#client_token SsoadminApplication#client_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#client_token SsoadminApplication#client_token}.'''
         result = self._values.get("client_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#description SsoadminApplication#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#description SsoadminApplication#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -543,20 +543,20 @@ class SsoadminApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsoadminApplicationPortalOptions"]]]:
         '''portal_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#portal_options SsoadminApplication#portal_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#portal_options SsoadminApplication#portal_options}
         '''
         result = self._values.get("portal_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsoadminApplicationPortalOptions"]]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#status SsoadminApplication#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#status SsoadminApplication#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#tags SsoadminApplication#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#tags SsoadminApplication#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -585,8 +585,8 @@ class SsoadminApplicationPortalOptions:
         visibility: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sign_in_options: sign_in_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#sign_in_options SsoadminApplication#sign_in_options}
-        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#visibility SsoadminApplication#visibility}.
+        :param sign_in_options: sign_in_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#sign_in_options SsoadminApplication#sign_in_options}
+        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#visibility SsoadminApplication#visibility}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7498dbe47f7e1376a10c9c3bb5f7a36a0fe73614257379a2cb987498bd9193ff)
@@ -604,14 +604,14 @@ class SsoadminApplicationPortalOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsoadminApplicationPortalOptionsSignInOptions"]]]:
         '''sign_in_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#sign_in_options SsoadminApplication#sign_in_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#sign_in_options SsoadminApplication#sign_in_options}
         '''
         result = self._values.get("sign_in_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsoadminApplicationPortalOptionsSignInOptions"]]], result)
 
     @builtins.property
     def visibility(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#visibility SsoadminApplication#visibility}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#visibility SsoadminApplication#visibility}.'''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -827,8 +827,8 @@ class SsoadminApplicationPortalOptionsSignInOptions:
         application_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param origin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#origin SsoadminApplication#origin}.
-        :param application_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#application_url SsoadminApplication#application_url}.
+        :param origin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#origin SsoadminApplication#origin}.
+        :param application_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#application_url SsoadminApplication#application_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__451e5fd76e51087bc5a1853c253e87ba97885ba4b3904dfbf4194ce00bc97edc)
@@ -842,14 +842,14 @@ class SsoadminApplicationPortalOptionsSignInOptions:
 
     @builtins.property
     def origin(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#origin SsoadminApplication#origin}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#origin SsoadminApplication#origin}.'''
         result = self._values.get("origin")
         assert result is not None, "Required property 'origin' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def application_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssoadmin_application#application_url SsoadminApplication#application_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssoadmin_application#application_url SsoadminApplication#application_url}.'''
         result = self._values.get("application_url")
         return typing.cast(typing.Optional[builtins.str], result)
 

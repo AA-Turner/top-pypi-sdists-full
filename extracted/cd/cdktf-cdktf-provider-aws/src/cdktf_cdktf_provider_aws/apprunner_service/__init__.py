@@ -1,7 +1,7 @@
 r'''
 # `aws_apprunner_service`
 
-Refer to the Terraform Registry for docs: [`aws_apprunner_service`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service).
+Refer to the Terraform Registry for docs: [`aws_apprunner_service`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApprunnerService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.apprunnerService.ApprunnerService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service aws_apprunner_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service aws_apprunner_service}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ApprunnerService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service aws_apprunner_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service aws_apprunner_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#service_name ApprunnerService#service_name}.
-        :param source_configuration: source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_configuration ApprunnerService#source_configuration}
-        :param auto_scaling_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#auto_scaling_configuration_arn ApprunnerService#auto_scaling_configuration_arn}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#encryption_configuration ApprunnerService#encryption_configuration}
-        :param health_check_configuration: health_check_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#health_check_configuration ApprunnerService#health_check_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#id ApprunnerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_configuration: instance_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#instance_configuration ApprunnerService#instance_configuration}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#network_configuration ApprunnerService#network_configuration}
-        :param observability_configuration: observability_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_configuration ApprunnerService#observability_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#tags ApprunnerService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#tags_all ApprunnerService#tags_all}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#service_name ApprunnerService#service_name}.
+        :param source_configuration: source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_configuration ApprunnerService#source_configuration}
+        :param auto_scaling_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#auto_scaling_configuration_arn ApprunnerService#auto_scaling_configuration_arn}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#encryption_configuration ApprunnerService#encryption_configuration}
+        :param health_check_configuration: health_check_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#health_check_configuration ApprunnerService#health_check_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#id ApprunnerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_configuration: instance_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#instance_configuration ApprunnerService#instance_configuration}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#network_configuration ApprunnerService#network_configuration}
+        :param observability_configuration: observability_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_configuration ApprunnerService#observability_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#tags ApprunnerService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#tags_all ApprunnerService#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ApprunnerService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApprunnerService to import.
-        :param import_from_id: The id of the existing ApprunnerService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApprunnerService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApprunnerService to import is found.
         '''
         if __debug__:
@@ -147,7 +147,7 @@ class ApprunnerService(
     @jsii.member(jsii_name="putEncryptionConfiguration")
     def put_encryption_configuration(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#kms_key ApprunnerService#kms_key}.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#kms_key ApprunnerService#kms_key}.
         '''
         value = ApprunnerServiceEncryptionConfiguration(kms_key=kms_key)
 
@@ -165,12 +165,12 @@ class ApprunnerService(
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#healthy_threshold ApprunnerService#healthy_threshold}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#interval ApprunnerService#interval}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#path ApprunnerService#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#protocol ApprunnerService#protocol}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#timeout ApprunnerService#timeout}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#unhealthy_threshold ApprunnerService#unhealthy_threshold}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#healthy_threshold ApprunnerService#healthy_threshold}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#interval ApprunnerService#interval}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#path ApprunnerService#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#protocol ApprunnerService#protocol}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#timeout ApprunnerService#timeout}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#unhealthy_threshold ApprunnerService#unhealthy_threshold}.
         '''
         value = ApprunnerServiceHealthCheckConfiguration(
             healthy_threshold=healthy_threshold,
@@ -192,9 +192,9 @@ class ApprunnerService(
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#cpu ApprunnerService#cpu}.
-        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#instance_role_arn ApprunnerService#instance_role_arn}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#memory ApprunnerService#memory}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#cpu ApprunnerService#cpu}.
+        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#instance_role_arn ApprunnerService#instance_role_arn}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#memory ApprunnerService#memory}.
         '''
         value = ApprunnerServiceInstanceConfiguration(
             cpu=cpu, instance_role_arn=instance_role_arn, memory=memory
@@ -211,9 +211,9 @@ class ApprunnerService(
         ip_address_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param egress_configuration: egress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#egress_configuration ApprunnerService#egress_configuration}
-        :param ingress_configuration: ingress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#ingress_configuration ApprunnerService#ingress_configuration}
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#ip_address_type ApprunnerService#ip_address_type}.
+        :param egress_configuration: egress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#egress_configuration ApprunnerService#egress_configuration}
+        :param ingress_configuration: ingress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#ingress_configuration ApprunnerService#ingress_configuration}
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#ip_address_type ApprunnerService#ip_address_type}.
         '''
         value = ApprunnerServiceNetworkConfiguration(
             egress_configuration=egress_configuration,
@@ -231,8 +231,8 @@ class ApprunnerService(
         observability_configuration_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param observability_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_enabled ApprunnerService#observability_enabled}.
-        :param observability_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_configuration_arn ApprunnerService#observability_configuration_arn}.
+        :param observability_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_enabled ApprunnerService#observability_enabled}.
+        :param observability_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_configuration_arn ApprunnerService#observability_configuration_arn}.
         '''
         value = ApprunnerServiceObservabilityConfiguration(
             observability_enabled=observability_enabled,
@@ -251,10 +251,10 @@ class ApprunnerService(
         image_repository: typing.Optional[typing.Union["ApprunnerServiceSourceConfigurationImageRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#authentication_configuration ApprunnerService#authentication_configuration}
-        :param auto_deployments_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#auto_deployments_enabled ApprunnerService#auto_deployments_enabled}.
-        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_repository ApprunnerService#code_repository}
-        :param image_repository: image_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_repository ApprunnerService#image_repository}
+        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#authentication_configuration ApprunnerService#authentication_configuration}
+        :param auto_deployments_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#auto_deployments_enabled ApprunnerService#auto_deployments_enabled}.
+        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_repository ApprunnerService#code_repository}
+        :param image_repository: image_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_repository ApprunnerService#image_repository}
         '''
         value = ApprunnerServiceSourceConfiguration(
             authentication_configuration=authentication_configuration,
@@ -561,17 +561,17 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#service_name ApprunnerService#service_name}.
-        :param source_configuration: source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_configuration ApprunnerService#source_configuration}
-        :param auto_scaling_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#auto_scaling_configuration_arn ApprunnerService#auto_scaling_configuration_arn}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#encryption_configuration ApprunnerService#encryption_configuration}
-        :param health_check_configuration: health_check_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#health_check_configuration ApprunnerService#health_check_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#id ApprunnerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_configuration: instance_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#instance_configuration ApprunnerService#instance_configuration}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#network_configuration ApprunnerService#network_configuration}
-        :param observability_configuration: observability_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_configuration ApprunnerService#observability_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#tags ApprunnerService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#tags_all ApprunnerService#tags_all}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#service_name ApprunnerService#service_name}.
+        :param source_configuration: source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_configuration ApprunnerService#source_configuration}
+        :param auto_scaling_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#auto_scaling_configuration_arn ApprunnerService#auto_scaling_configuration_arn}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#encryption_configuration ApprunnerService#encryption_configuration}
+        :param health_check_configuration: health_check_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#health_check_configuration ApprunnerService#health_check_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#id ApprunnerService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_configuration: instance_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#instance_configuration ApprunnerService#instance_configuration}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#network_configuration ApprunnerService#network_configuration}
+        :param observability_configuration: observability_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_configuration ApprunnerService#observability_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#tags ApprunnerService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#tags_all ApprunnerService#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -710,7 +710,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#service_name ApprunnerService#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#service_name ApprunnerService#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -719,7 +719,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_configuration(self) -> "ApprunnerServiceSourceConfiguration":
         '''source_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_configuration ApprunnerService#source_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_configuration ApprunnerService#source_configuration}
         '''
         result = self._values.get("source_configuration")
         assert result is not None, "Required property 'source_configuration' is missing"
@@ -727,7 +727,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def auto_scaling_configuration_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#auto_scaling_configuration_arn ApprunnerService#auto_scaling_configuration_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#auto_scaling_configuration_arn ApprunnerService#auto_scaling_configuration_arn}.'''
         result = self._values.get("auto_scaling_configuration_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -737,7 +737,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApprunnerServiceEncryptionConfiguration"]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#encryption_configuration ApprunnerService#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#encryption_configuration ApprunnerService#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceEncryptionConfiguration"], result)
@@ -748,14 +748,14 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApprunnerServiceHealthCheckConfiguration"]:
         '''health_check_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#health_check_configuration ApprunnerService#health_check_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#health_check_configuration ApprunnerService#health_check_configuration}
         '''
         result = self._values.get("health_check_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceHealthCheckConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#id ApprunnerService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#id ApprunnerService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -769,7 +769,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApprunnerServiceInstanceConfiguration"]:
         '''instance_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#instance_configuration ApprunnerService#instance_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#instance_configuration ApprunnerService#instance_configuration}
         '''
         result = self._values.get("instance_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceInstanceConfiguration"], result)
@@ -780,7 +780,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApprunnerServiceNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#network_configuration ApprunnerService#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#network_configuration ApprunnerService#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceNetworkConfiguration"], result)
@@ -791,20 +791,20 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApprunnerServiceObservabilityConfiguration"]:
         '''observability_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_configuration ApprunnerService#observability_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_configuration ApprunnerService#observability_configuration}
         '''
         result = self._values.get("observability_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceObservabilityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#tags ApprunnerService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#tags ApprunnerService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#tags_all ApprunnerService#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#tags_all ApprunnerService#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -828,7 +828,7 @@ class ApprunnerServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ApprunnerServiceEncryptionConfiguration:
     def __init__(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#kms_key ApprunnerService#kms_key}.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#kms_key ApprunnerService#kms_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d60ca5477c8e7b5b50efa8645ff2919db3171299e105c61d58d78cc6d69e526)
@@ -839,7 +839,7 @@ class ApprunnerServiceEncryptionConfiguration:
 
     @builtins.property
     def kms_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#kms_key ApprunnerService#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#kms_key ApprunnerService#kms_key}.'''
         result = self._values.get("kms_key")
         assert result is not None, "Required property 'kms_key' is missing"
         return typing.cast(builtins.str, result)
@@ -935,12 +935,12 @@ class ApprunnerServiceHealthCheckConfiguration:
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#healthy_threshold ApprunnerService#healthy_threshold}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#interval ApprunnerService#interval}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#path ApprunnerService#path}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#protocol ApprunnerService#protocol}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#timeout ApprunnerService#timeout}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#unhealthy_threshold ApprunnerService#unhealthy_threshold}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#healthy_threshold ApprunnerService#healthy_threshold}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#interval ApprunnerService#interval}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#path ApprunnerService#path}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#protocol ApprunnerService#protocol}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#timeout ApprunnerService#timeout}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#unhealthy_threshold ApprunnerService#unhealthy_threshold}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dde2e3df0304a6c0888cfec740822e1824163ab5a3bb7564e020e076797a1904)
@@ -966,37 +966,37 @@ class ApprunnerServiceHealthCheckConfiguration:
 
     @builtins.property
     def healthy_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#healthy_threshold ApprunnerService#healthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#healthy_threshold ApprunnerService#healthy_threshold}.'''
         result = self._values.get("healthy_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#interval ApprunnerService#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#interval ApprunnerService#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#path ApprunnerService#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#path ApprunnerService#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#protocol ApprunnerService#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#protocol ApprunnerService#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#timeout ApprunnerService#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#timeout ApprunnerService#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def unhealthy_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#unhealthy_threshold ApprunnerService#unhealthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#unhealthy_threshold ApprunnerService#unhealthy_threshold}.'''
         result = self._values.get("unhealthy_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1194,9 +1194,9 @@ class ApprunnerServiceInstanceConfiguration:
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#cpu ApprunnerService#cpu}.
-        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#instance_role_arn ApprunnerService#instance_role_arn}.
-        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#memory ApprunnerService#memory}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#cpu ApprunnerService#cpu}.
+        :param instance_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#instance_role_arn ApprunnerService#instance_role_arn}.
+        :param memory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#memory ApprunnerService#memory}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fd5f9d08ecc7f2fbd8d23d72c96d190d5ef1d6d3ee3b12d48f9364fa1fd5493)
@@ -1213,19 +1213,19 @@ class ApprunnerServiceInstanceConfiguration:
 
     @builtins.property
     def cpu(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#cpu ApprunnerService#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#cpu ApprunnerService#cpu}.'''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#instance_role_arn ApprunnerService#instance_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#instance_role_arn ApprunnerService#instance_role_arn}.'''
         result = self._values.get("instance_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#memory ApprunnerService#memory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#memory ApprunnerService#memory}.'''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1358,9 +1358,9 @@ class ApprunnerServiceNetworkConfiguration:
         ip_address_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param egress_configuration: egress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#egress_configuration ApprunnerService#egress_configuration}
-        :param ingress_configuration: ingress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#ingress_configuration ApprunnerService#ingress_configuration}
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#ip_address_type ApprunnerService#ip_address_type}.
+        :param egress_configuration: egress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#egress_configuration ApprunnerService#egress_configuration}
+        :param ingress_configuration: ingress_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#ingress_configuration ApprunnerService#ingress_configuration}
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#ip_address_type ApprunnerService#ip_address_type}.
         '''
         if isinstance(egress_configuration, dict):
             egress_configuration = ApprunnerServiceNetworkConfigurationEgressConfiguration(**egress_configuration)
@@ -1385,7 +1385,7 @@ class ApprunnerServiceNetworkConfiguration:
     ) -> typing.Optional["ApprunnerServiceNetworkConfigurationEgressConfiguration"]:
         '''egress_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#egress_configuration ApprunnerService#egress_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#egress_configuration ApprunnerService#egress_configuration}
         '''
         result = self._values.get("egress_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceNetworkConfigurationEgressConfiguration"], result)
@@ -1396,14 +1396,14 @@ class ApprunnerServiceNetworkConfiguration:
     ) -> typing.Optional["ApprunnerServiceNetworkConfigurationIngressConfiguration"]:
         '''ingress_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#ingress_configuration ApprunnerService#ingress_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#ingress_configuration ApprunnerService#ingress_configuration}
         '''
         result = self._values.get("ingress_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceNetworkConfigurationIngressConfiguration"], result)
 
     @builtins.property
     def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#ip_address_type ApprunnerService#ip_address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#ip_address_type ApprunnerService#ip_address_type}.'''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1432,8 +1432,8 @@ class ApprunnerServiceNetworkConfigurationEgressConfiguration:
         vpc_connector_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param egress_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#egress_type ApprunnerService#egress_type}.
-        :param vpc_connector_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#vpc_connector_arn ApprunnerService#vpc_connector_arn}.
+        :param egress_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#egress_type ApprunnerService#egress_type}.
+        :param vpc_connector_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#vpc_connector_arn ApprunnerService#vpc_connector_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dad6964f1c10bdb3279929406315cb0a7723e02af39dc745a846715b981b9be7)
@@ -1447,13 +1447,13 @@ class ApprunnerServiceNetworkConfigurationEgressConfiguration:
 
     @builtins.property
     def egress_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#egress_type ApprunnerService#egress_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#egress_type ApprunnerService#egress_type}.'''
         result = self._values.get("egress_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_connector_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#vpc_connector_arn ApprunnerService#vpc_connector_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#vpc_connector_arn ApprunnerService#vpc_connector_arn}.'''
         result = self._values.get("vpc_connector_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1561,7 +1561,7 @@ class ApprunnerServiceNetworkConfigurationIngressConfiguration:
         is_publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param is_publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#is_publicly_accessible ApprunnerService#is_publicly_accessible}.
+        :param is_publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#is_publicly_accessible ApprunnerService#is_publicly_accessible}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82a0e438f44d2b1c86fc43c9b69376697e2e3f48f48bd849cd0728292be06a2d)
@@ -1574,7 +1574,7 @@ class ApprunnerServiceNetworkConfigurationIngressConfiguration:
     def is_publicly_accessible(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#is_publicly_accessible ApprunnerService#is_publicly_accessible}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#is_publicly_accessible ApprunnerService#is_publicly_accessible}.'''
         result = self._values.get("is_publicly_accessible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1684,8 +1684,8 @@ class ApprunnerServiceNetworkConfigurationOutputReference(
         vpc_connector_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param egress_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#egress_type ApprunnerService#egress_type}.
-        :param vpc_connector_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#vpc_connector_arn ApprunnerService#vpc_connector_arn}.
+        :param egress_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#egress_type ApprunnerService#egress_type}.
+        :param vpc_connector_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#vpc_connector_arn ApprunnerService#vpc_connector_arn}.
         '''
         value = ApprunnerServiceNetworkConfigurationEgressConfiguration(
             egress_type=egress_type, vpc_connector_arn=vpc_connector_arn
@@ -1700,7 +1700,7 @@ class ApprunnerServiceNetworkConfigurationOutputReference(
         is_publicly_accessible: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param is_publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#is_publicly_accessible ApprunnerService#is_publicly_accessible}.
+        :param is_publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#is_publicly_accessible ApprunnerService#is_publicly_accessible}.
         '''
         value = ApprunnerServiceNetworkConfigurationIngressConfiguration(
             is_publicly_accessible=is_publicly_accessible
@@ -1797,8 +1797,8 @@ class ApprunnerServiceObservabilityConfiguration:
         observability_configuration_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param observability_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_enabled ApprunnerService#observability_enabled}.
-        :param observability_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_configuration_arn ApprunnerService#observability_configuration_arn}.
+        :param observability_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_enabled ApprunnerService#observability_enabled}.
+        :param observability_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_configuration_arn ApprunnerService#observability_configuration_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0a4b94505e7f6802b1b5e6af17e8abfa0e93514efeb9d544898595daa0f670c)
@@ -1814,14 +1814,14 @@ class ApprunnerServiceObservabilityConfiguration:
     def observability_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_enabled ApprunnerService#observability_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_enabled ApprunnerService#observability_enabled}.'''
         result = self._values.get("observability_enabled")
         assert result is not None, "Required property 'observability_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def observability_configuration_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#observability_configuration_arn ApprunnerService#observability_configuration_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#observability_configuration_arn ApprunnerService#observability_configuration_arn}.'''
         result = self._values.get("observability_configuration_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1940,10 +1940,10 @@ class ApprunnerServiceSourceConfiguration:
         image_repository: typing.Optional[typing.Union["ApprunnerServiceSourceConfigurationImageRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#authentication_configuration ApprunnerService#authentication_configuration}
-        :param auto_deployments_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#auto_deployments_enabled ApprunnerService#auto_deployments_enabled}.
-        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_repository ApprunnerService#code_repository}
-        :param image_repository: image_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_repository ApprunnerService#image_repository}
+        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#authentication_configuration ApprunnerService#authentication_configuration}
+        :param auto_deployments_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#auto_deployments_enabled ApprunnerService#auto_deployments_enabled}.
+        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_repository ApprunnerService#code_repository}
+        :param image_repository: image_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_repository ApprunnerService#image_repository}
         '''
         if isinstance(authentication_configuration, dict):
             authentication_configuration = ApprunnerServiceSourceConfigurationAuthenticationConfiguration(**authentication_configuration)
@@ -1973,7 +1973,7 @@ class ApprunnerServiceSourceConfiguration:
     ) -> typing.Optional["ApprunnerServiceSourceConfigurationAuthenticationConfiguration"]:
         '''authentication_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#authentication_configuration ApprunnerService#authentication_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#authentication_configuration ApprunnerService#authentication_configuration}
         '''
         result = self._values.get("authentication_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceSourceConfigurationAuthenticationConfiguration"], result)
@@ -1982,7 +1982,7 @@ class ApprunnerServiceSourceConfiguration:
     def auto_deployments_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#auto_deployments_enabled ApprunnerService#auto_deployments_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#auto_deployments_enabled ApprunnerService#auto_deployments_enabled}.'''
         result = self._values.get("auto_deployments_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1992,7 +1992,7 @@ class ApprunnerServiceSourceConfiguration:
     ) -> typing.Optional["ApprunnerServiceSourceConfigurationCodeRepository"]:
         '''code_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_repository ApprunnerService#code_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_repository ApprunnerService#code_repository}
         '''
         result = self._values.get("code_repository")
         return typing.cast(typing.Optional["ApprunnerServiceSourceConfigurationCodeRepository"], result)
@@ -2003,7 +2003,7 @@ class ApprunnerServiceSourceConfiguration:
     ) -> typing.Optional["ApprunnerServiceSourceConfigurationImageRepository"]:
         '''image_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_repository ApprunnerService#image_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_repository ApprunnerService#image_repository}
         '''
         result = self._values.get("image_repository")
         return typing.cast(typing.Optional["ApprunnerServiceSourceConfigurationImageRepository"], result)
@@ -2036,8 +2036,8 @@ class ApprunnerServiceSourceConfigurationAuthenticationConfiguration:
         connection_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#access_role_arn ApprunnerService#access_role_arn}.
-        :param connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#connection_arn ApprunnerService#connection_arn}.
+        :param access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#access_role_arn ApprunnerService#access_role_arn}.
+        :param connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#connection_arn ApprunnerService#connection_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73d46013a3f082234161811160aee12240887f9c8bb2cf50fafe38212a4a8647)
@@ -2051,13 +2051,13 @@ class ApprunnerServiceSourceConfigurationAuthenticationConfiguration:
 
     @builtins.property
     def access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#access_role_arn ApprunnerService#access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#access_role_arn ApprunnerService#access_role_arn}.'''
         result = self._values.get("access_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def connection_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#connection_arn ApprunnerService#connection_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#connection_arn ApprunnerService#connection_arn}.'''
         result = self._values.get("connection_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2173,10 +2173,10 @@ class ApprunnerServiceSourceConfigurationCodeRepository:
         source_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#repository_url ApprunnerService#repository_url}.
-        :param source_code_version: source_code_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_code_version ApprunnerService#source_code_version}
-        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_configuration ApprunnerService#code_configuration}
-        :param source_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_directory ApprunnerService#source_directory}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#repository_url ApprunnerService#repository_url}.
+        :param source_code_version: source_code_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_code_version ApprunnerService#source_code_version}
+        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_configuration ApprunnerService#code_configuration}
+        :param source_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_directory ApprunnerService#source_directory}.
         '''
         if isinstance(source_code_version, dict):
             source_code_version = ApprunnerServiceSourceConfigurationCodeRepositorySourceCodeVersion(**source_code_version)
@@ -2199,7 +2199,7 @@ class ApprunnerServiceSourceConfigurationCodeRepository:
 
     @builtins.property
     def repository_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#repository_url ApprunnerService#repository_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#repository_url ApprunnerService#repository_url}.'''
         result = self._values.get("repository_url")
         assert result is not None, "Required property 'repository_url' is missing"
         return typing.cast(builtins.str, result)
@@ -2210,7 +2210,7 @@ class ApprunnerServiceSourceConfigurationCodeRepository:
     ) -> "ApprunnerServiceSourceConfigurationCodeRepositorySourceCodeVersion":
         '''source_code_version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_code_version ApprunnerService#source_code_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_code_version ApprunnerService#source_code_version}
         '''
         result = self._values.get("source_code_version")
         assert result is not None, "Required property 'source_code_version' is missing"
@@ -2222,14 +2222,14 @@ class ApprunnerServiceSourceConfigurationCodeRepository:
     ) -> typing.Optional["ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfiguration"]:
         '''code_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_configuration ApprunnerService#code_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_configuration ApprunnerService#code_configuration}
         '''
         result = self._values.get("code_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfiguration"], result)
 
     @builtins.property
     def source_directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_directory ApprunnerService#source_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_directory ApprunnerService#source_directory}.'''
         result = self._values.get("source_directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2261,8 +2261,8 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfiguration:
         code_configuration_values: typing.Optional[typing.Union["ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConfigurationValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param configuration_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#configuration_source ApprunnerService#configuration_source}.
-        :param code_configuration_values: code_configuration_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_configuration_values ApprunnerService#code_configuration_values}
+        :param configuration_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#configuration_source ApprunnerService#configuration_source}.
+        :param code_configuration_values: code_configuration_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_configuration_values ApprunnerService#code_configuration_values}
         '''
         if isinstance(code_configuration_values, dict):
             code_configuration_values = ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConfigurationValues(**code_configuration_values)
@@ -2278,7 +2278,7 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfiguration:
 
     @builtins.property
     def configuration_source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#configuration_source ApprunnerService#configuration_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#configuration_source ApprunnerService#configuration_source}.'''
         result = self._values.get("configuration_source")
         assert result is not None, "Required property 'configuration_source' is missing"
         return typing.cast(builtins.str, result)
@@ -2289,7 +2289,7 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfiguration:
     ) -> typing.Optional["ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConfigurationValues"]:
         '''code_configuration_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_configuration_values ApprunnerService#code_configuration_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_configuration_values ApprunnerService#code_configuration_values}
         '''
         result = self._values.get("code_configuration_values")
         return typing.cast(typing.Optional["ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConfigurationValues"], result)
@@ -2330,12 +2330,12 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConf
         start_command: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime ApprunnerService#runtime}.
-        :param build_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#build_command ApprunnerService#build_command}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#port ApprunnerService#port}.
-        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
-        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
-        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime ApprunnerService#runtime}.
+        :param build_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#build_command ApprunnerService#build_command}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#port ApprunnerService#port}.
+        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
+        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
+        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0f038b05b0eec4784618f22821865c8bd54b114675c84198d108f5cf911f25f)
@@ -2361,20 +2361,20 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConf
 
     @builtins.property
     def runtime(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime ApprunnerService#runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime ApprunnerService#runtime}.'''
         result = self._values.get("runtime")
         assert result is not None, "Required property 'runtime' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def build_command(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#build_command ApprunnerService#build_command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#build_command ApprunnerService#build_command}.'''
         result = self._values.get("build_command")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#port ApprunnerService#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#port ApprunnerService#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2382,7 +2382,7 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConf
     def runtime_environment_secrets(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.'''
         result = self._values.get("runtime_environment_secrets")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2390,13 +2390,13 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConf
     def runtime_environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.'''
         result = self._values.get("runtime_environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def start_command(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.'''
         result = self._values.get("start_command")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2616,12 +2616,12 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationOutputRe
         start_command: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime ApprunnerService#runtime}.
-        :param build_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#build_command ApprunnerService#build_command}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#port ApprunnerService#port}.
-        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
-        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
-        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime ApprunnerService#runtime}.
+        :param build_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#build_command ApprunnerService#build_command}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#port ApprunnerService#port}.
+        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
+        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
+        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
         '''
         value = ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConfigurationValues(
             runtime=runtime,
@@ -2715,8 +2715,8 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryOutputReference(
         code_configuration_values: typing.Optional[typing.Union[ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfigurationCodeConfigurationValues, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param configuration_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#configuration_source ApprunnerService#configuration_source}.
-        :param code_configuration_values: code_configuration_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_configuration_values ApprunnerService#code_configuration_values}
+        :param configuration_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#configuration_source ApprunnerService#configuration_source}.
+        :param code_configuration_values: code_configuration_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_configuration_values ApprunnerService#code_configuration_values}
         '''
         value = ApprunnerServiceSourceConfigurationCodeRepositoryCodeConfiguration(
             configuration_source=configuration_source,
@@ -2733,8 +2733,8 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryOutputReference(
         value: builtins.str,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#type ApprunnerService#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#value ApprunnerService#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#type ApprunnerService#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#value ApprunnerService#value}.
         '''
         value_ = ApprunnerServiceSourceConfigurationCodeRepositorySourceCodeVersion(
             type=type, value=value
@@ -2838,8 +2838,8 @@ class ApprunnerServiceSourceConfigurationCodeRepositoryOutputReference(
 class ApprunnerServiceSourceConfigurationCodeRepositorySourceCodeVersion:
     def __init__(self, *, type: builtins.str, value: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#type ApprunnerService#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#value ApprunnerService#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#type ApprunnerService#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#value ApprunnerService#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a78e25e227964c6dde9961573c48fa3c16847c906c868d5f3d3f3cca40745001)
@@ -2852,14 +2852,14 @@ class ApprunnerServiceSourceConfigurationCodeRepositorySourceCodeVersion:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#type ApprunnerService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#type ApprunnerService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#value ApprunnerService#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#value ApprunnerService#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2966,9 +2966,9 @@ class ApprunnerServiceSourceConfigurationImageRepository:
         image_configuration: typing.Optional[typing.Union["ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param image_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_identifier ApprunnerService#image_identifier}.
-        :param image_repository_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_repository_type ApprunnerService#image_repository_type}.
-        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_configuration ApprunnerService#image_configuration}
+        :param image_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_identifier ApprunnerService#image_identifier}.
+        :param image_repository_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_repository_type ApprunnerService#image_repository_type}.
+        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_configuration ApprunnerService#image_configuration}
         '''
         if isinstance(image_configuration, dict):
             image_configuration = ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration(**image_configuration)
@@ -2986,14 +2986,14 @@ class ApprunnerServiceSourceConfigurationImageRepository:
 
     @builtins.property
     def image_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_identifier ApprunnerService#image_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_identifier ApprunnerService#image_identifier}.'''
         result = self._values.get("image_identifier")
         assert result is not None, "Required property 'image_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def image_repository_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_repository_type ApprunnerService#image_repository_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_repository_type ApprunnerService#image_repository_type}.'''
         result = self._values.get("image_repository_type")
         assert result is not None, "Required property 'image_repository_type' is missing"
         return typing.cast(builtins.str, result)
@@ -3004,7 +3004,7 @@ class ApprunnerServiceSourceConfigurationImageRepository:
     ) -> typing.Optional["ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration"]:
         '''image_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_configuration ApprunnerService#image_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_configuration ApprunnerService#image_configuration}
         '''
         result = self._values.get("image_configuration")
         return typing.cast(typing.Optional["ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration"], result)
@@ -3041,10 +3041,10 @@ class ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration:
         start_command: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#port ApprunnerService#port}.
-        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
-        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
-        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#port ApprunnerService#port}.
+        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
+        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
+        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d155972216d3489dc37bdb9b5fb7454a0fe7925bd9fa92919ef602772223fa92)
@@ -3064,7 +3064,7 @@ class ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration:
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#port ApprunnerService#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#port ApprunnerService#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3072,7 +3072,7 @@ class ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration:
     def runtime_environment_secrets(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.'''
         result = self._values.get("runtime_environment_secrets")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3080,13 +3080,13 @@ class ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration:
     def runtime_environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.'''
         result = self._values.get("runtime_environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def start_command(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.'''
         result = self._values.get("start_command")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3266,10 +3266,10 @@ class ApprunnerServiceSourceConfigurationImageRepositoryOutputReference(
         start_command: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#port ApprunnerService#port}.
-        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
-        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
-        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#port ApprunnerService#port}.
+        :param runtime_environment_secrets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_secrets ApprunnerService#runtime_environment_secrets}.
+        :param runtime_environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#runtime_environment_variables ApprunnerService#runtime_environment_variables}.
+        :param start_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#start_command ApprunnerService#start_command}.
         '''
         value = ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration(
             port=port,
@@ -3378,8 +3378,8 @@ class ApprunnerServiceSourceConfigurationOutputReference(
         connection_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#access_role_arn ApprunnerService#access_role_arn}.
-        :param connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#connection_arn ApprunnerService#connection_arn}.
+        :param access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#access_role_arn ApprunnerService#access_role_arn}.
+        :param connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#connection_arn ApprunnerService#connection_arn}.
         '''
         value = ApprunnerServiceSourceConfigurationAuthenticationConfiguration(
             access_role_arn=access_role_arn, connection_arn=connection_arn
@@ -3397,10 +3397,10 @@ class ApprunnerServiceSourceConfigurationOutputReference(
         source_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#repository_url ApprunnerService#repository_url}.
-        :param source_code_version: source_code_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_code_version ApprunnerService#source_code_version}
-        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#code_configuration ApprunnerService#code_configuration}
-        :param source_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#source_directory ApprunnerService#source_directory}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#repository_url ApprunnerService#repository_url}.
+        :param source_code_version: source_code_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_code_version ApprunnerService#source_code_version}
+        :param code_configuration: code_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#code_configuration ApprunnerService#code_configuration}
+        :param source_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#source_directory ApprunnerService#source_directory}.
         '''
         value = ApprunnerServiceSourceConfigurationCodeRepository(
             repository_url=repository_url,
@@ -3420,9 +3420,9 @@ class ApprunnerServiceSourceConfigurationOutputReference(
         image_configuration: typing.Optional[typing.Union[ApprunnerServiceSourceConfigurationImageRepositoryImageConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param image_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_identifier ApprunnerService#image_identifier}.
-        :param image_repository_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_repository_type ApprunnerService#image_repository_type}.
-        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_service#image_configuration ApprunnerService#image_configuration}
+        :param image_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_identifier ApprunnerService#image_identifier}.
+        :param image_repository_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_repository_type ApprunnerService#image_repository_type}.
+        :param image_configuration: image_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_service#image_configuration ApprunnerService#image_configuration}
         '''
         value = ApprunnerServiceSourceConfigurationImageRepository(
             image_identifier=image_identifier,

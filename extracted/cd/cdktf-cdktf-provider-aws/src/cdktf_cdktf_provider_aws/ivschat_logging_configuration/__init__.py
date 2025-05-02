@@ -1,7 +1,7 @@
 r'''
 # `aws_ivschat_logging_configuration`
 
-Refer to the Terraform Registry for docs: [`aws_ivschat_logging_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration).
+Refer to the Terraform Registry for docs: [`aws_ivschat_logging_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IvschatLoggingConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ivschatLoggingConfiguration.IvschatLoggingConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration aws_ivschat_logging_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration aws_ivschat_logging_configuration}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IvschatLoggingConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration aws_ivschat_logging_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration aws_ivschat_logging_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_configuration: destination_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#destination_configuration IvschatLoggingConfiguration#destination_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#id IvschatLoggingConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#name IvschatLoggingConfiguration#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#tags IvschatLoggingConfiguration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#tags_all IvschatLoggingConfiguration#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#timeouts IvschatLoggingConfiguration#timeouts}
+        :param destination_configuration: destination_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#destination_configuration IvschatLoggingConfiguration#destination_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#id IvschatLoggingConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#name IvschatLoggingConfiguration#name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#tags IvschatLoggingConfiguration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#tags_all IvschatLoggingConfiguration#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#timeouts IvschatLoggingConfiguration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IvschatLoggingConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IvschatLoggingConfiguration to import.
-        :param import_from_id: The id of the existing IvschatLoggingConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IvschatLoggingConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IvschatLoggingConfiguration to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class IvschatLoggingConfiguration(
         s3: typing.Optional[typing.Union["IvschatLoggingConfigurationDestinationConfigurationS3", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#cloudwatch_logs IvschatLoggingConfiguration#cloudwatch_logs}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#firehose IvschatLoggingConfiguration#firehose}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#s3 IvschatLoggingConfiguration#s3}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#cloudwatch_logs IvschatLoggingConfiguration#cloudwatch_logs}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#firehose IvschatLoggingConfiguration#firehose}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#s3 IvschatLoggingConfiguration#s3}
         '''
         value = IvschatLoggingConfigurationDestinationConfiguration(
             cloudwatch_logs=cloudwatch_logs, firehose=firehose, s3=s3
@@ -157,9 +157,9 @@ class IvschatLoggingConfiguration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#create IvschatLoggingConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#delete IvschatLoggingConfiguration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#update IvschatLoggingConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#create IvschatLoggingConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#delete IvschatLoggingConfiguration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#update IvschatLoggingConfiguration#update}.
         '''
         value = IvschatLoggingConfigurationTimeouts(
             create=create, delete=delete, update=update
@@ -356,12 +356,12 @@ class IvschatLoggingConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_configuration: destination_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#destination_configuration IvschatLoggingConfiguration#destination_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#id IvschatLoggingConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#name IvschatLoggingConfiguration#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#tags IvschatLoggingConfiguration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#tags_all IvschatLoggingConfiguration#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#timeouts IvschatLoggingConfiguration#timeouts}
+        :param destination_configuration: destination_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#destination_configuration IvschatLoggingConfiguration#destination_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#id IvschatLoggingConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#name IvschatLoggingConfiguration#name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#tags IvschatLoggingConfiguration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#tags_all IvschatLoggingConfiguration#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#timeouts IvschatLoggingConfiguration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -482,14 +482,14 @@ class IvschatLoggingConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["IvschatLoggingConfigurationDestinationConfiguration"]:
         '''destination_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#destination_configuration IvschatLoggingConfiguration#destination_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#destination_configuration IvschatLoggingConfiguration#destination_configuration}
         '''
         result = self._values.get("destination_configuration")
         return typing.cast(typing.Optional["IvschatLoggingConfigurationDestinationConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#id IvschatLoggingConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#id IvschatLoggingConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -499,19 +499,19 @@ class IvschatLoggingConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#name IvschatLoggingConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#name IvschatLoggingConfiguration#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#tags IvschatLoggingConfiguration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#tags IvschatLoggingConfiguration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#tags_all IvschatLoggingConfiguration#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#tags_all IvschatLoggingConfiguration#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -519,7 +519,7 @@ class IvschatLoggingConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IvschatLoggingConfigurationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#timeouts IvschatLoggingConfiguration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#timeouts IvschatLoggingConfiguration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IvschatLoggingConfigurationTimeouts"], result)
@@ -554,9 +554,9 @@ class IvschatLoggingConfigurationDestinationConfiguration:
         s3: typing.Optional[typing.Union["IvschatLoggingConfigurationDestinationConfigurationS3", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#cloudwatch_logs IvschatLoggingConfiguration#cloudwatch_logs}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#firehose IvschatLoggingConfiguration#firehose}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#s3 IvschatLoggingConfiguration#s3}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#cloudwatch_logs IvschatLoggingConfiguration#cloudwatch_logs}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#firehose IvschatLoggingConfiguration#firehose}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#s3 IvschatLoggingConfiguration#s3}
         '''
         if isinstance(cloudwatch_logs, dict):
             cloudwatch_logs = IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogs(**cloudwatch_logs)
@@ -583,7 +583,7 @@ class IvschatLoggingConfigurationDestinationConfiguration:
     ) -> typing.Optional["IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogs"]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#cloudwatch_logs IvschatLoggingConfiguration#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#cloudwatch_logs IvschatLoggingConfiguration#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional["IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogs"], result)
@@ -594,7 +594,7 @@ class IvschatLoggingConfigurationDestinationConfiguration:
     ) -> typing.Optional["IvschatLoggingConfigurationDestinationConfigurationFirehose"]:
         '''firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#firehose IvschatLoggingConfiguration#firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#firehose IvschatLoggingConfiguration#firehose}
         '''
         result = self._values.get("firehose")
         return typing.cast(typing.Optional["IvschatLoggingConfigurationDestinationConfigurationFirehose"], result)
@@ -605,7 +605,7 @@ class IvschatLoggingConfigurationDestinationConfiguration:
     ) -> typing.Optional["IvschatLoggingConfigurationDestinationConfigurationS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#s3 IvschatLoggingConfiguration#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#s3 IvschatLoggingConfiguration#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["IvschatLoggingConfigurationDestinationConfigurationS3"], result)
@@ -630,7 +630,7 @@ class IvschatLoggingConfigurationDestinationConfiguration:
 class IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogs:
     def __init__(self, *, log_group_name: builtins.str) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#log_group_name IvschatLoggingConfiguration#log_group_name}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#log_group_name IvschatLoggingConfiguration#log_group_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e56a0abe6c49eae8f377fb3edbada467a71a07aa591203133edc7befe8660b7)
@@ -641,7 +641,7 @@ class IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogs:
 
     @builtins.property
     def log_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#log_group_name IvschatLoggingConfiguration#log_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#log_group_name IvschatLoggingConfiguration#log_group_name}.'''
         result = self._values.get("log_group_name")
         assert result is not None, "Required property 'log_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -721,7 +721,7 @@ class IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogsOutputRef
 class IvschatLoggingConfigurationDestinationConfigurationFirehose:
     def __init__(self, *, delivery_stream_name: builtins.str) -> None:
         '''
-        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#delivery_stream_name IvschatLoggingConfiguration#delivery_stream_name}.
+        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#delivery_stream_name IvschatLoggingConfiguration#delivery_stream_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c8217d53198c718bf0f32a3b2ffbbd2b1a76252810ccd66d06f1041d152052b)
@@ -732,7 +732,7 @@ class IvschatLoggingConfigurationDestinationConfigurationFirehose:
 
     @builtins.property
     def delivery_stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#delivery_stream_name IvschatLoggingConfiguration#delivery_stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#delivery_stream_name IvschatLoggingConfiguration#delivery_stream_name}.'''
         result = self._values.get("delivery_stream_name")
         assert result is not None, "Required property 'delivery_stream_name' is missing"
         return typing.cast(builtins.str, result)
@@ -827,7 +827,7 @@ class IvschatLoggingConfigurationDestinationConfigurationOutputReference(
     @jsii.member(jsii_name="putCloudwatchLogs")
     def put_cloudwatch_logs(self, *, log_group_name: builtins.str) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#log_group_name IvschatLoggingConfiguration#log_group_name}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#log_group_name IvschatLoggingConfiguration#log_group_name}.
         '''
         value = IvschatLoggingConfigurationDestinationConfigurationCloudwatchLogs(
             log_group_name=log_group_name
@@ -838,7 +838,7 @@ class IvschatLoggingConfigurationDestinationConfigurationOutputReference(
     @jsii.member(jsii_name="putFirehose")
     def put_firehose(self, *, delivery_stream_name: builtins.str) -> None:
         '''
-        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#delivery_stream_name IvschatLoggingConfiguration#delivery_stream_name}.
+        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#delivery_stream_name IvschatLoggingConfiguration#delivery_stream_name}.
         '''
         value = IvschatLoggingConfigurationDestinationConfigurationFirehose(
             delivery_stream_name=delivery_stream_name
@@ -849,7 +849,7 @@ class IvschatLoggingConfigurationDestinationConfigurationOutputReference(
     @jsii.member(jsii_name="putS3")
     def put_s3(self, *, bucket_name: builtins.str) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#bucket_name IvschatLoggingConfiguration#bucket_name}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#bucket_name IvschatLoggingConfiguration#bucket_name}.
         '''
         value = IvschatLoggingConfigurationDestinationConfigurationS3(
             bucket_name=bucket_name
@@ -937,7 +937,7 @@ class IvschatLoggingConfigurationDestinationConfigurationOutputReference(
 class IvschatLoggingConfigurationDestinationConfigurationS3:
     def __init__(self, *, bucket_name: builtins.str) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#bucket_name IvschatLoggingConfiguration#bucket_name}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#bucket_name IvschatLoggingConfiguration#bucket_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19da66a917c178bceac4cfcc2d6df8b41ebf673b616122b6328f7aa2df5c2d87)
@@ -948,7 +948,7 @@ class IvschatLoggingConfigurationDestinationConfigurationS3:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#bucket_name IvschatLoggingConfiguration#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#bucket_name IvschatLoggingConfiguration#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1034,9 +1034,9 @@ class IvschatLoggingConfigurationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#create IvschatLoggingConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#delete IvschatLoggingConfiguration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#update IvschatLoggingConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#create IvschatLoggingConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#delete IvschatLoggingConfiguration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#update IvschatLoggingConfiguration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c72eede394feb989f9a16bde0cfde2dc4055cf5840556f82934d5cfc8a2e1f73)
@@ -1053,19 +1053,19 @@ class IvschatLoggingConfigurationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#create IvschatLoggingConfiguration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#create IvschatLoggingConfiguration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#delete IvschatLoggingConfiguration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#delete IvschatLoggingConfiguration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivschat_logging_configuration#update IvschatLoggingConfiguration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivschat_logging_configuration#update IvschatLoggingConfiguration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

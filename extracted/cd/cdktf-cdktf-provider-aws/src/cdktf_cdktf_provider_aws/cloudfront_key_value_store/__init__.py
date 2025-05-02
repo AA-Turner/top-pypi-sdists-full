@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudfront_key_value_store`
 
-Refer to the Terraform Registry for docs: [`aws_cloudfront_key_value_store`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store).
+Refer to the Terraform Registry for docs: [`aws_cloudfront_key_value_store`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudfrontKeyValueStore(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudfrontKeyValueStore.CloudfrontKeyValueStore",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store aws_cloudfront_key_value_store}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store aws_cloudfront_key_value_store}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class CloudfrontKeyValueStore(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store aws_cloudfront_key_value_store} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store aws_cloudfront_key_value_store} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#name CloudfrontKeyValueStore#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#comment CloudfrontKeyValueStore#comment}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#timeouts CloudfrontKeyValueStore#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#name CloudfrontKeyValueStore#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#comment CloudfrontKeyValueStore#comment}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#timeouts CloudfrontKeyValueStore#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class CloudfrontKeyValueStore(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudfrontKeyValueStore to import.
-        :param import_from_id: The id of the existing CloudfrontKeyValueStore that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudfrontKeyValueStore that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudfrontKeyValueStore to import is found.
         '''
         if __debug__:
@@ -123,7 +123,7 @@ class CloudfrontKeyValueStore(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#create CloudfrontKeyValueStore#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#create CloudfrontKeyValueStore#create}
         '''
         value = CloudfrontKeyValueStoreTimeouts(create=create)
 
@@ -256,9 +256,9 @@ class CloudfrontKeyValueStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#name CloudfrontKeyValueStore#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#comment CloudfrontKeyValueStore#comment}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#timeouts CloudfrontKeyValueStore#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#name CloudfrontKeyValueStore#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#comment CloudfrontKeyValueStore#comment}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#timeouts CloudfrontKeyValueStore#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -364,14 +364,14 @@ class CloudfrontKeyValueStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#name CloudfrontKeyValueStore#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#name CloudfrontKeyValueStore#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#comment CloudfrontKeyValueStore#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#comment CloudfrontKeyValueStore#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -379,7 +379,7 @@ class CloudfrontKeyValueStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudfrontKeyValueStoreTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#timeouts CloudfrontKeyValueStore#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#timeouts CloudfrontKeyValueStore#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudfrontKeyValueStoreTimeouts"], result)
@@ -404,7 +404,7 @@ class CloudfrontKeyValueStoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CloudfrontKeyValueStoreTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#create CloudfrontKeyValueStore#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#create CloudfrontKeyValueStore#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4851e440f686049da4566cf54a418ddd888a5add121c7602534111439aed136)
@@ -417,7 +417,7 @@ class CloudfrontKeyValueStoreTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_key_value_store#create CloudfrontKeyValueStore#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_key_value_store#create CloudfrontKeyValueStore#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

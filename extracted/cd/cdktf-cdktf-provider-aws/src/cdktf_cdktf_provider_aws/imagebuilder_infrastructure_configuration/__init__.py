@@ -1,7 +1,7 @@
 r'''
 # `aws_imagebuilder_infrastructure_configuration`
 
-Refer to the Terraform Registry for docs: [`aws_imagebuilder_infrastructure_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration).
+Refer to the Terraform Registry for docs: [`aws_imagebuilder_infrastructure_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ImagebuilderInfrastructureConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.imagebuilderInfrastructureConfiguration.ImagebuilderInfrastructureConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration aws_imagebuilder_infrastructure_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration aws_imagebuilder_infrastructure_configuration}.'''
 
     def __init__(
         self,
@@ -59,6 +59,7 @@ class ImagebuilderInfrastructureConfiguration(
         instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         key_pair: typing.Optional[builtins.str] = None,
         logging: typing.Optional[typing.Union["ImagebuilderInfrastructureConfigurationLogging", typing.Dict[builtins.str, typing.Any]]] = None,
+        placement: typing.Optional[typing.Union["ImagebuilderInfrastructureConfigurationPlacement", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         sns_topic_arn: typing.Optional[builtins.str] = None,
@@ -74,25 +75,26 @@ class ImagebuilderInfrastructureConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration aws_imagebuilder_infrastructure_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration aws_imagebuilder_infrastructure_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_profile_name ImagebuilderInfrastructureConfiguration#instance_profile_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#name ImagebuilderInfrastructureConfiguration#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#description ImagebuilderInfrastructureConfiguration#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#id ImagebuilderInfrastructureConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_metadata_options: instance_metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_metadata_options ImagebuilderInfrastructureConfiguration#instance_metadata_options}
-        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_types ImagebuilderInfrastructureConfiguration#instance_types}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#key_pair ImagebuilderInfrastructureConfiguration#key_pair}.
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#logging ImagebuilderInfrastructureConfiguration#logging}
-        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#resource_tags ImagebuilderInfrastructureConfiguration#resource_tags}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#security_group_ids ImagebuilderInfrastructureConfiguration#security_group_ids}.
-        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#sns_topic_arn ImagebuilderInfrastructureConfiguration#sns_topic_arn}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#subnet_id ImagebuilderInfrastructureConfiguration#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#tags ImagebuilderInfrastructureConfiguration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#tags_all ImagebuilderInfrastructureConfiguration#tags_all}.
-        :param terminate_instance_on_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#terminate_instance_on_failure ImagebuilderInfrastructureConfiguration#terminate_instance_on_failure}.
+        :param instance_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_profile_name ImagebuilderInfrastructureConfiguration#instance_profile_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#name ImagebuilderInfrastructureConfiguration#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#description ImagebuilderInfrastructureConfiguration#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#id ImagebuilderInfrastructureConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_metadata_options: instance_metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_metadata_options ImagebuilderInfrastructureConfiguration#instance_metadata_options}
+        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_types ImagebuilderInfrastructureConfiguration#instance_types}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#key_pair ImagebuilderInfrastructureConfiguration#key_pair}.
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#logging ImagebuilderInfrastructureConfiguration#logging}
+        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#placement ImagebuilderInfrastructureConfiguration#placement}
+        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#resource_tags ImagebuilderInfrastructureConfiguration#resource_tags}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#security_group_ids ImagebuilderInfrastructureConfiguration#security_group_ids}.
+        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#sns_topic_arn ImagebuilderInfrastructureConfiguration#sns_topic_arn}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#subnet_id ImagebuilderInfrastructureConfiguration#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tags ImagebuilderInfrastructureConfiguration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tags_all ImagebuilderInfrastructureConfiguration#tags_all}.
+        :param terminate_instance_on_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#terminate_instance_on_failure ImagebuilderInfrastructureConfiguration#terminate_instance_on_failure}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -114,6 +116,7 @@ class ImagebuilderInfrastructureConfiguration(
             instance_types=instance_types,
             key_pair=key_pair,
             logging=logging,
+            placement=placement,
             resource_tags=resource_tags,
             security_group_ids=security_group_ids,
             sns_topic_arn=sns_topic_arn,
@@ -145,7 +148,7 @@ class ImagebuilderInfrastructureConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ImagebuilderInfrastructureConfiguration to import.
-        :param import_from_id: The id of the existing ImagebuilderInfrastructureConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ImagebuilderInfrastructureConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ImagebuilderInfrastructureConfiguration to import is found.
         '''
         if __debug__:
@@ -164,8 +167,8 @@ class ImagebuilderInfrastructureConfiguration(
         http_tokens: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#http_put_response_hop_limit ImagebuilderInfrastructureConfiguration#http_put_response_hop_limit}.
-        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#http_tokens ImagebuilderInfrastructureConfiguration#http_tokens}.
+        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#http_put_response_hop_limit ImagebuilderInfrastructureConfiguration#http_put_response_hop_limit}.
+        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#http_tokens ImagebuilderInfrastructureConfiguration#http_tokens}.
         '''
         value = ImagebuilderInfrastructureConfigurationInstanceMetadataOptions(
             http_put_response_hop_limit=http_put_response_hop_limit,
@@ -181,11 +184,35 @@ class ImagebuilderInfrastructureConfiguration(
         s3_logs: typing.Union["ImagebuilderInfrastructureConfigurationLoggingS3Logs", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_logs ImagebuilderInfrastructureConfiguration#s3_logs}
+        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_logs ImagebuilderInfrastructureConfiguration#s3_logs}
         '''
         value = ImagebuilderInfrastructureConfigurationLogging(s3_logs=s3_logs)
 
         return typing.cast(None, jsii.invoke(self, "putLogging", [value]))
+
+    @jsii.member(jsii_name="putPlacement")
+    def put_placement(
+        self,
+        *,
+        availability_zone: typing.Optional[builtins.str] = None,
+        host_id: typing.Optional[builtins.str] = None,
+        host_resource_group_arn: typing.Optional[builtins.str] = None,
+        tenancy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#availability_zone ImagebuilderInfrastructureConfiguration#availability_zone}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#host_id ImagebuilderInfrastructureConfiguration#host_id}.
+        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#host_resource_group_arn ImagebuilderInfrastructureConfiguration#host_resource_group_arn}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tenancy ImagebuilderInfrastructureConfiguration#tenancy}.
+        '''
+        value = ImagebuilderInfrastructureConfigurationPlacement(
+            availability_zone=availability_zone,
+            host_id=host_id,
+            host_resource_group_arn=host_resource_group_arn,
+            tenancy=tenancy,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putPlacement", [value]))
 
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
@@ -210,6 +237,10 @@ class ImagebuilderInfrastructureConfiguration(
     @jsii.member(jsii_name="resetLogging")
     def reset_logging(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetLogging", []))
+
+    @jsii.member(jsii_name="resetPlacement")
+    def reset_placement(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPlacement", []))
 
     @jsii.member(jsii_name="resetResourceTags")
     def reset_resource_tags(self) -> None:
@@ -282,6 +313,13 @@ class ImagebuilderInfrastructureConfiguration(
         return typing.cast("ImagebuilderInfrastructureConfigurationLoggingOutputReference", jsii.get(self, "logging"))
 
     @builtins.property
+    @jsii.member(jsii_name="placement")
+    def placement(
+        self,
+    ) -> "ImagebuilderInfrastructureConfigurationPlacementOutputReference":
+        return typing.cast("ImagebuilderInfrastructureConfigurationPlacementOutputReference", jsii.get(self, "placement"))
+
+    @builtins.property
     @jsii.member(jsii_name="descriptionInput")
     def description_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "descriptionInput"))
@@ -324,6 +362,13 @@ class ImagebuilderInfrastructureConfiguration(
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="placementInput")
+    def placement_input(
+        self,
+    ) -> typing.Optional["ImagebuilderInfrastructureConfigurationPlacement"]:
+        return typing.cast(typing.Optional["ImagebuilderInfrastructureConfigurationPlacement"], jsii.get(self, "placementInput"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceTagsInput")
@@ -547,6 +592,7 @@ class ImagebuilderInfrastructureConfiguration(
         "instance_types": "instanceTypes",
         "key_pair": "keyPair",
         "logging": "logging",
+        "placement": "placement",
         "resource_tags": "resourceTags",
         "security_group_ids": "securityGroupIds",
         "sns_topic_arn": "snsTopicArn",
@@ -577,6 +623,7 @@ class ImagebuilderInfrastructureConfigurationConfig(
         instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         key_pair: typing.Optional[builtins.str] = None,
         logging: typing.Optional[typing.Union["ImagebuilderInfrastructureConfigurationLogging", typing.Dict[builtins.str, typing.Any]]] = None,
+        placement: typing.Optional[typing.Union["ImagebuilderInfrastructureConfigurationPlacement", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         sns_topic_arn: typing.Optional[builtins.str] = None,
@@ -593,21 +640,22 @@ class ImagebuilderInfrastructureConfigurationConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_profile_name ImagebuilderInfrastructureConfiguration#instance_profile_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#name ImagebuilderInfrastructureConfiguration#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#description ImagebuilderInfrastructureConfiguration#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#id ImagebuilderInfrastructureConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_metadata_options: instance_metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_metadata_options ImagebuilderInfrastructureConfiguration#instance_metadata_options}
-        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_types ImagebuilderInfrastructureConfiguration#instance_types}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#key_pair ImagebuilderInfrastructureConfiguration#key_pair}.
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#logging ImagebuilderInfrastructureConfiguration#logging}
-        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#resource_tags ImagebuilderInfrastructureConfiguration#resource_tags}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#security_group_ids ImagebuilderInfrastructureConfiguration#security_group_ids}.
-        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#sns_topic_arn ImagebuilderInfrastructureConfiguration#sns_topic_arn}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#subnet_id ImagebuilderInfrastructureConfiguration#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#tags ImagebuilderInfrastructureConfiguration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#tags_all ImagebuilderInfrastructureConfiguration#tags_all}.
-        :param terminate_instance_on_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#terminate_instance_on_failure ImagebuilderInfrastructureConfiguration#terminate_instance_on_failure}.
+        :param instance_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_profile_name ImagebuilderInfrastructureConfiguration#instance_profile_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#name ImagebuilderInfrastructureConfiguration#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#description ImagebuilderInfrastructureConfiguration#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#id ImagebuilderInfrastructureConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_metadata_options: instance_metadata_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_metadata_options ImagebuilderInfrastructureConfiguration#instance_metadata_options}
+        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_types ImagebuilderInfrastructureConfiguration#instance_types}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#key_pair ImagebuilderInfrastructureConfiguration#key_pair}.
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#logging ImagebuilderInfrastructureConfiguration#logging}
+        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#placement ImagebuilderInfrastructureConfiguration#placement}
+        :param resource_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#resource_tags ImagebuilderInfrastructureConfiguration#resource_tags}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#security_group_ids ImagebuilderInfrastructureConfiguration#security_group_ids}.
+        :param sns_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#sns_topic_arn ImagebuilderInfrastructureConfiguration#sns_topic_arn}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#subnet_id ImagebuilderInfrastructureConfiguration#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tags ImagebuilderInfrastructureConfiguration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tags_all ImagebuilderInfrastructureConfiguration#tags_all}.
+        :param terminate_instance_on_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#terminate_instance_on_failure ImagebuilderInfrastructureConfiguration#terminate_instance_on_failure}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -615,6 +663,8 @@ class ImagebuilderInfrastructureConfigurationConfig(
             instance_metadata_options = ImagebuilderInfrastructureConfigurationInstanceMetadataOptions(**instance_metadata_options)
         if isinstance(logging, dict):
             logging = ImagebuilderInfrastructureConfigurationLogging(**logging)
+        if isinstance(placement, dict):
+            placement = ImagebuilderInfrastructureConfigurationPlacement(**placement)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6561487642360a0a506cbeddb73a37271c9a4292a3881080edbe6b851cfed7bf)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -632,6 +682,7 @@ class ImagebuilderInfrastructureConfigurationConfig(
             check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
             check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument placement", value=placement, expected_type=type_hints["placement"])
             check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
@@ -669,6 +720,8 @@ class ImagebuilderInfrastructureConfigurationConfig(
             self._values["key_pair"] = key_pair
         if logging is not None:
             self._values["logging"] = logging
+        if placement is not None:
+            self._values["placement"] = placement
         if resource_tags is not None:
             self._values["resource_tags"] = resource_tags
         if security_group_ids is not None:
@@ -750,27 +803,27 @@ class ImagebuilderInfrastructureConfigurationConfig(
 
     @builtins.property
     def instance_profile_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_profile_name ImagebuilderInfrastructureConfiguration#instance_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_profile_name ImagebuilderInfrastructureConfiguration#instance_profile_name}.'''
         result = self._values.get("instance_profile_name")
         assert result is not None, "Required property 'instance_profile_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#name ImagebuilderInfrastructureConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#name ImagebuilderInfrastructureConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#description ImagebuilderInfrastructureConfiguration#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#description ImagebuilderInfrastructureConfiguration#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#id ImagebuilderInfrastructureConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#id ImagebuilderInfrastructureConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -784,20 +837,20 @@ class ImagebuilderInfrastructureConfigurationConfig(
     ) -> typing.Optional["ImagebuilderInfrastructureConfigurationInstanceMetadataOptions"]:
         '''instance_metadata_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_metadata_options ImagebuilderInfrastructureConfiguration#instance_metadata_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_metadata_options ImagebuilderInfrastructureConfiguration#instance_metadata_options}
         '''
         result = self._values.get("instance_metadata_options")
         return typing.cast(typing.Optional["ImagebuilderInfrastructureConfigurationInstanceMetadataOptions"], result)
 
     @builtins.property
     def instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#instance_types ImagebuilderInfrastructureConfiguration#instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#instance_types ImagebuilderInfrastructureConfiguration#instance_types}.'''
         result = self._values.get("instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def key_pair(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#key_pair ImagebuilderInfrastructureConfiguration#key_pair}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#key_pair ImagebuilderInfrastructureConfiguration#key_pair}.'''
         result = self._values.get("key_pair")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -807,46 +860,57 @@ class ImagebuilderInfrastructureConfigurationConfig(
     ) -> typing.Optional["ImagebuilderInfrastructureConfigurationLogging"]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#logging ImagebuilderInfrastructureConfiguration#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#logging ImagebuilderInfrastructureConfiguration#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional["ImagebuilderInfrastructureConfigurationLogging"], result)
 
     @builtins.property
+    def placement(
+        self,
+    ) -> typing.Optional["ImagebuilderInfrastructureConfigurationPlacement"]:
+        '''placement block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#placement ImagebuilderInfrastructureConfiguration#placement}
+        '''
+        result = self._values.get("placement")
+        return typing.cast(typing.Optional["ImagebuilderInfrastructureConfigurationPlacement"], result)
+
+    @builtins.property
     def resource_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#resource_tags ImagebuilderInfrastructureConfiguration#resource_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#resource_tags ImagebuilderInfrastructureConfiguration#resource_tags}.'''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#security_group_ids ImagebuilderInfrastructureConfiguration#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#security_group_ids ImagebuilderInfrastructureConfiguration#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def sns_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#sns_topic_arn ImagebuilderInfrastructureConfiguration#sns_topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#sns_topic_arn ImagebuilderInfrastructureConfiguration#sns_topic_arn}.'''
         result = self._values.get("sns_topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#subnet_id ImagebuilderInfrastructureConfiguration#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#subnet_id ImagebuilderInfrastructureConfiguration#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#tags ImagebuilderInfrastructureConfiguration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tags ImagebuilderInfrastructureConfiguration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#tags_all ImagebuilderInfrastructureConfiguration#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tags_all ImagebuilderInfrastructureConfiguration#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -854,7 +918,7 @@ class ImagebuilderInfrastructureConfigurationConfig(
     def terminate_instance_on_failure(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#terminate_instance_on_failure ImagebuilderInfrastructureConfiguration#terminate_instance_on_failure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#terminate_instance_on_failure ImagebuilderInfrastructureConfiguration#terminate_instance_on_failure}.'''
         result = self._values.get("terminate_instance_on_failure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -886,8 +950,8 @@ class ImagebuilderInfrastructureConfigurationInstanceMetadataOptions:
         http_tokens: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#http_put_response_hop_limit ImagebuilderInfrastructureConfiguration#http_put_response_hop_limit}.
-        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#http_tokens ImagebuilderInfrastructureConfiguration#http_tokens}.
+        :param http_put_response_hop_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#http_put_response_hop_limit ImagebuilderInfrastructureConfiguration#http_put_response_hop_limit}.
+        :param http_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#http_tokens ImagebuilderInfrastructureConfiguration#http_tokens}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36859165c6d0a974ead1bd1539d5d83eed05ab769024f2495b6b7bef6ea6b0cf)
@@ -901,13 +965,13 @@ class ImagebuilderInfrastructureConfigurationInstanceMetadataOptions:
 
     @builtins.property
     def http_put_response_hop_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#http_put_response_hop_limit ImagebuilderInfrastructureConfiguration#http_put_response_hop_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#http_put_response_hop_limit ImagebuilderInfrastructureConfiguration#http_put_response_hop_limit}.'''
         result = self._values.get("http_put_response_hop_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def http_tokens(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#http_tokens ImagebuilderInfrastructureConfiguration#http_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#http_tokens ImagebuilderInfrastructureConfiguration#http_tokens}.'''
         result = self._values.get("http_tokens")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1015,7 +1079,7 @@ class ImagebuilderInfrastructureConfigurationLogging:
         s3_logs: typing.Union["ImagebuilderInfrastructureConfigurationLoggingS3Logs", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_logs ImagebuilderInfrastructureConfiguration#s3_logs}
+        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_logs ImagebuilderInfrastructureConfiguration#s3_logs}
         '''
         if isinstance(s3_logs, dict):
             s3_logs = ImagebuilderInfrastructureConfigurationLoggingS3Logs(**s3_logs)
@@ -1030,7 +1094,7 @@ class ImagebuilderInfrastructureConfigurationLogging:
     def s3_logs(self) -> "ImagebuilderInfrastructureConfigurationLoggingS3Logs":
         '''s3_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_logs ImagebuilderInfrastructureConfiguration#s3_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_logs ImagebuilderInfrastructureConfiguration#s3_logs}
         '''
         result = self._values.get("s3_logs")
         assert result is not None, "Required property 's3_logs' is missing"
@@ -1076,8 +1140,8 @@ class ImagebuilderInfrastructureConfigurationLoggingOutputReference(
         s3_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_bucket_name ImagebuilderInfrastructureConfiguration#s3_bucket_name}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_key_prefix ImagebuilderInfrastructureConfiguration#s3_key_prefix}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_bucket_name ImagebuilderInfrastructureConfiguration#s3_bucket_name}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_key_prefix ImagebuilderInfrastructureConfiguration#s3_key_prefix}.
         '''
         value = ImagebuilderInfrastructureConfigurationLoggingS3Logs(
             s3_bucket_name=s3_bucket_name, s3_key_prefix=s3_key_prefix
@@ -1130,8 +1194,8 @@ class ImagebuilderInfrastructureConfigurationLoggingS3Logs:
         s3_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_bucket_name ImagebuilderInfrastructureConfiguration#s3_bucket_name}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_key_prefix ImagebuilderInfrastructureConfiguration#s3_key_prefix}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_bucket_name ImagebuilderInfrastructureConfiguration#s3_bucket_name}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_key_prefix ImagebuilderInfrastructureConfiguration#s3_key_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77017c0975d570a68ac449c126a9922ed71e9e37226cdd1c80a87244a7a9c1c6)
@@ -1145,14 +1209,14 @@ class ImagebuilderInfrastructureConfigurationLoggingS3Logs:
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_bucket_name ImagebuilderInfrastructureConfiguration#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_bucket_name ImagebuilderInfrastructureConfiguration#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/imagebuilder_infrastructure_configuration#s3_key_prefix ImagebuilderInfrastructureConfiguration#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#s3_key_prefix ImagebuilderInfrastructureConfiguration#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1244,6 +1308,205 @@ class ImagebuilderInfrastructureConfigurationLoggingS3LogsOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.imagebuilderInfrastructureConfiguration.ImagebuilderInfrastructureConfigurationPlacement",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zone": "availabilityZone",
+        "host_id": "hostId",
+        "host_resource_group_arn": "hostResourceGroupArn",
+        "tenancy": "tenancy",
+    },
+)
+class ImagebuilderInfrastructureConfigurationPlacement:
+    def __init__(
+        self,
+        *,
+        availability_zone: typing.Optional[builtins.str] = None,
+        host_id: typing.Optional[builtins.str] = None,
+        host_resource_group_arn: typing.Optional[builtins.str] = None,
+        tenancy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#availability_zone ImagebuilderInfrastructureConfiguration#availability_zone}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#host_id ImagebuilderInfrastructureConfiguration#host_id}.
+        :param host_resource_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#host_resource_group_arn ImagebuilderInfrastructureConfiguration#host_resource_group_arn}.
+        :param tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tenancy ImagebuilderInfrastructureConfiguration#tenancy}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6129d6b1662f25c11b70feab69879537a12c44184c73f55a83c89c58255fc2cd)
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument host_id", value=host_id, expected_type=type_hints["host_id"])
+            check_type(argname="argument host_resource_group_arn", value=host_resource_group_arn, expected_type=type_hints["host_resource_group_arn"])
+            check_type(argname="argument tenancy", value=tenancy, expected_type=type_hints["tenancy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if host_id is not None:
+            self._values["host_id"] = host_id
+        if host_resource_group_arn is not None:
+            self._values["host_resource_group_arn"] = host_resource_group_arn
+        if tenancy is not None:
+            self._values["tenancy"] = tenancy
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#availability_zone ImagebuilderInfrastructureConfiguration#availability_zone}.'''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def host_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#host_id ImagebuilderInfrastructureConfiguration#host_id}.'''
+        result = self._values.get("host_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def host_resource_group_arn(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#host_resource_group_arn ImagebuilderInfrastructureConfiguration#host_resource_group_arn}.'''
+        result = self._values.get("host_resource_group_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tenancy(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/imagebuilder_infrastructure_configuration#tenancy ImagebuilderInfrastructureConfiguration#tenancy}.'''
+        result = self._values.get("tenancy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ImagebuilderInfrastructureConfigurationPlacement(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ImagebuilderInfrastructureConfigurationPlacementOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.imagebuilderInfrastructureConfiguration.ImagebuilderInfrastructureConfigurationPlacementOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cee93a903c4a817782c4ad4dc70f56020bd02e37d7170f144448707d4550446)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetAvailabilityZone")
+    def reset_availability_zone(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAvailabilityZone", []))
+
+    @jsii.member(jsii_name="resetHostId")
+    def reset_host_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHostId", []))
+
+    @jsii.member(jsii_name="resetHostResourceGroupArn")
+    def reset_host_resource_group_arn(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHostResourceGroupArn", []))
+
+    @jsii.member(jsii_name="resetTenancy")
+    def reset_tenancy(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTenancy", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneInput")
+    def availability_zone_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostIdInput")
+    def host_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hostIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostResourceGroupArnInput")
+    def host_resource_group_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hostResourceGroupArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tenancyInput")
+    def tenancy_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tenancyInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZone")
+    def availability_zone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "availabilityZone"))
+
+    @availability_zone.setter
+    def availability_zone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cab7a851bc0acde2fb011451d49c23b093f5179b53473bb208eabba2beac9bf8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hostId")
+    def host_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "hostId"))
+
+    @host_id.setter
+    def host_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4eecc0ea04abfc6b68e8799b1d1d5407dbfa0e7c4ef8e0973539d63af8a536f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hostResourceGroupArn")
+    def host_resource_group_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "hostResourceGroupArn"))
+
+    @host_resource_group_arn.setter
+    def host_resource_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d348e9a3e41a14126f0fda0cb932af5cfb29cbe6204951c00b427663608e650)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostResourceGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tenancy")
+    def tenancy(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "tenancy"))
+
+    @tenancy.setter
+    def tenancy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb9b81075feb66c34b7a63c57965e2bacf0b4944b8769db5cd56bc2f8cb00e23)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tenancy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ImagebuilderInfrastructureConfigurationPlacement]:
+        return typing.cast(typing.Optional[ImagebuilderInfrastructureConfigurationPlacement], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ImagebuilderInfrastructureConfigurationPlacement],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc38f33239c5ede2ae9c72d0a74ce5a028f7740a446eff67e713249c17eec58d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "ImagebuilderInfrastructureConfiguration",
     "ImagebuilderInfrastructureConfigurationConfig",
@@ -1253,6 +1516,8 @@ __all__ = [
     "ImagebuilderInfrastructureConfigurationLoggingOutputReference",
     "ImagebuilderInfrastructureConfigurationLoggingS3Logs",
     "ImagebuilderInfrastructureConfigurationLoggingS3LogsOutputReference",
+    "ImagebuilderInfrastructureConfigurationPlacement",
+    "ImagebuilderInfrastructureConfigurationPlacementOutputReference",
 ]
 
 publication.publish()
@@ -1269,6 +1534,7 @@ def _typecheckingstub__f43b009cf4af581864dc8074347f9ae4234066ad3a97a271361644e5c
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     key_pair: typing.Optional[builtins.str] = None,
     logging: typing.Optional[typing.Union[ImagebuilderInfrastructureConfigurationLogging, typing.Dict[builtins.str, typing.Any]]] = None,
+    placement: typing.Optional[typing.Union[ImagebuilderInfrastructureConfigurationPlacement, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     sns_topic_arn: typing.Optional[builtins.str] = None,
@@ -1391,6 +1657,7 @@ def _typecheckingstub__6561487642360a0a506cbeddb73a37271c9a4292a3881080edbe6b851
     instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     key_pair: typing.Optional[builtins.str] = None,
     logging: typing.Optional[typing.Union[ImagebuilderInfrastructureConfigurationLogging, typing.Dict[builtins.str, typing.Any]]] = None,
+    placement: typing.Optional[typing.Union[ImagebuilderInfrastructureConfigurationPlacement, typing.Dict[builtins.str, typing.Any]]] = None,
     resource_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     sns_topic_arn: typing.Optional[builtins.str] = None,
@@ -1484,6 +1751,53 @@ def _typecheckingstub__fb96069cf7b5fbd1eb4673458c9751888feabdded31553c695b958c69
 
 def _typecheckingstub__6d04ec76a8cde5877f064b9b852431902d33cc71712a5d55dfa7e4e025c11d93(
     value: typing.Optional[ImagebuilderInfrastructureConfigurationLoggingS3Logs],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6129d6b1662f25c11b70feab69879537a12c44184c73f55a83c89c58255fc2cd(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    host_id: typing.Optional[builtins.str] = None,
+    host_resource_group_arn: typing.Optional[builtins.str] = None,
+    tenancy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cee93a903c4a817782c4ad4dc70f56020bd02e37d7170f144448707d4550446(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cab7a851bc0acde2fb011451d49c23b093f5179b53473bb208eabba2beac9bf8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4eecc0ea04abfc6b68e8799b1d1d5407dbfa0e7c4ef8e0973539d63af8a536f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d348e9a3e41a14126f0fda0cb932af5cfb29cbe6204951c00b427663608e650(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb9b81075feb66c34b7a63c57965e2bacf0b4944b8769db5cd56bc2f8cb00e23(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc38f33239c5ede2ae9c72d0a74ce5a028f7740a446eff67e713249c17eec58d(
+    value: typing.Optional[ImagebuilderInfrastructureConfigurationPlacement],
 ) -> None:
     """Type checking stubs"""
     pass

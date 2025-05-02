@@ -31,6 +31,8 @@ class TestPostgres(Validator):
         self.assertIsInstance(expr, exp.Alter)
         self.assertEqual(expr.sql(dialect="postgres"), alter_table_only)
 
+        self.validate_identity("SELECT EXTRACT(QUARTER FROM CAST('2025-04-26' AS DATE))")
+        self.validate_identity("SELECT DATE_TRUNC('QUARTER', CAST('2025-04-26' AS DATE))")
         self.validate_identity("STRING_TO_ARRAY('xx~^~yy~^~zz', '~^~', 'yy')")
         self.validate_identity("SELECT x FROM t WHERE CAST($1 AS TEXT) = 'ok'")
         self.validate_identity("SELECT * FROM t TABLESAMPLE SYSTEM (50) REPEATABLE (55)")
@@ -372,6 +374,14 @@ FROM json_data, field_ids""",
             pretty=True,
         )
 
+        self.validate_all(
+            "SELECT CURRENT_TIMESTAMP + INTERVAL '-3 MONTH'",
+            read={
+                "mysql": "SELECT DATE_ADD(CURRENT_TIMESTAMP, INTERVAL -1 QUARTER)",
+                "postgres": "SELECT CURRENT_TIMESTAMP + INTERVAL '-3 MONTH'",
+                "tsql": "SELECT DATEADD(QUARTER, -1, GETDATE())",
+            },
+        )
         self.validate_all(
             "SELECT ARRAY[]::INT[] AS foo",
             write={

@@ -1,7 +1,7 @@
 r'''
 # `aws_backup_selection`
 
-Refer to the Terraform Registry for docs: [`aws_backup_selection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection).
+Refer to the Terraform Registry for docs: [`aws_backup_selection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BackupSelection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.backupSelection.BackupSelection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection aws_backup_selection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection aws_backup_selection}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class BackupSelection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection aws_backup_selection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection aws_backup_selection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#iam_role_arn BackupSelection#iam_role_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#name BackupSelection#name}.
-        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#plan_id BackupSelection#plan_id}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#condition BackupSelection#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#id BackupSelection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param not_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#not_resources BackupSelection#not_resources}.
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#resources BackupSelection#resources}.
-        :param selection_tag: selection_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#selection_tag BackupSelection#selection_tag}
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#iam_role_arn BackupSelection#iam_role_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#name BackupSelection#name}.
+        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#plan_id BackupSelection#plan_id}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#condition BackupSelection#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#id BackupSelection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param not_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#not_resources BackupSelection#not_resources}.
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#resources BackupSelection#resources}.
+        :param selection_tag: selection_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#selection_tag BackupSelection#selection_tag}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class BackupSelection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BackupSelection to import.
-        :param import_from_id: The id of the existing BackupSelection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BackupSelection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BackupSelection to import is found.
         '''
         if __debug__:
@@ -341,10 +341,10 @@ class BackupSelectionCondition:
         string_not_like: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BackupSelectionConditionStringNotLike", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param string_equals: string_equals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_equals BackupSelection#string_equals}
-        :param string_like: string_like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_like BackupSelection#string_like}
-        :param string_not_equals: string_not_equals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_not_equals BackupSelection#string_not_equals}
-        :param string_not_like: string_not_like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_not_like BackupSelection#string_not_like}
+        :param string_equals: string_equals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_equals BackupSelection#string_equals}
+        :param string_like: string_like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_like BackupSelection#string_like}
+        :param string_not_equals: string_not_equals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_not_equals BackupSelection#string_not_equals}
+        :param string_not_like: string_not_like block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_not_like BackupSelection#string_not_like}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad6571e9a3e3fc6fff4d3ba2c1a6d91ce54e4d5345486aafba509263331c6e1b)
@@ -368,7 +368,7 @@ class BackupSelectionCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringEquals"]]]:
         '''string_equals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_equals BackupSelection#string_equals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_equals BackupSelection#string_equals}
         '''
         result = self._values.get("string_equals")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringEquals"]]], result)
@@ -379,7 +379,7 @@ class BackupSelectionCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringLike"]]]:
         '''string_like block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_like BackupSelection#string_like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_like BackupSelection#string_like}
         '''
         result = self._values.get("string_like")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringLike"]]], result)
@@ -390,7 +390,7 @@ class BackupSelectionCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringNotEquals"]]]:
         '''string_not_equals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_not_equals BackupSelection#string_not_equals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_not_equals BackupSelection#string_not_equals}
         '''
         result = self._values.get("string_not_equals")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringNotEquals"]]], result)
@@ -401,7 +401,7 @@ class BackupSelectionCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringNotLike"]]]:
         '''string_not_like block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#string_not_like BackupSelection#string_not_like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#string_not_like BackupSelection#string_not_like}
         '''
         result = self._values.get("string_not_like")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionConditionStringNotLike"]]], result)
@@ -676,8 +676,8 @@ class BackupSelectionConditionOutputReference(
 class BackupSelectionConditionStringEquals:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f38a5c28871829103620faae4be0722ef2653de1c2533228594fc2c8490b911d)
@@ -690,14 +690,14 @@ class BackupSelectionConditionStringEquals:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -893,8 +893,8 @@ class BackupSelectionConditionStringEqualsOutputReference(
 class BackupSelectionConditionStringLike:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a0cca20fdef6e7571c54d79d839b51f79e6d7baf8ff8a2d25a5e04280499f4e)
@@ -907,14 +907,14 @@ class BackupSelectionConditionStringLike:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1110,8 +1110,8 @@ class BackupSelectionConditionStringLikeOutputReference(
 class BackupSelectionConditionStringNotEquals:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8675d09cfbb1b05a0053b64b6f8620a7bb68592f37fc72995518a1dd1bd6b23)
@@ -1124,14 +1124,14 @@ class BackupSelectionConditionStringNotEquals:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1327,8 +1327,8 @@ class BackupSelectionConditionStringNotEqualsOutputReference(
 class BackupSelectionConditionStringNotLike:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62322a85a1fe984e41289be4659ab9ca0598369e14e3524e8d39aee3ce362b48)
@@ -1341,14 +1341,14 @@ class BackupSelectionConditionStringNotLike:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1585,14 +1585,14 @@ class BackupSelectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#iam_role_arn BackupSelection#iam_role_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#name BackupSelection#name}.
-        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#plan_id BackupSelection#plan_id}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#condition BackupSelection#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#id BackupSelection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param not_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#not_resources BackupSelection#not_resources}.
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#resources BackupSelection#resources}.
-        :param selection_tag: selection_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#selection_tag BackupSelection#selection_tag}
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#iam_role_arn BackupSelection#iam_role_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#name BackupSelection#name}.
+        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#plan_id BackupSelection#plan_id}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#condition BackupSelection#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#id BackupSelection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param not_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#not_resources BackupSelection#not_resources}.
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#resources BackupSelection#resources}.
+        :param selection_tag: selection_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#selection_tag BackupSelection#selection_tag}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1709,21 +1709,21 @@ class BackupSelectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def iam_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#iam_role_arn BackupSelection#iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#iam_role_arn BackupSelection#iam_role_arn}.'''
         result = self._values.get("iam_role_arn")
         assert result is not None, "Required property 'iam_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#name BackupSelection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#name BackupSelection#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def plan_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#plan_id BackupSelection#plan_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#plan_id BackupSelection#plan_id}.'''
         result = self._values.get("plan_id")
         assert result is not None, "Required property 'plan_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1734,14 +1734,14 @@ class BackupSelectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BackupSelectionCondition]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#condition BackupSelection#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#condition BackupSelection#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BackupSelectionCondition]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#id BackupSelection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#id BackupSelection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1751,13 +1751,13 @@ class BackupSelectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def not_resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#not_resources BackupSelection#not_resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#not_resources BackupSelection#not_resources}.'''
         result = self._values.get("not_resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#resources BackupSelection#resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#resources BackupSelection#resources}.'''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1767,7 +1767,7 @@ class BackupSelectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionSelectionTag"]]]:
         '''selection_tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#selection_tag BackupSelection#selection_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#selection_tag BackupSelection#selection_tag}
         '''
         result = self._values.get("selection_tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupSelectionSelectionTag"]]], result)
@@ -1798,9 +1798,9 @@ class BackupSelectionSelectionTag:
         value: builtins.str,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#type BackupSelection#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#type BackupSelection#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5efbb5ceab4f72b2177977334bc0377ee021e48cbdeeafd0fc7a7b7f9da544a)
@@ -1815,21 +1815,21 @@ class BackupSelectionSelectionTag:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#key BackupSelection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#key BackupSelection#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#type BackupSelection#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#type BackupSelection#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_selection#value BackupSelection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_selection#value BackupSelection#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

@@ -1,7 +1,7 @@
 r'''
 # `aws_backup_plan`
 
-Refer to the Terraform Registry for docs: [`aws_backup_plan`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan).
+Refer to the Terraform Registry for docs: [`aws_backup_plan`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BackupPlan(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.backupPlan.BackupPlan",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan aws_backup_plan}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan aws_backup_plan}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class BackupPlan(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan aws_backup_plan} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan aws_backup_plan} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#name BackupPlan#name}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#rule BackupPlan#rule}
-        :param advanced_backup_setting: advanced_backup_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#advanced_backup_setting BackupPlan#advanced_backup_setting}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#id BackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#tags BackupPlan#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#tags_all BackupPlan#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#name BackupPlan#name}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#rule BackupPlan#rule}
+        :param advanced_backup_setting: advanced_backup_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#advanced_backup_setting BackupPlan#advanced_backup_setting}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#id BackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#tags BackupPlan#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#tags_all BackupPlan#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class BackupPlan(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BackupPlan to import.
-        :param import_from_id: The id of the existing BackupPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BackupPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BackupPlan to import is found.
         '''
         if __debug__:
@@ -302,8 +302,8 @@ class BackupPlanAdvancedBackupSetting:
         resource_type: builtins.str,
     ) -> None:
         '''
-        :param backup_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#backup_options BackupPlan#backup_options}.
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#resource_type BackupPlan#resource_type}.
+        :param backup_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#backup_options BackupPlan#backup_options}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#resource_type BackupPlan#resource_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df743c033151fece2a56c018e7e7255ae1030797bd7ba27945776c6fb051873a)
@@ -316,14 +316,14 @@ class BackupPlanAdvancedBackupSetting:
 
     @builtins.property
     def backup_options(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#backup_options BackupPlan#backup_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#backup_options BackupPlan#backup_options}.'''
         result = self._values.get("backup_options")
         assert result is not None, "Required property 'backup_options' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#resource_type BackupPlan#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#resource_type BackupPlan#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
@@ -558,12 +558,12 @@ class BackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#name BackupPlan#name}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#rule BackupPlan#rule}
-        :param advanced_backup_setting: advanced_backup_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#advanced_backup_setting BackupPlan#advanced_backup_setting}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#id BackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#tags BackupPlan#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#tags_all BackupPlan#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#name BackupPlan#name}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#rule BackupPlan#rule}
+        :param advanced_backup_setting: advanced_backup_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#advanced_backup_setting BackupPlan#advanced_backup_setting}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#id BackupPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#tags BackupPlan#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#tags_all BackupPlan#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -675,7 +675,7 @@ class BackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#name BackupPlan#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#name BackupPlan#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -686,7 +686,7 @@ class BackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupPlanRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#rule BackupPlan#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#rule BackupPlan#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -698,14 +698,14 @@ class BackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BackupPlanAdvancedBackupSetting]]]:
         '''advanced_backup_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#advanced_backup_setting BackupPlan#advanced_backup_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#advanced_backup_setting BackupPlan#advanced_backup_setting}
         '''
         result = self._values.get("advanced_backup_setting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BackupPlanAdvancedBackupSetting]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#id BackupPlan#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#id BackupPlan#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -715,13 +715,13 @@ class BackupPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#tags BackupPlan#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#tags BackupPlan#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#tags_all BackupPlan#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#tags_all BackupPlan#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -769,16 +769,16 @@ class BackupPlanRule:
         start_window: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#rule_name BackupPlan#rule_name}.
-        :param target_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#target_vault_name BackupPlan#target_vault_name}.
-        :param completion_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#completion_window BackupPlan#completion_window}.
-        :param copy_action: copy_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#copy_action BackupPlan#copy_action}
-        :param enable_continuous_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#enable_continuous_backup BackupPlan#enable_continuous_backup}.
-        :param lifecycle: lifecycle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
-        :param recovery_point_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#recovery_point_tags BackupPlan#recovery_point_tags}.
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#schedule BackupPlan#schedule}.
-        :param schedule_expression_timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#schedule_expression_timezone BackupPlan#schedule_expression_timezone}.
-        :param start_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#start_window BackupPlan#start_window}.
+        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#rule_name BackupPlan#rule_name}.
+        :param target_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#target_vault_name BackupPlan#target_vault_name}.
+        :param completion_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#completion_window BackupPlan#completion_window}.
+        :param copy_action: copy_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#copy_action BackupPlan#copy_action}
+        :param enable_continuous_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#enable_continuous_backup BackupPlan#enable_continuous_backup}.
+        :param lifecycle: lifecycle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
+        :param recovery_point_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#recovery_point_tags BackupPlan#recovery_point_tags}.
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#schedule BackupPlan#schedule}.
+        :param schedule_expression_timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#schedule_expression_timezone BackupPlan#schedule_expression_timezone}.
+        :param start_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#start_window BackupPlan#start_window}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = BackupPlanRuleLifecycle(**lifecycle)
@@ -817,21 +817,21 @@ class BackupPlanRule:
 
     @builtins.property
     def rule_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#rule_name BackupPlan#rule_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#rule_name BackupPlan#rule_name}.'''
         result = self._values.get("rule_name")
         assert result is not None, "Required property 'rule_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_vault_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#target_vault_name BackupPlan#target_vault_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#target_vault_name BackupPlan#target_vault_name}.'''
         result = self._values.get("target_vault_name")
         assert result is not None, "Required property 'target_vault_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def completion_window(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#completion_window BackupPlan#completion_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#completion_window BackupPlan#completion_window}.'''
         result = self._values.get("completion_window")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -841,7 +841,7 @@ class BackupPlanRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupPlanRuleCopyAction"]]]:
         '''copy_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#copy_action BackupPlan#copy_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#copy_action BackupPlan#copy_action}
         '''
         result = self._values.get("copy_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BackupPlanRuleCopyAction"]]], result)
@@ -850,7 +850,7 @@ class BackupPlanRule:
     def enable_continuous_backup(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#enable_continuous_backup BackupPlan#enable_continuous_backup}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#enable_continuous_backup BackupPlan#enable_continuous_backup}.'''
         result = self._values.get("enable_continuous_backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -858,7 +858,7 @@ class BackupPlanRule:
     def lifecycle(self) -> typing.Optional["BackupPlanRuleLifecycle"]:
         '''lifecycle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
         '''
         result = self._values.get("lifecycle")
         return typing.cast(typing.Optional["BackupPlanRuleLifecycle"], result)
@@ -867,25 +867,25 @@ class BackupPlanRule:
     def recovery_point_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#recovery_point_tags BackupPlan#recovery_point_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#recovery_point_tags BackupPlan#recovery_point_tags}.'''
         result = self._values.get("recovery_point_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#schedule BackupPlan#schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#schedule BackupPlan#schedule}.'''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule_expression_timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#schedule_expression_timezone BackupPlan#schedule_expression_timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#schedule_expression_timezone BackupPlan#schedule_expression_timezone}.'''
         result = self._values.get("schedule_expression_timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_window(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#start_window BackupPlan#start_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#start_window BackupPlan#start_window}.'''
         result = self._values.get("start_window")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -917,8 +917,8 @@ class BackupPlanRuleCopyAction:
         lifecycle: typing.Optional[typing.Union["BackupPlanRuleCopyActionLifecycle", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_vault_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#destination_vault_arn BackupPlan#destination_vault_arn}.
-        :param lifecycle: lifecycle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
+        :param destination_vault_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#destination_vault_arn BackupPlan#destination_vault_arn}.
+        :param lifecycle: lifecycle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = BackupPlanRuleCopyActionLifecycle(**lifecycle)
@@ -934,7 +934,7 @@ class BackupPlanRuleCopyAction:
 
     @builtins.property
     def destination_vault_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#destination_vault_arn BackupPlan#destination_vault_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#destination_vault_arn BackupPlan#destination_vault_arn}.'''
         result = self._values.get("destination_vault_arn")
         assert result is not None, "Required property 'destination_vault_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -943,7 +943,7 @@ class BackupPlanRuleCopyAction:
     def lifecycle(self) -> typing.Optional["BackupPlanRuleCopyActionLifecycle"]:
         '''lifecycle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#lifecycle BackupPlan#lifecycle}
         '''
         result = self._values.get("lifecycle")
         return typing.cast(typing.Optional["BackupPlanRuleCopyActionLifecycle"], result)
@@ -978,9 +978,9 @@ class BackupPlanRuleCopyActionLifecycle:
         opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
-        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
-        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
+        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
+        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
+        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebb7ecdc70bb243938f32dca7924f4e514d13ae0d71790c921a4baccc39abdc4)
@@ -997,13 +997,13 @@ class BackupPlanRuleCopyActionLifecycle:
 
     @builtins.property
     def cold_storage_after(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.'''
         result = self._values.get("cold_storage_after")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def delete_after(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.'''
         result = self._values.get("delete_after")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1011,7 +1011,7 @@ class BackupPlanRuleCopyActionLifecycle:
     def opt_in_to_archive_for_supported_resources(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.'''
         result = self._values.get("opt_in_to_archive_for_supported_resources")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1258,9 +1258,9 @@ class BackupPlanRuleCopyActionOutputReference(
         opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
-        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
-        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
+        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
+        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
+        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
         '''
         value = BackupPlanRuleCopyActionLifecycle(
             cold_storage_after=cold_storage_after,
@@ -1337,9 +1337,9 @@ class BackupPlanRuleLifecycle:
         opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
-        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
-        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
+        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
+        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
+        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed8ea11b215000a780a7b06973f5bd904615f183e349e6d6e3bdacf4b2cc54b2)
@@ -1356,13 +1356,13 @@ class BackupPlanRuleLifecycle:
 
     @builtins.property
     def cold_storage_after(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.'''
         result = self._values.get("cold_storage_after")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def delete_after(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.'''
         result = self._values.get("delete_after")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1370,7 +1370,7 @@ class BackupPlanRuleLifecycle:
     def opt_in_to_archive_for_supported_resources(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.'''
         result = self._values.get("opt_in_to_archive_for_supported_resources")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1627,9 +1627,9 @@ class BackupPlanRuleOutputReference(
         opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
-        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
-        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
+        :param cold_storage_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#cold_storage_after BackupPlan#cold_storage_after}.
+        :param delete_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#delete_after BackupPlan#delete_after}.
+        :param opt_in_to_archive_for_supported_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_plan#opt_in_to_archive_for_supported_resources BackupPlan#opt_in_to_archive_for_supported_resources}.
         '''
         value = BackupPlanRuleLifecycle(
             cold_storage_after=cold_storage_after,

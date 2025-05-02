@@ -1,7 +1,7 @@
 r'''
 # `aws_eks_cluster`
 
-Refer to the Terraform Registry for docs: [`aws_eks_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster).
+Refer to the Terraform Registry for docs: [`aws_eks_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EksCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.eksCluster.EksCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster aws_eks_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster aws_eks_cluster}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class EksCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster aws_eks_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster aws_eks_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#name EksCluster#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#role_arn EksCluster#role_arn}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#vpc_config EksCluster#vpc_config}
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#access_config EksCluster#access_config}
-        :param bootstrap_self_managed_addons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#bootstrap_self_managed_addons EksCluster#bootstrap_self_managed_addons}.
-        :param compute_config: compute_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#compute_config EksCluster#compute_config}
-        :param enabled_cluster_log_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled_cluster_log_types EksCluster#enabled_cluster_log_types}.
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#encryption_config EksCluster#encryption_config}
-        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#force_update_version EksCluster#force_update_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#id EksCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kubernetes_network_config: kubernetes_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#kubernetes_network_config EksCluster#kubernetes_network_config}
-        :param outpost_config: outpost_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#outpost_config EksCluster#outpost_config}
-        :param remote_network_config: remote_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_network_config EksCluster#remote_network_config}
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#storage_config EksCluster#storage_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#tags EksCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#tags_all EksCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#timeouts EksCluster#timeouts}
-        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#upgrade_policy EksCluster#upgrade_policy}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#version EksCluster#version}.
-        :param zonal_shift_config: zonal_shift_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#zonal_shift_config EksCluster#zonal_shift_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#name EksCluster#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#role_arn EksCluster#role_arn}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#vpc_config EksCluster#vpc_config}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#access_config EksCluster#access_config}
+        :param bootstrap_self_managed_addons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#bootstrap_self_managed_addons EksCluster#bootstrap_self_managed_addons}.
+        :param compute_config: compute_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#compute_config EksCluster#compute_config}
+        :param enabled_cluster_log_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled_cluster_log_types EksCluster#enabled_cluster_log_types}.
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#encryption_config EksCluster#encryption_config}
+        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#force_update_version EksCluster#force_update_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#id EksCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kubernetes_network_config: kubernetes_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#kubernetes_network_config EksCluster#kubernetes_network_config}
+        :param outpost_config: outpost_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#outpost_config EksCluster#outpost_config}
+        :param remote_network_config: remote_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_network_config EksCluster#remote_network_config}
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#storage_config EksCluster#storage_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#tags EksCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#tags_all EksCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#timeouts EksCluster#timeouts}
+        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#upgrade_policy EksCluster#upgrade_policy}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#version EksCluster#version}.
+        :param zonal_shift_config: zonal_shift_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#zonal_shift_config EksCluster#zonal_shift_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class EksCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EksCluster to import.
-        :param import_from_id: The id of the existing EksCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EksCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EksCluster to import is found.
         '''
         if __debug__:
@@ -179,8 +179,8 @@ class EksCluster(
         bootstrap_cluster_creator_admin_permissions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param authentication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#authentication_mode EksCluster#authentication_mode}.
-        :param bootstrap_cluster_creator_admin_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#bootstrap_cluster_creator_admin_permissions EksCluster#bootstrap_cluster_creator_admin_permissions}.
+        :param authentication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#authentication_mode EksCluster#authentication_mode}.
+        :param bootstrap_cluster_creator_admin_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#bootstrap_cluster_creator_admin_permissions EksCluster#bootstrap_cluster_creator_admin_permissions}.
         '''
         value = EksClusterAccessConfig(
             authentication_mode=authentication_mode,
@@ -198,9 +198,9 @@ class EksCluster(
         node_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
-        :param node_pools: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#node_pools EksCluster#node_pools}.
-        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#node_role_arn EksCluster#node_role_arn}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param node_pools: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#node_pools EksCluster#node_pools}.
+        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#node_role_arn EksCluster#node_role_arn}.
         '''
         value = EksClusterComputeConfig(
             enabled=enabled, node_pools=node_pools, node_role_arn=node_role_arn
@@ -216,8 +216,8 @@ class EksCluster(
         resources: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param provider: provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#provider EksCluster#provider}
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#resources EksCluster#resources}.
+        :param provider: provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#provider EksCluster#provider}
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#resources EksCluster#resources}.
         '''
         value = EksClusterEncryptionConfig(provider=provider, resources=resources)
 
@@ -232,9 +232,9 @@ class EksCluster(
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param elastic_load_balancing: elastic_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#elastic_load_balancing EksCluster#elastic_load_balancing}
-        :param ip_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#ip_family EksCluster#ip_family}.
-        :param service_ipv4_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#service_ipv4_cidr EksCluster#service_ipv4_cidr}.
+        :param elastic_load_balancing: elastic_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#elastic_load_balancing EksCluster#elastic_load_balancing}
+        :param ip_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#ip_family EksCluster#ip_family}.
+        :param service_ipv4_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#service_ipv4_cidr EksCluster#service_ipv4_cidr}.
         '''
         value = EksClusterKubernetesNetworkConfig(
             elastic_load_balancing=elastic_load_balancing,
@@ -253,9 +253,9 @@ class EksCluster(
         control_plane_placement: typing.Optional[typing.Union["EksClusterOutpostConfigControlPlanePlacement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param control_plane_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#control_plane_instance_type EksCluster#control_plane_instance_type}.
-        :param outpost_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#outpost_arns EksCluster#outpost_arns}.
-        :param control_plane_placement: control_plane_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#control_plane_placement EksCluster#control_plane_placement}
+        :param control_plane_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#control_plane_instance_type EksCluster#control_plane_instance_type}.
+        :param outpost_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#outpost_arns EksCluster#outpost_arns}.
+        :param control_plane_placement: control_plane_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#control_plane_placement EksCluster#control_plane_placement}
         '''
         value = EksClusterOutpostConfig(
             control_plane_instance_type=control_plane_instance_type,
@@ -273,8 +273,8 @@ class EksCluster(
         remote_pod_networks: typing.Optional[typing.Union["EksClusterRemoteNetworkConfigRemotePodNetworks", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param remote_node_networks: remote_node_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_node_networks EksCluster#remote_node_networks}
-        :param remote_pod_networks: remote_pod_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_pod_networks EksCluster#remote_pod_networks}
+        :param remote_node_networks: remote_node_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_node_networks EksCluster#remote_node_networks}
+        :param remote_pod_networks: remote_pod_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_pod_networks EksCluster#remote_pod_networks}
         '''
         value = EksClusterRemoteNetworkConfig(
             remote_node_networks=remote_node_networks,
@@ -290,7 +290,7 @@ class EksCluster(
         block_storage: typing.Optional[typing.Union["EksClusterStorageConfigBlockStorage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param block_storage: block_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#block_storage EksCluster#block_storage}
+        :param block_storage: block_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#block_storage EksCluster#block_storage}
         '''
         value = EksClusterStorageConfig(block_storage=block_storage)
 
@@ -305,9 +305,9 @@ class EksCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#create EksCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#delete EksCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#update EksCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#create EksCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#delete EksCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#update EksCluster#update}.
         '''
         value = EksClusterTimeouts(create=create, delete=delete, update=update)
 
@@ -320,7 +320,7 @@ class EksCluster(
         support_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param support_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#support_type EksCluster#support_type}.
+        :param support_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#support_type EksCluster#support_type}.
         '''
         value = EksClusterUpgradePolicy(support_type=support_type)
 
@@ -337,11 +337,11 @@ class EksCluster(
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#subnet_ids EksCluster#subnet_ids}.
-        :param endpoint_private_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#endpoint_private_access EksCluster#endpoint_private_access}.
-        :param endpoint_public_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#endpoint_public_access EksCluster#endpoint_public_access}.
-        :param public_access_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#public_access_cidrs EksCluster#public_access_cidrs}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#security_group_ids EksCluster#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#subnet_ids EksCluster#subnet_ids}.
+        :param endpoint_private_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#endpoint_private_access EksCluster#endpoint_private_access}.
+        :param endpoint_public_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#endpoint_public_access EksCluster#endpoint_public_access}.
+        :param public_access_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#public_access_cidrs EksCluster#public_access_cidrs}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#security_group_ids EksCluster#security_group_ids}.
         '''
         value = EksClusterVpcConfig(
             subnet_ids=subnet_ids,
@@ -360,7 +360,7 @@ class EksCluster(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
         '''
         value = EksClusterZonalShiftConfig(enabled=enabled)
 
@@ -793,8 +793,8 @@ class EksClusterAccessConfig:
         bootstrap_cluster_creator_admin_permissions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param authentication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#authentication_mode EksCluster#authentication_mode}.
-        :param bootstrap_cluster_creator_admin_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#bootstrap_cluster_creator_admin_permissions EksCluster#bootstrap_cluster_creator_admin_permissions}.
+        :param authentication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#authentication_mode EksCluster#authentication_mode}.
+        :param bootstrap_cluster_creator_admin_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#bootstrap_cluster_creator_admin_permissions EksCluster#bootstrap_cluster_creator_admin_permissions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef84afdcfa9ddc7918ce2b90de4da10bf99aa619a026a6100d63c0907da894e6)
@@ -808,7 +808,7 @@ class EksClusterAccessConfig:
 
     @builtins.property
     def authentication_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#authentication_mode EksCluster#authentication_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#authentication_mode EksCluster#authentication_mode}.'''
         result = self._values.get("authentication_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -816,7 +816,7 @@ class EksClusterAccessConfig:
     def bootstrap_cluster_creator_admin_permissions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#bootstrap_cluster_creator_admin_permissions EksCluster#bootstrap_cluster_creator_admin_permissions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#bootstrap_cluster_creator_admin_permissions EksCluster#bootstrap_cluster_creator_admin_permissions}.'''
         result = self._values.get("bootstrap_cluster_creator_admin_permissions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1076,9 +1076,9 @@ class EksClusterComputeConfig:
         node_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
-        :param node_pools: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#node_pools EksCluster#node_pools}.
-        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#node_role_arn EksCluster#node_role_arn}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param node_pools: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#node_pools EksCluster#node_pools}.
+        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#node_role_arn EksCluster#node_role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5daa255edf222ed1b30e7b27a078544afd8ee01887d0d4d7af7aeb1585dcdfe5)
@@ -1097,19 +1097,19 @@ class EksClusterComputeConfig:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def node_pools(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#node_pools EksCluster#node_pools}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#node_pools EksCluster#node_pools}.'''
         result = self._values.get("node_pools")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def node_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#node_role_arn EksCluster#node_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#node_role_arn EksCluster#node_role_arn}.'''
         result = self._values.get("node_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1299,26 +1299,26 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#name EksCluster#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#role_arn EksCluster#role_arn}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#vpc_config EksCluster#vpc_config}
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#access_config EksCluster#access_config}
-        :param bootstrap_self_managed_addons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#bootstrap_self_managed_addons EksCluster#bootstrap_self_managed_addons}.
-        :param compute_config: compute_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#compute_config EksCluster#compute_config}
-        :param enabled_cluster_log_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled_cluster_log_types EksCluster#enabled_cluster_log_types}.
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#encryption_config EksCluster#encryption_config}
-        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#force_update_version EksCluster#force_update_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#id EksCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kubernetes_network_config: kubernetes_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#kubernetes_network_config EksCluster#kubernetes_network_config}
-        :param outpost_config: outpost_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#outpost_config EksCluster#outpost_config}
-        :param remote_network_config: remote_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_network_config EksCluster#remote_network_config}
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#storage_config EksCluster#storage_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#tags EksCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#tags_all EksCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#timeouts EksCluster#timeouts}
-        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#upgrade_policy EksCluster#upgrade_policy}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#version EksCluster#version}.
-        :param zonal_shift_config: zonal_shift_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#zonal_shift_config EksCluster#zonal_shift_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#name EksCluster#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#role_arn EksCluster#role_arn}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#vpc_config EksCluster#vpc_config}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#access_config EksCluster#access_config}
+        :param bootstrap_self_managed_addons: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#bootstrap_self_managed_addons EksCluster#bootstrap_self_managed_addons}.
+        :param compute_config: compute_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#compute_config EksCluster#compute_config}
+        :param enabled_cluster_log_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled_cluster_log_types EksCluster#enabled_cluster_log_types}.
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#encryption_config EksCluster#encryption_config}
+        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#force_update_version EksCluster#force_update_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#id EksCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kubernetes_network_config: kubernetes_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#kubernetes_network_config EksCluster#kubernetes_network_config}
+        :param outpost_config: outpost_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#outpost_config EksCluster#outpost_config}
+        :param remote_network_config: remote_network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_network_config EksCluster#remote_network_config}
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#storage_config EksCluster#storage_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#tags EksCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#tags_all EksCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#timeouts EksCluster#timeouts}
+        :param upgrade_policy: upgrade_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#upgrade_policy EksCluster#upgrade_policy}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#version EksCluster#version}.
+        :param zonal_shift_config: zonal_shift_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#zonal_shift_config EksCluster#zonal_shift_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1493,14 +1493,14 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#name EksCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#name EksCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#role_arn EksCluster#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#role_arn EksCluster#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1509,7 +1509,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_config(self) -> "EksClusterVpcConfig":
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#vpc_config EksCluster#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#vpc_config EksCluster#vpc_config}
         '''
         result = self._values.get("vpc_config")
         assert result is not None, "Required property 'vpc_config' is missing"
@@ -1519,7 +1519,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_config(self) -> typing.Optional[EksClusterAccessConfig]:
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#access_config EksCluster#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#access_config EksCluster#access_config}
         '''
         result = self._values.get("access_config")
         return typing.cast(typing.Optional[EksClusterAccessConfig], result)
@@ -1528,7 +1528,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bootstrap_self_managed_addons(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#bootstrap_self_managed_addons EksCluster#bootstrap_self_managed_addons}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#bootstrap_self_managed_addons EksCluster#bootstrap_self_managed_addons}.'''
         result = self._values.get("bootstrap_self_managed_addons")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1536,14 +1536,14 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def compute_config(self) -> typing.Optional[EksClusterComputeConfig]:
         '''compute_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#compute_config EksCluster#compute_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#compute_config EksCluster#compute_config}
         '''
         result = self._values.get("compute_config")
         return typing.cast(typing.Optional[EksClusterComputeConfig], result)
 
     @builtins.property
     def enabled_cluster_log_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled_cluster_log_types EksCluster#enabled_cluster_log_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled_cluster_log_types EksCluster#enabled_cluster_log_types}.'''
         result = self._values.get("enabled_cluster_log_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1551,7 +1551,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_config(self) -> typing.Optional["EksClusterEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#encryption_config EksCluster#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#encryption_config EksCluster#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["EksClusterEncryptionConfig"], result)
@@ -1560,13 +1560,13 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_update_version(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#force_update_version EksCluster#force_update_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#force_update_version EksCluster#force_update_version}.'''
         result = self._values.get("force_update_version")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#id EksCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#id EksCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1580,7 +1580,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EksClusterKubernetesNetworkConfig"]:
         '''kubernetes_network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#kubernetes_network_config EksCluster#kubernetes_network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#kubernetes_network_config EksCluster#kubernetes_network_config}
         '''
         result = self._values.get("kubernetes_network_config")
         return typing.cast(typing.Optional["EksClusterKubernetesNetworkConfig"], result)
@@ -1589,7 +1589,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def outpost_config(self) -> typing.Optional["EksClusterOutpostConfig"]:
         '''outpost_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#outpost_config EksCluster#outpost_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#outpost_config EksCluster#outpost_config}
         '''
         result = self._values.get("outpost_config")
         return typing.cast(typing.Optional["EksClusterOutpostConfig"], result)
@@ -1598,7 +1598,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def remote_network_config(self) -> typing.Optional["EksClusterRemoteNetworkConfig"]:
         '''remote_network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_network_config EksCluster#remote_network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_network_config EksCluster#remote_network_config}
         '''
         result = self._values.get("remote_network_config")
         return typing.cast(typing.Optional["EksClusterRemoteNetworkConfig"], result)
@@ -1607,20 +1607,20 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_config(self) -> typing.Optional["EksClusterStorageConfig"]:
         '''storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#storage_config EksCluster#storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#storage_config EksCluster#storage_config}
         '''
         result = self._values.get("storage_config")
         return typing.cast(typing.Optional["EksClusterStorageConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#tags EksCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#tags EksCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#tags_all EksCluster#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#tags_all EksCluster#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1628,7 +1628,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EksClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#timeouts EksCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#timeouts EksCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EksClusterTimeouts"], result)
@@ -1637,14 +1637,14 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def upgrade_policy(self) -> typing.Optional["EksClusterUpgradePolicy"]:
         '''upgrade_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#upgrade_policy EksCluster#upgrade_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#upgrade_policy EksCluster#upgrade_policy}
         '''
         result = self._values.get("upgrade_policy")
         return typing.cast(typing.Optional["EksClusterUpgradePolicy"], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#version EksCluster#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#version EksCluster#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1652,7 +1652,7 @@ class EksClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zonal_shift_config(self) -> typing.Optional["EksClusterZonalShiftConfig"]:
         '''zonal_shift_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#zonal_shift_config EksCluster#zonal_shift_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#zonal_shift_config EksCluster#zonal_shift_config}
         '''
         result = self._values.get("zonal_shift_config")
         return typing.cast(typing.Optional["EksClusterZonalShiftConfig"], result)
@@ -1682,8 +1682,8 @@ class EksClusterEncryptionConfig:
         resources: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param provider: provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#provider EksCluster#provider}
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#resources EksCluster#resources}.
+        :param provider: provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#provider EksCluster#provider}
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#resources EksCluster#resources}.
         '''
         if isinstance(provider, dict):
             provider = EksClusterEncryptionConfigProvider(**provider)
@@ -1700,7 +1700,7 @@ class EksClusterEncryptionConfig:
     def provider(self) -> "EksClusterEncryptionConfigProvider":
         '''provider block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#provider EksCluster#provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#provider EksCluster#provider}
         '''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
@@ -1708,7 +1708,7 @@ class EksClusterEncryptionConfig:
 
     @builtins.property
     def resources(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#resources EksCluster#resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#resources EksCluster#resources}.'''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1748,7 +1748,7 @@ class EksClusterEncryptionConfigOutputReference(
     @jsii.member(jsii_name="putProvider")
     def put_provider(self, *, key_arn: builtins.str) -> None:
         '''
-        :param key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#key_arn EksCluster#key_arn}.
+        :param key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#key_arn EksCluster#key_arn}.
         '''
         value = EksClusterEncryptionConfigProvider(key_arn=key_arn)
 
@@ -1805,7 +1805,7 @@ class EksClusterEncryptionConfigOutputReference(
 class EksClusterEncryptionConfigProvider:
     def __init__(self, *, key_arn: builtins.str) -> None:
         '''
-        :param key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#key_arn EksCluster#key_arn}.
+        :param key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#key_arn EksCluster#key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67b1c05361d05a3612505068c88af51f4e89a6ddf234ac08a9ee495a17a9d823)
@@ -1816,7 +1816,7 @@ class EksClusterEncryptionConfigProvider:
 
     @builtins.property
     def key_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#key_arn EksCluster#key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#key_arn EksCluster#key_arn}.'''
         result = self._values.get("key_arn")
         assert result is not None, "Required property 'key_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2180,9 +2180,9 @@ class EksClusterKubernetesNetworkConfig:
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param elastic_load_balancing: elastic_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#elastic_load_balancing EksCluster#elastic_load_balancing}
-        :param ip_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#ip_family EksCluster#ip_family}.
-        :param service_ipv4_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#service_ipv4_cidr EksCluster#service_ipv4_cidr}.
+        :param elastic_load_balancing: elastic_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#elastic_load_balancing EksCluster#elastic_load_balancing}
+        :param ip_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#ip_family EksCluster#ip_family}.
+        :param service_ipv4_cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#service_ipv4_cidr EksCluster#service_ipv4_cidr}.
         '''
         if isinstance(elastic_load_balancing, dict):
             elastic_load_balancing = EksClusterKubernetesNetworkConfigElasticLoadBalancing(**elastic_load_balancing)
@@ -2205,20 +2205,20 @@ class EksClusterKubernetesNetworkConfig:
     ) -> typing.Optional["EksClusterKubernetesNetworkConfigElasticLoadBalancing"]:
         '''elastic_load_balancing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#elastic_load_balancing EksCluster#elastic_load_balancing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#elastic_load_balancing EksCluster#elastic_load_balancing}
         '''
         result = self._values.get("elastic_load_balancing")
         return typing.cast(typing.Optional["EksClusterKubernetesNetworkConfigElasticLoadBalancing"], result)
 
     @builtins.property
     def ip_family(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#ip_family EksCluster#ip_family}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#ip_family EksCluster#ip_family}.'''
         result = self._values.get("ip_family")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_ipv4_cidr(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#service_ipv4_cidr EksCluster#service_ipv4_cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#service_ipv4_cidr EksCluster#service_ipv4_cidr}.'''
         result = self._values.get("service_ipv4_cidr")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2246,7 +2246,7 @@ class EksClusterKubernetesNetworkConfigElasticLoadBalancing:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18de511e415e392680edb88fb44e74685430555c25c0c4a5c305b63abc0e1ccb)
@@ -2259,7 +2259,7 @@ class EksClusterKubernetesNetworkConfigElasticLoadBalancing:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2366,7 +2366,7 @@ class EksClusterKubernetesNetworkConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
         '''
         value = EksClusterKubernetesNetworkConfigElasticLoadBalancing(enabled=enabled)
 
@@ -2471,9 +2471,9 @@ class EksClusterOutpostConfig:
         control_plane_placement: typing.Optional[typing.Union["EksClusterOutpostConfigControlPlanePlacement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param control_plane_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#control_plane_instance_type EksCluster#control_plane_instance_type}.
-        :param outpost_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#outpost_arns EksCluster#outpost_arns}.
-        :param control_plane_placement: control_plane_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#control_plane_placement EksCluster#control_plane_placement}
+        :param control_plane_instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#control_plane_instance_type EksCluster#control_plane_instance_type}.
+        :param outpost_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#outpost_arns EksCluster#outpost_arns}.
+        :param control_plane_placement: control_plane_placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#control_plane_placement EksCluster#control_plane_placement}
         '''
         if isinstance(control_plane_placement, dict):
             control_plane_placement = EksClusterOutpostConfigControlPlanePlacement(**control_plane_placement)
@@ -2491,14 +2491,14 @@ class EksClusterOutpostConfig:
 
     @builtins.property
     def control_plane_instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#control_plane_instance_type EksCluster#control_plane_instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#control_plane_instance_type EksCluster#control_plane_instance_type}.'''
         result = self._values.get("control_plane_instance_type")
         assert result is not None, "Required property 'control_plane_instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def outpost_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#outpost_arns EksCluster#outpost_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#outpost_arns EksCluster#outpost_arns}.'''
         result = self._values.get("outpost_arns")
         assert result is not None, "Required property 'outpost_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2509,7 +2509,7 @@ class EksClusterOutpostConfig:
     ) -> typing.Optional["EksClusterOutpostConfigControlPlanePlacement"]:
         '''control_plane_placement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#control_plane_placement EksCluster#control_plane_placement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#control_plane_placement EksCluster#control_plane_placement}
         '''
         result = self._values.get("control_plane_placement")
         return typing.cast(typing.Optional["EksClusterOutpostConfigControlPlanePlacement"], result)
@@ -2534,7 +2534,7 @@ class EksClusterOutpostConfig:
 class EksClusterOutpostConfigControlPlanePlacement:
     def __init__(self, *, group_name: builtins.str) -> None:
         '''
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#group_name EksCluster#group_name}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#group_name EksCluster#group_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__591ce7e7b64e69b806d4a5907ee9a6bdbe9da8ac485cf6aad89676b7fe88e8b6)
@@ -2545,7 +2545,7 @@ class EksClusterOutpostConfigControlPlanePlacement:
 
     @builtins.property
     def group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#group_name EksCluster#group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#group_name EksCluster#group_name}.'''
         result = self._values.get("group_name")
         assert result is not None, "Required property 'group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2640,7 +2640,7 @@ class EksClusterOutpostConfigOutputReference(
     @jsii.member(jsii_name="putControlPlanePlacement")
     def put_control_plane_placement(self, *, group_name: builtins.str) -> None:
         '''
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#group_name EksCluster#group_name}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#group_name EksCluster#group_name}.
         '''
         value = EksClusterOutpostConfigControlPlanePlacement(group_name=group_name)
 
@@ -2727,8 +2727,8 @@ class EksClusterRemoteNetworkConfig:
         remote_pod_networks: typing.Optional[typing.Union["EksClusterRemoteNetworkConfigRemotePodNetworks", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param remote_node_networks: remote_node_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_node_networks EksCluster#remote_node_networks}
-        :param remote_pod_networks: remote_pod_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_pod_networks EksCluster#remote_pod_networks}
+        :param remote_node_networks: remote_node_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_node_networks EksCluster#remote_node_networks}
+        :param remote_pod_networks: remote_pod_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_pod_networks EksCluster#remote_pod_networks}
         '''
         if isinstance(remote_node_networks, dict):
             remote_node_networks = EksClusterRemoteNetworkConfigRemoteNodeNetworks(**remote_node_networks)
@@ -2748,7 +2748,7 @@ class EksClusterRemoteNetworkConfig:
     def remote_node_networks(self) -> "EksClusterRemoteNetworkConfigRemoteNodeNetworks":
         '''remote_node_networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_node_networks EksCluster#remote_node_networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_node_networks EksCluster#remote_node_networks}
         '''
         result = self._values.get("remote_node_networks")
         assert result is not None, "Required property 'remote_node_networks' is missing"
@@ -2760,7 +2760,7 @@ class EksClusterRemoteNetworkConfig:
     ) -> typing.Optional["EksClusterRemoteNetworkConfigRemotePodNetworks"]:
         '''remote_pod_networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#remote_pod_networks EksCluster#remote_pod_networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#remote_pod_networks EksCluster#remote_pod_networks}
         '''
         result = self._values.get("remote_pod_networks")
         return typing.cast(typing.Optional["EksClusterRemoteNetworkConfigRemotePodNetworks"], result)
@@ -2804,7 +2804,7 @@ class EksClusterRemoteNetworkConfigOutputReference(
         cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
+        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
         '''
         value = EksClusterRemoteNetworkConfigRemoteNodeNetworks(cidrs=cidrs)
 
@@ -2817,7 +2817,7 @@ class EksClusterRemoteNetworkConfigOutputReference(
         cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
+        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
         '''
         value = EksClusterRemoteNetworkConfigRemotePodNetworks(cidrs=cidrs)
 
@@ -2883,7 +2883,7 @@ class EksClusterRemoteNetworkConfigRemoteNodeNetworks:
         cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
+        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61956159e4a1a44d15ad7f52ae0d1bda5f0ba17de518e81a583dd25ce70e87fc)
@@ -2894,7 +2894,7 @@ class EksClusterRemoteNetworkConfigRemoteNodeNetworks:
 
     @builtins.property
     def cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.'''
         result = self._values.get("cidrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2981,7 +2981,7 @@ class EksClusterRemoteNetworkConfigRemotePodNetworks:
         cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
+        :param cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf60756f43b6c312a691df822b08259bce77ba3c1c538657457dd54420e8a9d0)
@@ -2992,7 +2992,7 @@ class EksClusterRemoteNetworkConfigRemotePodNetworks:
 
     @builtins.property
     def cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#cidrs EksCluster#cidrs}.'''
         result = self._values.get("cidrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3079,7 +3079,7 @@ class EksClusterStorageConfig:
         block_storage: typing.Optional[typing.Union["EksClusterStorageConfigBlockStorage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param block_storage: block_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#block_storage EksCluster#block_storage}
+        :param block_storage: block_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#block_storage EksCluster#block_storage}
         '''
         if isinstance(block_storage, dict):
             block_storage = EksClusterStorageConfigBlockStorage(**block_storage)
@@ -3094,7 +3094,7 @@ class EksClusterStorageConfig:
     def block_storage(self) -> typing.Optional["EksClusterStorageConfigBlockStorage"]:
         '''block_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#block_storage EksCluster#block_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#block_storage EksCluster#block_storage}
         '''
         result = self._values.get("block_storage")
         return typing.cast(typing.Optional["EksClusterStorageConfigBlockStorage"], result)
@@ -3123,7 +3123,7 @@ class EksClusterStorageConfigBlockStorage:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19912a24f5a7d1db5daae5425ac4c2c1e13b79b501340d779f167982d4ff3382)
@@ -3136,7 +3136,7 @@ class EksClusterStorageConfigBlockStorage:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3241,7 +3241,7 @@ class EksClusterStorageConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
         '''
         value = EksClusterStorageConfigBlockStorage(enabled=enabled)
 
@@ -3290,9 +3290,9 @@ class EksClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#create EksCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#delete EksCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#update EksCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#create EksCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#delete EksCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#update EksCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8aea8c89f89d9d6d9d98349aa2b98d286f6fe0be0689a191e69b8a9a2154c7cd)
@@ -3309,19 +3309,19 @@ class EksClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#create EksCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#create EksCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#delete EksCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#delete EksCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#update EksCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#update EksCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3446,7 +3446,7 @@ class EksClusterTimeoutsOutputReference(
 class EksClusterUpgradePolicy:
     def __init__(self, *, support_type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param support_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#support_type EksCluster#support_type}.
+        :param support_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#support_type EksCluster#support_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe85e45c5ab3750700327e383850b3095142a3f74225fba8242287bafd9ae630)
@@ -3457,7 +3457,7 @@ class EksClusterUpgradePolicy:
 
     @builtins.property
     def support_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#support_type EksCluster#support_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#support_type EksCluster#support_type}.'''
         result = self._values.get("support_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3549,11 +3549,11 @@ class EksClusterVpcConfig:
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#subnet_ids EksCluster#subnet_ids}.
-        :param endpoint_private_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#endpoint_private_access EksCluster#endpoint_private_access}.
-        :param endpoint_public_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#endpoint_public_access EksCluster#endpoint_public_access}.
-        :param public_access_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#public_access_cidrs EksCluster#public_access_cidrs}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#security_group_ids EksCluster#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#subnet_ids EksCluster#subnet_ids}.
+        :param endpoint_private_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#endpoint_private_access EksCluster#endpoint_private_access}.
+        :param endpoint_public_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#endpoint_public_access EksCluster#endpoint_public_access}.
+        :param public_access_cidrs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#public_access_cidrs EksCluster#public_access_cidrs}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#security_group_ids EksCluster#security_group_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e58b4fb9db7c16fb1bfe30835f60574d3f94f4b1ce5871471c55ee206e0092a1)
@@ -3576,7 +3576,7 @@ class EksClusterVpcConfig:
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#subnet_ids EksCluster#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#subnet_ids EksCluster#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3585,7 +3585,7 @@ class EksClusterVpcConfig:
     def endpoint_private_access(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#endpoint_private_access EksCluster#endpoint_private_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#endpoint_private_access EksCluster#endpoint_private_access}.'''
         result = self._values.get("endpoint_private_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3593,19 +3593,19 @@ class EksClusterVpcConfig:
     def endpoint_public_access(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#endpoint_public_access EksCluster#endpoint_public_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#endpoint_public_access EksCluster#endpoint_public_access}.'''
         result = self._values.get("endpoint_public_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def public_access_cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#public_access_cidrs EksCluster#public_access_cidrs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#public_access_cidrs EksCluster#public_access_cidrs}.'''
         result = self._values.get("public_access_cidrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#security_group_ids EksCluster#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#security_group_ids EksCluster#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3791,7 +3791,7 @@ class EksClusterZonalShiftConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6666fb5d9e5b32a415f6512f13534a776e3188ca170539b94787fe5f9a7a302d)
@@ -3804,7 +3804,7 @@ class EksClusterZonalShiftConfig:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster#enabled EksCluster#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

@@ -2252,7 +2252,7 @@ class CfnComputeEnvironment(
             For more information about infrastructure updates, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* .
 
             :param job_execution_timeout_minutes: Specifies the job timeout (in minutes) when the compute environment infrastructure is updated. The default value is 30. Default: - 30
-            :param terminate_jobs_on_update: Specifies whether jobs are automatically terminated when the computer environment infrastructure is updated. The default value is ``false`` . Default: - false
+            :param terminate_jobs_on_update: Specifies whether jobs are automatically terminated when the compute environment infrastructure is updated. The default value is ``false`` . Default: - false
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-updatepolicy.html
             :exampleMetadata: fixture=_generated
@@ -2295,7 +2295,7 @@ class CfnComputeEnvironment(
         def terminate_jobs_on_update(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether jobs are automatically terminated when the computer environment infrastructure is updated.
+            '''Specifies whether jobs are automatically terminated when the compute environment infrastructure is updated.
 
             The default value is ``false`` .
 

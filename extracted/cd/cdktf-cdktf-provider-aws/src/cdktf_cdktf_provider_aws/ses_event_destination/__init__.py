@@ -1,7 +1,7 @@
 r'''
 # `aws_ses_event_destination`
 
-Refer to the Terraform Registry for docs: [`aws_ses_event_destination`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination).
+Refer to the Terraform Registry for docs: [`aws_ses_event_destination`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SesEventDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sesEventDestination.SesEventDestination",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination aws_ses_event_destination}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination aws_ses_event_destination}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SesEventDestination(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination aws_ses_event_destination} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination aws_ses_event_destination} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param configuration_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#configuration_set_name SesEventDestination#configuration_set_name}.
-        :param matching_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#matching_types SesEventDestination#matching_types}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#name SesEventDestination#name}.
-        :param cloudwatch_destination: cloudwatch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#cloudwatch_destination SesEventDestination#cloudwatch_destination}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#enabled SesEventDestination#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#id SesEventDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kinesis_destination: kinesis_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#kinesis_destination SesEventDestination#kinesis_destination}
-        :param sns_destination: sns_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#sns_destination SesEventDestination#sns_destination}
+        :param configuration_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#configuration_set_name SesEventDestination#configuration_set_name}.
+        :param matching_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#matching_types SesEventDestination#matching_types}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#name SesEventDestination#name}.
+        :param cloudwatch_destination: cloudwatch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#cloudwatch_destination SesEventDestination#cloudwatch_destination}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#enabled SesEventDestination#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#id SesEventDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kinesis_destination: kinesis_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#kinesis_destination SesEventDestination#kinesis_destination}
+        :param sns_destination: sns_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#sns_destination SesEventDestination#sns_destination}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SesEventDestination(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SesEventDestination to import.
-        :param import_from_id: The id of the existing SesEventDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SesEventDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SesEventDestination to import is found.
         '''
         if __debug__:
@@ -156,8 +156,8 @@ class SesEventDestination(
         stream_arn: builtins.str,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#role_arn SesEventDestination#role_arn}.
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#stream_arn SesEventDestination#stream_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#role_arn SesEventDestination#role_arn}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#stream_arn SesEventDestination#stream_arn}.
         '''
         value = SesEventDestinationKinesisDestination(
             role_arn=role_arn, stream_arn=stream_arn
@@ -168,7 +168,7 @@ class SesEventDestination(
     @jsii.member(jsii_name="putSnsDestination")
     def put_sns_destination(self, *, topic_arn: builtins.str) -> None:
         '''
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#topic_arn SesEventDestination#topic_arn}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#topic_arn SesEventDestination#topic_arn}.
         '''
         value = SesEventDestinationSnsDestination(topic_arn=topic_arn)
 
@@ -359,9 +359,9 @@ class SesEventDestinationCloudwatchDestination:
         value_source: builtins.str,
     ) -> None:
         '''
-        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#default_value SesEventDestination#default_value}.
-        :param dimension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#dimension_name SesEventDestination#dimension_name}.
-        :param value_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#value_source SesEventDestination#value_source}.
+        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#default_value SesEventDestination#default_value}.
+        :param dimension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#dimension_name SesEventDestination#dimension_name}.
+        :param value_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#value_source SesEventDestination#value_source}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe9ca3468b4ffd98b1717812b2062c22fbf3fb191239c7c11d12419e729cde27)
@@ -376,21 +376,21 @@ class SesEventDestinationCloudwatchDestination:
 
     @builtins.property
     def default_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#default_value SesEventDestination#default_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#default_value SesEventDestination#default_value}.'''
         result = self._values.get("default_value")
         assert result is not None, "Required property 'default_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dimension_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#dimension_name SesEventDestination#dimension_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#dimension_name SesEventDestination#dimension_name}.'''
         result = self._values.get("dimension_name")
         assert result is not None, "Required property 'dimension_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value_source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#value_source SesEventDestination#value_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#value_source SesEventDestination#value_source}.'''
         result = self._values.get("value_source")
         assert result is not None, "Required property 'value_source' is missing"
         return typing.cast(builtins.str, result)
@@ -644,14 +644,14 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param configuration_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#configuration_set_name SesEventDestination#configuration_set_name}.
-        :param matching_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#matching_types SesEventDestination#matching_types}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#name SesEventDestination#name}.
-        :param cloudwatch_destination: cloudwatch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#cloudwatch_destination SesEventDestination#cloudwatch_destination}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#enabled SesEventDestination#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#id SesEventDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kinesis_destination: kinesis_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#kinesis_destination SesEventDestination#kinesis_destination}
-        :param sns_destination: sns_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#sns_destination SesEventDestination#sns_destination}
+        :param configuration_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#configuration_set_name SesEventDestination#configuration_set_name}.
+        :param matching_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#matching_types SesEventDestination#matching_types}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#name SesEventDestination#name}.
+        :param cloudwatch_destination: cloudwatch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#cloudwatch_destination SesEventDestination#cloudwatch_destination}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#enabled SesEventDestination#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#id SesEventDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kinesis_destination: kinesis_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#kinesis_destination SesEventDestination#kinesis_destination}
+        :param sns_destination: sns_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#sns_destination SesEventDestination#sns_destination}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -772,21 +772,21 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def configuration_set_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#configuration_set_name SesEventDestination#configuration_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#configuration_set_name SesEventDestination#configuration_set_name}.'''
         result = self._values.get("configuration_set_name")
         assert result is not None, "Required property 'configuration_set_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def matching_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#matching_types SesEventDestination#matching_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#matching_types SesEventDestination#matching_types}.'''
         result = self._values.get("matching_types")
         assert result is not None, "Required property 'matching_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#name SesEventDestination#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#name SesEventDestination#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -797,7 +797,7 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SesEventDestinationCloudwatchDestination]]]:
         '''cloudwatch_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#cloudwatch_destination SesEventDestination#cloudwatch_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#cloudwatch_destination SesEventDestination#cloudwatch_destination}
         '''
         result = self._values.get("cloudwatch_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SesEventDestinationCloudwatchDestination]]], result)
@@ -806,13 +806,13 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#enabled SesEventDestination#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#enabled SesEventDestination#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#id SesEventDestination#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#id SesEventDestination#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -826,7 +826,7 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SesEventDestinationKinesisDestination"]:
         '''kinesis_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#kinesis_destination SesEventDestination#kinesis_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#kinesis_destination SesEventDestination#kinesis_destination}
         '''
         result = self._values.get("kinesis_destination")
         return typing.cast(typing.Optional["SesEventDestinationKinesisDestination"], result)
@@ -835,7 +835,7 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sns_destination(self) -> typing.Optional["SesEventDestinationSnsDestination"]:
         '''sns_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#sns_destination SesEventDestination#sns_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#sns_destination SesEventDestination#sns_destination}
         '''
         result = self._values.get("sns_destination")
         return typing.cast(typing.Optional["SesEventDestinationSnsDestination"], result)
@@ -860,8 +860,8 @@ class SesEventDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SesEventDestinationKinesisDestination:
     def __init__(self, *, role_arn: builtins.str, stream_arn: builtins.str) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#role_arn SesEventDestination#role_arn}.
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#stream_arn SesEventDestination#stream_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#role_arn SesEventDestination#role_arn}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#stream_arn SesEventDestination#stream_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3039d351183d95c4ab8d8743852e5f86177f670ffa1528437d70228d7627e598)
@@ -874,14 +874,14 @@ class SesEventDestinationKinesisDestination:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#role_arn SesEventDestination#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#role_arn SesEventDestination#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stream_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#stream_arn SesEventDestination#stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#stream_arn SesEventDestination#stream_arn}.'''
         result = self._values.get("stream_arn")
         assert result is not None, "Required property 'stream_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -976,7 +976,7 @@ class SesEventDestinationKinesisDestinationOutputReference(
 class SesEventDestinationSnsDestination:
     def __init__(self, *, topic_arn: builtins.str) -> None:
         '''
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#topic_arn SesEventDestination#topic_arn}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#topic_arn SesEventDestination#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9b4c3febe1be6e5c45dff804be1f7bf037b8804e5f846b30e5c2fb7b1376a05)
@@ -987,7 +987,7 @@ class SesEventDestinationSnsDestination:
 
     @builtins.property
     def topic_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_event_destination#topic_arn SesEventDestination#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_event_destination#topic_arn SesEventDestination#topic_arn}.'''
         result = self._values.get("topic_arn")
         assert result is not None, "Required property 'topic_arn' is missing"
         return typing.cast(builtins.str, result)

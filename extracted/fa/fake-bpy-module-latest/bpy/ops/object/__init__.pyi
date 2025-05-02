@@ -1911,7 +1911,7 @@ def join(execution_context: int | str | None = None, undo: bool | None = None):
     """
 
 def join_shapes(execution_context: int | str | None = None, undo: bool | None = None):
-    """Copy the current resulting shape of another selected object to this one
+    """Add the vertex positions of selected objects as shape keys or update existing shape keys with matching names
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -4485,6 +4485,13 @@ def transforms_to_deltas(
 
 def unlink_data(execution_context: int | str | None = None, undo: bool | None = None):
     """Undocumented, consider contributing.
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
+def update_shapes(execution_context: int | str | None = None, undo: bool | None = None):
+    """Update existing shape keys with the vertex positions of selected objects with matching names
 
     :type execution_context: int | str | None
     :type undo: bool | None

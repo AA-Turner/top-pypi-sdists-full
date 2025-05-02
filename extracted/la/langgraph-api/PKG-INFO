@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langgraph-api
-Version: 0.2.1
+Version: 0.2.6
 Summary: 
 License: Elastic-2.0
 Author: Nuno Campos
@@ -16,7 +16,7 @@ Requires-Dist: cryptography (>=42.0.0,<45.0)
 Requires-Dist: httpx (>=0.25.0)
 Requires-Dist: jsonschema-rs (>=0.20.0,<0.30)
 Requires-Dist: langchain-core (>=0.2.38) ; python_version < "4.0"
-Requires-Dist: langgraph (>=0.2.56) ; python_version < "4.0"
+Requires-Dist: langgraph (>=0.3.27) ; python_version < "4.0"
 Requires-Dist: langgraph-checkpoint (>=2.0.23) ; python_version < "4.0"
 Requires-Dist: langgraph-runtime-inmem (>=0.0.7)
 Requires-Dist: langgraph-sdk (>=0.1.66,<0.2.0) ; python_version < "4.0"

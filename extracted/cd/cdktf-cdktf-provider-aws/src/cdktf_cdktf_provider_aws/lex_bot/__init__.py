@@ -1,7 +1,7 @@
 r'''
 # `aws_lex_bot`
 
-Refer to the Terraform Registry for docs: [`aws_lex_bot`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot).
+Refer to the Terraform Registry for docs: [`aws_lex_bot`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LexBot(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lexBot.LexBot",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot aws_lex_bot}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot aws_lex_bot}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class LexBot(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot aws_lex_bot} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot aws_lex_bot} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param abort_statement: abort_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#abort_statement LexBot#abort_statement}
-        :param child_directed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#child_directed LexBot#child_directed}.
-        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent LexBot#intent}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#name LexBot#name}.
-        :param clarification_prompt: clarification_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#clarification_prompt LexBot#clarification_prompt}
-        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#create_version LexBot#create_version}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#description LexBot#description}.
-        :param detect_sentiment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#detect_sentiment LexBot#detect_sentiment}.
-        :param enable_model_improvements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#enable_model_improvements LexBot#enable_model_improvements}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#id LexBot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_session_ttl_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#idle_session_ttl_in_seconds LexBot#idle_session_ttl_in_seconds}.
-        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#locale LexBot#locale}.
-        :param nlu_intent_confidence_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#nlu_intent_confidence_threshold LexBot#nlu_intent_confidence_threshold}.
-        :param process_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#process_behavior LexBot#process_behavior}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#timeouts LexBot#timeouts}
-        :param voice_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#voice_id LexBot#voice_id}.
+        :param abort_statement: abort_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#abort_statement LexBot#abort_statement}
+        :param child_directed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#child_directed LexBot#child_directed}.
+        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent LexBot#intent}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#name LexBot#name}.
+        :param clarification_prompt: clarification_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#clarification_prompt LexBot#clarification_prompt}
+        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#create_version LexBot#create_version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#description LexBot#description}.
+        :param detect_sentiment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#detect_sentiment LexBot#detect_sentiment}.
+        :param enable_model_improvements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#enable_model_improvements LexBot#enable_model_improvements}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#id LexBot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_session_ttl_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#idle_session_ttl_in_seconds LexBot#idle_session_ttl_in_seconds}.
+        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#locale LexBot#locale}.
+        :param nlu_intent_confidence_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#nlu_intent_confidence_threshold LexBot#nlu_intent_confidence_threshold}.
+        :param process_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#process_behavior LexBot#process_behavior}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#timeouts LexBot#timeouts}
+        :param voice_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#voice_id LexBot#voice_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class LexBot(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LexBot to import.
-        :param import_from_id: The id of the existing LexBot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LexBot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LexBot to import is found.
         '''
         if __debug__:
@@ -167,8 +167,8 @@ class LexBot(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#message LexBot#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#response_card LexBot#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#message LexBot#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#response_card LexBot#response_card}.
         '''
         value = LexBotAbortStatement(message=message, response_card=response_card)
 
@@ -183,9 +183,9 @@ class LexBot(
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#max_attempts LexBot#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#message LexBot#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#response_card LexBot#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#max_attempts LexBot#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#message LexBot#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#response_card LexBot#response_card}.
         '''
         value = LexBotClarificationPrompt(
             max_attempts=max_attempts, message=message, response_card=response_card
@@ -215,9 +215,9 @@ class LexBot(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#create LexBot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#delete LexBot#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#update LexBot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#create LexBot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#delete LexBot#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#update LexBot#update}.
         '''
         value = LexBotTimeouts(create=create, delete=delete, update=update)
 
@@ -611,8 +611,8 @@ class LexBotAbortStatement:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#message LexBot#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#response_card LexBot#response_card}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#message LexBot#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#response_card LexBot#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3754c4dd813dbc3c759b205e259c63571b43bbfd3a9316747bb75bcb7b382279)
@@ -630,7 +630,7 @@ class LexBotAbortStatement:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexBotAbortStatementMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#message LexBot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#message LexBot#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -638,7 +638,7 @@ class LexBotAbortStatement:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#response_card LexBot#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#response_card LexBot#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -672,9 +672,9 @@ class LexBotAbortStatementMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content LexBot#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content_type LexBot#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#group_number LexBot#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content LexBot#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content_type LexBot#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#group_number LexBot#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a02d9cc52e2ee0b0b0c7eec49763c6e16e0d56e853ec287624596f9a51185b37)
@@ -690,21 +690,21 @@ class LexBotAbortStatementMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content LexBot#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content LexBot#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content_type LexBot#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content_type LexBot#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#group_number LexBot#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#group_number LexBot#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1006,9 +1006,9 @@ class LexBotClarificationPrompt:
         response_card: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#max_attempts LexBot#max_attempts}.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#message LexBot#message}
-        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#response_card LexBot#response_card}.
+        :param max_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#max_attempts LexBot#max_attempts}.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#message LexBot#message}
+        :param response_card: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#response_card LexBot#response_card}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cddaa41a0ea065b316db0d800d5fdbabd061f65addbf84665e0afc5f0298c3d2)
@@ -1024,7 +1024,7 @@ class LexBotClarificationPrompt:
 
     @builtins.property
     def max_attempts(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#max_attempts LexBot#max_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#max_attempts LexBot#max_attempts}.'''
         result = self._values.get("max_attempts")
         assert result is not None, "Required property 'max_attempts' is missing"
         return typing.cast(jsii.Number, result)
@@ -1035,7 +1035,7 @@ class LexBotClarificationPrompt:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexBotClarificationPromptMessage"]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#message LexBot#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#message LexBot#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -1043,7 +1043,7 @@ class LexBotClarificationPrompt:
 
     @builtins.property
     def response_card(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#response_card LexBot#response_card}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#response_card LexBot#response_card}.'''
         result = self._values.get("response_card")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1077,9 +1077,9 @@ class LexBotClarificationPromptMessage:
         group_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content LexBot#content}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content_type LexBot#content_type}.
-        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#group_number LexBot#group_number}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content LexBot#content}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content_type LexBot#content_type}.
+        :param group_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#group_number LexBot#group_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b68ee0f2af4bdc41161c73208be960906d1cfc4087c208ee58ee7f32fa1069c)
@@ -1095,21 +1095,21 @@ class LexBotClarificationPromptMessage:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content LexBot#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content LexBot#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#content_type LexBot#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#content_type LexBot#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def group_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#group_number LexBot#group_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#group_number LexBot#group_number}.'''
         result = self._values.get("group_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1478,22 +1478,22 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param abort_statement: abort_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#abort_statement LexBot#abort_statement}
-        :param child_directed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#child_directed LexBot#child_directed}.
-        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent LexBot#intent}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#name LexBot#name}.
-        :param clarification_prompt: clarification_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#clarification_prompt LexBot#clarification_prompt}
-        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#create_version LexBot#create_version}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#description LexBot#description}.
-        :param detect_sentiment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#detect_sentiment LexBot#detect_sentiment}.
-        :param enable_model_improvements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#enable_model_improvements LexBot#enable_model_improvements}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#id LexBot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_session_ttl_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#idle_session_ttl_in_seconds LexBot#idle_session_ttl_in_seconds}.
-        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#locale LexBot#locale}.
-        :param nlu_intent_confidence_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#nlu_intent_confidence_threshold LexBot#nlu_intent_confidence_threshold}.
-        :param process_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#process_behavior LexBot#process_behavior}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#timeouts LexBot#timeouts}
-        :param voice_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#voice_id LexBot#voice_id}.
+        :param abort_statement: abort_statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#abort_statement LexBot#abort_statement}
+        :param child_directed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#child_directed LexBot#child_directed}.
+        :param intent: intent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent LexBot#intent}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#name LexBot#name}.
+        :param clarification_prompt: clarification_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#clarification_prompt LexBot#clarification_prompt}
+        :param create_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#create_version LexBot#create_version}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#description LexBot#description}.
+        :param detect_sentiment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#detect_sentiment LexBot#detect_sentiment}.
+        :param enable_model_improvements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#enable_model_improvements LexBot#enable_model_improvements}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#id LexBot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_session_ttl_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#idle_session_ttl_in_seconds LexBot#idle_session_ttl_in_seconds}.
+        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#locale LexBot#locale}.
+        :param nlu_intent_confidence_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#nlu_intent_confidence_threshold LexBot#nlu_intent_confidence_threshold}.
+        :param process_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#process_behavior LexBot#process_behavior}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#timeouts LexBot#timeouts}
+        :param voice_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#voice_id LexBot#voice_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1641,7 +1641,7 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def abort_statement(self) -> LexBotAbortStatement:
         '''abort_statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#abort_statement LexBot#abort_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#abort_statement LexBot#abort_statement}
         '''
         result = self._values.get("abort_statement")
         assert result is not None, "Required property 'abort_statement' is missing"
@@ -1651,7 +1651,7 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def child_directed(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#child_directed LexBot#child_directed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#child_directed LexBot#child_directed}.'''
         result = self._values.get("child_directed")
         assert result is not None, "Required property 'child_directed' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1662,7 +1662,7 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexBotIntent"]]:
         '''intent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent LexBot#intent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent LexBot#intent}
         '''
         result = self._values.get("intent")
         assert result is not None, "Required property 'intent' is missing"
@@ -1670,7 +1670,7 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#name LexBot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#name LexBot#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1679,7 +1679,7 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def clarification_prompt(self) -> typing.Optional[LexBotClarificationPrompt]:
         '''clarification_prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#clarification_prompt LexBot#clarification_prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#clarification_prompt LexBot#clarification_prompt}
         '''
         result = self._values.get("clarification_prompt")
         return typing.cast(typing.Optional[LexBotClarificationPrompt], result)
@@ -1688,13 +1688,13 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def create_version(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#create_version LexBot#create_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#create_version LexBot#create_version}.'''
         result = self._values.get("create_version")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#description LexBot#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#description LexBot#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1702,7 +1702,7 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def detect_sentiment(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#detect_sentiment LexBot#detect_sentiment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#detect_sentiment LexBot#detect_sentiment}.'''
         result = self._values.get("detect_sentiment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1710,13 +1710,13 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_model_improvements(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#enable_model_improvements LexBot#enable_model_improvements}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#enable_model_improvements LexBot#enable_model_improvements}.'''
         result = self._values.get("enable_model_improvements")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#id LexBot#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#id LexBot#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1726,25 +1726,25 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def idle_session_ttl_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#idle_session_ttl_in_seconds LexBot#idle_session_ttl_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#idle_session_ttl_in_seconds LexBot#idle_session_ttl_in_seconds}.'''
         result = self._values.get("idle_session_ttl_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def locale(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#locale LexBot#locale}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#locale LexBot#locale}.'''
         result = self._values.get("locale")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def nlu_intent_confidence_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#nlu_intent_confidence_threshold LexBot#nlu_intent_confidence_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#nlu_intent_confidence_threshold LexBot#nlu_intent_confidence_threshold}.'''
         result = self._values.get("nlu_intent_confidence_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def process_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#process_behavior LexBot#process_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#process_behavior LexBot#process_behavior}.'''
         result = self._values.get("process_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1752,14 +1752,14 @@ class LexBotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LexBotTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#timeouts LexBot#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#timeouts LexBot#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LexBotTimeouts"], result)
 
     @builtins.property
     def voice_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#voice_id LexBot#voice_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#voice_id LexBot#voice_id}.'''
         result = self._values.get("voice_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1788,8 +1788,8 @@ class LexBotIntent:
         intent_version: builtins.str,
     ) -> None:
         '''
-        :param intent_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent_name LexBot#intent_name}.
-        :param intent_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent_version LexBot#intent_version}.
+        :param intent_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent_name LexBot#intent_name}.
+        :param intent_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent_version LexBot#intent_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2ad9dfca99dcfc1bffb9ea8862751598d5b5bbb039e859722c444799c607907)
@@ -1802,14 +1802,14 @@ class LexBotIntent:
 
     @builtins.property
     def intent_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent_name LexBot#intent_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent_name LexBot#intent_name}.'''
         result = self._values.get("intent_name")
         assert result is not None, "Required property 'intent_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def intent_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#intent_version LexBot#intent_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#intent_version LexBot#intent_version}.'''
         result = self._values.get("intent_version")
         assert result is not None, "Required property 'intent_version' is missing"
         return typing.cast(builtins.str, result)
@@ -2008,9 +2008,9 @@ class LexBotTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#create LexBot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#delete LexBot#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#update LexBot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#create LexBot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#delete LexBot#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#update LexBot#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__455cc8ae4936331f187164fec594744427fb9e34b44f186af9fe0c90cbf8412e)
@@ -2027,19 +2027,19 @@ class LexBotTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#create LexBot#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#create LexBot#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#delete LexBot#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#delete LexBot#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot#update LexBot#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot#update LexBot#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

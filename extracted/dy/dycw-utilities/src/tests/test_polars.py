@@ -5,7 +5,7 @@ import enum
 import itertools
 from dataclasses import dataclass, field
 from enum import auto
-from itertools import chain
+from itertools import chain, repeat
 from math import isfinite, nan
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
@@ -49,6 +49,11 @@ from polars import (
     datetime_range,
     int_range,
     lit,
+    struct,
+)
+from polars._typing import (
+    IntoExprColumn,  # pyright: ignore[reportPrivateImportUsage]
+    SchemaDict,  # pyright: ignore[reportPrivateImportUsage]
 )
 from polars.testing import assert_frame_equal, assert_series_equal
 from pytest import raises
@@ -67,6 +72,7 @@ from utilities.numpy import DEFAULT_RNG
 from utilities.pathlib import PWD
 from utilities.polars import (
     AppendDataClassError,
+    BooleanValueCountsError,
     ColumnsToDictError,
     DatetimeHongKong,
     DatetimeTokyo,
@@ -107,14 +113,21 @@ from utilities.polars import (
     _GetSeriesNumberOfDecimalsNotFloatError,
     _InsertBetweenMissingColumnsError,
     _InsertBetweenNonConsecutiveError,
+    _IsNearEventAfterError,
+    _IsNearEventBeforeError,
+    _ReifyExprsEmptyError,
+    _ReifyExprsSeriesNonUniqueError,
     _yield_struct_series_element_remove_nulls,
     ac_halflife,
     acf,
     adjust_frequencies,
     append_dataclass,
     are_frames_equal,
+    bernoulli,
+    boolean_value_counts,
     ceil_datetime,
     check_polars_dataframe,
+    choice,
     collect_series,
     columns_to_dict,
     concat_series,
@@ -126,6 +139,7 @@ from utilities.polars import (
     drop_null_struct_series,
     ensure_data_type,
     ensure_expr_or_series,
+    ensure_expr_or_series_many,
     finite_ewm_mean,
     floor_datetime,
     get_data_type_or_series_time_zone,
@@ -135,6 +149,7 @@ from utilities.polars import (
     insert_after,
     insert_before,
     insert_between,
+    is_near_event,
     is_not_null_struct_series,
     is_null_struct_series,
     join,
@@ -142,11 +157,13 @@ from utilities.polars import (
     nan_sum_agg,
     nan_sum_cols,
     normal,
+    reify_exprs,
     replace_time_zone,
     set_first_row_as_columns,
     struct_dtype,
     struct_from_dataclass,
     touch,
+    try_reify_expr,
     uniform,
     unique_element,
     week_num,
@@ -160,11 +177,12 @@ from utilities.tzdata import HongKong, Tokyo, USCentral, USEastern
 from utilities.zoneinfo import UTC, get_time_zone_name
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from zoneinfo import ZoneInfo
 
     from polars._typing import (
         IntoExprColumn,  # pyright: ignore[reportPrivateImportUsage]
+        PolarsDataType,  # pyright: ignore[reportPrivateImportUsage]
         SchemaDict,  # pyright: ignore[reportPrivateImportUsage]
     )
     from polars.datatypes import DataTypeClass
@@ -340,6 +358,87 @@ class TestAreFramesEqual:
         x, y, expected = case
         result = are_frames_equal(x, y)
         assert result is expected
+
+
+class TestBernoulli:
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_int(self, *, length: int) -> None:
+        series = bernoulli(length)
+        self._assert(series, length)
+
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_series(self, *, length: int) -> None:
+        orig = int_range(end=length, eager=True)
+        series = bernoulli(orig)
+        self._assert(series, length)
+
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_dataframe(self, *, length: int) -> None:
+        df = int_range(end=length, eager=True).to_frame()
+        series = bernoulli(df)
+        self._assert(series, length)
+
+    def _assert(self, series: Series, length: int, /) -> None:
+        assert series.dtype == Boolean
+        assert series.len() == length
+        assert series.is_not_null().all()
+
+
+class TestBooleanValueCounts:
+    df: ClassVar[DataFrame] = DataFrame(
+        data=[
+            (False, False),
+            (True, None),
+            (True, True),
+            (True, None),
+            (False, True),
+            (None, True),
+            (False, False),
+            (False, True),
+            (False, False),
+            (None, True),
+        ],
+        schema={"x": Boolean, "y": Boolean},
+        orient="row",
+    )
+    schema: ClassVar[SchemaDict] = {
+        "name": String,
+        "true": UInt32,
+        "false": UInt32,
+        "null": UInt32,
+        "total": UInt32,
+        "true (%)": Float64,
+        "false (%)": Float64,
+        "null (%)": Float64,
+    }
+
+    def test_series(self) -> None:
+        result = boolean_value_counts(self.df["x"], "x")
+        check_polars_dataframe(result, height=1, schema_list=self.schema)
+
+    def test_dataframe(self) -> None:
+        result = boolean_value_counts(
+            self.df,
+            "x",
+            "y",
+            (col("x") & col("y")).alias("x_and_y"),
+            x_or_y=col("x") | col("y"),
+        )
+        check_polars_dataframe(result, height=4, schema_list=self.schema)
+
+    def test_empty(self) -> None:
+        result = boolean_value_counts(self.df[:0], "x")
+        check_polars_dataframe(result, height=1, schema_list=self.schema)
+        for column in ["true", "false", "null", "total"]:
+            assert (result[column] == 0).all()
+        for column in ["true (%)", "false (%)", "null (%)"]:
+            assert result[column].is_nan().all()
+
+    def test_error(self) -> None:
+        with raises(
+            BooleanValueCountsError, match="Column 'z' must be Boolean; got Int64"
+        ):
+            _ = boolean_value_counts(self.df, col("x").cast(Int64).alias("z"))
 
 
 class TestCeilDateTime:
@@ -632,6 +731,47 @@ class TestCheckPolarsDataFrameSchemaSubset:
             match=r"DataFrame schema must include .* \(unordered\); got .*:\n\n.*",
         ):
             _check_polars_dataframe_schema_subset(df, schema_inc)
+
+
+class TestChoice:
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_int_with_bool(self, *, length: int) -> None:
+        elements = [True, False, None]
+        series = choice(length, elements, dtype=Boolean)
+        self._assert(series, length, elements, dtype=Boolean)
+
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_int_with_str(self, *, length: int) -> None:
+        elements = ["A", "B", "C"]
+        series = choice(length, elements, dtype=String)
+        self._assert(series, length, elements, dtype=String)
+
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_series(self, *, length: int) -> None:
+        orig = int_range(end=length, eager=True)
+        elements = ["A", "B", "C"]
+        series = choice(orig, elements, dtype=String)
+        self._assert(series, length, elements, dtype=String)
+
+    @given(length=hypothesis.strategies.integers(0, 10))
+    def test_dataframe(self, *, length: int) -> None:
+        df = int_range(end=length, eager=True).to_frame()
+        elements = ["A", "B", "C"]
+        series = choice(df, elements, dtype=String)
+        self._assert(series, length, elements, dtype=String)
+
+    def _assert(
+        self,
+        series: Series,
+        length: int,
+        elements: Iterable[Any],
+        /,
+        *,
+        dtype: PolarsDataType = Float64,
+    ) -> None:
+        assert series.dtype == dtype
+        assert series.len() == length
+        assert series.is_in(list(elements)).all()
 
 
 class TestCollectSeries:
@@ -1185,6 +1325,15 @@ class TestEnsureExprOrSeries:
         assert isinstance(result, Expr | Series)
 
 
+class TestEnsureExprOrSeriesMany:
+    @given(column=sampled_from(["column", col("column"), int_range(end=10)]))
+    def test_main(self, *, column: IntoExprColumn) -> None:
+        result = ensure_expr_or_series_many(column, column=column)
+        assert len(result) == 2
+        for r in result:
+            assert isinstance(r, Expr | Series)
+
+
 class TestFiniteEWMMean:
     alpha_0_75_values: ClassVar[list[float]] = [
         -8.269850726503885,
@@ -1472,8 +1621,7 @@ class TestIntegers:
     )
     def test_int(self, *, length: int, high: int) -> None:
         series = utilities.polars.integers(length, high)
-        assert series.len() == length
-        assert series.is_between(0, high, closed="left").all()
+        self._assert(series, length, high)
 
     @given(
         length=hypothesis.strategies.integers(0, 10),
@@ -1482,8 +1630,7 @@ class TestIntegers:
     def test_series(self, *, length: int, high: int) -> None:
         orig = int_range(end=length, eager=True)
         series = utilities.polars.integers(orig, high)
-        assert series.len() == length
-        assert series.is_between(0, high, closed="left").all()
+        self._assert(series, length, high)
 
     @given(
         length=hypothesis.strategies.integers(0, 10),
@@ -1492,8 +1639,108 @@ class TestIntegers:
     def test_dataframe(self, *, length: int, high: int) -> None:
         df = int_range(end=length, eager=True).to_frame()
         series = utilities.polars.integers(df, high)
+        self._assert(series, length, high)
+
+    def _assert(self, series: Series, length: int, high: int, /) -> None:
+        assert series.dtype == Int64
         assert series.len() == length
         assert series.is_between(0, high, closed="left").all()
+
+
+class TestIsNearEvent:
+    df: ClassVar[DataFrame] = DataFrame(
+        data=[
+            (False, False),
+            (False, False),
+            (True, False),
+            (True, False),
+            (False, False),
+            (False, False),
+            (False, False),
+            (False, False),
+            (False, False),
+            (False, True),
+        ],
+        schema={"x": Boolean, "y": Boolean},
+        orient="row",
+    )
+
+    def test_no_exprs(self) -> None:
+        result = self.df.with_columns(is_near_event().alias("z"))["z"]
+        expected = Series(
+            name="z", values=list(repeat(object=False, times=10)), dtype=Boolean
+        )
+        assert_series_equal(result, expected)
+
+    def test_x(self) -> None:
+        result = self.df.with_columns(is_near_event("x").alias("z"))["z"]
+        expected = Series(
+            name="z",
+            values=[False, False, True, True, False, False, False, False, False, False],
+            dtype=Boolean,
+        )
+        assert_series_equal(result, expected)
+
+    def test_y(self) -> None:
+        result = self.df.with_columns(is_near_event("y").alias("z"))["z"]
+        expected = Series(
+            name="z",
+            values=[
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                True,
+            ],
+            dtype=Boolean,
+        )
+        assert_series_equal(result, expected)
+
+    def test_x_before(self) -> None:
+        result = self.df.with_columns(is_near_event("x", before=1).alias("z"))["z"]
+        expected = Series(
+            name="z",
+            values=[False, True, True, True, False, False, False, False, False, False],
+            dtype=Boolean,
+        )
+        assert_series_equal(result, expected)
+
+    def test_x_after(self) -> None:
+        result = self.df.with_columns(is_near_event("x", after=1).alias("z"))["z"]
+        expected = Series(
+            name="z",
+            values=[False, False, True, True, True, False, False, False, False, False],
+            dtype=Boolean,
+        )
+        assert_series_equal(result, expected)
+
+    def test_x_or_y(self) -> None:
+        result = self.df.with_columns(is_near_event("x", "y").alias("z"))["z"]
+        expected = Series(
+            name="z",
+            values=[False, False, True, True, False, False, False, False, False, True],
+            dtype=Boolean,
+        )
+        assert_series_equal(result, expected)
+
+    @given(before=hypothesis.strategies.integers(max_value=-1))
+    def test_error_before(self, *, before: int) -> None:
+        with raises(
+            _IsNearEventBeforeError, match=r"'Before' must be non-negative; got \-\d+"
+        ):
+            _ = is_near_event(before=before)
+
+    @given(after=hypothesis.strategies.integers(max_value=-1))
+    def test_error_after(self, *, after: int) -> None:
+        with raises(
+            _IsNearEventAfterError, match=r"'After' must be non-negative; got \-\d+"
+        ):
+            _ = is_near_event(after=after)
 
 
 class TestIsNullAndIsNotNullStructSeries:
@@ -1714,22 +1961,116 @@ class TestNormal:
     @given(length=hypothesis.strategies.integers(0, 10))
     def test_int(self, *, length: int) -> None:
         series = normal(length)
-        assert series.len() == length
-        assert series.is_finite().all()
+        self._assert(series, length)
 
     @given(length=hypothesis.strategies.integers(0, 10))
     def test_series(self, *, length: int) -> None:
         orig = int_range(end=length, eager=True)
         series = normal(orig)
-        assert series.len() == length
-        assert series.is_finite().all()
+        self._assert(series, length)
 
     @given(length=hypothesis.strategies.integers(0, 10))
     def test_dataframe(self, *, length: int) -> None:
         df = int_range(end=length, eager=True).to_frame()
         series = normal(df)
+        self._assert(series, length)
+
+    def _assert(self, series: Series, length: int, /) -> None:
+        assert series.dtype == Float64
         assert series.len() == length
         assert series.is_finite().all()
+
+
+class TestReifyExprs:
+    @given(length=hypothesis.strategies.integers(0, 10), name=text_ascii())
+    def test_one_expr(self, *, length: int, name: str) -> None:
+        expr = int_range(end=length).alias(name)
+        result = reify_exprs(expr)
+        assert isinstance(result, Expr)
+        result2 = (
+            int_range(end=length, eager=True)
+            .alias(f"_{name}")
+            .to_frame()
+            .with_columns(result)[name]
+        )
+        expected = int_range(end=length, eager=True).alias(name)
+        assert_series_equal(result2, expected)
+
+    @given(length=hypothesis.strategies.integers(0, 10), name=text_ascii())
+    def test_one_series(self, *, length: int, name: str) -> None:
+        series = int_range(end=length, eager=True).alias(name)
+        result = reify_exprs(series)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series)
+
+    @given(
+        length=hypothesis.strategies.integers(0, 10),
+        names=pairs(text_ascii(), unique=True),
+    )
+    def test_two_exprs(self, *, length: int, names: tuple[str, str]) -> None:
+        name1, name2 = names
+        expr1 = int_range(end=length).alias(name1)
+        expr2 = int_range(end=length).alias(name2)
+        result = reify_exprs(expr1, expr2)
+        assert isinstance(result, Expr)
+        result2 = (
+            int_range(end=length, eager=True)
+            .alias(f"_{names}")
+            .to_frame()
+            .with_columns(result)[name1]
+        )
+        assert result2.name == name1
+        assert result2.dtype == Struct(dict.fromkeys(names, Int64))
+
+    @given(
+        length=hypothesis.strategies.integers(0, 10),
+        names=pairs(text_ascii(), unique=True),
+    )
+    def test_one_expr_and_one_series(
+        self, *, length: int, names: tuple[str, str]
+    ) -> None:
+        name1, name2 = names
+        expr = int_range(end=length).alias(name1)
+        series = int_range(end=length, eager=True).alias(name2)
+        result = reify_exprs(expr, series)
+        assert isinstance(result, DataFrame)
+        assert result.schema == dict.fromkeys(names, Int64)
+
+    @given(
+        length=hypothesis.strategies.integers(0, 10),
+        names=pairs(text_ascii(), unique=True),
+    )
+    def test_two_series(self, *, length: int, names: tuple[str, str]) -> None:
+        name1, name2 = names
+        series1 = int_range(end=length, eager=True).alias(name1)
+        series2 = int_range(end=length, eager=True).alias(name2)
+        result = reify_exprs(series1, series2)
+        assert isinstance(result, DataFrame)
+        expected = concat_series(series1, series2)
+        assert_frame_equal(result, expected)
+
+    def test_error_empty(self) -> None:
+        with raises(
+            _ReifyExprsEmptyError, match="At least 1 Expression or Series must be given"
+        ):
+            _ = reify_exprs()
+
+    @given(
+        lengths=pairs(hypothesis.strategies.integers(0, 10), unique=True),
+        names=pairs(text_ascii(), unique=True),
+    )
+    def test_error_non_unique(
+        self, *, lengths: tuple[int, int], names: tuple[str, str]
+    ) -> None:
+        series1, series2 = [
+            int_range(end=length, eager=True).alias(name)
+            for length, name in zip(lengths, names, strict=True)
+        ]
+        with raises(
+            _ReifyExprsSeriesNonUniqueError,
+            match=r"Series must contain exactly one length; got \d+, \d+ and perhaps more",
+        ):
+            _ = reify_exprs(series1, series2)
 
 
 class TestReplaceTimeZone:
@@ -1917,6 +2258,177 @@ class TestStructFromDataClass:
             _ = struct_from_dataclass(Example)
 
 
+class TestTryReifyExpr:
+    # expr
+
+    @given(length=hypothesis.strategies.integers(0, 10), name=text_ascii())
+    def test_flat_expr(self, *, length: int, name: str) -> None:
+        expr = int_range(end=length).alias(name)
+        result = try_reify_expr(expr)
+        assert isinstance(result, Expr)
+        result2 = (
+            int_range(end=length, eager=True)
+            .alias(f"_{name}")
+            .to_frame()
+            .with_columns(result)[name]
+        )
+        expected = int_range(end=length, eager=True).alias(name)
+        assert_series_equal(result2, expected)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_flat_expr_and_expr(self, *, length: int, names: tuple[str, str]) -> None:
+        name1, name2 = names
+        expr1 = int_range(end=length).alias(name1)
+        expr2 = int_range(end=length).alias(name2)
+        result = try_reify_expr(expr1, expr2)
+        assert isinstance(result, Expr)
+        result2 = (
+            int_range(end=length, eager=True)
+            .alias(f"_{name1}")
+            .to_frame()
+            .with_columns(result)[name1]
+        )
+        expected = int_range(end=length, eager=True).alias(name1)
+        assert_series_equal(result2, expected)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_flat_expr_and_series(self, *, length: int, names: tuple[str, str]) -> None:
+        name1, name2 = names
+        expr = int_range(end=length).alias(name1)
+        series = int_range(end=length, eager=True).alias(name2)
+        result = try_reify_expr(expr, series)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series.alias(name1))
+
+    @given(length=hypothesis.strategies.integers(0, 10), name=text_ascii())
+    def test_struct_expr(self, *, length: int, name: str) -> None:
+        expr = struct(int_range(end=length).alias(name)).alias(name)
+        result = try_reify_expr(expr)
+        assert isinstance(result, Expr)
+        result2 = (
+            int_range(end=length, eager=True)
+            .alias(f"_{name}")
+            .to_frame()
+            .with_columns(result)[name]
+        )
+        expected = (
+            int_range(end=length, eager=True)
+            .alias(name)
+            .to_frame()
+            .select(struct(name))[name]
+        )
+        assert_series_equal(result2, expected)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_struct_expr_and_expr(self, *, length: int, names: tuple[str, str]) -> None:
+        name1, name2 = names
+        expr1 = struct(int_range(end=length).alias(name1)).alias(name1)
+        expr2 = int_range(end=length).alias(name2)
+        result = try_reify_expr(expr1, expr2)
+        assert isinstance(result, Expr)
+        result2 = (
+            int_range(end=length, eager=True)
+            .alias(f"_{name1}")
+            .to_frame()
+            .with_columns(result)[name1]
+        )
+        expected = (
+            int_range(end=length, eager=True)
+            .alias(name1)
+            .to_frame()
+            .select(struct(name1))[name1]
+        )
+        assert_series_equal(result2, expected)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_struct_expr_and_series(
+        self, *, length: int, names: tuple[str, str]
+    ) -> None:
+        name1, name2 = names
+        expr = struct(int_range(end=length).alias(name1)).alias(name1)
+        series = int_range(end=length, eager=True).alias(name2)
+        result = try_reify_expr(expr, series)
+        assert isinstance(result, Series)
+        expected = series.alias(name1).to_frame().select(struct(name1))[name1]
+        assert_series_equal(result, expected)
+
+    # series
+
+    @given(length=hypothesis.strategies.integers(0, 10), name=text_ascii())
+    def test_flat_series(self, *, length: int, name: str) -> None:
+        series = int_range(end=length, eager=True).alias(name)
+        result = try_reify_expr(series)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_flat_series_and_expr(self, *, length: int, names: tuple[str, str]) -> None:
+        name1, name2 = names
+        series = int_range(end=length, eager=True).alias(name1)
+        expr = int_range(end=length).alias(name2)
+        result = try_reify_expr(series, expr)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_flat_series_and_series(
+        self, *, length: int, names: tuple[str, str]
+    ) -> None:
+        name1, name2 = names
+        series1 = int_range(end=length, eager=True).alias(name1)
+        series2 = int_range(end=length, eager=True).alias(name2)
+        result = try_reify_expr(series1, series2)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series1)
+
+    @given(length=hypothesis.strategies.integers(0, 10), name=text_ascii())
+    def test_struct_series(self, *, length: int, name: str) -> None:
+        series = (
+            int_range(end=length, eager=True)
+            .alias(name)
+            .to_frame()
+            .select(struct(name))[name]
+        )
+        assert isinstance(series.dtype, Struct)
+        result = try_reify_expr(series)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_struct_series_and_expr(
+        self, *, length: int, names: tuple[str, str]
+    ) -> None:
+        name1, name2 = names
+        series = (
+            int_range(end=length, eager=True)
+            .alias(name1)
+            .to_frame()
+            .select(struct(name1))[name1]
+        )
+        assert isinstance(series.dtype, Struct)
+        expr = int_range(end=length).alias(name2)
+        result = try_reify_expr(series, expr)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series)
+
+    @given(length=hypothesis.strategies.integers(0, 10), names=pairs(text_ascii()))
+    def test_struct_series_and_series(
+        self, *, length: int, names: tuple[str, str]
+    ) -> None:
+        name1, name2 = names
+        series1 = (
+            int_range(end=length, eager=True)
+            .alias(name1)
+            .to_frame()
+            .select(struct(name1))[name1]
+        )
+        assert isinstance(series1.dtype, Struct)
+        series2 = int_range(end=length).alias(name2)
+        result = try_reify_expr(series1, series2)
+        assert isinstance(result, Series)
+        assert_series_equal(result, series1)
+
+
 class TestUniform:
     @given(
         length=hypothesis.strategies.integers(0, 10),
@@ -1927,6 +2439,7 @@ class TestUniform:
         series = uniform(length, low=low, high=high)
         assert series.len() == length
         assert series.is_between(low, high).all()
+        self._assert(series, length, low, high)
 
     @given(
         length=hypothesis.strategies.integers(0, 10),
@@ -1938,6 +2451,7 @@ class TestUniform:
         series = uniform(orig, low=low, high=high)
         assert series.len() == length
         assert series.is_between(low, high).all()
+        self._assert(series, length, low, high)
 
     @given(
         length=hypothesis.strategies.integers(0, 10),
@@ -1947,6 +2461,10 @@ class TestUniform:
         low, high = bounds
         df = int_range(end=length, eager=True).to_frame()
         series = uniform(df, low=low, high=high)
+        self._assert(series, length, low, high)
+
+    def _assert(self, series: Series, length: int, low: float, high: float, /) -> None:
+        assert series.dtype == Float64
         assert series.len() == length
         assert series.is_between(low, high).all()
 

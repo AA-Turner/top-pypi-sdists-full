@@ -1,7 +1,7 @@
 r'''
 # `data_aws_identitystore_group`
 
-Refer to the Terraform Registry for docs: [`data_aws_identitystore_group`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group).
+Refer to the Terraform Registry for docs: [`data_aws_identitystore_group`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsIdentitystoreGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsIdentitystoreGroup.DataAwsIdentitystoreGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group aws_identitystore_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group aws_identitystore_group}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAwsIdentitystoreGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group aws_identitystore_group} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group aws_identitystore_group} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#identity_store_id DataAwsIdentitystoreGroup#identity_store_id}.
-        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#alternate_identifier DataAwsIdentitystoreGroup#alternate_identifier}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#filter DataAwsIdentitystoreGroup#filter}
-        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#group_id DataAwsIdentitystoreGroup#group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#identity_store_id DataAwsIdentitystoreGroup#identity_store_id}.
+        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#alternate_identifier DataAwsIdentitystoreGroup#alternate_identifier}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#filter DataAwsIdentitystoreGroup#filter}
+        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#group_id DataAwsIdentitystoreGroup#group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAwsIdentitystoreGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsIdentitystoreGroup to import.
-        :param import_from_id: The id of the existing DataAwsIdentitystoreGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsIdentitystoreGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsIdentitystoreGroup to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class DataAwsIdentitystoreGroup(
         unique_attribute: typing.Optional[typing.Union["DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#external_id DataAwsIdentitystoreGroup#external_id}
-        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#unique_attribute DataAwsIdentitystoreGroup#unique_attribute}
+        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#external_id DataAwsIdentitystoreGroup#external_id}
+        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#unique_attribute DataAwsIdentitystoreGroup#unique_attribute}
         '''
         value = DataAwsIdentitystoreGroupAlternateIdentifier(
             external_id=external_id, unique_attribute=unique_attribute
@@ -151,8 +151,8 @@ class DataAwsIdentitystoreGroup(
         attribute_value: builtins.str,
     ) -> None:
         '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
+        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
+        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
         '''
         value = DataAwsIdentitystoreGroupFilter(
             attribute_path=attribute_path, attribute_value=attribute_value
@@ -293,8 +293,8 @@ class DataAwsIdentitystoreGroupAlternateIdentifier:
         unique_attribute: typing.Optional[typing.Union["DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#external_id DataAwsIdentitystoreGroup#external_id}
-        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#unique_attribute DataAwsIdentitystoreGroup#unique_attribute}
+        :param external_id: external_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#external_id DataAwsIdentitystoreGroup#external_id}
+        :param unique_attribute: unique_attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#unique_attribute DataAwsIdentitystoreGroup#unique_attribute}
         '''
         if isinstance(external_id, dict):
             external_id = DataAwsIdentitystoreGroupAlternateIdentifierExternalId(**external_id)
@@ -316,7 +316,7 @@ class DataAwsIdentitystoreGroupAlternateIdentifier:
     ) -> typing.Optional["DataAwsIdentitystoreGroupAlternateIdentifierExternalId"]:
         '''external_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#external_id DataAwsIdentitystoreGroup#external_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#external_id DataAwsIdentitystoreGroup#external_id}
         '''
         result = self._values.get("external_id")
         return typing.cast(typing.Optional["DataAwsIdentitystoreGroupAlternateIdentifierExternalId"], result)
@@ -327,7 +327,7 @@ class DataAwsIdentitystoreGroupAlternateIdentifier:
     ) -> typing.Optional["DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute"]:
         '''unique_attribute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#unique_attribute DataAwsIdentitystoreGroup#unique_attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#unique_attribute DataAwsIdentitystoreGroup#unique_attribute}
         '''
         result = self._values.get("unique_attribute")
         return typing.cast(typing.Optional["DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute"], result)
@@ -352,8 +352,8 @@ class DataAwsIdentitystoreGroupAlternateIdentifier:
 class DataAwsIdentitystoreGroupAlternateIdentifierExternalId:
     def __init__(self, *, id: builtins.str, issuer: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#issuer DataAwsIdentitystoreGroup#issuer}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#issuer DataAwsIdentitystoreGroup#issuer}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ad1ca590e722333eaa809b09fcc5e472712d3070f2288897f7b3cfd6768e93f)
@@ -366,7 +366,7 @@ class DataAwsIdentitystoreGroupAlternateIdentifierExternalId:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -377,7 +377,7 @@ class DataAwsIdentitystoreGroupAlternateIdentifierExternalId:
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#issuer DataAwsIdentitystoreGroup#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#issuer DataAwsIdentitystoreGroup#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
@@ -489,8 +489,8 @@ class DataAwsIdentitystoreGroupAlternateIdentifierOutputReference(
     @jsii.member(jsii_name="putExternalId")
     def put_external_id(self, *, id: builtins.str, issuer: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#issuer DataAwsIdentitystoreGroup#issuer}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#issuer DataAwsIdentitystoreGroup#issuer}.
         '''
         value = DataAwsIdentitystoreGroupAlternateIdentifierExternalId(
             id=id, issuer=issuer
@@ -506,8 +506,8 @@ class DataAwsIdentitystoreGroupAlternateIdentifierOutputReference(
         attribute_value: builtins.str,
     ) -> None:
         '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
+        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
+        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
         '''
         value = DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute(
             attribute_path=attribute_path, attribute_value=attribute_value
@@ -585,8 +585,8 @@ class DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute:
         attribute_value: builtins.str,
     ) -> None:
         '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
+        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
+        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dd684750d5403ea2057ff21af7937ce5ea72a9b43e7a8b87c1aeb0c54aef0dd)
@@ -599,14 +599,14 @@ class DataAwsIdentitystoreGroupAlternateIdentifierUniqueAttribute:
 
     @builtins.property
     def attribute_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.'''
         result = self._values.get("attribute_path")
         assert result is not None, "Required property 'attribute_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attribute_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.'''
         result = self._values.get("attribute_value")
         assert result is not None, "Required property 'attribute_value' is missing"
         return typing.cast(builtins.str, result)
@@ -738,11 +738,11 @@ class DataAwsIdentitystoreGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#identity_store_id DataAwsIdentitystoreGroup#identity_store_id}.
-        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#alternate_identifier DataAwsIdentitystoreGroup#alternate_identifier}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#filter DataAwsIdentitystoreGroup#filter}
-        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#group_id DataAwsIdentitystoreGroup#group_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#identity_store_id DataAwsIdentitystoreGroup#identity_store_id}.
+        :param alternate_identifier: alternate_identifier block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#alternate_identifier DataAwsIdentitystoreGroup#alternate_identifier}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#filter DataAwsIdentitystoreGroup#filter}
+        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#group_id DataAwsIdentitystoreGroup#group_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -856,7 +856,7 @@ class DataAwsIdentitystoreGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def identity_store_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#identity_store_id DataAwsIdentitystoreGroup#identity_store_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#identity_store_id DataAwsIdentitystoreGroup#identity_store_id}.'''
         result = self._values.get("identity_store_id")
         assert result is not None, "Required property 'identity_store_id' is missing"
         return typing.cast(builtins.str, result)
@@ -867,7 +867,7 @@ class DataAwsIdentitystoreGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[DataAwsIdentitystoreGroupAlternateIdentifier]:
         '''alternate_identifier block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#alternate_identifier DataAwsIdentitystoreGroup#alternate_identifier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#alternate_identifier DataAwsIdentitystoreGroup#alternate_identifier}
         '''
         result = self._values.get("alternate_identifier")
         return typing.cast(typing.Optional[DataAwsIdentitystoreGroupAlternateIdentifier], result)
@@ -876,20 +876,20 @@ class DataAwsIdentitystoreGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["DataAwsIdentitystoreGroupFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#filter DataAwsIdentitystoreGroup#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#filter DataAwsIdentitystoreGroup#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["DataAwsIdentitystoreGroupFilter"], result)
 
     @builtins.property
     def group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#group_id DataAwsIdentitystoreGroup#group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#group_id DataAwsIdentitystoreGroup#group_id}.'''
         result = self._values.get("group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#id DataAwsIdentitystoreGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1074,8 +1074,8 @@ class DataAwsIdentitystoreGroupFilter:
         attribute_value: builtins.str,
     ) -> None:
         '''
-        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
-        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
+        :param attribute_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.
+        :param attribute_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__482585865be2c2baf91b7e2deb1f46db87e2dfe3a77938610dbbc437b38402a1)
@@ -1088,14 +1088,14 @@ class DataAwsIdentitystoreGroupFilter:
 
     @builtins.property
     def attribute_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_path DataAwsIdentitystoreGroup#attribute_path}.'''
         result = self._values.get("attribute_path")
         assert result is not None, "Required property 'attribute_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attribute_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/identitystore_group#attribute_value DataAwsIdentitystoreGroup#attribute_value}.'''
         result = self._values.get("attribute_value")
         assert result is not None, "Required property 'attribute_value' is missing"
         return typing.cast(builtins.str, result)

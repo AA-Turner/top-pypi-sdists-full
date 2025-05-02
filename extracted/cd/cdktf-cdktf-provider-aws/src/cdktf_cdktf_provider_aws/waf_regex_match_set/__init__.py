@@ -1,7 +1,7 @@
 r'''
 # `aws_waf_regex_match_set`
 
-Refer to the Terraform Registry for docs: [`aws_waf_regex_match_set`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set).
+Refer to the Terraform Registry for docs: [`aws_waf_regex_match_set`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WafRegexMatchSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafRegexMatchSet.WafRegexMatchSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set aws_waf_regex_match_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set aws_waf_regex_match_set}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class WafRegexMatchSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set aws_waf_regex_match_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set aws_waf_regex_match_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#name WafRegexMatchSet#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#id WafRegexMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param regex_match_tuple: regex_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#regex_match_tuple WafRegexMatchSet#regex_match_tuple}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#name WafRegexMatchSet#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#id WafRegexMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param regex_match_tuple: regex_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#regex_match_tuple WafRegexMatchSet#regex_match_tuple}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class WafRegexMatchSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WafRegexMatchSet to import.
-        :param import_from_id: The id of the existing WafRegexMatchSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WafRegexMatchSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WafRegexMatchSet to import is found.
         '''
         if __debug__:
@@ -245,9 +245,9 @@ class WafRegexMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#name WafRegexMatchSet#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#id WafRegexMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param regex_match_tuple: regex_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#regex_match_tuple WafRegexMatchSet#regex_match_tuple}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#name WafRegexMatchSet#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#id WafRegexMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param regex_match_tuple: regex_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#regex_match_tuple WafRegexMatchSet#regex_match_tuple}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -351,14 +351,14 @@ class WafRegexMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#name WafRegexMatchSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#name WafRegexMatchSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#id WafRegexMatchSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#id WafRegexMatchSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -372,7 +372,7 @@ class WafRegexMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafRegexMatchSetRegexMatchTuple"]]]:
         '''regex_match_tuple block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#regex_match_tuple WafRegexMatchSet#regex_match_tuple}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#regex_match_tuple WafRegexMatchSet#regex_match_tuple}
         '''
         result = self._values.get("regex_match_tuple")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafRegexMatchSetRegexMatchTuple"]]], result)
@@ -407,9 +407,9 @@ class WafRegexMatchSetRegexMatchTuple:
         text_transformation: builtins.str,
     ) -> None:
         '''
-        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#field_to_match WafRegexMatchSet#field_to_match}
-        :param regex_pattern_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#regex_pattern_set_id WafRegexMatchSet#regex_pattern_set_id}.
-        :param text_transformation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#text_transformation WafRegexMatchSet#text_transformation}.
+        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#field_to_match WafRegexMatchSet#field_to_match}
+        :param regex_pattern_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#regex_pattern_set_id WafRegexMatchSet#regex_pattern_set_id}.
+        :param text_transformation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#text_transformation WafRegexMatchSet#text_transformation}.
         '''
         if isinstance(field_to_match, dict):
             field_to_match = WafRegexMatchSetRegexMatchTupleFieldToMatch(**field_to_match)
@@ -428,7 +428,7 @@ class WafRegexMatchSetRegexMatchTuple:
     def field_to_match(self) -> "WafRegexMatchSetRegexMatchTupleFieldToMatch":
         '''field_to_match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#field_to_match WafRegexMatchSet#field_to_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#field_to_match WafRegexMatchSet#field_to_match}
         '''
         result = self._values.get("field_to_match")
         assert result is not None, "Required property 'field_to_match' is missing"
@@ -436,14 +436,14 @@ class WafRegexMatchSetRegexMatchTuple:
 
     @builtins.property
     def regex_pattern_set_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#regex_pattern_set_id WafRegexMatchSet#regex_pattern_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#regex_pattern_set_id WafRegexMatchSet#regex_pattern_set_id}.'''
         result = self._values.get("regex_pattern_set_id")
         assert result is not None, "Required property 'regex_pattern_set_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def text_transformation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#text_transformation WafRegexMatchSet#text_transformation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#text_transformation WafRegexMatchSet#text_transformation}.'''
         result = self._values.get("text_transformation")
         assert result is not None, "Required property 'text_transformation' is missing"
         return typing.cast(builtins.str, result)
@@ -473,8 +473,8 @@ class WafRegexMatchSetRegexMatchTupleFieldToMatch:
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#type WafRegexMatchSet#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#data WafRegexMatchSet#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#type WafRegexMatchSet#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#data WafRegexMatchSet#data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e6f5484fe8313dfb8502b27706c3b42dee0048dd8fd6c9dd3d3554161eefa67)
@@ -488,14 +488,14 @@ class WafRegexMatchSetRegexMatchTupleFieldToMatch:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#type WafRegexMatchSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#type WafRegexMatchSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#data WafRegexMatchSet#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#data WafRegexMatchSet#data}.'''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -714,8 +714,8 @@ class WafRegexMatchSetRegexMatchTupleOutputReference(
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#type WafRegexMatchSet#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_regex_match_set#data WafRegexMatchSet#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#type WafRegexMatchSet#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_regex_match_set#data WafRegexMatchSet#data}.
         '''
         value = WafRegexMatchSetRegexMatchTupleFieldToMatch(type=type, data=data)
 

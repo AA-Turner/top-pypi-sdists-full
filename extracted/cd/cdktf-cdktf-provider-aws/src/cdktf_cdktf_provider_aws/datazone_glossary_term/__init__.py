@@ -1,7 +1,7 @@
 r'''
 # `aws_datazone_glossary_term`
 
-Refer to the Terraform Registry for docs: [`aws_datazone_glossary_term`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term).
+Refer to the Terraform Registry for docs: [`aws_datazone_glossary_term`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatazoneGlossaryTerm(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datazoneGlossaryTerm.DatazoneGlossaryTerm",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term aws_datazone_glossary_term}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term aws_datazone_glossary_term}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DatazoneGlossaryTerm(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term aws_datazone_glossary_term} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term aws_datazone_glossary_term} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param glossary_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#glossary_identifier DatazoneGlossaryTerm#glossary_identifier}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#name DatazoneGlossaryTerm#name}.
-        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#domain_identifier DatazoneGlossaryTerm#domain_identifier}.
-        :param long_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#long_description DatazoneGlossaryTerm#long_description}.
-        :param short_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#short_description DatazoneGlossaryTerm#short_description}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#status DatazoneGlossaryTerm#status}.
-        :param term_relations: term_relations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#term_relations DatazoneGlossaryTerm#term_relations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#timeouts DatazoneGlossaryTerm#timeouts}
+        :param glossary_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#glossary_identifier DatazoneGlossaryTerm#glossary_identifier}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#name DatazoneGlossaryTerm#name}.
+        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#domain_identifier DatazoneGlossaryTerm#domain_identifier}.
+        :param long_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#long_description DatazoneGlossaryTerm#long_description}.
+        :param short_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#short_description DatazoneGlossaryTerm#short_description}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#status DatazoneGlossaryTerm#status}.
+        :param term_relations: term_relations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#term_relations DatazoneGlossaryTerm#term_relations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#timeouts DatazoneGlossaryTerm#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DatazoneGlossaryTerm(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatazoneGlossaryTerm to import.
-        :param import_from_id: The id of the existing DatazoneGlossaryTerm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatazoneGlossaryTerm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatazoneGlossaryTerm to import is found.
         '''
         if __debug__:
@@ -151,7 +151,7 @@ class DatazoneGlossaryTerm(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#create DatazoneGlossaryTerm#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#create DatazoneGlossaryTerm#create}
         '''
         value = DatazoneGlossaryTermTimeouts(create=create)
 
@@ -385,14 +385,14 @@ class DatazoneGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param glossary_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#glossary_identifier DatazoneGlossaryTerm#glossary_identifier}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#name DatazoneGlossaryTerm#name}.
-        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#domain_identifier DatazoneGlossaryTerm#domain_identifier}.
-        :param long_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#long_description DatazoneGlossaryTerm#long_description}.
-        :param short_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#short_description DatazoneGlossaryTerm#short_description}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#status DatazoneGlossaryTerm#status}.
-        :param term_relations: term_relations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#term_relations DatazoneGlossaryTerm#term_relations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#timeouts DatazoneGlossaryTerm#timeouts}
+        :param glossary_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#glossary_identifier DatazoneGlossaryTerm#glossary_identifier}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#name DatazoneGlossaryTerm#name}.
+        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#domain_identifier DatazoneGlossaryTerm#domain_identifier}.
+        :param long_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#long_description DatazoneGlossaryTerm#long_description}.
+        :param short_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#short_description DatazoneGlossaryTerm#short_description}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#status DatazoneGlossaryTerm#status}.
+        :param term_relations: term_relations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#term_relations DatazoneGlossaryTerm#term_relations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#timeouts DatazoneGlossaryTerm#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -512,39 +512,39 @@ class DatazoneGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def glossary_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#glossary_identifier DatazoneGlossaryTerm#glossary_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#glossary_identifier DatazoneGlossaryTerm#glossary_identifier}.'''
         result = self._values.get("glossary_identifier")
         assert result is not None, "Required property 'glossary_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#name DatazoneGlossaryTerm#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#name DatazoneGlossaryTerm#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#domain_identifier DatazoneGlossaryTerm#domain_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#domain_identifier DatazoneGlossaryTerm#domain_identifier}.'''
         result = self._values.get("domain_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def long_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#long_description DatazoneGlossaryTerm#long_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#long_description DatazoneGlossaryTerm#long_description}.'''
         result = self._values.get("long_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def short_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#short_description DatazoneGlossaryTerm#short_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#short_description DatazoneGlossaryTerm#short_description}.'''
         result = self._values.get("short_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#status DatazoneGlossaryTerm#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#status DatazoneGlossaryTerm#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -554,7 +554,7 @@ class DatazoneGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatazoneGlossaryTermTermRelations"]]]:
         '''term_relations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#term_relations DatazoneGlossaryTerm#term_relations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#term_relations DatazoneGlossaryTerm#term_relations}
         '''
         result = self._values.get("term_relations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatazoneGlossaryTermTermRelations"]]], result)
@@ -563,7 +563,7 @@ class DatazoneGlossaryTermConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatazoneGlossaryTermTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#timeouts DatazoneGlossaryTerm#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#timeouts DatazoneGlossaryTerm#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatazoneGlossaryTermTimeouts"], result)
@@ -593,8 +593,8 @@ class DatazoneGlossaryTermTermRelations:
         is_a: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param classifies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#classifies DatazoneGlossaryTerm#classifies}.
-        :param is_a: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#is_a DatazoneGlossaryTerm#is_a}.
+        :param classifies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#classifies DatazoneGlossaryTerm#classifies}.
+        :param is_a: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#is_a DatazoneGlossaryTerm#is_a}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab84085ff195a9a441e7df08f8d5428f49745a0019d6f158817bee9a399c0ee6)
@@ -608,13 +608,13 @@ class DatazoneGlossaryTermTermRelations:
 
     @builtins.property
     def classifies(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#classifies DatazoneGlossaryTerm#classifies}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#classifies DatazoneGlossaryTerm#classifies}.'''
         result = self._values.get("classifies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def is_a(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#is_a DatazoneGlossaryTerm#is_a}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#is_a DatazoneGlossaryTerm#is_a}.'''
         result = self._values.get("is_a")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -817,7 +817,7 @@ class DatazoneGlossaryTermTermRelationsOutputReference(
 class DatazoneGlossaryTermTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#create DatazoneGlossaryTerm#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#create DatazoneGlossaryTerm#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92359ce1ee1ee162ddc91afeaa4e70dd3144a1aa92eb9c96c7c08c7dce5daa4f)
@@ -830,7 +830,7 @@ class DatazoneGlossaryTermTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_glossary_term#create DatazoneGlossaryTerm#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_glossary_term#create DatazoneGlossaryTerm#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

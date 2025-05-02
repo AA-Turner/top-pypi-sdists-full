@@ -237,6 +237,7 @@ def cloud_config_group() -> None:
 @cloud_cli.command(
     name="update",
     help=(
+        # TODO(janet): Update this help text when the -o option is un-hidden.
         "Update a managed cloud to the latest configuration. Only applicable for anyscale managed clouds."
     ),
 )
@@ -275,7 +276,14 @@ def cloud_config_group() -> None:
         "are manually granted permissions to access the cloud. No existing cloud permissions are altered by specifying this flag."
     ),
 )
-def cloud_update(
+@click.option(
+    "--file",
+    "-f",
+    help="YAML file containing the updated cloud spec.",
+    required=False,
+    hidden=True,
+)
+def cloud_update(  # noqa: PLR0913
     cloud_name: Optional[str],
     name: Optional[str],
     cloud_id: Optional[str],
@@ -283,7 +291,12 @@ def cloud_update(
     enable_head_node_fault_tolerance: bool,
     yes: bool,
     enable_auto_add_user: Optional[bool],
+    file: Optional[str],
 ) -> None:
+    if file:
+        CloudController().update_cloud_deployments(file)
+        return
+
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
             "The positional argument CLOUD_NAME and the keyword argument --name "
@@ -1142,9 +1155,7 @@ def get_cloud(
 
         if output:
             # Include all cloud deployments for the cloud.
-            result = CloudController().get_cloud_deployments(
-                cloud_id=cloud.id, cloud_name=cloud.name
-            )
+            result = CloudController().get_cloud_deployments(cloud_id=cloud.id)
 
             with open(output, "w") as f:
                 yaml.dump(result, f, sort_keys=False)

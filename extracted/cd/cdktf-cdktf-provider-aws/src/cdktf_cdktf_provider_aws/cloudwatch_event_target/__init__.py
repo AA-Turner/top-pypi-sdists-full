@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudwatch_event_target`
 
-Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_target`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target).
+Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_target`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudwatchEventTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudwatchEventTarget.CloudwatchEventTarget",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target aws_cloudwatch_event_target}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target aws_cloudwatch_event_target}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class CloudwatchEventTarget(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target aws_cloudwatch_event_target} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target aws_cloudwatch_event_target} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#rule CloudwatchEventTarget#rule}.
-        :param appsync_target: appsync_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#appsync_target CloudwatchEventTarget#appsync_target}
-        :param batch_target: batch_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#batch_target CloudwatchEventTarget#batch_target}
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#dead_letter_config CloudwatchEventTarget#dead_letter_config}
-        :param ecs_target: ecs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#ecs_target CloudwatchEventTarget#ecs_target}
-        :param event_bus_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#event_bus_name CloudwatchEventTarget#event_bus_name}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#force_destroy CloudwatchEventTarget#force_destroy}.
-        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#http_target CloudwatchEventTarget#http_target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#id CloudwatchEventTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input CloudwatchEventTarget#input}.
-        :param input_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_path CloudwatchEventTarget#input_path}.
-        :param input_transformer: input_transformer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_transformer CloudwatchEventTarget#input_transformer}
-        :param kinesis_target: kinesis_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#kinesis_target CloudwatchEventTarget#kinesis_target}
-        :param redshift_target: redshift_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#redshift_target CloudwatchEventTarget#redshift_target}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#retry_policy CloudwatchEventTarget#retry_policy}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#role_arn CloudwatchEventTarget#role_arn}.
-        :param run_command_targets: run_command_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#run_command_targets CloudwatchEventTarget#run_command_targets}
-        :param sagemaker_pipeline_target: sagemaker_pipeline_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sagemaker_pipeline_target CloudwatchEventTarget#sagemaker_pipeline_target}
-        :param sqs_target: sqs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sqs_target CloudwatchEventTarget#sqs_target}
-        :param target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#target_id CloudwatchEventTarget#target_id}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#rule CloudwatchEventTarget#rule}.
+        :param appsync_target: appsync_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#appsync_target CloudwatchEventTarget#appsync_target}
+        :param batch_target: batch_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#batch_target CloudwatchEventTarget#batch_target}
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#dead_letter_config CloudwatchEventTarget#dead_letter_config}
+        :param ecs_target: ecs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#ecs_target CloudwatchEventTarget#ecs_target}
+        :param event_bus_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#event_bus_name CloudwatchEventTarget#event_bus_name}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#force_destroy CloudwatchEventTarget#force_destroy}.
+        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#http_target CloudwatchEventTarget#http_target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#id CloudwatchEventTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input CloudwatchEventTarget#input}.
+        :param input_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_path CloudwatchEventTarget#input_path}.
+        :param input_transformer: input_transformer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_transformer CloudwatchEventTarget#input_transformer}
+        :param kinesis_target: kinesis_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#kinesis_target CloudwatchEventTarget#kinesis_target}
+        :param redshift_target: redshift_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#redshift_target CloudwatchEventTarget#redshift_target}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#retry_policy CloudwatchEventTarget#retry_policy}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#role_arn CloudwatchEventTarget#role_arn}.
+        :param run_command_targets: run_command_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#run_command_targets CloudwatchEventTarget#run_command_targets}
+        :param sagemaker_pipeline_target: sagemaker_pipeline_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sagemaker_pipeline_target CloudwatchEventTarget#sagemaker_pipeline_target}
+        :param sqs_target: sqs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sqs_target CloudwatchEventTarget#sqs_target}
+        :param target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#target_id CloudwatchEventTarget#target_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class CloudwatchEventTarget(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudwatchEventTarget to import.
-        :param import_from_id: The id of the existing CloudwatchEventTarget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudwatchEventTarget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudwatchEventTarget to import is found.
         '''
         if __debug__:
@@ -181,7 +181,7 @@ class CloudwatchEventTarget(
         graphql_operation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param graphql_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#graphql_operation CloudwatchEventTarget#graphql_operation}.
+        :param graphql_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#graphql_operation CloudwatchEventTarget#graphql_operation}.
         '''
         value = CloudwatchEventTargetAppsyncTarget(graphql_operation=graphql_operation)
 
@@ -197,10 +197,10 @@ class CloudwatchEventTarget(
         job_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_definition CloudwatchEventTarget#job_definition}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_name CloudwatchEventTarget#job_name}.
-        :param array_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#array_size CloudwatchEventTarget#array_size}.
-        :param job_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_attempts CloudwatchEventTarget#job_attempts}.
+        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_definition CloudwatchEventTarget#job_definition}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_name CloudwatchEventTarget#job_name}.
+        :param array_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#array_size CloudwatchEventTarget#array_size}.
+        :param job_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_attempts CloudwatchEventTarget#job_attempts}.
         '''
         value = CloudwatchEventTargetBatchTarget(
             job_definition=job_definition,
@@ -218,7 +218,7 @@ class CloudwatchEventTarget(
         arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
         '''
         value = CloudwatchEventTargetDeadLetterConfig(arn=arn)
 
@@ -243,19 +243,19 @@ class CloudwatchEventTarget(
         task_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#task_definition_arn CloudwatchEventTarget#task_definition_arn}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#capacity_provider_strategy CloudwatchEventTarget#capacity_provider_strategy}
-        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#enable_ecs_managed_tags CloudwatchEventTarget#enable_ecs_managed_tags}.
-        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#enable_execute_command CloudwatchEventTarget#enable_execute_command}.
-        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#group CloudwatchEventTarget#group}.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#launch_type CloudwatchEventTarget#launch_type}.
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#network_configuration CloudwatchEventTarget#network_configuration}
-        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#ordered_placement_strategy CloudwatchEventTarget#ordered_placement_strategy}
-        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#placement_constraint CloudwatchEventTarget#placement_constraint}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#platform_version CloudwatchEventTarget#platform_version}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#propagate_tags CloudwatchEventTarget#propagate_tags}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#tags CloudwatchEventTarget#tags}.
-        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#task_count CloudwatchEventTarget#task_count}.
+        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#task_definition_arn CloudwatchEventTarget#task_definition_arn}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#capacity_provider_strategy CloudwatchEventTarget#capacity_provider_strategy}
+        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#enable_ecs_managed_tags CloudwatchEventTarget#enable_ecs_managed_tags}.
+        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#enable_execute_command CloudwatchEventTarget#enable_execute_command}.
+        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#group CloudwatchEventTarget#group}.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#launch_type CloudwatchEventTarget#launch_type}.
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#network_configuration CloudwatchEventTarget#network_configuration}
+        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#ordered_placement_strategy CloudwatchEventTarget#ordered_placement_strategy}
+        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#placement_constraint CloudwatchEventTarget#placement_constraint}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#platform_version CloudwatchEventTarget#platform_version}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#propagate_tags CloudwatchEventTarget#propagate_tags}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#tags CloudwatchEventTarget#tags}.
+        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#task_count CloudwatchEventTarget#task_count}.
         '''
         value = CloudwatchEventTargetEcsTarget(
             task_definition_arn=task_definition_arn,
@@ -284,9 +284,9 @@ class CloudwatchEventTarget(
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#header_parameters CloudwatchEventTarget#header_parameters}.
-        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#path_parameter_values CloudwatchEventTarget#path_parameter_values}.
-        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#query_string_parameters CloudwatchEventTarget#query_string_parameters}.
+        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#header_parameters CloudwatchEventTarget#header_parameters}.
+        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#path_parameter_values CloudwatchEventTarget#path_parameter_values}.
+        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#query_string_parameters CloudwatchEventTarget#query_string_parameters}.
         '''
         value = CloudwatchEventTargetHttpTarget(
             header_parameters=header_parameters,
@@ -304,8 +304,8 @@ class CloudwatchEventTarget(
         input_paths: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_template CloudwatchEventTarget#input_template}.
-        :param input_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_paths CloudwatchEventTarget#input_paths}.
+        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_template CloudwatchEventTarget#input_template}.
+        :param input_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_paths CloudwatchEventTarget#input_paths}.
         '''
         value = CloudwatchEventTargetInputTransformer(
             input_template=input_template, input_paths=input_paths
@@ -320,7 +320,7 @@ class CloudwatchEventTarget(
         partition_key_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param partition_key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#partition_key_path CloudwatchEventTarget#partition_key_path}.
+        :param partition_key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#partition_key_path CloudwatchEventTarget#partition_key_path}.
         '''
         value = CloudwatchEventTargetKinesisTarget(
             partition_key_path=partition_key_path
@@ -340,12 +340,12 @@ class CloudwatchEventTarget(
         with_event: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#database CloudwatchEventTarget#database}.
-        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#db_user CloudwatchEventTarget#db_user}.
-        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#secrets_manager_arn CloudwatchEventTarget#secrets_manager_arn}.
-        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sql CloudwatchEventTarget#sql}.
-        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#statement_name CloudwatchEventTarget#statement_name}.
-        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#with_event CloudwatchEventTarget#with_event}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#database CloudwatchEventTarget#database}.
+        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#db_user CloudwatchEventTarget#db_user}.
+        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#secrets_manager_arn CloudwatchEventTarget#secrets_manager_arn}.
+        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sql CloudwatchEventTarget#sql}.
+        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#statement_name CloudwatchEventTarget#statement_name}.
+        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#with_event CloudwatchEventTarget#with_event}.
         '''
         value = CloudwatchEventTargetRedshiftTarget(
             database=database,
@@ -366,8 +366,8 @@ class CloudwatchEventTarget(
         maximum_retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_event_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#maximum_event_age_in_seconds CloudwatchEventTarget#maximum_event_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#maximum_retry_attempts CloudwatchEventTarget#maximum_retry_attempts}.
+        :param maximum_event_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#maximum_event_age_in_seconds CloudwatchEventTarget#maximum_event_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#maximum_retry_attempts CloudwatchEventTarget#maximum_retry_attempts}.
         '''
         value = CloudwatchEventTargetRetryPolicy(
             maximum_event_age_in_seconds=maximum_event_age_in_seconds,
@@ -396,7 +396,7 @@ class CloudwatchEventTarget(
         pipeline_parameter_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudwatchEventTargetSagemakerPipelineTargetPipelineParameterListStruct", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param pipeline_parameter_list: pipeline_parameter_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#pipeline_parameter_list CloudwatchEventTarget#pipeline_parameter_list}
+        :param pipeline_parameter_list: pipeline_parameter_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#pipeline_parameter_list CloudwatchEventTarget#pipeline_parameter_list}
         '''
         value = CloudwatchEventTargetSagemakerPipelineTarget(
             pipeline_parameter_list=pipeline_parameter_list
@@ -411,7 +411,7 @@ class CloudwatchEventTarget(
         message_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#message_group_id CloudwatchEventTarget#message_group_id}.
+        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#message_group_id CloudwatchEventTarget#message_group_id}.
         '''
         value = CloudwatchEventTargetSqsTarget(message_group_id=message_group_id)
 
@@ -817,7 +817,7 @@ class CloudwatchEventTargetAppsyncTarget:
         graphql_operation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param graphql_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#graphql_operation CloudwatchEventTarget#graphql_operation}.
+        :param graphql_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#graphql_operation CloudwatchEventTarget#graphql_operation}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d03cdb3015ee432707e2fdc3e88ecaa125b23edff328d62a4c149a044eef86b)
@@ -828,7 +828,7 @@ class CloudwatchEventTargetAppsyncTarget:
 
     @builtins.property
     def graphql_operation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#graphql_operation CloudwatchEventTarget#graphql_operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#graphql_operation CloudwatchEventTarget#graphql_operation}.'''
         result = self._values.get("graphql_operation")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -921,10 +921,10 @@ class CloudwatchEventTargetBatchTarget:
         job_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_definition CloudwatchEventTarget#job_definition}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_name CloudwatchEventTarget#job_name}.
-        :param array_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#array_size CloudwatchEventTarget#array_size}.
-        :param job_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_attempts CloudwatchEventTarget#job_attempts}.
+        :param job_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_definition CloudwatchEventTarget#job_definition}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_name CloudwatchEventTarget#job_name}.
+        :param array_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#array_size CloudwatchEventTarget#array_size}.
+        :param job_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_attempts CloudwatchEventTarget#job_attempts}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__232664fb52aa006fd30ffe9f407eed61cd855037b72c22caf70ec96e57bcd686)
@@ -943,27 +943,27 @@ class CloudwatchEventTargetBatchTarget:
 
     @builtins.property
     def job_definition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_definition CloudwatchEventTarget#job_definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_definition CloudwatchEventTarget#job_definition}.'''
         result = self._values.get("job_definition")
         assert result is not None, "Required property 'job_definition' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def job_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_name CloudwatchEventTarget#job_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_name CloudwatchEventTarget#job_name}.'''
         result = self._values.get("job_name")
         assert result is not None, "Required property 'job_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def array_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#array_size CloudwatchEventTarget#array_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#array_size CloudwatchEventTarget#array_size}.'''
         result = self._values.get("array_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def job_attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#job_attempts CloudwatchEventTarget#job_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#job_attempts CloudwatchEventTarget#job_attempts}.'''
         result = self._values.get("job_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1166,27 +1166,27 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#rule CloudwatchEventTarget#rule}.
-        :param appsync_target: appsync_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#appsync_target CloudwatchEventTarget#appsync_target}
-        :param batch_target: batch_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#batch_target CloudwatchEventTarget#batch_target}
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#dead_letter_config CloudwatchEventTarget#dead_letter_config}
-        :param ecs_target: ecs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#ecs_target CloudwatchEventTarget#ecs_target}
-        :param event_bus_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#event_bus_name CloudwatchEventTarget#event_bus_name}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#force_destroy CloudwatchEventTarget#force_destroy}.
-        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#http_target CloudwatchEventTarget#http_target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#id CloudwatchEventTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input CloudwatchEventTarget#input}.
-        :param input_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_path CloudwatchEventTarget#input_path}.
-        :param input_transformer: input_transformer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_transformer CloudwatchEventTarget#input_transformer}
-        :param kinesis_target: kinesis_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#kinesis_target CloudwatchEventTarget#kinesis_target}
-        :param redshift_target: redshift_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#redshift_target CloudwatchEventTarget#redshift_target}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#retry_policy CloudwatchEventTarget#retry_policy}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#role_arn CloudwatchEventTarget#role_arn}.
-        :param run_command_targets: run_command_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#run_command_targets CloudwatchEventTarget#run_command_targets}
-        :param sagemaker_pipeline_target: sagemaker_pipeline_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sagemaker_pipeline_target CloudwatchEventTarget#sagemaker_pipeline_target}
-        :param sqs_target: sqs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sqs_target CloudwatchEventTarget#sqs_target}
-        :param target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#target_id CloudwatchEventTarget#target_id}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#rule CloudwatchEventTarget#rule}.
+        :param appsync_target: appsync_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#appsync_target CloudwatchEventTarget#appsync_target}
+        :param batch_target: batch_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#batch_target CloudwatchEventTarget#batch_target}
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#dead_letter_config CloudwatchEventTarget#dead_letter_config}
+        :param ecs_target: ecs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#ecs_target CloudwatchEventTarget#ecs_target}
+        :param event_bus_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#event_bus_name CloudwatchEventTarget#event_bus_name}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#force_destroy CloudwatchEventTarget#force_destroy}.
+        :param http_target: http_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#http_target CloudwatchEventTarget#http_target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#id CloudwatchEventTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input CloudwatchEventTarget#input}.
+        :param input_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_path CloudwatchEventTarget#input_path}.
+        :param input_transformer: input_transformer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_transformer CloudwatchEventTarget#input_transformer}
+        :param kinesis_target: kinesis_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#kinesis_target CloudwatchEventTarget#kinesis_target}
+        :param redshift_target: redshift_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#redshift_target CloudwatchEventTarget#redshift_target}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#retry_policy CloudwatchEventTarget#retry_policy}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#role_arn CloudwatchEventTarget#role_arn}.
+        :param run_command_targets: run_command_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#run_command_targets CloudwatchEventTarget#run_command_targets}
+        :param sagemaker_pipeline_target: sagemaker_pipeline_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sagemaker_pipeline_target CloudwatchEventTarget#sagemaker_pipeline_target}
+        :param sqs_target: sqs_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sqs_target CloudwatchEventTarget#sqs_target}
+        :param target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#target_id CloudwatchEventTarget#target_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1365,14 +1365,14 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#rule CloudwatchEventTarget#rule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#rule CloudwatchEventTarget#rule}.'''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
         return typing.cast(builtins.str, result)
@@ -1381,7 +1381,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def appsync_target(self) -> typing.Optional[CloudwatchEventTargetAppsyncTarget]:
         '''appsync_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#appsync_target CloudwatchEventTarget#appsync_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#appsync_target CloudwatchEventTarget#appsync_target}
         '''
         result = self._values.get("appsync_target")
         return typing.cast(typing.Optional[CloudwatchEventTargetAppsyncTarget], result)
@@ -1390,7 +1390,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def batch_target(self) -> typing.Optional[CloudwatchEventTargetBatchTarget]:
         '''batch_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#batch_target CloudwatchEventTarget#batch_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#batch_target CloudwatchEventTarget#batch_target}
         '''
         result = self._values.get("batch_target")
         return typing.cast(typing.Optional[CloudwatchEventTargetBatchTarget], result)
@@ -1401,7 +1401,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudwatchEventTargetDeadLetterConfig"]:
         '''dead_letter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#dead_letter_config CloudwatchEventTarget#dead_letter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#dead_letter_config CloudwatchEventTarget#dead_letter_config}
         '''
         result = self._values.get("dead_letter_config")
         return typing.cast(typing.Optional["CloudwatchEventTargetDeadLetterConfig"], result)
@@ -1410,14 +1410,14 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ecs_target(self) -> typing.Optional["CloudwatchEventTargetEcsTarget"]:
         '''ecs_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#ecs_target CloudwatchEventTarget#ecs_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#ecs_target CloudwatchEventTarget#ecs_target}
         '''
         result = self._values.get("ecs_target")
         return typing.cast(typing.Optional["CloudwatchEventTargetEcsTarget"], result)
 
     @builtins.property
     def event_bus_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#event_bus_name CloudwatchEventTarget#event_bus_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#event_bus_name CloudwatchEventTarget#event_bus_name}.'''
         result = self._values.get("event_bus_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1425,7 +1425,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#force_destroy CloudwatchEventTarget#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#force_destroy CloudwatchEventTarget#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1433,14 +1433,14 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_target(self) -> typing.Optional["CloudwatchEventTargetHttpTarget"]:
         '''http_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#http_target CloudwatchEventTarget#http_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#http_target CloudwatchEventTarget#http_target}
         '''
         result = self._values.get("http_target")
         return typing.cast(typing.Optional["CloudwatchEventTargetHttpTarget"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#id CloudwatchEventTarget#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#id CloudwatchEventTarget#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1450,13 +1450,13 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def input(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input CloudwatchEventTarget#input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input CloudwatchEventTarget#input}.'''
         result = self._values.get("input")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def input_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_path CloudwatchEventTarget#input_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_path CloudwatchEventTarget#input_path}.'''
         result = self._values.get("input_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1466,7 +1466,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudwatchEventTargetInputTransformer"]:
         '''input_transformer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_transformer CloudwatchEventTarget#input_transformer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_transformer CloudwatchEventTarget#input_transformer}
         '''
         result = self._values.get("input_transformer")
         return typing.cast(typing.Optional["CloudwatchEventTargetInputTransformer"], result)
@@ -1475,7 +1475,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kinesis_target(self) -> typing.Optional["CloudwatchEventTargetKinesisTarget"]:
         '''kinesis_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#kinesis_target CloudwatchEventTarget#kinesis_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#kinesis_target CloudwatchEventTarget#kinesis_target}
         '''
         result = self._values.get("kinesis_target")
         return typing.cast(typing.Optional["CloudwatchEventTargetKinesisTarget"], result)
@@ -1484,7 +1484,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redshift_target(self) -> typing.Optional["CloudwatchEventTargetRedshiftTarget"]:
         '''redshift_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#redshift_target CloudwatchEventTarget#redshift_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#redshift_target CloudwatchEventTarget#redshift_target}
         '''
         result = self._values.get("redshift_target")
         return typing.cast(typing.Optional["CloudwatchEventTargetRedshiftTarget"], result)
@@ -1493,14 +1493,14 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retry_policy(self) -> typing.Optional["CloudwatchEventTargetRetryPolicy"]:
         '''retry_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#retry_policy CloudwatchEventTarget#retry_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#retry_policy CloudwatchEventTarget#retry_policy}
         '''
         result = self._values.get("retry_policy")
         return typing.cast(typing.Optional["CloudwatchEventTargetRetryPolicy"], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#role_arn CloudwatchEventTarget#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#role_arn CloudwatchEventTarget#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1510,7 +1510,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetRunCommandTargets"]]]:
         '''run_command_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#run_command_targets CloudwatchEventTarget#run_command_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#run_command_targets CloudwatchEventTarget#run_command_targets}
         '''
         result = self._values.get("run_command_targets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetRunCommandTargets"]]], result)
@@ -1521,7 +1521,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudwatchEventTargetSagemakerPipelineTarget"]:
         '''sagemaker_pipeline_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sagemaker_pipeline_target CloudwatchEventTarget#sagemaker_pipeline_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sagemaker_pipeline_target CloudwatchEventTarget#sagemaker_pipeline_target}
         '''
         result = self._values.get("sagemaker_pipeline_target")
         return typing.cast(typing.Optional["CloudwatchEventTargetSagemakerPipelineTarget"], result)
@@ -1530,14 +1530,14 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sqs_target(self) -> typing.Optional["CloudwatchEventTargetSqsTarget"]:
         '''sqs_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sqs_target CloudwatchEventTarget#sqs_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sqs_target CloudwatchEventTarget#sqs_target}
         '''
         result = self._values.get("sqs_target")
         return typing.cast(typing.Optional["CloudwatchEventTargetSqsTarget"], result)
 
     @builtins.property
     def target_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#target_id CloudwatchEventTarget#target_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#target_id CloudwatchEventTarget#target_id}.'''
         result = self._values.get("target_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1561,7 +1561,7 @@ class CloudwatchEventTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CloudwatchEventTargetDeadLetterConfig:
     def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e554b11c2ad1b3404cd7fad7580cb3ee13da779462f549996f191c2c7be87ed6)
@@ -1572,7 +1572,7 @@ class CloudwatchEventTargetDeadLetterConfig:
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#arn CloudwatchEventTarget#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1683,19 +1683,19 @@ class CloudwatchEventTargetEcsTarget:
         task_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#task_definition_arn CloudwatchEventTarget#task_definition_arn}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#capacity_provider_strategy CloudwatchEventTarget#capacity_provider_strategy}
-        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#enable_ecs_managed_tags CloudwatchEventTarget#enable_ecs_managed_tags}.
-        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#enable_execute_command CloudwatchEventTarget#enable_execute_command}.
-        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#group CloudwatchEventTarget#group}.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#launch_type CloudwatchEventTarget#launch_type}.
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#network_configuration CloudwatchEventTarget#network_configuration}
-        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#ordered_placement_strategy CloudwatchEventTarget#ordered_placement_strategy}
-        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#placement_constraint CloudwatchEventTarget#placement_constraint}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#platform_version CloudwatchEventTarget#platform_version}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#propagate_tags CloudwatchEventTarget#propagate_tags}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#tags CloudwatchEventTarget#tags}.
-        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#task_count CloudwatchEventTarget#task_count}.
+        :param task_definition_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#task_definition_arn CloudwatchEventTarget#task_definition_arn}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#capacity_provider_strategy CloudwatchEventTarget#capacity_provider_strategy}
+        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#enable_ecs_managed_tags CloudwatchEventTarget#enable_ecs_managed_tags}.
+        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#enable_execute_command CloudwatchEventTarget#enable_execute_command}.
+        :param group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#group CloudwatchEventTarget#group}.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#launch_type CloudwatchEventTarget#launch_type}.
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#network_configuration CloudwatchEventTarget#network_configuration}
+        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#ordered_placement_strategy CloudwatchEventTarget#ordered_placement_strategy}
+        :param placement_constraint: placement_constraint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#placement_constraint CloudwatchEventTarget#placement_constraint}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#platform_version CloudwatchEventTarget#platform_version}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#propagate_tags CloudwatchEventTarget#propagate_tags}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#tags CloudwatchEventTarget#tags}.
+        :param task_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#task_count CloudwatchEventTarget#task_count}.
         '''
         if isinstance(network_configuration, dict):
             network_configuration = CloudwatchEventTargetEcsTargetNetworkConfiguration(**network_configuration)
@@ -1744,7 +1744,7 @@ class CloudwatchEventTargetEcsTarget:
 
     @builtins.property
     def task_definition_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#task_definition_arn CloudwatchEventTarget#task_definition_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#task_definition_arn CloudwatchEventTarget#task_definition_arn}.'''
         result = self._values.get("task_definition_arn")
         assert result is not None, "Required property 'task_definition_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1755,7 +1755,7 @@ class CloudwatchEventTargetEcsTarget:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetEcsTargetCapacityProviderStrategy"]]]:
         '''capacity_provider_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#capacity_provider_strategy CloudwatchEventTarget#capacity_provider_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#capacity_provider_strategy CloudwatchEventTarget#capacity_provider_strategy}
         '''
         result = self._values.get("capacity_provider_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetEcsTargetCapacityProviderStrategy"]]], result)
@@ -1764,7 +1764,7 @@ class CloudwatchEventTargetEcsTarget:
     def enable_ecs_managed_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#enable_ecs_managed_tags CloudwatchEventTarget#enable_ecs_managed_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#enable_ecs_managed_tags CloudwatchEventTarget#enable_ecs_managed_tags}.'''
         result = self._values.get("enable_ecs_managed_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1772,19 +1772,19 @@ class CloudwatchEventTargetEcsTarget:
     def enable_execute_command(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#enable_execute_command CloudwatchEventTarget#enable_execute_command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#enable_execute_command CloudwatchEventTarget#enable_execute_command}.'''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#group CloudwatchEventTarget#group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#group CloudwatchEventTarget#group}.'''
         result = self._values.get("group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def launch_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#launch_type CloudwatchEventTarget#launch_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#launch_type CloudwatchEventTarget#launch_type}.'''
         result = self._values.get("launch_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1794,7 +1794,7 @@ class CloudwatchEventTargetEcsTarget:
     ) -> typing.Optional["CloudwatchEventTargetEcsTargetNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#network_configuration CloudwatchEventTarget#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#network_configuration CloudwatchEventTarget#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["CloudwatchEventTargetEcsTargetNetworkConfiguration"], result)
@@ -1805,7 +1805,7 @@ class CloudwatchEventTargetEcsTarget:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetEcsTargetOrderedPlacementStrategy"]]]:
         '''ordered_placement_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#ordered_placement_strategy CloudwatchEventTarget#ordered_placement_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#ordered_placement_strategy CloudwatchEventTarget#ordered_placement_strategy}
         '''
         result = self._values.get("ordered_placement_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetEcsTargetOrderedPlacementStrategy"]]], result)
@@ -1816,32 +1816,32 @@ class CloudwatchEventTargetEcsTarget:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetEcsTargetPlacementConstraint"]]]:
         '''placement_constraint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#placement_constraint CloudwatchEventTarget#placement_constraint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#placement_constraint CloudwatchEventTarget#placement_constraint}
         '''
         result = self._values.get("placement_constraint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetEcsTargetPlacementConstraint"]]], result)
 
     @builtins.property
     def platform_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#platform_version CloudwatchEventTarget#platform_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#platform_version CloudwatchEventTarget#platform_version}.'''
         result = self._values.get("platform_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def propagate_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#propagate_tags CloudwatchEventTarget#propagate_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#propagate_tags CloudwatchEventTarget#propagate_tags}.'''
         result = self._values.get("propagate_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#tags CloudwatchEventTarget#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#tags CloudwatchEventTarget#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def task_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#task_count CloudwatchEventTarget#task_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#task_count CloudwatchEventTarget#task_count}.'''
         result = self._values.get("task_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1875,9 +1875,9 @@ class CloudwatchEventTargetEcsTargetCapacityProviderStrategy:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#capacity_provider CloudwatchEventTarget#capacity_provider}.
-        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#base CloudwatchEventTarget#base}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#weight CloudwatchEventTarget#weight}.
+        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#capacity_provider CloudwatchEventTarget#capacity_provider}.
+        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#base CloudwatchEventTarget#base}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#weight CloudwatchEventTarget#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9a7467ad706ce2596f42e260238b5776495d9f6ef38d97a947b1fc71f036139)
@@ -1894,20 +1894,20 @@ class CloudwatchEventTargetEcsTargetCapacityProviderStrategy:
 
     @builtins.property
     def capacity_provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#capacity_provider CloudwatchEventTarget#capacity_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#capacity_provider CloudwatchEventTarget#capacity_provider}.'''
         result = self._values.get("capacity_provider")
         assert result is not None, "Required property 'capacity_provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def base(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#base CloudwatchEventTarget#base}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#base CloudwatchEventTarget#base}.'''
         result = self._values.get("base")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#weight CloudwatchEventTarget#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#weight CloudwatchEventTarget#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2137,9 +2137,9 @@ class CloudwatchEventTargetEcsTargetNetworkConfiguration:
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#subnets CloudwatchEventTarget#subnets}.
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#assign_public_ip CloudwatchEventTarget#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#security_groups CloudwatchEventTarget#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#subnets CloudwatchEventTarget#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#assign_public_ip CloudwatchEventTarget#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#security_groups CloudwatchEventTarget#security_groups}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__baa3d5bb7adecf8d5229445617d612020bb0ea0282ca2a8b2ccfb01f16d93708)
@@ -2156,7 +2156,7 @@ class CloudwatchEventTargetEcsTargetNetworkConfiguration:
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#subnets CloudwatchEventTarget#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#subnets CloudwatchEventTarget#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2165,13 +2165,13 @@ class CloudwatchEventTargetEcsTargetNetworkConfiguration:
     def assign_public_ip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#assign_public_ip CloudwatchEventTarget#assign_public_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#assign_public_ip CloudwatchEventTarget#assign_public_ip}.'''
         result = self._values.get("assign_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#security_groups CloudwatchEventTarget#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#security_groups CloudwatchEventTarget#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2304,8 +2304,8 @@ class CloudwatchEventTargetEcsTargetOrderedPlacementStrategy:
         field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#field CloudwatchEventTarget#field}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#field CloudwatchEventTarget#field}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25005e83c7b5c437cdfb53cdd026dc139af57b01df2c1162c326f9b6877d8a2a)
@@ -2319,14 +2319,14 @@ class CloudwatchEventTargetEcsTargetOrderedPlacementStrategy:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#field CloudwatchEventTarget#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#field CloudwatchEventTarget#field}.'''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2559,9 +2559,9 @@ class CloudwatchEventTargetEcsTargetOutputReference(
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#subnets CloudwatchEventTarget#subnets}.
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#assign_public_ip CloudwatchEventTarget#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#security_groups CloudwatchEventTarget#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#subnets CloudwatchEventTarget#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#assign_public_ip CloudwatchEventTarget#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#security_groups CloudwatchEventTarget#security_groups}.
         '''
         value = CloudwatchEventTargetEcsTargetNetworkConfiguration(
             subnets=subnets,
@@ -2897,8 +2897,8 @@ class CloudwatchEventTargetEcsTargetPlacementConstraint:
         expression: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#expression CloudwatchEventTarget#expression}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#expression CloudwatchEventTarget#expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d87d1ee6b12364fef980ea5fe16cfba57e1836c034d24e6e5082af4ea727b1e)
@@ -2912,14 +2912,14 @@ class CloudwatchEventTargetEcsTargetPlacementConstraint:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#type CloudwatchEventTarget#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#expression CloudwatchEventTarget#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#expression CloudwatchEventTarget#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3128,9 +3128,9 @@ class CloudwatchEventTargetHttpTarget:
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#header_parameters CloudwatchEventTarget#header_parameters}.
-        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#path_parameter_values CloudwatchEventTarget#path_parameter_values}.
-        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#query_string_parameters CloudwatchEventTarget#query_string_parameters}.
+        :param header_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#header_parameters CloudwatchEventTarget#header_parameters}.
+        :param path_parameter_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#path_parameter_values CloudwatchEventTarget#path_parameter_values}.
+        :param query_string_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#query_string_parameters CloudwatchEventTarget#query_string_parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f41c1d6dbcfd1f3658ec9df4a6a4c9e59aebcac8813526d5d53d7e529a094191)
@@ -3149,13 +3149,13 @@ class CloudwatchEventTargetHttpTarget:
     def header_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#header_parameters CloudwatchEventTarget#header_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#header_parameters CloudwatchEventTarget#header_parameters}.'''
         result = self._values.get("header_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#path_parameter_values CloudwatchEventTarget#path_parameter_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#path_parameter_values CloudwatchEventTarget#path_parameter_values}.'''
         result = self._values.get("path_parameter_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3163,7 +3163,7 @@ class CloudwatchEventTargetHttpTarget:
     def query_string_parameters(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#query_string_parameters CloudwatchEventTarget#query_string_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#query_string_parameters CloudwatchEventTarget#query_string_parameters}.'''
         result = self._values.get("query_string_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3301,8 +3301,8 @@ class CloudwatchEventTargetInputTransformer:
         input_paths: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_template CloudwatchEventTarget#input_template}.
-        :param input_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_paths CloudwatchEventTarget#input_paths}.
+        :param input_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_template CloudwatchEventTarget#input_template}.
+        :param input_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_paths CloudwatchEventTarget#input_paths}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a07c7d73589219a9909bacfba207d652a49fb87f77b209e122912296c1088005)
@@ -3316,7 +3316,7 @@ class CloudwatchEventTargetInputTransformer:
 
     @builtins.property
     def input_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_template CloudwatchEventTarget#input_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_template CloudwatchEventTarget#input_template}.'''
         result = self._values.get("input_template")
         assert result is not None, "Required property 'input_template' is missing"
         return typing.cast(builtins.str, result)
@@ -3325,7 +3325,7 @@ class CloudwatchEventTargetInputTransformer:
     def input_paths(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#input_paths CloudwatchEventTarget#input_paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#input_paths CloudwatchEventTarget#input_paths}.'''
         result = self._values.get("input_paths")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3429,7 +3429,7 @@ class CloudwatchEventTargetKinesisTarget:
         partition_key_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param partition_key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#partition_key_path CloudwatchEventTarget#partition_key_path}.
+        :param partition_key_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#partition_key_path CloudwatchEventTarget#partition_key_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c132a70b02b7dc29f7e7b72aa858db4998e043bcd2ffa3c59c6c76da37fc63f)
@@ -3440,7 +3440,7 @@ class CloudwatchEventTargetKinesisTarget:
 
     @builtins.property
     def partition_key_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#partition_key_path CloudwatchEventTarget#partition_key_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#partition_key_path CloudwatchEventTarget#partition_key_path}.'''
         result = self._values.get("partition_key_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3537,12 +3537,12 @@ class CloudwatchEventTargetRedshiftTarget:
         with_event: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#database CloudwatchEventTarget#database}.
-        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#db_user CloudwatchEventTarget#db_user}.
-        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#secrets_manager_arn CloudwatchEventTarget#secrets_manager_arn}.
-        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sql CloudwatchEventTarget#sql}.
-        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#statement_name CloudwatchEventTarget#statement_name}.
-        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#with_event CloudwatchEventTarget#with_event}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#database CloudwatchEventTarget#database}.
+        :param db_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#db_user CloudwatchEventTarget#db_user}.
+        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#secrets_manager_arn CloudwatchEventTarget#secrets_manager_arn}.
+        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sql CloudwatchEventTarget#sql}.
+        :param statement_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#statement_name CloudwatchEventTarget#statement_name}.
+        :param with_event: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#with_event CloudwatchEventTarget#with_event}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3741973917be5933c7d8fe5693c33cf6fbfe4b77ea548febab1c0c6bfd2a499d)
@@ -3568,32 +3568,32 @@ class CloudwatchEventTargetRedshiftTarget:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#database CloudwatchEventTarget#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#database CloudwatchEventTarget#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def db_user(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#db_user CloudwatchEventTarget#db_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#db_user CloudwatchEventTarget#db_user}.'''
         result = self._values.get("db_user")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secrets_manager_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#secrets_manager_arn CloudwatchEventTarget#secrets_manager_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#secrets_manager_arn CloudwatchEventTarget#secrets_manager_arn}.'''
         result = self._values.get("secrets_manager_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sql(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#sql CloudwatchEventTarget#sql}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#sql CloudwatchEventTarget#sql}.'''
         result = self._values.get("sql")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def statement_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#statement_name CloudwatchEventTarget#statement_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#statement_name CloudwatchEventTarget#statement_name}.'''
         result = self._values.get("statement_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3601,7 +3601,7 @@ class CloudwatchEventTargetRedshiftTarget:
     def with_event(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#with_event CloudwatchEventTarget#with_event}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#with_event CloudwatchEventTarget#with_event}.'''
         result = self._values.get("with_event")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3796,8 +3796,8 @@ class CloudwatchEventTargetRetryPolicy:
         maximum_retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_event_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#maximum_event_age_in_seconds CloudwatchEventTarget#maximum_event_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#maximum_retry_attempts CloudwatchEventTarget#maximum_retry_attempts}.
+        :param maximum_event_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#maximum_event_age_in_seconds CloudwatchEventTarget#maximum_event_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#maximum_retry_attempts CloudwatchEventTarget#maximum_retry_attempts}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c75a1a406d916fceb46d49ebdd651fb270a651ac88b1c4b305e7d6f91d2b109)
@@ -3811,13 +3811,13 @@ class CloudwatchEventTargetRetryPolicy:
 
     @builtins.property
     def maximum_event_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#maximum_event_age_in_seconds CloudwatchEventTarget#maximum_event_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#maximum_event_age_in_seconds CloudwatchEventTarget#maximum_event_age_in_seconds}.'''
         result = self._values.get("maximum_event_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_retry_attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#maximum_retry_attempts CloudwatchEventTarget#maximum_retry_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#maximum_retry_attempts CloudwatchEventTarget#maximum_retry_attempts}.'''
         result = self._values.get("maximum_retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3924,8 +3924,8 @@ class CloudwatchEventTargetRunCommandTargets:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#key CloudwatchEventTarget#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#values CloudwatchEventTarget#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#key CloudwatchEventTarget#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#values CloudwatchEventTarget#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f95a04d0c689d36c604dda3a8fcb9f07de339fddd1f182dca0c4d040d49a43a5)
@@ -3938,14 +3938,14 @@ class CloudwatchEventTargetRunCommandTargets:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#key CloudwatchEventTarget#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#key CloudwatchEventTarget#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#values CloudwatchEventTarget#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#values CloudwatchEventTarget#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4145,7 +4145,7 @@ class CloudwatchEventTargetSagemakerPipelineTarget:
         pipeline_parameter_list: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudwatchEventTargetSagemakerPipelineTargetPipelineParameterListStruct", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param pipeline_parameter_list: pipeline_parameter_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#pipeline_parameter_list CloudwatchEventTarget#pipeline_parameter_list}
+        :param pipeline_parameter_list: pipeline_parameter_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#pipeline_parameter_list CloudwatchEventTarget#pipeline_parameter_list}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46e6a97dc8c292810769ea813fb0c4c0332cef6a8a30bc919f7106160bee8dfd)
@@ -4160,7 +4160,7 @@ class CloudwatchEventTargetSagemakerPipelineTarget:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetSagemakerPipelineTargetPipelineParameterListStruct"]]]:
         '''pipeline_parameter_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#pipeline_parameter_list CloudwatchEventTarget#pipeline_parameter_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#pipeline_parameter_list CloudwatchEventTarget#pipeline_parameter_list}
         '''
         result = self._values.get("pipeline_parameter_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventTargetSagemakerPipelineTargetPipelineParameterListStruct"]]], result)
@@ -4254,8 +4254,8 @@ class CloudwatchEventTargetSagemakerPipelineTargetOutputReference(
 class CloudwatchEventTargetSagemakerPipelineTargetPipelineParameterListStruct:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#name CloudwatchEventTarget#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#value CloudwatchEventTarget#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#name CloudwatchEventTarget#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#value CloudwatchEventTarget#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__034d92c61fbdd235f8a62e0ac2beb6163ae5ae8e8c1fd70345fc14b8e4dffb02)
@@ -4268,14 +4268,14 @@ class CloudwatchEventTargetSagemakerPipelineTargetPipelineParameterListStruct:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#name CloudwatchEventTarget#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#name CloudwatchEventTarget#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#value CloudwatchEventTarget#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#value CloudwatchEventTarget#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4475,7 +4475,7 @@ class CloudwatchEventTargetSqsTarget:
         message_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#message_group_id CloudwatchEventTarget#message_group_id}.
+        :param message_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#message_group_id CloudwatchEventTarget#message_group_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b26fd394cdf2ff57ae8a6682049ee1667ade7c61c2d5fbcbe344fd40be2b8ef6)
@@ -4486,7 +4486,7 @@ class CloudwatchEventTargetSqsTarget:
 
     @builtins.property
     def message_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_target#message_group_id CloudwatchEventTarget#message_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_target#message_group_id CloudwatchEventTarget#message_group_id}.'''
         result = self._values.get("message_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

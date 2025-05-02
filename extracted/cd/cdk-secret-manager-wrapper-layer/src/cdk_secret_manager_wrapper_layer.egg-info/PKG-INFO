@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-secret-manager-wrapper-layer
-Version: 2.1.53
+Version: 2.1.54
 Summary: cdk-secret-manager-wrapper-layer
 Home-page: https://github.com/neilkuan/cdk-secret-manager-wrapper-layer.git
 Author: Neil Kuan<guan840912@gmail.com>

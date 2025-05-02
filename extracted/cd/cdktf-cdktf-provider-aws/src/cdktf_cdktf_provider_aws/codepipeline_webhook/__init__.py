@@ -1,7 +1,7 @@
 r'''
 # `aws_codepipeline_webhook`
 
-Refer to the Terraform Registry for docs: [`aws_codepipeline_webhook`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook).
+Refer to the Terraform Registry for docs: [`aws_codepipeline_webhook`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodepipelineWebhook(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codepipelineWebhook.CodepipelineWebhook",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook aws_codepipeline_webhook}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook aws_codepipeline_webhook}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class CodepipelineWebhook(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook aws_codepipeline_webhook} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook aws_codepipeline_webhook} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#authentication CodepipelineWebhook#authentication}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#filter CodepipelineWebhook#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#name CodepipelineWebhook#name}.
-        :param target_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#target_action CodepipelineWebhook#target_action}.
-        :param target_pipeline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#target_pipeline CodepipelineWebhook#target_pipeline}.
-        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#authentication_configuration CodepipelineWebhook#authentication_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#id CodepipelineWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#tags CodepipelineWebhook#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#tags_all CodepipelineWebhook#tags_all}.
+        :param authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#authentication CodepipelineWebhook#authentication}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#filter CodepipelineWebhook#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#name CodepipelineWebhook#name}.
+        :param target_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#target_action CodepipelineWebhook#target_action}.
+        :param target_pipeline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#target_pipeline CodepipelineWebhook#target_pipeline}.
+        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#authentication_configuration CodepipelineWebhook#authentication_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#id CodepipelineWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#tags CodepipelineWebhook#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#tags_all CodepipelineWebhook#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class CodepipelineWebhook(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodepipelineWebhook to import.
-        :param import_from_id: The id of the existing CodepipelineWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodepipelineWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodepipelineWebhook to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class CodepipelineWebhook(
         secret_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_ip_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#allowed_ip_range CodepipelineWebhook#allowed_ip_range}.
-        :param secret_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#secret_token CodepipelineWebhook#secret_token}.
+        :param allowed_ip_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#allowed_ip_range CodepipelineWebhook#allowed_ip_range}.
+        :param secret_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#secret_token CodepipelineWebhook#secret_token}.
         '''
         value = CodepipelineWebhookAuthenticationConfiguration(
             allowed_ip_range=allowed_ip_range, secret_token=secret_token
@@ -368,8 +368,8 @@ class CodepipelineWebhookAuthenticationConfiguration:
         secret_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_ip_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#allowed_ip_range CodepipelineWebhook#allowed_ip_range}.
-        :param secret_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#secret_token CodepipelineWebhook#secret_token}.
+        :param allowed_ip_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#allowed_ip_range CodepipelineWebhook#allowed_ip_range}.
+        :param secret_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#secret_token CodepipelineWebhook#secret_token}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc5d18ee166701823c7204f3da1f881916c1cb30954fe64057194ba5f193ab16)
@@ -383,13 +383,13 @@ class CodepipelineWebhookAuthenticationConfiguration:
 
     @builtins.property
     def allowed_ip_range(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#allowed_ip_range CodepipelineWebhook#allowed_ip_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#allowed_ip_range CodepipelineWebhook#allowed_ip_range}.'''
         result = self._values.get("allowed_ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secret_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#secret_token CodepipelineWebhook#secret_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#secret_token CodepipelineWebhook#secret_token}.'''
         result = self._values.get("secret_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -536,15 +536,15 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#authentication CodepipelineWebhook#authentication}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#filter CodepipelineWebhook#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#name CodepipelineWebhook#name}.
-        :param target_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#target_action CodepipelineWebhook#target_action}.
-        :param target_pipeline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#target_pipeline CodepipelineWebhook#target_pipeline}.
-        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#authentication_configuration CodepipelineWebhook#authentication_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#id CodepipelineWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#tags CodepipelineWebhook#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#tags_all CodepipelineWebhook#tags_all}.
+        :param authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#authentication CodepipelineWebhook#authentication}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#filter CodepipelineWebhook#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#name CodepipelineWebhook#name}.
+        :param target_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#target_action CodepipelineWebhook#target_action}.
+        :param target_pipeline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#target_pipeline CodepipelineWebhook#target_pipeline}.
+        :param authentication_configuration: authentication_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#authentication_configuration CodepipelineWebhook#authentication_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#id CodepipelineWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#tags CodepipelineWebhook#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#tags_all CodepipelineWebhook#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -664,7 +664,7 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def authentication(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#authentication CodepipelineWebhook#authentication}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#authentication CodepipelineWebhook#authentication}.'''
         result = self._values.get("authentication")
         assert result is not None, "Required property 'authentication' is missing"
         return typing.cast(builtins.str, result)
@@ -675,7 +675,7 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodepipelineWebhookFilter"]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#filter CodepipelineWebhook#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#filter CodepipelineWebhook#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -683,21 +683,21 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#name CodepipelineWebhook#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#name CodepipelineWebhook#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#target_action CodepipelineWebhook#target_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#target_action CodepipelineWebhook#target_action}.'''
         result = self._values.get("target_action")
         assert result is not None, "Required property 'target_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_pipeline(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#target_pipeline CodepipelineWebhook#target_pipeline}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#target_pipeline CodepipelineWebhook#target_pipeline}.'''
         result = self._values.get("target_pipeline")
         assert result is not None, "Required property 'target_pipeline' is missing"
         return typing.cast(builtins.str, result)
@@ -708,14 +708,14 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[CodepipelineWebhookAuthenticationConfiguration]:
         '''authentication_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#authentication_configuration CodepipelineWebhook#authentication_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#authentication_configuration CodepipelineWebhook#authentication_configuration}
         '''
         result = self._values.get("authentication_configuration")
         return typing.cast(typing.Optional[CodepipelineWebhookAuthenticationConfiguration], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#id CodepipelineWebhook#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#id CodepipelineWebhook#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -725,13 +725,13 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#tags CodepipelineWebhook#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#tags CodepipelineWebhook#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#tags_all CodepipelineWebhook#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#tags_all CodepipelineWebhook#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -755,8 +755,8 @@ class CodepipelineWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CodepipelineWebhookFilter:
     def __init__(self, *, json_path: builtins.str, match_equals: builtins.str) -> None:
         '''
-        :param json_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#json_path CodepipelineWebhook#json_path}.
-        :param match_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#match_equals CodepipelineWebhook#match_equals}.
+        :param json_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#json_path CodepipelineWebhook#json_path}.
+        :param match_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#match_equals CodepipelineWebhook#match_equals}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8ce7ed2fe052a4616bc4a92ab918b939b0f5ebdefd9e98cc6a0b1358c7da887)
@@ -769,14 +769,14 @@ class CodepipelineWebhookFilter:
 
     @builtins.property
     def json_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#json_path CodepipelineWebhook#json_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#json_path CodepipelineWebhook#json_path}.'''
         result = self._values.get("json_path")
         assert result is not None, "Required property 'json_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_equals(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codepipeline_webhook#match_equals CodepipelineWebhook#match_equals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codepipeline_webhook#match_equals CodepipelineWebhook#match_equals}.'''
         result = self._values.get("match_equals")
         assert result is not None, "Required property 'match_equals' is missing"
         return typing.cast(builtins.str, result)

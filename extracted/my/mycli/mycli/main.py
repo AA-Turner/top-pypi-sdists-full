@@ -1,5 +1,4 @@
 from collections import defaultdict
-from io import open
 import os
 import sys
 import shutil
@@ -7,10 +6,7 @@ import traceback
 import logging
 import threading
 import re
-import stat
 from collections import namedtuple
-
-from pygments.lexer import combined
 
 try:
     from pwd import getpwuid
@@ -62,18 +58,10 @@ import itertools
 
 click.disable_unicode_literals_warning = True
 
-try:
-    from urlparse import urlparse
-    from urlparse import unquote
-except ImportError:
-    from urllib.parse import urlparse
-    from urllib.parse import unquote
+from urllib.parse import urlparse
+from urllib.parse import unquote
 
-try:
-    import importlib.resources as resources
-except ImportError:
-    # Python < 3.7
-    import importlib_resources as resources
+from importlib import resources
 
 try:
     import paramiko
@@ -88,8 +76,6 @@ SUPPORT_INFO = "Home: http://mycli.net\nBug tracker: https://github.com/dbcli/my
 
 class PasswordFileError(Exception):
     """Base exception for errors related to reading password files."""
-
-    pass
 
 
 class MyCli(object):
@@ -1458,7 +1444,7 @@ def is_mutating(status):
     if not status:
         return False
 
-    mutating = set(["insert", "update", "delete", "alter", "create", "drop", "replace", "truncate", "load", "rename"])
+    mutating = {"insert", "update", "delete", "alter", "create", "drop", "replace", "truncate", "load", "rename"}
     return status.split(None, 1)[0].lower() in mutating
 
 

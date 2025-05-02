@@ -4277,7 +4277,7 @@ class Kvirt(object):
             slot += 1
         return bus, slot
 
-    def _get_raw_disks(vm):
+    def _get_raw_disks(self, vm):
         primary_disk = None
         raw_disks = []
         xml = vm.XMLDesc(0)

@@ -1,7 +1,7 @@
 r'''
 # `data_aws_vpc_endpoint_associations`
 
-Refer to the Terraform Registry for docs: [`data_aws_vpc_endpoint_associations`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations).
+Refer to the Terraform Registry for docs: [`data_aws_vpc_endpoint_associations`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsVpcEndpointAssociations(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsVpcEndpointAssociations.DataAwsVpcEndpointAssociations",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations aws_vpc_endpoint_associations}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations aws_vpc_endpoint_associations}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsVpcEndpointAssociations(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations aws_vpc_endpoint_associations} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations aws_vpc_endpoint_associations} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations#vpc_endpoint_id DataAwsVpcEndpointAssociations#vpc_endpoint_id}.
+        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations#vpc_endpoint_id DataAwsVpcEndpointAssociations#vpc_endpoint_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsVpcEndpointAssociations(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsVpcEndpointAssociations to import.
-        :param import_from_id: The id of the existing DataAwsVpcEndpointAssociations that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsVpcEndpointAssociations that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsVpcEndpointAssociations to import is found.
         '''
         if __debug__:
@@ -675,7 +675,7 @@ class DataAwsVpcEndpointAssociationsConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations#vpc_endpoint_id DataAwsVpcEndpointAssociations#vpc_endpoint_id}.
+        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations#vpc_endpoint_id DataAwsVpcEndpointAssociations#vpc_endpoint_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -773,7 +773,7 @@ class DataAwsVpcEndpointAssociationsConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def vpc_endpoint_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/vpc_endpoint_associations#vpc_endpoint_id DataAwsVpcEndpointAssociations#vpc_endpoint_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/vpc_endpoint_associations#vpc_endpoint_id DataAwsVpcEndpointAssociations#vpc_endpoint_id}.'''
         result = self._values.get("vpc_endpoint_id")
         assert result is not None, "Required property 'vpc_endpoint_id' is missing"
         return typing.cast(builtins.str, result)

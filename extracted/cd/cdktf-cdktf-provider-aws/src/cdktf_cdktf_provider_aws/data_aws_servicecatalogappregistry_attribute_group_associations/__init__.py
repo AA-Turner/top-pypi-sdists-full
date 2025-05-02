@@ -1,7 +1,7 @@
 r'''
 # `data_aws_servicecatalogappregistry_attribute_group_associations`
 
-Refer to the Terraform Registry for docs: [`data_aws_servicecatalogappregistry_attribute_group_associations`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations).
+Refer to the Terraform Registry for docs: [`data_aws_servicecatalogappregistry_attribute_group_associations`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsServicecatalogappregistryAttributeGroupAssociations(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsServicecatalogappregistryAttributeGroupAssociations.DataAwsServicecatalogappregistryAttributeGroupAssociations",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations aws_servicecatalogappregistry_attribute_group_associations}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations aws_servicecatalogappregistry_attribute_group_associations}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataAwsServicecatalogappregistryAttributeGroupAssociations(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations aws_servicecatalogappregistry_attribute_group_associations} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations aws_servicecatalogappregistry_attribute_group_associations} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#id DataAwsServicecatalogappregistryAttributeGroupAssociations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#name DataAwsServicecatalogappregistryAttributeGroupAssociations#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#id DataAwsServicecatalogappregistryAttributeGroupAssociations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#name DataAwsServicecatalogappregistryAttributeGroupAssociations#name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataAwsServicecatalogappregistryAttributeGroupAssociations(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsServicecatalogappregistryAttributeGroupAssociations to import.
-        :param import_from_id: The id of the existing DataAwsServicecatalogappregistryAttributeGroupAssociations that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsServicecatalogappregistryAttributeGroupAssociations that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsServicecatalogappregistryAttributeGroupAssociations to import is found.
         '''
         if __debug__:
@@ -217,8 +217,8 @@ class DataAwsServicecatalogappregistryAttributeGroupAssociationsConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#id DataAwsServicecatalogappregistryAttributeGroupAssociations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#name DataAwsServicecatalogappregistryAttributeGroupAssociations#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#id DataAwsServicecatalogappregistryAttributeGroupAssociations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#name DataAwsServicecatalogappregistryAttributeGroupAssociations#name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -319,7 +319,7 @@ class DataAwsServicecatalogappregistryAttributeGroupAssociationsConfig(
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#id DataAwsServicecatalogappregistryAttributeGroupAssociations#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#id DataAwsServicecatalogappregistryAttributeGroupAssociations#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -329,7 +329,7 @@ class DataAwsServicecatalogappregistryAttributeGroupAssociationsConfig(
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#name DataAwsServicecatalogappregistryAttributeGroupAssociations#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/servicecatalogappregistry_attribute_group_associations#name DataAwsServicecatalogappregistryAttributeGroupAssociations#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 

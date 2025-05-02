@@ -1,7 +1,7 @@
 r'''
 # `aws_guardduty_filter`
 
-Refer to the Terraform Registry for docs: [`aws_guardduty_filter`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter).
+Refer to the Terraform Registry for docs: [`aws_guardduty_filter`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GuarddutyFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.guarddutyFilter.GuarddutyFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter aws_guardduty_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter aws_guardduty_filter}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GuarddutyFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter aws_guardduty_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter aws_guardduty_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#action GuarddutyFilter#action}.
-        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#detector_id GuarddutyFilter#detector_id}.
-        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#finding_criteria GuarddutyFilter#finding_criteria}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#name GuarddutyFilter#name}.
-        :param rank: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#rank GuarddutyFilter#rank}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#description GuarddutyFilter#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#id GuarddutyFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#tags GuarddutyFilter#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#tags_all GuarddutyFilter#tags_all}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#action GuarddutyFilter#action}.
+        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#detector_id GuarddutyFilter#detector_id}.
+        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#finding_criteria GuarddutyFilter#finding_criteria}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#name GuarddutyFilter#name}.
+        :param rank: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#rank GuarddutyFilter#rank}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#description GuarddutyFilter#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#id GuarddutyFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#tags GuarddutyFilter#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#tags_all GuarddutyFilter#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GuarddutyFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GuarddutyFilter to import.
-        :param import_from_id: The id of the existing GuarddutyFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GuarddutyFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GuarddutyFilter to import is found.
         '''
         if __debug__:
@@ -145,7 +145,7 @@ class GuarddutyFilter(
         criterion: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GuarddutyFilterFindingCriteriaCriterion", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#criterion GuarddutyFilter#criterion}
+        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#criterion GuarddutyFilter#criterion}
         '''
         value = GuarddutyFilterFindingCriteria(criterion=criterion)
 
@@ -387,15 +387,15 @@ class GuarddutyFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#action GuarddutyFilter#action}.
-        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#detector_id GuarddutyFilter#detector_id}.
-        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#finding_criteria GuarddutyFilter#finding_criteria}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#name GuarddutyFilter#name}.
-        :param rank: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#rank GuarddutyFilter#rank}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#description GuarddutyFilter#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#id GuarddutyFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#tags GuarddutyFilter#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#tags_all GuarddutyFilter#tags_all}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#action GuarddutyFilter#action}.
+        :param detector_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#detector_id GuarddutyFilter#detector_id}.
+        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#finding_criteria GuarddutyFilter#finding_criteria}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#name GuarddutyFilter#name}.
+        :param rank: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#rank GuarddutyFilter#rank}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#description GuarddutyFilter#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#id GuarddutyFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#tags GuarddutyFilter#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#tags_all GuarddutyFilter#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -515,14 +515,14 @@ class GuarddutyFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#action GuarddutyFilter#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#action GuarddutyFilter#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def detector_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#detector_id GuarddutyFilter#detector_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#detector_id GuarddutyFilter#detector_id}.'''
         result = self._values.get("detector_id")
         assert result is not None, "Required property 'detector_id' is missing"
         return typing.cast(builtins.str, result)
@@ -531,7 +531,7 @@ class GuarddutyFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def finding_criteria(self) -> "GuarddutyFilterFindingCriteria":
         '''finding_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#finding_criteria GuarddutyFilter#finding_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#finding_criteria GuarddutyFilter#finding_criteria}
         '''
         result = self._values.get("finding_criteria")
         assert result is not None, "Required property 'finding_criteria' is missing"
@@ -539,27 +539,27 @@ class GuarddutyFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#name GuarddutyFilter#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#name GuarddutyFilter#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rank(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#rank GuarddutyFilter#rank}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#rank GuarddutyFilter#rank}.'''
         result = self._values.get("rank")
         assert result is not None, "Required property 'rank' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#description GuarddutyFilter#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#description GuarddutyFilter#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#id GuarddutyFilter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#id GuarddutyFilter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -569,13 +569,13 @@ class GuarddutyFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#tags GuarddutyFilter#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#tags GuarddutyFilter#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#tags_all GuarddutyFilter#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#tags_all GuarddutyFilter#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -603,7 +603,7 @@ class GuarddutyFilterFindingCriteria:
         criterion: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GuarddutyFilterFindingCriteriaCriterion", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#criterion GuarddutyFilter#criterion}
+        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#criterion GuarddutyFilter#criterion}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb4d1cd5caca6504e6d5c3749dc8cf23b867b2ccc0a6c43987cfa715ebfdb6af)
@@ -618,7 +618,7 @@ class GuarddutyFilterFindingCriteria:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GuarddutyFilterFindingCriteriaCriterion"]]:
         '''criterion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#criterion GuarddutyFilter#criterion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#criterion GuarddutyFilter#criterion}
         '''
         result = self._values.get("criterion")
         assert result is not None, "Required property 'criterion' is missing"
@@ -662,13 +662,13 @@ class GuarddutyFilterFindingCriteriaCriterion:
         not_equals: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#field GuarddutyFilter#field}.
-        :param equal_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#equals GuarddutyFilter#equals}.
-        :param greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#greater_than GuarddutyFilter#greater_than}.
-        :param greater_than_or_equal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#greater_than_or_equal GuarddutyFilter#greater_than_or_equal}.
-        :param less_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#less_than GuarddutyFilter#less_than}.
-        :param less_than_or_equal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#less_than_or_equal GuarddutyFilter#less_than_or_equal}.
-        :param not_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#not_equals GuarddutyFilter#not_equals}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#field GuarddutyFilter#field}.
+        :param equal_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#equals GuarddutyFilter#equals}.
+        :param greater_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#greater_than GuarddutyFilter#greater_than}.
+        :param greater_than_or_equal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#greater_than_or_equal GuarddutyFilter#greater_than_or_equal}.
+        :param less_than: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#less_than GuarddutyFilter#less_than}.
+        :param less_than_or_equal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#less_than_or_equal GuarddutyFilter#less_than_or_equal}.
+        :param not_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#not_equals GuarddutyFilter#not_equals}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c47c7afec8ea9bcf6197746942706c5ac316ef474db6bef067b9838efcacda1)
@@ -697,44 +697,44 @@ class GuarddutyFilterFindingCriteriaCriterion:
 
     @builtins.property
     def field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#field GuarddutyFilter#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#field GuarddutyFilter#field}.'''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def equal_to(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#equals GuarddutyFilter#equals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#equals GuarddutyFilter#equals}.'''
         result = self._values.get("equal_to")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def greater_than(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#greater_than GuarddutyFilter#greater_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#greater_than GuarddutyFilter#greater_than}.'''
         result = self._values.get("greater_than")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def greater_than_or_equal(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#greater_than_or_equal GuarddutyFilter#greater_than_or_equal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#greater_than_or_equal GuarddutyFilter#greater_than_or_equal}.'''
         result = self._values.get("greater_than_or_equal")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def less_than(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#less_than GuarddutyFilter#less_than}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#less_than GuarddutyFilter#less_than}.'''
         result = self._values.get("less_than")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def less_than_or_equal(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#less_than_or_equal GuarddutyFilter#less_than_or_equal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#less_than_or_equal GuarddutyFilter#less_than_or_equal}.'''
         result = self._values.get("less_than_or_equal")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def not_equals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_filter#not_equals GuarddutyFilter#not_equals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_filter#not_equals GuarddutyFilter#not_equals}.'''
         result = self._values.get("not_equals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

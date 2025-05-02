@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: validators
-Version: 0.34.0
+Version: 0.35.0
 Summary: Python Data Validation for Humans™
 Author-email: Konsta Vesterinen <konsta@fastmonkeys.com>
 License: MIT
@@ -16,18 +16,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: crypto-eth-addresses
 Requires-Dist: eth-hash[pycryptodome]>=0.7.0; extra == "crypto-eth-addresses"
+Dynamic: license-file
 
 # validators - Python Data Validation for Humans™
 
@@ -40,9 +41,15 @@ require defining a schema or form. I wanted to create a simple validation
 library where validating a simple value does not require defining a form or a
 schema.
 
+```shell
+pip install validators
+```
+
+Then,
+
 ```python
 >>> import validators
->>> 
+>>>
 >>> validators.email('someone@example.com')
 True
 ```
@@ -61,7 +68,7 @@ True
 
 ---
 
-> **_Python 3.8 [reaches EOL in](https://endoflife.date/python) October 2024._**
+> **_Python 3.9 [reaches EOL in](https://endoflife.date/python) October 2025._**
 
 <!-- Links -->
 [sast-badge]: https://github.com/python-validators/validators/actions/workflows/sast.yaml/badge.svg

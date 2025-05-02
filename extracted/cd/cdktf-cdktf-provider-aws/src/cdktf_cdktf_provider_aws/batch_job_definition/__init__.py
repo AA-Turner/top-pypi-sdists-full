@@ -1,7 +1,7 @@
 r'''
 # `aws_batch_job_definition`
 
-Refer to the Terraform Registry for docs: [`aws_batch_job_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition).
+Refer to the Terraform Registry for docs: [`aws_batch_job_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BatchJobDefinition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.batchJobDefinition.BatchJobDefinition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition aws_batch_job_definition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition aws_batch_job_definition}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class BatchJobDefinition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition aws_batch_job_definition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition aws_batch_job_definition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#type BatchJobDefinition#type}.
-        :param container_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#container_properties BatchJobDefinition#container_properties}.
-        :param deregister_on_new_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#deregister_on_new_revision BatchJobDefinition#deregister_on_new_revision}.
-        :param ecs_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#ecs_properties BatchJobDefinition#ecs_properties}.
-        :param eks_properties: eks_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#eks_properties BatchJobDefinition#eks_properties}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#id BatchJobDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#node_properties BatchJobDefinition#node_properties}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#parameters BatchJobDefinition#parameters}.
-        :param platform_capabilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#platform_capabilities BatchJobDefinition#platform_capabilities}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#propagate_tags BatchJobDefinition#propagate_tags}.
-        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#retry_strategy BatchJobDefinition#retry_strategy}
-        :param scheduling_priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#scheduling_priority BatchJobDefinition#scheduling_priority}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#tags BatchJobDefinition#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#tags_all BatchJobDefinition#tags_all}.
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#timeout BatchJobDefinition#timeout}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#type BatchJobDefinition#type}.
+        :param container_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#container_properties BatchJobDefinition#container_properties}.
+        :param deregister_on_new_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#deregister_on_new_revision BatchJobDefinition#deregister_on_new_revision}.
+        :param ecs_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#ecs_properties BatchJobDefinition#ecs_properties}.
+        :param eks_properties: eks_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#eks_properties BatchJobDefinition#eks_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#id BatchJobDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#node_properties BatchJobDefinition#node_properties}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#parameters BatchJobDefinition#parameters}.
+        :param platform_capabilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#platform_capabilities BatchJobDefinition#platform_capabilities}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#propagate_tags BatchJobDefinition#propagate_tags}.
+        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#retry_strategy BatchJobDefinition#retry_strategy}
+        :param scheduling_priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#scheduling_priority BatchJobDefinition#scheduling_priority}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#tags BatchJobDefinition#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#tags_all BatchJobDefinition#tags_all}.
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#timeout BatchJobDefinition#timeout}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class BatchJobDefinition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BatchJobDefinition to import.
-        :param import_from_id: The id of the existing BatchJobDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BatchJobDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BatchJobDefinition to import is found.
         '''
         if __debug__:
@@ -166,7 +166,7 @@ class BatchJobDefinition(
         pod_properties: typing.Union["BatchJobDefinitionEksPropertiesPodProperties", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param pod_properties: pod_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#pod_properties BatchJobDefinition#pod_properties}
+        :param pod_properties: pod_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#pod_properties BatchJobDefinition#pod_properties}
         '''
         value = BatchJobDefinitionEksProperties(pod_properties=pod_properties)
 
@@ -180,8 +180,8 @@ class BatchJobDefinition(
         evaluate_on_exit: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchJobDefinitionRetryStrategyEvaluateOnExit", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#attempts BatchJobDefinition#attempts}.
-        :param evaluate_on_exit: evaluate_on_exit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#evaluate_on_exit BatchJobDefinition#evaluate_on_exit}
+        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#attempts BatchJobDefinition#attempts}.
+        :param evaluate_on_exit: evaluate_on_exit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#evaluate_on_exit BatchJobDefinition#evaluate_on_exit}
         '''
         value = BatchJobDefinitionRetryStrategy(
             attempts=attempts, evaluate_on_exit=evaluate_on_exit
@@ -196,7 +196,7 @@ class BatchJobDefinition(
         attempt_duration_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param attempt_duration_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#attempt_duration_seconds BatchJobDefinition#attempt_duration_seconds}.
+        :param attempt_duration_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#attempt_duration_seconds BatchJobDefinition#attempt_duration_seconds}.
         '''
         value = BatchJobDefinitionTimeout(
             attempt_duration_seconds=attempt_duration_seconds
@@ -627,22 +627,22 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#type BatchJobDefinition#type}.
-        :param container_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#container_properties BatchJobDefinition#container_properties}.
-        :param deregister_on_new_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#deregister_on_new_revision BatchJobDefinition#deregister_on_new_revision}.
-        :param ecs_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#ecs_properties BatchJobDefinition#ecs_properties}.
-        :param eks_properties: eks_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#eks_properties BatchJobDefinition#eks_properties}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#id BatchJobDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#node_properties BatchJobDefinition#node_properties}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#parameters BatchJobDefinition#parameters}.
-        :param platform_capabilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#platform_capabilities BatchJobDefinition#platform_capabilities}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#propagate_tags BatchJobDefinition#propagate_tags}.
-        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#retry_strategy BatchJobDefinition#retry_strategy}
-        :param scheduling_priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#scheduling_priority BatchJobDefinition#scheduling_priority}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#tags BatchJobDefinition#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#tags_all BatchJobDefinition#tags_all}.
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#timeout BatchJobDefinition#timeout}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#type BatchJobDefinition#type}.
+        :param container_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#container_properties BatchJobDefinition#container_properties}.
+        :param deregister_on_new_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#deregister_on_new_revision BatchJobDefinition#deregister_on_new_revision}.
+        :param ecs_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#ecs_properties BatchJobDefinition#ecs_properties}.
+        :param eks_properties: eks_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#eks_properties BatchJobDefinition#eks_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#id BatchJobDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#node_properties BatchJobDefinition#node_properties}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#parameters BatchJobDefinition#parameters}.
+        :param platform_capabilities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#platform_capabilities BatchJobDefinition#platform_capabilities}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#propagate_tags BatchJobDefinition#propagate_tags}.
+        :param retry_strategy: retry_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#retry_strategy BatchJobDefinition#retry_strategy}
+        :param scheduling_priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#scheduling_priority BatchJobDefinition#scheduling_priority}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#tags BatchJobDefinition#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#tags_all BatchJobDefinition#tags_all}.
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#timeout BatchJobDefinition#timeout}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -790,21 +790,21 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#type BatchJobDefinition#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#type BatchJobDefinition#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_properties(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#container_properties BatchJobDefinition#container_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#container_properties BatchJobDefinition#container_properties}.'''
         result = self._values.get("container_properties")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -812,13 +812,13 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deregister_on_new_revision(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#deregister_on_new_revision BatchJobDefinition#deregister_on_new_revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#deregister_on_new_revision BatchJobDefinition#deregister_on_new_revision}.'''
         result = self._values.get("deregister_on_new_revision")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ecs_properties(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#ecs_properties BatchJobDefinition#ecs_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#ecs_properties BatchJobDefinition#ecs_properties}.'''
         result = self._values.get("ecs_properties")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -826,14 +826,14 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def eks_properties(self) -> typing.Optional["BatchJobDefinitionEksProperties"]:
         '''eks_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#eks_properties BatchJobDefinition#eks_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#eks_properties BatchJobDefinition#eks_properties}
         '''
         result = self._values.get("eks_properties")
         return typing.cast(typing.Optional["BatchJobDefinitionEksProperties"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#id BatchJobDefinition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#id BatchJobDefinition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -843,19 +843,19 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def node_properties(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#node_properties BatchJobDefinition#node_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#node_properties BatchJobDefinition#node_properties}.'''
         result = self._values.get("node_properties")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#parameters BatchJobDefinition#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#parameters BatchJobDefinition#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def platform_capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#platform_capabilities BatchJobDefinition#platform_capabilities}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#platform_capabilities BatchJobDefinition#platform_capabilities}.'''
         result = self._values.get("platform_capabilities")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -863,7 +863,7 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def propagate_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#propagate_tags BatchJobDefinition#propagate_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#propagate_tags BatchJobDefinition#propagate_tags}.'''
         result = self._values.get("propagate_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -871,26 +871,26 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retry_strategy(self) -> typing.Optional["BatchJobDefinitionRetryStrategy"]:
         '''retry_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#retry_strategy BatchJobDefinition#retry_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#retry_strategy BatchJobDefinition#retry_strategy}
         '''
         result = self._values.get("retry_strategy")
         return typing.cast(typing.Optional["BatchJobDefinitionRetryStrategy"], result)
 
     @builtins.property
     def scheduling_priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#scheduling_priority BatchJobDefinition#scheduling_priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#scheduling_priority BatchJobDefinition#scheduling_priority}.'''
         result = self._values.get("scheduling_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#tags BatchJobDefinition#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#tags BatchJobDefinition#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#tags_all BatchJobDefinition#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#tags_all BatchJobDefinition#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -898,7 +898,7 @@ class BatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeout(self) -> typing.Optional["BatchJobDefinitionTimeout"]:
         '''timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#timeout BatchJobDefinition#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#timeout BatchJobDefinition#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["BatchJobDefinitionTimeout"], result)
@@ -927,7 +927,7 @@ class BatchJobDefinitionEksProperties:
         pod_properties: typing.Union["BatchJobDefinitionEksPropertiesPodProperties", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param pod_properties: pod_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#pod_properties BatchJobDefinition#pod_properties}
+        :param pod_properties: pod_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#pod_properties BatchJobDefinition#pod_properties}
         '''
         if isinstance(pod_properties, dict):
             pod_properties = BatchJobDefinitionEksPropertiesPodProperties(**pod_properties)
@@ -942,7 +942,7 @@ class BatchJobDefinitionEksProperties:
     def pod_properties(self) -> "BatchJobDefinitionEksPropertiesPodProperties":
         '''pod_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#pod_properties BatchJobDefinition#pod_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#pod_properties BatchJobDefinition#pod_properties}
         '''
         result = self._values.get("pod_properties")
         assert result is not None, "Required property 'pod_properties' is missing"
@@ -995,15 +995,15 @@ class BatchJobDefinitionEksPropertiesOutputReference(
         volumes: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchJobDefinitionEksPropertiesPodPropertiesVolumes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#containers BatchJobDefinition#containers}
-        :param dns_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#dns_policy BatchJobDefinition#dns_policy}.
-        :param host_network: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#host_network BatchJobDefinition#host_network}.
-        :param image_pull_secret: image_pull_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_secret BatchJobDefinition#image_pull_secret}
-        :param init_containers: init_containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#init_containers BatchJobDefinition#init_containers}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#metadata BatchJobDefinition#metadata}
-        :param service_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#service_account_name BatchJobDefinition#service_account_name}.
-        :param share_process_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#share_process_namespace BatchJobDefinition#share_process_namespace}.
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volumes BatchJobDefinition#volumes}
+        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#containers BatchJobDefinition#containers}
+        :param dns_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#dns_policy BatchJobDefinition#dns_policy}.
+        :param host_network: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#host_network BatchJobDefinition#host_network}.
+        :param image_pull_secret: image_pull_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_secret BatchJobDefinition#image_pull_secret}
+        :param init_containers: init_containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#init_containers BatchJobDefinition#init_containers}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#metadata BatchJobDefinition#metadata}
+        :param service_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#service_account_name BatchJobDefinition#service_account_name}.
+        :param share_process_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#share_process_namespace BatchJobDefinition#share_process_namespace}.
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volumes BatchJobDefinition#volumes}
         '''
         value = BatchJobDefinitionEksPropertiesPodProperties(
             containers=containers,
@@ -1079,15 +1079,15 @@ class BatchJobDefinitionEksPropertiesPodProperties:
         volumes: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchJobDefinitionEksPropertiesPodPropertiesVolumes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#containers BatchJobDefinition#containers}
-        :param dns_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#dns_policy BatchJobDefinition#dns_policy}.
-        :param host_network: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#host_network BatchJobDefinition#host_network}.
-        :param image_pull_secret: image_pull_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_secret BatchJobDefinition#image_pull_secret}
-        :param init_containers: init_containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#init_containers BatchJobDefinition#init_containers}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#metadata BatchJobDefinition#metadata}
-        :param service_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#service_account_name BatchJobDefinition#service_account_name}.
-        :param share_process_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#share_process_namespace BatchJobDefinition#share_process_namespace}.
-        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volumes BatchJobDefinition#volumes}
+        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#containers BatchJobDefinition#containers}
+        :param dns_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#dns_policy BatchJobDefinition#dns_policy}.
+        :param host_network: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#host_network BatchJobDefinition#host_network}.
+        :param image_pull_secret: image_pull_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_secret BatchJobDefinition#image_pull_secret}
+        :param init_containers: init_containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#init_containers BatchJobDefinition#init_containers}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#metadata BatchJobDefinition#metadata}
+        :param service_account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#service_account_name BatchJobDefinition#service_account_name}.
+        :param share_process_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#share_process_namespace BatchJobDefinition#share_process_namespace}.
+        :param volumes: volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volumes BatchJobDefinition#volumes}
         '''
         if isinstance(metadata, dict):
             metadata = BatchJobDefinitionEksPropertiesPodPropertiesMetadata(**metadata)
@@ -1128,7 +1128,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesContainers"]]:
         '''containers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#containers BatchJobDefinition#containers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#containers BatchJobDefinition#containers}
         '''
         result = self._values.get("containers")
         assert result is not None, "Required property 'containers' is missing"
@@ -1136,7 +1136,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
 
     @builtins.property
     def dns_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#dns_policy BatchJobDefinition#dns_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#dns_policy BatchJobDefinition#dns_policy}.'''
         result = self._values.get("dns_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1144,7 +1144,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     def host_network(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#host_network BatchJobDefinition#host_network}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#host_network BatchJobDefinition#host_network}.'''
         result = self._values.get("host_network")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1154,7 +1154,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesImagePullSecret"]]]:
         '''image_pull_secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_secret BatchJobDefinition#image_pull_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_secret BatchJobDefinition#image_pull_secret}
         '''
         result = self._values.get("image_pull_secret")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesImagePullSecret"]]], result)
@@ -1165,7 +1165,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesInitContainers"]]]:
         '''init_containers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#init_containers BatchJobDefinition#init_containers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#init_containers BatchJobDefinition#init_containers}
         '''
         result = self._values.get("init_containers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesInitContainers"]]], result)
@@ -1176,14 +1176,14 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesMetadata"]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#metadata BatchJobDefinition#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#metadata BatchJobDefinition#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesMetadata"], result)
 
     @builtins.property
     def service_account_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#service_account_name BatchJobDefinition#service_account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#service_account_name BatchJobDefinition#service_account_name}.'''
         result = self._values.get("service_account_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1191,7 +1191,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     def share_process_namespace(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#share_process_namespace BatchJobDefinition#share_process_namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#share_process_namespace BatchJobDefinition#share_process_namespace}.'''
         result = self._values.get("share_process_namespace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1201,7 +1201,7 @@ class BatchJobDefinitionEksPropertiesPodProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesVolumes"]]]:
         '''volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volumes BatchJobDefinition#volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volumes BatchJobDefinition#volumes}
         '''
         result = self._values.get("volumes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesVolumes"]]], result)
@@ -1248,15 +1248,15 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
         volume_mounts: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMounts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.
-        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
-        :param image_pull_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
-        :param security_context: security_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.
+        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
+        :param image_pull_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
+        :param security_context: security_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
         '''
         if isinstance(resources, dict):
             resources = BatchJobDefinitionEksPropertiesPodPropertiesContainersResources(**resources)
@@ -1295,20 +1295,20 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
 
     @builtins.property
     def image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.'''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.'''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.'''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1318,20 +1318,20 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesContainersEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesContainersEnv"]]], result)
 
     @builtins.property
     def image_pull_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.'''
         result = self._values.get("image_pull_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1341,7 +1341,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesContainersResources"]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesContainersResources"], result)
@@ -1352,7 +1352,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext"]:
         '''security_context block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
         '''
         result = self._values.get("security_context")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext"], result)
@@ -1363,7 +1363,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMounts"]]], result)
@@ -1388,8 +1388,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainers:
 class BatchJobDefinitionEksPropertiesPodPropertiesContainersEnv:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a936619f3d0b7237e15ebfb63fe4eede3762a1b43ebefca035d5af6c9e97e9e)
@@ -1402,14 +1402,14 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersEnv:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1737,8 +1737,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersOutputReference(
         requests: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
-        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
+        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
+        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesContainersResources(
             limits=limits, requests=requests
@@ -1757,11 +1757,11 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersOutputReference(
         run_as_user: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
-        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
-        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
-        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
-        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
+        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
+        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
+        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
+        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
+        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext(
             privileged=privileged,
@@ -1988,8 +1988,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersResources:
         requests: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
-        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
+        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
+        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9568f63832814ee420fedac525561717f02f5c80b4413391701237b7a1894dae)
@@ -2003,13 +2003,13 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersResources:
 
     @builtins.property
     def limits(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.'''
         result = self._values.get("limits")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def requests(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.'''
         result = self._values.get("requests")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2131,11 +2131,11 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext:
         run_as_user: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
-        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
-        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
-        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
-        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
+        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
+        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
+        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
+        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
+        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba61664f126dc5f629d8d8c34ca1b05d81237009c4700bd5003749419604c184)
@@ -2160,7 +2160,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext:
     def privileged(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.'''
         result = self._values.get("privileged")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2168,13 +2168,13 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext:
     def read_only_root_file_system(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.'''
         result = self._values.get("read_only_root_file_system")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def run_as_group(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.'''
         result = self._values.get("run_as_group")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2182,13 +2182,13 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersSecurityContext:
     def run_as_non_root(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.'''
         result = self._values.get("run_as_non_root")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def run_as_user(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.'''
         result = self._values.get("run_as_user")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2380,9 +2380,9 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMounts:
         read_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.
+        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52105ee0dbe034cc3de526b4fcef4f08e5fc46591a568e5c133d2ebe29e111b4)
@@ -2398,14 +2398,14 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMounts:
 
     @builtins.property
     def mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.'''
         result = self._values.get("mount_path")
         assert result is not None, "Required property 'mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2414,7 +2414,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMounts:
     def read_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.'''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2635,7 +2635,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesContainersVolumeMountsOutputRe
 class BatchJobDefinitionEksPropertiesPodPropertiesImagePullSecret:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66ad16acbe4d88853e8c31a111b3c446f9eb49caee7d6cfa4fe76082ee85e11d)
@@ -2646,7 +2646,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesImagePullSecret:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2847,15 +2847,15 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
         volume_mounts: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersVolumeMounts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.
-        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.
-        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
-        :param image_pull_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
-        :param security_context: security_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
-        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.
+        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.
+        :param env: env block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
+        :param image_pull_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
+        :param security_context: security_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
+        :param volume_mounts: volume_mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
         '''
         if isinstance(resources, dict):
             resources = BatchJobDefinitionEksPropertiesPodPropertiesInitContainersResources(**resources)
@@ -2894,20 +2894,20 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
 
     @builtins.property
     def image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image BatchJobDefinition#image}.'''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#args BatchJobDefinition#args}.'''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#command BatchJobDefinition#command}.'''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2917,20 +2917,20 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersEnv"]]]:
         '''env block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#env BatchJobDefinition#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersEnv"]]], result)
 
     @builtins.property
     def image_pull_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#image_pull_policy BatchJobDefinition#image_pull_policy}.'''
         result = self._values.get("image_pull_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2940,7 +2940,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersResources"]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#resources BatchJobDefinition#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersResources"], result)
@@ -2951,7 +2951,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext"]:
         '''security_context block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#security_context BatchJobDefinition#security_context}
         '''
         result = self._values.get("security_context")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext"], result)
@@ -2962,7 +2962,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersVolumeMounts"]]]:
         '''volume_mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#volume_mounts BatchJobDefinition#volume_mounts}
         '''
         result = self._values.get("volume_mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionEksPropertiesPodPropertiesInitContainersVolumeMounts"]]], result)
@@ -2987,8 +2987,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainers:
 class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersEnv:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c295fb12b8fe26ff9730c062b694ee415ca9fb721597a5429f3f97499cf7005)
@@ -3001,14 +3001,14 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersEnv:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#value BatchJobDefinition#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3336,8 +3336,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersOutputReference(
         requests: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
-        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
+        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
+        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesInitContainersResources(
             limits=limits, requests=requests
@@ -3356,11 +3356,11 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersOutputReference(
         run_as_user: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
-        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
-        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
-        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
-        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
+        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
+        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
+        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
+        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
+        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext(
             privileged=privileged,
@@ -3587,8 +3587,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersResources:
         requests: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
-        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
+        :param limits: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.
+        :param requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ed9a157adb049fcb5ec1412281940961e57dd34c983a37853559b778da6afcb)
@@ -3602,13 +3602,13 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersResources:
 
     @builtins.property
     def limits(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#limits BatchJobDefinition#limits}.'''
         result = self._values.get("limits")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def requests(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#requests BatchJobDefinition#requests}.'''
         result = self._values.get("requests")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3730,11 +3730,11 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext:
         run_as_user: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
-        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
-        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
-        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
-        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
+        :param privileged: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.
+        :param read_only_root_file_system: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.
+        :param run_as_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.
+        :param run_as_non_root: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.
+        :param run_as_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9210317691b907103d13bb59ff50523c2800ad9c8967fa58f51b3f9391b36bf7)
@@ -3759,7 +3759,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext:
     def privileged(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#privileged BatchJobDefinition#privileged}.'''
         result = self._values.get("privileged")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3767,13 +3767,13 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext:
     def read_only_root_file_system(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only_root_file_system BatchJobDefinition#read_only_root_file_system}.'''
         result = self._values.get("read_only_root_file_system")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def run_as_group(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_group BatchJobDefinition#run_as_group}.'''
         result = self._values.get("run_as_group")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3781,13 +3781,13 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersSecurityContext:
     def run_as_non_root(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_non_root BatchJobDefinition#run_as_non_root}.'''
         result = self._values.get("run_as_non_root")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def run_as_user(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#run_as_user BatchJobDefinition#run_as_user}.'''
         result = self._values.get("run_as_user")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3979,9 +3979,9 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersVolumeMounts:
         read_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.
+        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param read_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8152c627da9a58a6337d3589f13e4efccf41d6ee4a9cfddb37a0aad7914c771c)
@@ -3997,14 +3997,14 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersVolumeMounts:
 
     @builtins.property
     def mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#mount_path BatchJobDefinition#mount_path}.'''
         result = self._values.get("mount_path")
         assert result is not None, "Required property 'mount_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4013,7 +4013,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesInitContainersVolumeMounts:
     def read_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#read_only BatchJobDefinition#read_only}.'''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4238,7 +4238,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesMetadata:
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#labels BatchJobDefinition#labels}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#labels BatchJobDefinition#labels}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c06b490b23dee6f044c4efccbc1aa54cadb06d3833b17c1a1ccd7aa7b641ef08)
@@ -4249,7 +4249,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesMetadata:
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#labels BatchJobDefinition#labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#labels BatchJobDefinition#labels}.'''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -4392,7 +4392,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesOutputReference(
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#labels BatchJobDefinition#labels}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#labels BatchJobDefinition#labels}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesMetadata(labels=labels)
 
@@ -4627,10 +4627,10 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumes:
         secret: typing.Optional[typing.Union["BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param empty_dir: empty_dir block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#empty_dir BatchJobDefinition#empty_dir}
-        :param host_path: host_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#host_path BatchJobDefinition#host_path}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
-        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#secret BatchJobDefinition#secret}
+        :param empty_dir: empty_dir block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#empty_dir BatchJobDefinition#empty_dir}
+        :param host_path: host_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#host_path BatchJobDefinition#host_path}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.
+        :param secret: secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#secret BatchJobDefinition#secret}
         '''
         if isinstance(empty_dir, dict):
             empty_dir = BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDir(**empty_dir)
@@ -4660,7 +4660,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumes:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDir"]:
         '''empty_dir block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#empty_dir BatchJobDefinition#empty_dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#empty_dir BatchJobDefinition#empty_dir}
         '''
         result = self._values.get("empty_dir")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDir"], result)
@@ -4671,14 +4671,14 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumes:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesVolumesHostPath"]:
         '''host_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#host_path BatchJobDefinition#host_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#host_path BatchJobDefinition#host_path}
         '''
         result = self._values.get("host_path")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesVolumesHostPath"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#name BatchJobDefinition#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4688,7 +4688,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumes:
     ) -> typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret"]:
         '''secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#secret BatchJobDefinition#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#secret BatchJobDefinition#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional["BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret"], result)
@@ -4718,8 +4718,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDir:
         medium: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#size_limit BatchJobDefinition#size_limit}.
-        :param medium: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#medium BatchJobDefinition#medium}.
+        :param size_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#size_limit BatchJobDefinition#size_limit}.
+        :param medium: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#medium BatchJobDefinition#medium}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b2c15e92b0ed8579b32c6c04e21bf934920de36dfcdfb12ef18e5ba7791491e)
@@ -4733,14 +4733,14 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDir:
 
     @builtins.property
     def size_limit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#size_limit BatchJobDefinition#size_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#size_limit BatchJobDefinition#size_limit}.'''
         result = self._values.get("size_limit")
         assert result is not None, "Required property 'size_limit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def medium(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#medium BatchJobDefinition#medium}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#medium BatchJobDefinition#medium}.'''
         result = self._values.get("medium")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4840,7 +4840,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDirOutputReference
 class BatchJobDefinitionEksPropertiesPodPropertiesVolumesHostPath:
     def __init__(self, *, path: builtins.str) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#path BatchJobDefinition#path}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#path BatchJobDefinition#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9fbcf1c389a605b42e4ce237b909384bc719e8daf126671eed4eb6a16a9f4f08)
@@ -4851,7 +4851,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesHostPath:
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#path BatchJobDefinition#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#path BatchJobDefinition#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -5050,8 +5050,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesOutputReference(
         medium: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#size_limit BatchJobDefinition#size_limit}.
-        :param medium: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#medium BatchJobDefinition#medium}.
+        :param size_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#size_limit BatchJobDefinition#size_limit}.
+        :param medium: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#medium BatchJobDefinition#medium}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesVolumesEmptyDir(
             size_limit=size_limit, medium=medium
@@ -5062,7 +5062,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesOutputReference(
     @jsii.member(jsii_name="putHostPath")
     def put_host_path(self, *, path: builtins.str) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#path BatchJobDefinition#path}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#path BatchJobDefinition#path}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesVolumesHostPath(path=path)
 
@@ -5076,8 +5076,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesOutputReference(
         optional: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#secret_name BatchJobDefinition#secret_name}.
-        :param optional: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#optional BatchJobDefinition#optional}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#secret_name BatchJobDefinition#secret_name}.
+        :param optional: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#optional BatchJobDefinition#optional}.
         '''
         value = BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret(
             secret_name=secret_name, optional=optional
@@ -5191,8 +5191,8 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret:
         optional: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#secret_name BatchJobDefinition#secret_name}.
-        :param optional: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#optional BatchJobDefinition#optional}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#secret_name BatchJobDefinition#secret_name}.
+        :param optional: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#optional BatchJobDefinition#optional}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f40a9d660ff1c9e816e327fe306702ab5e7d9a88f29a82414a175be5374787b4)
@@ -5206,7 +5206,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#secret_name BatchJobDefinition#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#secret_name BatchJobDefinition#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -5215,7 +5215,7 @@ class BatchJobDefinitionEksPropertiesPodPropertiesVolumesSecret:
     def optional(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#optional BatchJobDefinition#optional}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#optional BatchJobDefinition#optional}.'''
         result = self._values.get("optional")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5325,8 +5325,8 @@ class BatchJobDefinitionRetryStrategy:
         evaluate_on_exit: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BatchJobDefinitionRetryStrategyEvaluateOnExit", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#attempts BatchJobDefinition#attempts}.
-        :param evaluate_on_exit: evaluate_on_exit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#evaluate_on_exit BatchJobDefinition#evaluate_on_exit}
+        :param attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#attempts BatchJobDefinition#attempts}.
+        :param evaluate_on_exit: evaluate_on_exit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#evaluate_on_exit BatchJobDefinition#evaluate_on_exit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__882a19ae7d68f6746f2171ae969ab7c258c2e77162e6b232b3503536715c15ae)
@@ -5340,7 +5340,7 @@ class BatchJobDefinitionRetryStrategy:
 
     @builtins.property
     def attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#attempts BatchJobDefinition#attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#attempts BatchJobDefinition#attempts}.'''
         result = self._values.get("attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5350,7 +5350,7 @@ class BatchJobDefinitionRetryStrategy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionRetryStrategyEvaluateOnExit"]]]:
         '''evaluate_on_exit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#evaluate_on_exit BatchJobDefinition#evaluate_on_exit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#evaluate_on_exit BatchJobDefinition#evaluate_on_exit}
         '''
         result = self._values.get("evaluate_on_exit")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BatchJobDefinitionRetryStrategyEvaluateOnExit"]]], result)
@@ -5387,10 +5387,10 @@ class BatchJobDefinitionRetryStrategyEvaluateOnExit:
         on_status_reason: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#action BatchJobDefinition#action}.
-        :param on_exit_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#on_exit_code BatchJobDefinition#on_exit_code}.
-        :param on_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#on_reason BatchJobDefinition#on_reason}.
-        :param on_status_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#on_status_reason BatchJobDefinition#on_status_reason}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#action BatchJobDefinition#action}.
+        :param on_exit_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#on_exit_code BatchJobDefinition#on_exit_code}.
+        :param on_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#on_reason BatchJobDefinition#on_reason}.
+        :param on_status_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#on_status_reason BatchJobDefinition#on_status_reason}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71a19769c75f18255518ef4be17db6306d9d56e51b45a70907e45ab082618fe0)
@@ -5410,26 +5410,26 @@ class BatchJobDefinitionRetryStrategyEvaluateOnExit:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#action BatchJobDefinition#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#action BatchJobDefinition#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def on_exit_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#on_exit_code BatchJobDefinition#on_exit_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#on_exit_code BatchJobDefinition#on_exit_code}.'''
         result = self._values.get("on_exit_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def on_reason(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#on_reason BatchJobDefinition#on_reason}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#on_reason BatchJobDefinition#on_reason}.'''
         result = self._values.get("on_reason")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def on_status_reason(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#on_status_reason BatchJobDefinition#on_status_reason}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#on_status_reason BatchJobDefinition#on_status_reason}.'''
         result = self._values.get("on_status_reason")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5760,7 +5760,7 @@ class BatchJobDefinitionTimeout:
         attempt_duration_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param attempt_duration_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#attempt_duration_seconds BatchJobDefinition#attempt_duration_seconds}.
+        :param attempt_duration_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#attempt_duration_seconds BatchJobDefinition#attempt_duration_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a201c164549a6819088b01f4c4ffade6627d3e9d06046831908faccf7e67674)
@@ -5771,7 +5771,7 @@ class BatchJobDefinitionTimeout:
 
     @builtins.property
     def attempt_duration_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/batch_job_definition#attempt_duration_seconds BatchJobDefinition#attempt_duration_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/batch_job_definition#attempt_duration_seconds BatchJobDefinition#attempt_duration_seconds}.'''
         result = self._values.get("attempt_duration_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 

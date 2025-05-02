@@ -1,7 +1,7 @@
 r'''
 # `aws_default_network_acl`
 
-Refer to the Terraform Registry for docs: [`aws_default_network_acl`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl).
+Refer to the Terraform Registry for docs: [`aws_default_network_acl`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DefaultNetworkAcl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.defaultNetworkAcl.DefaultNetworkAcl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl aws_default_network_acl}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl aws_default_network_acl}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DefaultNetworkAcl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl aws_default_network_acl} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl aws_default_network_acl} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#default_network_acl_id DefaultNetworkAcl#default_network_acl_id}.
-        :param egress: egress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#egress DefaultNetworkAcl#egress}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#id DefaultNetworkAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ingress DefaultNetworkAcl#ingress}
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#subnet_ids DefaultNetworkAcl#subnet_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#tags DefaultNetworkAcl#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#tags_all DefaultNetworkAcl#tags_all}.
+        :param default_network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#default_network_acl_id DefaultNetworkAcl#default_network_acl_id}.
+        :param egress: egress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#egress DefaultNetworkAcl#egress}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#id DefaultNetworkAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ingress DefaultNetworkAcl#ingress}
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#subnet_ids DefaultNetworkAcl#subnet_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#tags DefaultNetworkAcl#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#tags_all DefaultNetworkAcl#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DefaultNetworkAcl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DefaultNetworkAcl to import.
-        :param import_from_id: The id of the existing DefaultNetworkAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DefaultNetworkAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DefaultNetworkAcl to import is found.
         '''
         if __debug__:
@@ -369,13 +369,13 @@ class DefaultNetworkAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#default_network_acl_id DefaultNetworkAcl#default_network_acl_id}.
-        :param egress: egress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#egress DefaultNetworkAcl#egress}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#id DefaultNetworkAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ingress DefaultNetworkAcl#ingress}
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#subnet_ids DefaultNetworkAcl#subnet_ids}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#tags DefaultNetworkAcl#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#tags_all DefaultNetworkAcl#tags_all}.
+        :param default_network_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#default_network_acl_id DefaultNetworkAcl#default_network_acl_id}.
+        :param egress: egress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#egress DefaultNetworkAcl#egress}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#id DefaultNetworkAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress: ingress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ingress DefaultNetworkAcl#ingress}
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#subnet_ids DefaultNetworkAcl#subnet_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#tags DefaultNetworkAcl#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#tags_all DefaultNetworkAcl#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -491,7 +491,7 @@ class DefaultNetworkAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def default_network_acl_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#default_network_acl_id DefaultNetworkAcl#default_network_acl_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#default_network_acl_id DefaultNetworkAcl#default_network_acl_id}.'''
         result = self._values.get("default_network_acl_id")
         assert result is not None, "Required property 'default_network_acl_id' is missing"
         return typing.cast(builtins.str, result)
@@ -502,14 +502,14 @@ class DefaultNetworkAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DefaultNetworkAclEgress"]]]:
         '''egress block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#egress DefaultNetworkAcl#egress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#egress DefaultNetworkAcl#egress}
         '''
         result = self._values.get("egress")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DefaultNetworkAclEgress"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#id DefaultNetworkAcl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#id DefaultNetworkAcl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -523,26 +523,26 @@ class DefaultNetworkAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DefaultNetworkAclIngress"]]]:
         '''ingress block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ingress DefaultNetworkAcl#ingress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ingress DefaultNetworkAcl#ingress}
         '''
         result = self._values.get("ingress")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DefaultNetworkAclIngress"]]], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#subnet_ids DefaultNetworkAcl#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#subnet_ids DefaultNetworkAcl#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#tags DefaultNetworkAcl#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#tags DefaultNetworkAcl#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#tags_all DefaultNetworkAcl#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#tags_all DefaultNetworkAcl#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -588,15 +588,15 @@ class DefaultNetworkAclEgress:
         ipv6_cidr_block: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.
-        :param rule_no: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.
-        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.
-        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.
-        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.
-        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.
+        :param rule_no: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.
+        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.
+        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.
+        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.
+        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a00a13db27be114b1215f39532ed0484dccdca467d8e4cb7a6ca9699c8da3fd)
@@ -627,60 +627,60 @@ class DefaultNetworkAclEgress:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def from_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.'''
         result = self._values.get("from_port")
         assert result is not None, "Required property 'from_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_no(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.'''
         result = self._values.get("rule_no")
         assert result is not None, "Required property 'rule_no' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def to_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.'''
         result = self._values.get("to_port")
         assert result is not None, "Required property 'to_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def cidr_block(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.'''
         result = self._values.get("cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def icmp_code(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.'''
         result = self._values.get("icmp_code")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def icmp_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.'''
         result = self._values.get("icmp_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv6_cidr_block(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.'''
         result = self._values.get("ipv6_cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1029,15 +1029,15 @@ class DefaultNetworkAclIngress:
         ipv6_cidr_block: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.
-        :param rule_no: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.
-        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.
-        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.
-        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.
-        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.
+        :param rule_no: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.
+        :param cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.
+        :param icmp_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.
+        :param icmp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.
+        :param ipv6_cidr_block: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd32c8c305ca83dc5b39f0c117aaca90ab087c881c5700f70a5daad2d885893b)
@@ -1068,60 +1068,60 @@ class DefaultNetworkAclIngress:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#action DefaultNetworkAcl#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def from_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#from_port DefaultNetworkAcl#from_port}.'''
         result = self._values.get("from_port")
         assert result is not None, "Required property 'from_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#protocol DefaultNetworkAcl#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_no(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#rule_no DefaultNetworkAcl#rule_no}.'''
         result = self._values.get("rule_no")
         assert result is not None, "Required property 'rule_no' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def to_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#to_port DefaultNetworkAcl#to_port}.'''
         result = self._values.get("to_port")
         assert result is not None, "Required property 'to_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def cidr_block(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#cidr_block DefaultNetworkAcl#cidr_block}.'''
         result = self._values.get("cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def icmp_code(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_code DefaultNetworkAcl#icmp_code}.'''
         result = self._values.get("icmp_code")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def icmp_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#icmp_type DefaultNetworkAcl#icmp_type}.'''
         result = self._values.get("icmp_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ipv6_cidr_block(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_network_acl#ipv6_cidr_block DefaultNetworkAcl#ipv6_cidr_block}.'''
         result = self._values.get("ipv6_cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 

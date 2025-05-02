@@ -1,7 +1,7 @@
 r'''
 # `aws_acmpca_permission`
 
-Refer to the Terraform Registry for docs: [`aws_acmpca_permission`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission).
+Refer to the Terraform Registry for docs: [`aws_acmpca_permission`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AcmpcaPermission(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.acmpcaPermission.AcmpcaPermission",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission aws_acmpca_permission}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission aws_acmpca_permission}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AcmpcaPermission(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission aws_acmpca_permission} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission aws_acmpca_permission} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#actions AcmpcaPermission#actions}.
-        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#certificate_authority_arn AcmpcaPermission#certificate_authority_arn}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#principal AcmpcaPermission#principal}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#id AcmpcaPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param source_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#source_account AcmpcaPermission#source_account}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#actions AcmpcaPermission#actions}.
+        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#certificate_authority_arn AcmpcaPermission#certificate_authority_arn}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#principal AcmpcaPermission#principal}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#id AcmpcaPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param source_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#source_account AcmpcaPermission#source_account}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AcmpcaPermission(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AcmpcaPermission to import.
-        :param import_from_id: The id of the existing AcmpcaPermission that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AcmpcaPermission that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AcmpcaPermission to import is found.
         '''
         if __debug__:
@@ -281,11 +281,11 @@ class AcmpcaPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#actions AcmpcaPermission#actions}.
-        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#certificate_authority_arn AcmpcaPermission#certificate_authority_arn}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#principal AcmpcaPermission#principal}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#id AcmpcaPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param source_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#source_account AcmpcaPermission#source_account}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#actions AcmpcaPermission#actions}.
+        :param certificate_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#certificate_authority_arn AcmpcaPermission#certificate_authority_arn}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#principal AcmpcaPermission#principal}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#id AcmpcaPermission#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param source_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#source_account AcmpcaPermission#source_account}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -393,28 +393,28 @@ class AcmpcaPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#actions AcmpcaPermission#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#actions AcmpcaPermission#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def certificate_authority_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#certificate_authority_arn AcmpcaPermission#certificate_authority_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#certificate_authority_arn AcmpcaPermission#certificate_authority_arn}.'''
         result = self._values.get("certificate_authority_arn")
         assert result is not None, "Required property 'certificate_authority_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#principal AcmpcaPermission#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#principal AcmpcaPermission#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#id AcmpcaPermission#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#id AcmpcaPermission#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,7 +424,7 @@ class AcmpcaPermissionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def source_account(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acmpca_permission#source_account AcmpcaPermission#source_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acmpca_permission#source_account AcmpcaPermission#source_account}.'''
         result = self._values.get("source_account")
         return typing.cast(typing.Optional[builtins.str], result)
 

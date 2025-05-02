@@ -1,7 +1,7 @@
 r'''
 # `data_aws_location_geofence_collection`
 
-Refer to the Terraform Registry for docs: [`data_aws_location_geofence_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection).
+Refer to the Terraform Registry for docs: [`data_aws_location_geofence_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsLocationGeofenceCollection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsLocationGeofenceCollection.DataAwsLocationGeofenceCollection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection aws_location_geofence_collection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection aws_location_geofence_collection}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataAwsLocationGeofenceCollection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection aws_location_geofence_collection} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection aws_location_geofence_collection} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#collection_name DataAwsLocationGeofenceCollection#collection_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#id DataAwsLocationGeofenceCollection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#kms_key_id DataAwsLocationGeofenceCollection#kms_key_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#tags DataAwsLocationGeofenceCollection#tags}.
+        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#collection_name DataAwsLocationGeofenceCollection#collection_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#id DataAwsLocationGeofenceCollection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#kms_key_id DataAwsLocationGeofenceCollection#kms_key_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#tags DataAwsLocationGeofenceCollection#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataAwsLocationGeofenceCollection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsLocationGeofenceCollection to import.
-        :param import_from_id: The id of the existing DataAwsLocationGeofenceCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsLocationGeofenceCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsLocationGeofenceCollection to import is found.
         '''
         if __debug__:
@@ -278,10 +278,10 @@ class DataAwsLocationGeofenceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#collection_name DataAwsLocationGeofenceCollection#collection_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#id DataAwsLocationGeofenceCollection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#kms_key_id DataAwsLocationGeofenceCollection#kms_key_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#tags DataAwsLocationGeofenceCollection#tags}.
+        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#collection_name DataAwsLocationGeofenceCollection#collection_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#id DataAwsLocationGeofenceCollection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#kms_key_id DataAwsLocationGeofenceCollection#kms_key_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#tags DataAwsLocationGeofenceCollection#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -388,14 +388,14 @@ class DataAwsLocationGeofenceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def collection_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#collection_name DataAwsLocationGeofenceCollection#collection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#collection_name DataAwsLocationGeofenceCollection#collection_name}.'''
         result = self._values.get("collection_name")
         assert result is not None, "Required property 'collection_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#id DataAwsLocationGeofenceCollection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#id DataAwsLocationGeofenceCollection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -405,13 +405,13 @@ class DataAwsLocationGeofenceCollectionConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#kms_key_id DataAwsLocationGeofenceCollection#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#kms_key_id DataAwsLocationGeofenceCollection#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/location_geofence_collection#tags DataAwsLocationGeofenceCollection#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/location_geofence_collection#tags DataAwsLocationGeofenceCollection#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

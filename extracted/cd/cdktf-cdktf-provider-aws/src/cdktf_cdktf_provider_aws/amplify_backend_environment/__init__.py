@@ -1,7 +1,7 @@
 r'''
 # `aws_amplify_backend_environment`
 
-Refer to the Terraform Registry for docs: [`aws_amplify_backend_environment`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment).
+Refer to the Terraform Registry for docs: [`aws_amplify_backend_environment`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AmplifyBackendEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.amplifyBackendEnvironment.AmplifyBackendEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment aws_amplify_backend_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment aws_amplify_backend_environment}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AmplifyBackendEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment aws_amplify_backend_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment aws_amplify_backend_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#app_id AmplifyBackendEnvironment#app_id}.
-        :param environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#environment_name AmplifyBackendEnvironment#environment_name}.
-        :param deployment_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#deployment_artifacts AmplifyBackendEnvironment#deployment_artifacts}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#id AmplifyBackendEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param stack_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#stack_name AmplifyBackendEnvironment#stack_name}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#app_id AmplifyBackendEnvironment#app_id}.
+        :param environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#environment_name AmplifyBackendEnvironment#environment_name}.
+        :param deployment_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#deployment_artifacts AmplifyBackendEnvironment#deployment_artifacts}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#id AmplifyBackendEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param stack_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#stack_name AmplifyBackendEnvironment#stack_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AmplifyBackendEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AmplifyBackendEnvironment to import.
-        :param import_from_id: The id of the existing AmplifyBackendEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AmplifyBackendEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AmplifyBackendEnvironment to import is found.
         '''
         if __debug__:
@@ -285,11 +285,11 @@ class AmplifyBackendEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#app_id AmplifyBackendEnvironment#app_id}.
-        :param environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#environment_name AmplifyBackendEnvironment#environment_name}.
-        :param deployment_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#deployment_artifacts AmplifyBackendEnvironment#deployment_artifacts}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#id AmplifyBackendEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param stack_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#stack_name AmplifyBackendEnvironment#stack_name}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#app_id AmplifyBackendEnvironment#app_id}.
+        :param environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#environment_name AmplifyBackendEnvironment#environment_name}.
+        :param deployment_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#deployment_artifacts AmplifyBackendEnvironment#deployment_artifacts}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#id AmplifyBackendEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param stack_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#stack_name AmplifyBackendEnvironment#stack_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -398,27 +398,27 @@ class AmplifyBackendEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#app_id AmplifyBackendEnvironment#app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#app_id AmplifyBackendEnvironment#app_id}.'''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def environment_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#environment_name AmplifyBackendEnvironment#environment_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#environment_name AmplifyBackendEnvironment#environment_name}.'''
         result = self._values.get("environment_name")
         assert result is not None, "Required property 'environment_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def deployment_artifacts(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#deployment_artifacts AmplifyBackendEnvironment#deployment_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#deployment_artifacts AmplifyBackendEnvironment#deployment_artifacts}.'''
         result = self._values.get("deployment_artifacts")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#id AmplifyBackendEnvironment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#id AmplifyBackendEnvironment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -428,7 +428,7 @@ class AmplifyBackendEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def stack_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/amplify_backend_environment#stack_name AmplifyBackendEnvironment#stack_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/amplify_backend_environment#stack_name AmplifyBackendEnvironment#stack_name}.'''
         result = self._values.get("stack_name")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_apprunner_deployment`
 
-Refer to the Terraform Registry for docs: [`aws_apprunner_deployment`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment).
+Refer to the Terraform Registry for docs: [`aws_apprunner_deployment`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApprunnerDeployment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.apprunnerDeployment.ApprunnerDeployment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment aws_apprunner_deployment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment aws_apprunner_deployment}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ApprunnerDeployment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment aws_apprunner_deployment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment aws_apprunner_deployment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#service_arn ApprunnerDeployment#service_arn}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#timeouts ApprunnerDeployment#timeouts}
+        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#service_arn ApprunnerDeployment#service_arn}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#timeouts ApprunnerDeployment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ApprunnerDeployment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApprunnerDeployment to import.
-        :param import_from_id: The id of the existing ApprunnerDeployment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApprunnerDeployment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApprunnerDeployment to import is found.
         '''
         if __debug__:
@@ -120,7 +120,7 @@ class ApprunnerDeployment(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#create ApprunnerDeployment#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#create ApprunnerDeployment#create}
         '''
         value = ApprunnerDeploymentTimeouts(create=create)
 
@@ -225,8 +225,8 @@ class ApprunnerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#service_arn ApprunnerDeployment#service_arn}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#timeouts ApprunnerDeployment#timeouts}
+        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#service_arn ApprunnerDeployment#service_arn}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#timeouts ApprunnerDeployment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -329,7 +329,7 @@ class ApprunnerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#service_arn ApprunnerDeployment#service_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#service_arn ApprunnerDeployment#service_arn}.'''
         result = self._values.get("service_arn")
         assert result is not None, "Required property 'service_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -338,7 +338,7 @@ class ApprunnerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApprunnerDeploymentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#timeouts ApprunnerDeployment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#timeouts ApprunnerDeployment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApprunnerDeploymentTimeouts"], result)
@@ -363,7 +363,7 @@ class ApprunnerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ApprunnerDeploymentTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#create ApprunnerDeployment#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#create ApprunnerDeployment#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01a2c441fdc32154a489cf4a6dbc0b17ea35f6cbadbc6fd68febf10c675e83d2)
@@ -376,7 +376,7 @@ class ApprunnerDeploymentTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/apprunner_deployment#create ApprunnerDeployment#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/apprunner_deployment#create ApprunnerDeployment#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

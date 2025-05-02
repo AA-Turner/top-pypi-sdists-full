@@ -1,7 +1,7 @@
 r'''
 # `aws_datasync_task`
 
-Refer to the Terraform Registry for docs: [`aws_datasync_task`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task).
+Refer to the Terraform Registry for docs: [`aws_datasync_task`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatasyncTask(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datasyncTask.DatasyncTask",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task aws_datasync_task}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task aws_datasync_task}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class DatasyncTask(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task aws_datasync_task} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task aws_datasync_task} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#destination_location_arn DatasyncTask#destination_location_arn}.
-        :param source_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#source_location_arn DatasyncTask#source_location_arn}.
-        :param cloudwatch_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#cloudwatch_log_group_arn DatasyncTask#cloudwatch_log_group_arn}.
-        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#excludes DatasyncTask#excludes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#id DatasyncTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#includes DatasyncTask#includes}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#name DatasyncTask#name}.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#options DatasyncTask#options}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#schedule DatasyncTask#schedule}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#tags DatasyncTask#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#tags_all DatasyncTask#tags_all}.
-        :param task_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_mode DatasyncTask#task_mode}.
-        :param task_report_config: task_report_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_report_config DatasyncTask#task_report_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#timeouts DatasyncTask#timeouts}
+        :param destination_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#destination_location_arn DatasyncTask#destination_location_arn}.
+        :param source_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#source_location_arn DatasyncTask#source_location_arn}.
+        :param cloudwatch_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#cloudwatch_log_group_arn DatasyncTask#cloudwatch_log_group_arn}.
+        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#excludes DatasyncTask#excludes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#id DatasyncTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#includes DatasyncTask#includes}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#name DatasyncTask#name}.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#options DatasyncTask#options}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#schedule DatasyncTask#schedule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#tags DatasyncTask#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#tags_all DatasyncTask#tags_all}.
+        :param task_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_mode DatasyncTask#task_mode}.
+        :param task_report_config: task_report_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_report_config DatasyncTask#task_report_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#timeouts DatasyncTask#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class DatasyncTask(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatasyncTask to import.
-        :param import_from_id: The id of the existing DatasyncTask that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatasyncTask that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatasyncTask to import is found.
         '''
         if __debug__:
@@ -161,8 +161,8 @@ class DatasyncTask(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#value DatasyncTask#value}.
+        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#value DatasyncTask#value}.
         '''
         value_ = DatasyncTaskExcludes(filter_type=filter_type, value=value)
 
@@ -176,8 +176,8 @@ class DatasyncTask(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#value DatasyncTask#value}.
+        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#value DatasyncTask#value}.
         '''
         value_ = DatasyncTaskIncludes(filter_type=filter_type, value=value)
 
@@ -204,21 +204,21 @@ class DatasyncTask(
         verify_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param atime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#atime DatasyncTask#atime}.
-        :param bytes_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#bytes_per_second DatasyncTask#bytes_per_second}.
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#gid DatasyncTask#gid}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#log_level DatasyncTask#log_level}.
-        :param mtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#mtime DatasyncTask#mtime}.
-        :param object_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#object_tags DatasyncTask#object_tags}.
-        :param overwrite_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#overwrite_mode DatasyncTask#overwrite_mode}.
-        :param posix_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#posix_permissions DatasyncTask#posix_permissions}.
-        :param preserve_deleted_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#preserve_deleted_files DatasyncTask#preserve_deleted_files}.
-        :param preserve_devices: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#preserve_devices DatasyncTask#preserve_devices}.
-        :param security_descriptor_copy_flags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#security_descriptor_copy_flags DatasyncTask#security_descriptor_copy_flags}.
-        :param task_queueing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_queueing DatasyncTask#task_queueing}.
-        :param transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#transfer_mode DatasyncTask#transfer_mode}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#uid DatasyncTask#uid}.
-        :param verify_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#verify_mode DatasyncTask#verify_mode}.
+        :param atime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#atime DatasyncTask#atime}.
+        :param bytes_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#bytes_per_second DatasyncTask#bytes_per_second}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#gid DatasyncTask#gid}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#log_level DatasyncTask#log_level}.
+        :param mtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#mtime DatasyncTask#mtime}.
+        :param object_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#object_tags DatasyncTask#object_tags}.
+        :param overwrite_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#overwrite_mode DatasyncTask#overwrite_mode}.
+        :param posix_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#posix_permissions DatasyncTask#posix_permissions}.
+        :param preserve_deleted_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#preserve_deleted_files DatasyncTask#preserve_deleted_files}.
+        :param preserve_devices: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#preserve_devices DatasyncTask#preserve_devices}.
+        :param security_descriptor_copy_flags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#security_descriptor_copy_flags DatasyncTask#security_descriptor_copy_flags}.
+        :param task_queueing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_queueing DatasyncTask#task_queueing}.
+        :param transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#transfer_mode DatasyncTask#transfer_mode}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#uid DatasyncTask#uid}.
+        :param verify_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#verify_mode DatasyncTask#verify_mode}.
         '''
         value = DatasyncTaskOptions(
             atime=atime,
@@ -243,7 +243,7 @@ class DatasyncTask(
     @jsii.member(jsii_name="putSchedule")
     def put_schedule(self, *, schedule_expression: builtins.str) -> None:
         '''
-        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#schedule_expression DatasyncTask#schedule_expression}.
+        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#schedule_expression DatasyncTask#schedule_expression}.
         '''
         value = DatasyncTaskSchedule(schedule_expression=schedule_expression)
 
@@ -260,11 +260,11 @@ class DatasyncTask(
         s3_object_versioning: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_destination DatasyncTask#s3_destination}
-        :param output_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#output_type DatasyncTask#output_type}.
-        :param report_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#report_level DatasyncTask#report_level}.
-        :param report_overrides: report_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#report_overrides DatasyncTask#report_overrides}
-        :param s3_object_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_object_versioning DatasyncTask#s3_object_versioning}.
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_destination DatasyncTask#s3_destination}
+        :param output_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#output_type DatasyncTask#output_type}.
+        :param report_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#report_level DatasyncTask#report_level}.
+        :param report_overrides: report_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#report_overrides DatasyncTask#report_overrides}
+        :param s3_object_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_object_versioning DatasyncTask#s3_object_versioning}.
         '''
         value = DatasyncTaskTaskReportConfig(
             s3_destination=s3_destination,
@@ -279,7 +279,7 @@ class DatasyncTask(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#create DatasyncTask#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#create DatasyncTask#create}.
         '''
         value = DatasyncTaskTimeouts(create=create)
 
@@ -615,20 +615,20 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#destination_location_arn DatasyncTask#destination_location_arn}.
-        :param source_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#source_location_arn DatasyncTask#source_location_arn}.
-        :param cloudwatch_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#cloudwatch_log_group_arn DatasyncTask#cloudwatch_log_group_arn}.
-        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#excludes DatasyncTask#excludes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#id DatasyncTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#includes DatasyncTask#includes}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#name DatasyncTask#name}.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#options DatasyncTask#options}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#schedule DatasyncTask#schedule}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#tags DatasyncTask#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#tags_all DatasyncTask#tags_all}.
-        :param task_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_mode DatasyncTask#task_mode}.
-        :param task_report_config: task_report_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_report_config DatasyncTask#task_report_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#timeouts DatasyncTask#timeouts}
+        :param destination_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#destination_location_arn DatasyncTask#destination_location_arn}.
+        :param source_location_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#source_location_arn DatasyncTask#source_location_arn}.
+        :param cloudwatch_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#cloudwatch_log_group_arn DatasyncTask#cloudwatch_log_group_arn}.
+        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#excludes DatasyncTask#excludes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#id DatasyncTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#includes DatasyncTask#includes}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#name DatasyncTask#name}.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#options DatasyncTask#options}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#schedule DatasyncTask#schedule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#tags DatasyncTask#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#tags_all DatasyncTask#tags_all}.
+        :param task_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_mode DatasyncTask#task_mode}.
+        :param task_report_config: task_report_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_report_config DatasyncTask#task_report_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#timeouts DatasyncTask#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -776,21 +776,21 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def destination_location_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#destination_location_arn DatasyncTask#destination_location_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#destination_location_arn DatasyncTask#destination_location_arn}.'''
         result = self._values.get("destination_location_arn")
         assert result is not None, "Required property 'destination_location_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_location_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#source_location_arn DatasyncTask#source_location_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#source_location_arn DatasyncTask#source_location_arn}.'''
         result = self._values.get("source_location_arn")
         assert result is not None, "Required property 'source_location_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cloudwatch_log_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#cloudwatch_log_group_arn DatasyncTask#cloudwatch_log_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#cloudwatch_log_group_arn DatasyncTask#cloudwatch_log_group_arn}.'''
         result = self._values.get("cloudwatch_log_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -798,14 +798,14 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def excludes(self) -> typing.Optional["DatasyncTaskExcludes"]:
         '''excludes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#excludes DatasyncTask#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#excludes DatasyncTask#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional["DatasyncTaskExcludes"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#id DatasyncTask#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#id DatasyncTask#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -817,14 +817,14 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def includes(self) -> typing.Optional["DatasyncTaskIncludes"]:
         '''includes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#includes DatasyncTask#includes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#includes DatasyncTask#includes}
         '''
         result = self._values.get("includes")
         return typing.cast(typing.Optional["DatasyncTaskIncludes"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#name DatasyncTask#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#name DatasyncTask#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -832,7 +832,7 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def options(self) -> typing.Optional["DatasyncTaskOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#options DatasyncTask#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#options DatasyncTask#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["DatasyncTaskOptions"], result)
@@ -841,26 +841,26 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schedule(self) -> typing.Optional["DatasyncTaskSchedule"]:
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#schedule DatasyncTask#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#schedule DatasyncTask#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional["DatasyncTaskSchedule"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#tags DatasyncTask#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#tags DatasyncTask#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#tags_all DatasyncTask#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#tags_all DatasyncTask#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def task_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_mode DatasyncTask#task_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_mode DatasyncTask#task_mode}.'''
         result = self._values.get("task_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -868,7 +868,7 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def task_report_config(self) -> typing.Optional["DatasyncTaskTaskReportConfig"]:
         '''task_report_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_report_config DatasyncTask#task_report_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_report_config DatasyncTask#task_report_config}
         '''
         result = self._values.get("task_report_config")
         return typing.cast(typing.Optional["DatasyncTaskTaskReportConfig"], result)
@@ -877,7 +877,7 @@ class DatasyncTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatasyncTaskTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#timeouts DatasyncTask#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#timeouts DatasyncTask#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatasyncTaskTimeouts"], result)
@@ -907,8 +907,8 @@ class DatasyncTaskExcludes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#value DatasyncTask#value}.
+        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#value DatasyncTask#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3df1bbc2fb8e1c001d2e5a0dd43ad5f41a1eb2260d52479c526000b8512b6bc2)
@@ -922,13 +922,13 @@ class DatasyncTaskExcludes:
 
     @builtins.property
     def filter_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.'''
         result = self._values.get("filter_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#value DatasyncTask#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#value DatasyncTask#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1032,8 +1032,8 @@ class DatasyncTaskIncludes:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#value DatasyncTask#value}.
+        :param filter_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#value DatasyncTask#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c0953fa18f696b08069906a58d04859ea137d03fac4a80ee319bc0c06b8fe89)
@@ -1047,13 +1047,13 @@ class DatasyncTaskIncludes:
 
     @builtins.property
     def filter_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#filter_type DatasyncTask#filter_type}.'''
         result = self._values.get("filter_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#value DatasyncTask#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#value DatasyncTask#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1186,21 +1186,21 @@ class DatasyncTaskOptions:
         verify_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param atime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#atime DatasyncTask#atime}.
-        :param bytes_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#bytes_per_second DatasyncTask#bytes_per_second}.
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#gid DatasyncTask#gid}.
-        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#log_level DatasyncTask#log_level}.
-        :param mtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#mtime DatasyncTask#mtime}.
-        :param object_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#object_tags DatasyncTask#object_tags}.
-        :param overwrite_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#overwrite_mode DatasyncTask#overwrite_mode}.
-        :param posix_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#posix_permissions DatasyncTask#posix_permissions}.
-        :param preserve_deleted_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#preserve_deleted_files DatasyncTask#preserve_deleted_files}.
-        :param preserve_devices: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#preserve_devices DatasyncTask#preserve_devices}.
-        :param security_descriptor_copy_flags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#security_descriptor_copy_flags DatasyncTask#security_descriptor_copy_flags}.
-        :param task_queueing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_queueing DatasyncTask#task_queueing}.
-        :param transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#transfer_mode DatasyncTask#transfer_mode}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#uid DatasyncTask#uid}.
-        :param verify_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#verify_mode DatasyncTask#verify_mode}.
+        :param atime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#atime DatasyncTask#atime}.
+        :param bytes_per_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#bytes_per_second DatasyncTask#bytes_per_second}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#gid DatasyncTask#gid}.
+        :param log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#log_level DatasyncTask#log_level}.
+        :param mtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#mtime DatasyncTask#mtime}.
+        :param object_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#object_tags DatasyncTask#object_tags}.
+        :param overwrite_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#overwrite_mode DatasyncTask#overwrite_mode}.
+        :param posix_permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#posix_permissions DatasyncTask#posix_permissions}.
+        :param preserve_deleted_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#preserve_deleted_files DatasyncTask#preserve_deleted_files}.
+        :param preserve_devices: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#preserve_devices DatasyncTask#preserve_devices}.
+        :param security_descriptor_copy_flags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#security_descriptor_copy_flags DatasyncTask#security_descriptor_copy_flags}.
+        :param task_queueing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_queueing DatasyncTask#task_queueing}.
+        :param transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#transfer_mode DatasyncTask#transfer_mode}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#uid DatasyncTask#uid}.
+        :param verify_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#verify_mode DatasyncTask#verify_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__313c638d0da519062634cc1e472fe6951a135c150e59f38f226ec164606d713e)
@@ -1253,91 +1253,91 @@ class DatasyncTaskOptions:
 
     @builtins.property
     def atime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#atime DatasyncTask#atime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#atime DatasyncTask#atime}.'''
         result = self._values.get("atime")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bytes_per_second(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#bytes_per_second DatasyncTask#bytes_per_second}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#bytes_per_second DatasyncTask#bytes_per_second}.'''
         result = self._values.get("bytes_per_second")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def gid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#gid DatasyncTask#gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#gid DatasyncTask#gid}.'''
         result = self._values.get("gid")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#log_level DatasyncTask#log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#log_level DatasyncTask#log_level}.'''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mtime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#mtime DatasyncTask#mtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#mtime DatasyncTask#mtime}.'''
         result = self._values.get("mtime")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def object_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#object_tags DatasyncTask#object_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#object_tags DatasyncTask#object_tags}.'''
         result = self._values.get("object_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def overwrite_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#overwrite_mode DatasyncTask#overwrite_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#overwrite_mode DatasyncTask#overwrite_mode}.'''
         result = self._values.get("overwrite_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def posix_permissions(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#posix_permissions DatasyncTask#posix_permissions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#posix_permissions DatasyncTask#posix_permissions}.'''
         result = self._values.get("posix_permissions")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preserve_deleted_files(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#preserve_deleted_files DatasyncTask#preserve_deleted_files}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#preserve_deleted_files DatasyncTask#preserve_deleted_files}.'''
         result = self._values.get("preserve_deleted_files")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preserve_devices(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#preserve_devices DatasyncTask#preserve_devices}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#preserve_devices DatasyncTask#preserve_devices}.'''
         result = self._values.get("preserve_devices")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_descriptor_copy_flags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#security_descriptor_copy_flags DatasyncTask#security_descriptor_copy_flags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#security_descriptor_copy_flags DatasyncTask#security_descriptor_copy_flags}.'''
         result = self._values.get("security_descriptor_copy_flags")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def task_queueing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#task_queueing DatasyncTask#task_queueing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#task_queueing DatasyncTask#task_queueing}.'''
         result = self._values.get("task_queueing")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transfer_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#transfer_mode DatasyncTask#transfer_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#transfer_mode DatasyncTask#transfer_mode}.'''
         result = self._values.get("transfer_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def uid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#uid DatasyncTask#uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#uid DatasyncTask#uid}.'''
         result = self._values.get("uid")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def verify_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#verify_mode DatasyncTask#verify_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#verify_mode DatasyncTask#verify_mode}.'''
         result = self._values.get("verify_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1709,7 +1709,7 @@ class DatasyncTaskOptionsOutputReference(
 class DatasyncTaskSchedule:
     def __init__(self, *, schedule_expression: builtins.str) -> None:
         '''
-        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#schedule_expression DatasyncTask#schedule_expression}.
+        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#schedule_expression DatasyncTask#schedule_expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9469146e9b7c54ff0ae60d0e7c5485bfb257842c04405eaa2ebeb61719dca7e7)
@@ -1720,7 +1720,7 @@ class DatasyncTaskSchedule:
 
     @builtins.property
     def schedule_expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#schedule_expression DatasyncTask#schedule_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#schedule_expression DatasyncTask#schedule_expression}.'''
         result = self._values.get("schedule_expression")
         assert result is not None, "Required property 'schedule_expression' is missing"
         return typing.cast(builtins.str, result)
@@ -1809,11 +1809,11 @@ class DatasyncTaskTaskReportConfig:
         s3_object_versioning: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_destination DatasyncTask#s3_destination}
-        :param output_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#output_type DatasyncTask#output_type}.
-        :param report_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#report_level DatasyncTask#report_level}.
-        :param report_overrides: report_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#report_overrides DatasyncTask#report_overrides}
-        :param s3_object_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_object_versioning DatasyncTask#s3_object_versioning}.
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_destination DatasyncTask#s3_destination}
+        :param output_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#output_type DatasyncTask#output_type}.
+        :param report_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#report_level DatasyncTask#report_level}.
+        :param report_overrides: report_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#report_overrides DatasyncTask#report_overrides}
+        :param s3_object_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_object_versioning DatasyncTask#s3_object_versioning}.
         '''
         if isinstance(s3_destination, dict):
             s3_destination = DatasyncTaskTaskReportConfigS3Destination(**s3_destination)
@@ -1842,7 +1842,7 @@ class DatasyncTaskTaskReportConfig:
     def s3_destination(self) -> "DatasyncTaskTaskReportConfigS3Destination":
         '''s3_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_destination DatasyncTask#s3_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_destination DatasyncTask#s3_destination}
         '''
         result = self._values.get("s3_destination")
         assert result is not None, "Required property 's3_destination' is missing"
@@ -1850,13 +1850,13 @@ class DatasyncTaskTaskReportConfig:
 
     @builtins.property
     def output_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#output_type DatasyncTask#output_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#output_type DatasyncTask#output_type}.'''
         result = self._values.get("output_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def report_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#report_level DatasyncTask#report_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#report_level DatasyncTask#report_level}.'''
         result = self._values.get("report_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1866,14 +1866,14 @@ class DatasyncTaskTaskReportConfig:
     ) -> typing.Optional["DatasyncTaskTaskReportConfigReportOverrides"]:
         '''report_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#report_overrides DatasyncTask#report_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#report_overrides DatasyncTask#report_overrides}
         '''
         result = self._values.get("report_overrides")
         return typing.cast(typing.Optional["DatasyncTaskTaskReportConfigReportOverrides"], result)
 
     @builtins.property
     def s3_object_versioning(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_object_versioning DatasyncTask#s3_object_versioning}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_object_versioning DatasyncTask#s3_object_versioning}.'''
         result = self._values.get("s3_object_versioning")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1919,10 +1919,10 @@ class DatasyncTaskTaskReportConfigOutputReference(
         verified_override: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deleted_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#deleted_override DatasyncTask#deleted_override}.
-        :param skipped_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#skipped_override DatasyncTask#skipped_override}.
-        :param transferred_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#transferred_override DatasyncTask#transferred_override}.
-        :param verified_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#verified_override DatasyncTask#verified_override}.
+        :param deleted_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#deleted_override DatasyncTask#deleted_override}.
+        :param skipped_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#skipped_override DatasyncTask#skipped_override}.
+        :param transferred_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#transferred_override DatasyncTask#transferred_override}.
+        :param verified_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#verified_override DatasyncTask#verified_override}.
         '''
         value = DatasyncTaskTaskReportConfigReportOverrides(
             deleted_override=deleted_override,
@@ -1942,9 +1942,9 @@ class DatasyncTaskTaskReportConfigOutputReference(
         subdirectory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#bucket_access_role_arn DatasyncTask#bucket_access_role_arn}.
-        :param s3_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_bucket_arn DatasyncTask#s3_bucket_arn}.
-        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#subdirectory DatasyncTask#subdirectory}.
+        :param bucket_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#bucket_access_role_arn DatasyncTask#bucket_access_role_arn}.
+        :param s3_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_bucket_arn DatasyncTask#s3_bucket_arn}.
+        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#subdirectory DatasyncTask#subdirectory}.
         '''
         value = DatasyncTaskTaskReportConfigS3Destination(
             bucket_access_role_arn=bucket_access_role_arn,
@@ -2085,10 +2085,10 @@ class DatasyncTaskTaskReportConfigReportOverrides:
         verified_override: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deleted_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#deleted_override DatasyncTask#deleted_override}.
-        :param skipped_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#skipped_override DatasyncTask#skipped_override}.
-        :param transferred_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#transferred_override DatasyncTask#transferred_override}.
-        :param verified_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#verified_override DatasyncTask#verified_override}.
+        :param deleted_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#deleted_override DatasyncTask#deleted_override}.
+        :param skipped_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#skipped_override DatasyncTask#skipped_override}.
+        :param transferred_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#transferred_override DatasyncTask#transferred_override}.
+        :param verified_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#verified_override DatasyncTask#verified_override}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__994f8e8d83747900788fcd05869f0db4694eb060060b2217deadbb211b41ba49)
@@ -2108,25 +2108,25 @@ class DatasyncTaskTaskReportConfigReportOverrides:
 
     @builtins.property
     def deleted_override(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#deleted_override DatasyncTask#deleted_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#deleted_override DatasyncTask#deleted_override}.'''
         result = self._values.get("deleted_override")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def skipped_override(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#skipped_override DatasyncTask#skipped_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#skipped_override DatasyncTask#skipped_override}.'''
         result = self._values.get("skipped_override")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transferred_override(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#transferred_override DatasyncTask#transferred_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#transferred_override DatasyncTask#transferred_override}.'''
         result = self._values.get("transferred_override")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def verified_override(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#verified_override DatasyncTask#verified_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#verified_override DatasyncTask#verified_override}.'''
         result = self._values.get("verified_override")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2282,9 +2282,9 @@ class DatasyncTaskTaskReportConfigS3Destination:
         subdirectory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#bucket_access_role_arn DatasyncTask#bucket_access_role_arn}.
-        :param s3_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_bucket_arn DatasyncTask#s3_bucket_arn}.
-        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#subdirectory DatasyncTask#subdirectory}.
+        :param bucket_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#bucket_access_role_arn DatasyncTask#bucket_access_role_arn}.
+        :param s3_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_bucket_arn DatasyncTask#s3_bucket_arn}.
+        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#subdirectory DatasyncTask#subdirectory}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5ebd420ac91c50b665bcdc14c1a5ac80b7018646645f7355add4a0622cb648d)
@@ -2300,21 +2300,21 @@ class DatasyncTaskTaskReportConfigS3Destination:
 
     @builtins.property
     def bucket_access_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#bucket_access_role_arn DatasyncTask#bucket_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#bucket_access_role_arn DatasyncTask#bucket_access_role_arn}.'''
         result = self._values.get("bucket_access_role_arn")
         assert result is not None, "Required property 'bucket_access_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#s3_bucket_arn DatasyncTask#s3_bucket_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#s3_bucket_arn DatasyncTask#s3_bucket_arn}.'''
         result = self._values.get("s3_bucket_arn")
         assert result is not None, "Required property 's3_bucket_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subdirectory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#subdirectory DatasyncTask#subdirectory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#subdirectory DatasyncTask#subdirectory}.'''
         result = self._values.get("subdirectory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2431,7 +2431,7 @@ class DatasyncTaskTaskReportConfigS3DestinationOutputReference(
 class DatasyncTaskTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#create DatasyncTask#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#create DatasyncTask#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7144911757d3908ffe9b44db22fae8cc71844b42221a482e28ce84f2d6f50c5)
@@ -2442,7 +2442,7 @@ class DatasyncTaskTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_task#create DatasyncTask#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_task#create DatasyncTask#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_networkmonitor_probe`
 
-Refer to the Terraform Registry for docs: [`aws_networkmonitor_probe`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe).
+Refer to the Terraform Registry for docs: [`aws_networkmonitor_probe`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkmonitorProbe(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.networkmonitorProbe.NetworkmonitorProbe",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe aws_networkmonitor_probe}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe aws_networkmonitor_probe}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class NetworkmonitorProbe(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe aws_networkmonitor_probe} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe aws_networkmonitor_probe} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#destination NetworkmonitorProbe#destination}.
-        :param monitor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#monitor_name NetworkmonitorProbe#monitor_name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#protocol NetworkmonitorProbe#protocol}.
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#source_arn NetworkmonitorProbe#source_arn}.
-        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#destination_port NetworkmonitorProbe#destination_port}.
-        :param packet_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#packet_size NetworkmonitorProbe#packet_size}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#tags NetworkmonitorProbe#tags}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#destination NetworkmonitorProbe#destination}.
+        :param monitor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#monitor_name NetworkmonitorProbe#monitor_name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#protocol NetworkmonitorProbe#protocol}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#source_arn NetworkmonitorProbe#source_arn}.
+        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#destination_port NetworkmonitorProbe#destination_port}.
+        :param packet_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#packet_size NetworkmonitorProbe#packet_size}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#tags NetworkmonitorProbe#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class NetworkmonitorProbe(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkmonitorProbe to import.
-        :param import_from_id: The id of the existing NetworkmonitorProbe that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkmonitorProbe that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkmonitorProbe to import is found.
         '''
         if __debug__:
@@ -354,13 +354,13 @@ class NetworkmonitorProbeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#destination NetworkmonitorProbe#destination}.
-        :param monitor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#monitor_name NetworkmonitorProbe#monitor_name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#protocol NetworkmonitorProbe#protocol}.
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#source_arn NetworkmonitorProbe#source_arn}.
-        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#destination_port NetworkmonitorProbe#destination_port}.
-        :param packet_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#packet_size NetworkmonitorProbe#packet_size}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#tags NetworkmonitorProbe#tags}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#destination NetworkmonitorProbe#destination}.
+        :param monitor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#monitor_name NetworkmonitorProbe#monitor_name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#protocol NetworkmonitorProbe#protocol}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#source_arn NetworkmonitorProbe#source_arn}.
+        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#destination_port NetworkmonitorProbe#destination_port}.
+        :param packet_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#packet_size NetworkmonitorProbe#packet_size}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#tags NetworkmonitorProbe#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -473,47 +473,47 @@ class NetworkmonitorProbeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#destination NetworkmonitorProbe#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#destination NetworkmonitorProbe#destination}.'''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def monitor_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#monitor_name NetworkmonitorProbe#monitor_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#monitor_name NetworkmonitorProbe#monitor_name}.'''
         result = self._values.get("monitor_name")
         assert result is not None, "Required property 'monitor_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#protocol NetworkmonitorProbe#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#protocol NetworkmonitorProbe#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#source_arn NetworkmonitorProbe#source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#source_arn NetworkmonitorProbe#source_arn}.'''
         result = self._values.get("source_arn")
         assert result is not None, "Required property 'source_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def destination_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#destination_port NetworkmonitorProbe#destination_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#destination_port NetworkmonitorProbe#destination_port}.'''
         result = self._values.get("destination_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def packet_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#packet_size NetworkmonitorProbe#packet_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#packet_size NetworkmonitorProbe#packet_size}.'''
         result = self._values.get("packet_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmonitor_probe#tags NetworkmonitorProbe#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmonitor_probe#tags NetworkmonitorProbe#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

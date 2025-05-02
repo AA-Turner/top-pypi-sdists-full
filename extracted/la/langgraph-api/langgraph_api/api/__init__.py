@@ -68,10 +68,7 @@ if HTTP_CONFIG:
         protected_routes.extend(store_routes)
     if not HTTP_CONFIG.get("disable_ui"):
         protected_routes.extend(ui_routes)
-    # Default for disabling MCP. Until we can verify that the protocol is working
-    # correctly. This is dependent on the release of an official MCP client
-    # implementation.
-    if not HTTP_CONFIG.get("disable_mcp", True):
+    if not HTTP_CONFIG.get("disable_mcp"):
         protected_routes.extend(mcp_routes)
 else:
     protected_routes.extend(assistants_routes)
@@ -79,6 +76,7 @@ else:
     protected_routes.extend(threads_routes)
     protected_routes.extend(store_routes)
     protected_routes.extend(ui_routes)
+    protected_routes.extend(mcp_routes)
 
 routes: list[BaseRoute] = []
 user_router = None

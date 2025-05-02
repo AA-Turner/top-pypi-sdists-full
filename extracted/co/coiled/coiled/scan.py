@@ -172,20 +172,10 @@ async def handle_dist(dist: Distribution, locations: List[Path]) -> PackageInfo 
     if installer == "conda":
         return CondaPlaceHolder(name=convert_conda_to_pypi_name(dist.name), path=dist_path)
     elif dist_path.parent.suffix == ".egg":
-        # egg files can be a directory OR a zip file
-        # the zipp implementation of Path always uses
-        # linux style seperators so we strip them too
-        return {
-            "name": dist.name,
-            "path": dist_path.parent,
-            "source": "pip",
-            "channel": None,
-            "subdir": None,
-            "channel_url": None,
-            "conda_name": None,
-            "version": dist.version,
-            "wheel_target": str(dist_path.parent).rstrip(os.sep + "/"),
-        }
+        # .egg files are no longer allowed on PyPI and setuptools > 80.0
+        # will not even install them, so let's ignore them
+        logger.info("Ignoring .egg package %s", dist_path)
+        return
     else:
         direct_url_metadata = dist.read_text("direct_url.json")
         if direct_url_metadata:

@@ -2917,6 +2917,14 @@ class CfnAutoScalingGroup(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrAutoScalingGroupArn")
+    def attr_auto_scaling_group_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: AutoScalingGroupARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAutoScalingGroupArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

@@ -271,8 +271,12 @@ class ProjectHasNoRecommendedModelWarning(Warning):
 
 class PlatformDeprecationWarning(Warning):
     """
-    Raised when `Deprecation` header is returned in the API, for example a project may be
-    deprecated as part of the 2022 Python 3 platform migration.
+    Raised when the API is used against a deprecated DataRobot resource, such as a project
+    that was deprecated as part of the 2022 Python 3 platform migration. Functionally, it
+    is raised only when an API response contains the `Deprecation` header.
+
+    This is NOT used to denote a deprecation in the library itself, or of a specific API
+    endpoint. For those, see :class:`DataRobotDeprecationWarning`.
 
     See Also
     --------

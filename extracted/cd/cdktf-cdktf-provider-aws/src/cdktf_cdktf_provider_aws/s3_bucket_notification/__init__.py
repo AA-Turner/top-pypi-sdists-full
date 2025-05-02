@@ -1,7 +1,7 @@
 r'''
 # `aws_s3_bucket_notification`
 
-Refer to the Terraform Registry for docs: [`aws_s3_bucket_notification`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification).
+Refer to the Terraform Registry for docs: [`aws_s3_bucket_notification`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3BucketNotification(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3BucketNotification.S3BucketNotification",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification aws_s3_bucket_notification}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification aws_s3_bucket_notification}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class S3BucketNotification(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification aws_s3_bucket_notification} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification aws_s3_bucket_notification} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#bucket S3BucketNotification#bucket}.
-        :param eventbridge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#eventbridge S3BucketNotification#eventbridge}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_function: lambda_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#lambda_function S3BucketNotification#lambda_function}
-        :param queue: queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#queue S3BucketNotification#queue}
-        :param topic: topic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#topic S3BucketNotification#topic}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#bucket S3BucketNotification#bucket}.
+        :param eventbridge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#eventbridge S3BucketNotification#eventbridge}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_function: lambda_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#lambda_function S3BucketNotification#lambda_function}
+        :param queue: queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#queue S3BucketNotification#queue}
+        :param topic: topic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#topic S3BucketNotification#topic}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class S3BucketNotification(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3BucketNotification to import.
-        :param import_from_id: The id of the existing S3BucketNotification that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3BucketNotification that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3BucketNotification to import is found.
         '''
         if __debug__:
@@ -339,12 +339,12 @@ class S3BucketNotificationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#bucket S3BucketNotification#bucket}.
-        :param eventbridge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#eventbridge S3BucketNotification#eventbridge}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_function: lambda_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#lambda_function S3BucketNotification#lambda_function}
-        :param queue: queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#queue S3BucketNotification#queue}
-        :param topic: topic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#topic S3BucketNotification#topic}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#bucket S3BucketNotification#bucket}.
+        :param eventbridge: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#eventbridge S3BucketNotification#eventbridge}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_function: lambda_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#lambda_function S3BucketNotification#lambda_function}
+        :param queue: queue block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#queue S3BucketNotification#queue}
+        :param topic: topic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#topic S3BucketNotification#topic}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -457,7 +457,7 @@ class S3BucketNotificationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#bucket S3BucketNotification#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#bucket S3BucketNotification#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -466,13 +466,13 @@ class S3BucketNotificationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def eventbridge(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#eventbridge S3BucketNotification#eventbridge}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#eventbridge S3BucketNotification#eventbridge}.'''
         result = self._values.get("eventbridge")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -486,7 +486,7 @@ class S3BucketNotificationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketNotificationLambdaFunction"]]]:
         '''lambda_function block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#lambda_function S3BucketNotification#lambda_function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#lambda_function S3BucketNotification#lambda_function}
         '''
         result = self._values.get("lambda_function")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketNotificationLambdaFunction"]]], result)
@@ -497,7 +497,7 @@ class S3BucketNotificationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketNotificationQueue"]]]:
         '''queue block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#queue S3BucketNotification#queue}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#queue S3BucketNotification#queue}
         '''
         result = self._values.get("queue")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketNotificationQueue"]]], result)
@@ -508,7 +508,7 @@ class S3BucketNotificationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketNotificationTopic"]]]:
         '''topic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#topic S3BucketNotification#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#topic S3BucketNotification#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["S3BucketNotificationTopic"]]], result)
@@ -547,11 +547,11 @@ class S3BucketNotificationLambdaFunction:
         lambda_function_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.
-        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.
-        :param filter_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lambda_function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#lambda_function_arn S3BucketNotification#lambda_function_arn}.
+        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.
+        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.
+        :param filter_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lambda_function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#lambda_function_arn S3BucketNotification#lambda_function_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b16c746d024387e438fae8bce1957fe1169df653c2fb21dde6b52715a0af57e)
@@ -574,26 +574,26 @@ class S3BucketNotificationLambdaFunction:
 
     @builtins.property
     def events(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.'''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def filter_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.'''
         result = self._values.get("filter_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def filter_suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.'''
         result = self._values.get("filter_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -603,7 +603,7 @@ class S3BucketNotificationLambdaFunction:
 
     @builtins.property
     def lambda_function_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#lambda_function_arn S3BucketNotification#lambda_function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#lambda_function_arn S3BucketNotification#lambda_function_arn}.'''
         result = self._values.get("lambda_function_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -879,11 +879,11 @@ class S3BucketNotificationQueue:
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.
-        :param queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#queue_arn S3BucketNotification#queue_arn}.
-        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.
-        :param filter_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.
+        :param queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#queue_arn S3BucketNotification#queue_arn}.
+        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.
+        :param filter_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c345b9cb488686f1a73a3766843f1b3088051d80e7af5e030133f98e510d41e6)
@@ -905,33 +905,33 @@ class S3BucketNotificationQueue:
 
     @builtins.property
     def events(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.'''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def queue_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#queue_arn S3BucketNotification#queue_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#queue_arn S3BucketNotification#queue_arn}.'''
         result = self._values.get("queue_arn")
         assert result is not None, "Required property 'queue_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def filter_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.'''
         result = self._values.get("filter_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def filter_suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.'''
         result = self._values.get("filter_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1204,11 +1204,11 @@ class S3BucketNotificationTopic:
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#topic_arn S3BucketNotification#topic_arn}.
-        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.
-        :param filter_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#topic_arn S3BucketNotification#topic_arn}.
+        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.
+        :param filter_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a458b41f6bdf19d022162c54a02d402c7d01534dd10a0bb080bb4905bc8d06a0)
@@ -1230,33 +1230,33 @@ class S3BucketNotificationTopic:
 
     @builtins.property
     def events(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#events S3BucketNotification#events}.'''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def topic_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#topic_arn S3BucketNotification#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#topic_arn S3BucketNotification#topic_arn}.'''
         result = self._values.get("topic_arn")
         assert result is not None, "Required property 'topic_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def filter_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_prefix S3BucketNotification#filter_prefix}.'''
         result = self._values.get("filter_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def filter_suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#filter_suffix S3BucketNotification#filter_suffix}.'''
         result = self._values.get("filter_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_notification#id S3BucketNotification#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -1,7 +1,7 @@
 r'''
 # `aws_qldb_stream`
 
-Refer to the Terraform Registry for docs: [`aws_qldb_stream`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream).
+Refer to the Terraform Registry for docs: [`aws_qldb_stream`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QldbStream(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.qldbStream.QldbStream",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream aws_qldb_stream}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream aws_qldb_stream}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class QldbStream(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream aws_qldb_stream} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream aws_qldb_stream} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param inclusive_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#inclusive_start_time QldbStream#inclusive_start_time}.
-        :param kinesis_configuration: kinesis_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#kinesis_configuration QldbStream#kinesis_configuration}
-        :param ledger_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#ledger_name QldbStream#ledger_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#role_arn QldbStream#role_arn}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#stream_name QldbStream#stream_name}.
-        :param exclusive_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#exclusive_end_time QldbStream#exclusive_end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#id QldbStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#tags QldbStream#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#tags_all QldbStream#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#timeouts QldbStream#timeouts}
+        :param inclusive_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#inclusive_start_time QldbStream#inclusive_start_time}.
+        :param kinesis_configuration: kinesis_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#kinesis_configuration QldbStream#kinesis_configuration}
+        :param ledger_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#ledger_name QldbStream#ledger_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#role_arn QldbStream#role_arn}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#stream_name QldbStream#stream_name}.
+        :param exclusive_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#exclusive_end_time QldbStream#exclusive_end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#id QldbStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#tags QldbStream#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#tags_all QldbStream#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#timeouts QldbStream#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class QldbStream(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QldbStream to import.
-        :param import_from_id: The id of the existing QldbStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QldbStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QldbStream to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class QldbStream(
         aggregation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#stream_arn QldbStream#stream_arn}.
-        :param aggregation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#aggregation_enabled QldbStream#aggregation_enabled}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#stream_arn QldbStream#stream_arn}.
+        :param aggregation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#aggregation_enabled QldbStream#aggregation_enabled}.
         '''
         value = QldbStreamKinesisConfiguration(
             stream_arn=stream_arn, aggregation_enabled=aggregation_enabled
@@ -166,8 +166,8 @@ class QldbStream(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#create QldbStream#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#delete QldbStream#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#create QldbStream#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#delete QldbStream#delete}.
         '''
         value = QldbStreamTimeouts(create=create, delete=delete)
 
@@ -427,16 +427,16 @@ class QldbStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param inclusive_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#inclusive_start_time QldbStream#inclusive_start_time}.
-        :param kinesis_configuration: kinesis_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#kinesis_configuration QldbStream#kinesis_configuration}
-        :param ledger_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#ledger_name QldbStream#ledger_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#role_arn QldbStream#role_arn}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#stream_name QldbStream#stream_name}.
-        :param exclusive_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#exclusive_end_time QldbStream#exclusive_end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#id QldbStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#tags QldbStream#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#tags_all QldbStream#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#timeouts QldbStream#timeouts}
+        :param inclusive_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#inclusive_start_time QldbStream#inclusive_start_time}.
+        :param kinesis_configuration: kinesis_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#kinesis_configuration QldbStream#kinesis_configuration}
+        :param ledger_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#ledger_name QldbStream#ledger_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#role_arn QldbStream#role_arn}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#stream_name QldbStream#stream_name}.
+        :param exclusive_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#exclusive_end_time QldbStream#exclusive_end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#id QldbStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#tags QldbStream#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#tags_all QldbStream#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#timeouts QldbStream#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -561,7 +561,7 @@ class QldbStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def inclusive_start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#inclusive_start_time QldbStream#inclusive_start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#inclusive_start_time QldbStream#inclusive_start_time}.'''
         result = self._values.get("inclusive_start_time")
         assert result is not None, "Required property 'inclusive_start_time' is missing"
         return typing.cast(builtins.str, result)
@@ -570,7 +570,7 @@ class QldbStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kinesis_configuration(self) -> "QldbStreamKinesisConfiguration":
         '''kinesis_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#kinesis_configuration QldbStream#kinesis_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#kinesis_configuration QldbStream#kinesis_configuration}
         '''
         result = self._values.get("kinesis_configuration")
         assert result is not None, "Required property 'kinesis_configuration' is missing"
@@ -578,34 +578,34 @@ class QldbStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ledger_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#ledger_name QldbStream#ledger_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#ledger_name QldbStream#ledger_name}.'''
         result = self._values.get("ledger_name")
         assert result is not None, "Required property 'ledger_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#role_arn QldbStream#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#role_arn QldbStream#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#stream_name QldbStream#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#stream_name QldbStream#stream_name}.'''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def exclusive_end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#exclusive_end_time QldbStream#exclusive_end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#exclusive_end_time QldbStream#exclusive_end_time}.'''
         result = self._values.get("exclusive_end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#id QldbStream#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#id QldbStream#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -615,13 +615,13 @@ class QldbStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#tags QldbStream#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#tags QldbStream#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#tags_all QldbStream#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#tags_all QldbStream#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -629,7 +629,7 @@ class QldbStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QldbStreamTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#timeouts QldbStream#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#timeouts QldbStream#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QldbStreamTimeouts"], result)
@@ -662,8 +662,8 @@ class QldbStreamKinesisConfiguration:
         aggregation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#stream_arn QldbStream#stream_arn}.
-        :param aggregation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#aggregation_enabled QldbStream#aggregation_enabled}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#stream_arn QldbStream#stream_arn}.
+        :param aggregation_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#aggregation_enabled QldbStream#aggregation_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__783f43a229f050e9d75989735af6b618571abe45efbc4ace60314c3296e38a9a)
@@ -677,7 +677,7 @@ class QldbStreamKinesisConfiguration:
 
     @builtins.property
     def stream_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#stream_arn QldbStream#stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#stream_arn QldbStream#stream_arn}.'''
         result = self._values.get("stream_arn")
         assert result is not None, "Required property 'stream_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -686,7 +686,7 @@ class QldbStreamKinesisConfiguration:
     def aggregation_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#aggregation_enabled QldbStream#aggregation_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#aggregation_enabled QldbStream#aggregation_enabled}.'''
         result = self._values.get("aggregation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -796,8 +796,8 @@ class QldbStreamTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#create QldbStream#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#delete QldbStream#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#create QldbStream#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#delete QldbStream#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__117fab81dcab2d65be87d5183baa3661380297e8c3ef71b6c7be0d49a8961a46)
@@ -811,13 +811,13 @@ class QldbStreamTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#create QldbStream#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#create QldbStream#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qldb_stream#delete QldbStream#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qldb_stream#delete QldbStream#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

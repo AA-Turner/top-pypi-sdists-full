@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_partition`
 
-Refer to the Terraform Registry for docs: [`aws_glue_partition`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition).
+Refer to the Terraform Registry for docs: [`aws_glue_partition`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GluePartition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.gluePartition.GluePartition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition aws_glue_partition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition aws_glue_partition}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GluePartition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition aws_glue_partition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition aws_glue_partition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#database_name GluePartition#database_name}.
-        :param partition_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#partition_values GluePartition#partition_values}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#table_name GluePartition#table_name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#catalog_id GluePartition#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#id GluePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#storage_descriptor GluePartition#storage_descriptor}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#database_name GluePartition#database_name}.
+        :param partition_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#partition_values GluePartition#partition_values}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#table_name GluePartition#table_name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#catalog_id GluePartition#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#id GluePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#storage_descriptor GluePartition#storage_descriptor}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GluePartition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GluePartition to import.
-        :param import_from_id: The id of the existing GluePartition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GluePartition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GluePartition to import is found.
         '''
         if __debug__:
@@ -151,19 +151,19 @@ class GluePartition(
         stored_as_sub_directories: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#additional_locations GluePartition#additional_locations}.
-        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#bucket_columns GluePartition#bucket_columns}.
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#columns GluePartition#columns}
-        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#compressed GluePartition#compressed}.
-        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#input_format GluePartition#input_format}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#location GluePartition#location}.
-        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#number_of_buckets GluePartition#number_of_buckets}.
-        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#output_format GluePartition#output_format}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
-        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#ser_de_info GluePartition#ser_de_info}
-        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_info GluePartition#skewed_info}
-        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#sort_columns GluePartition#sort_columns}
-        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#stored_as_sub_directories GluePartition#stored_as_sub_directories}.
+        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#additional_locations GluePartition#additional_locations}.
+        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#bucket_columns GluePartition#bucket_columns}.
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#columns GluePartition#columns}
+        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#compressed GluePartition#compressed}.
+        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#input_format GluePartition#input_format}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#location GluePartition#location}.
+        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#number_of_buckets GluePartition#number_of_buckets}.
+        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#output_format GluePartition#output_format}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
+        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#ser_de_info GluePartition#ser_de_info}
+        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_info GluePartition#skewed_info}
+        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#sort_columns GluePartition#sort_columns}
+        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#stored_as_sub_directories GluePartition#stored_as_sub_directories}.
         '''
         value = GluePartitionStorageDescriptor(
             additional_locations=additional_locations,
@@ -391,13 +391,13 @@ class GluePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#database_name GluePartition#database_name}.
-        :param partition_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#partition_values GluePartition#partition_values}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#table_name GluePartition#table_name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#catalog_id GluePartition#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#id GluePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#storage_descriptor GluePartition#storage_descriptor}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#database_name GluePartition#database_name}.
+        :param partition_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#partition_values GluePartition#partition_values}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#table_name GluePartition#table_name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#catalog_id GluePartition#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#id GluePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#storage_descriptor GluePartition#storage_descriptor}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -513,34 +513,34 @@ class GluePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#database_name GluePartition#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#database_name GluePartition#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partition_values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#partition_values GluePartition#partition_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#partition_values GluePartition#partition_values}.'''
         result = self._values.get("partition_values")
         assert result is not None, "Required property 'partition_values' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#table_name GluePartition#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#table_name GluePartition#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#catalog_id GluePartition#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#catalog_id GluePartition#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#id GluePartition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#id GluePartition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -550,7 +550,7 @@ class GluePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -558,7 +558,7 @@ class GluePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_descriptor(self) -> typing.Optional["GluePartitionStorageDescriptor"]:
         '''storage_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#storage_descriptor GluePartition#storage_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#storage_descriptor GluePartition#storage_descriptor}
         '''
         result = self._values.get("storage_descriptor")
         return typing.cast(typing.Optional["GluePartitionStorageDescriptor"], result)
@@ -613,19 +613,19 @@ class GluePartitionStorageDescriptor:
         stored_as_sub_directories: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#additional_locations GluePartition#additional_locations}.
-        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#bucket_columns GluePartition#bucket_columns}.
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#columns GluePartition#columns}
-        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#compressed GluePartition#compressed}.
-        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#input_format GluePartition#input_format}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#location GluePartition#location}.
-        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#number_of_buckets GluePartition#number_of_buckets}.
-        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#output_format GluePartition#output_format}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
-        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#ser_de_info GluePartition#ser_de_info}
-        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_info GluePartition#skewed_info}
-        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#sort_columns GluePartition#sort_columns}
-        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#stored_as_sub_directories GluePartition#stored_as_sub_directories}.
+        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#additional_locations GluePartition#additional_locations}.
+        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#bucket_columns GluePartition#bucket_columns}.
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#columns GluePartition#columns}
+        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#compressed GluePartition#compressed}.
+        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#input_format GluePartition#input_format}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#location GluePartition#location}.
+        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#number_of_buckets GluePartition#number_of_buckets}.
+        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#output_format GluePartition#output_format}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
+        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#ser_de_info GluePartition#ser_de_info}
+        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_info GluePartition#skewed_info}
+        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#sort_columns GluePartition#sort_columns}
+        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#stored_as_sub_directories GluePartition#stored_as_sub_directories}.
         '''
         if isinstance(ser_de_info, dict):
             ser_de_info = GluePartitionStorageDescriptorSerDeInfo(**ser_de_info)
@@ -676,13 +676,13 @@ class GluePartitionStorageDescriptor:
 
     @builtins.property
     def additional_locations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#additional_locations GluePartition#additional_locations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#additional_locations GluePartition#additional_locations}.'''
         result = self._values.get("additional_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def bucket_columns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#bucket_columns GluePartition#bucket_columns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#bucket_columns GluePartition#bucket_columns}.'''
         result = self._values.get("bucket_columns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -692,7 +692,7 @@ class GluePartitionStorageDescriptor:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GluePartitionStorageDescriptorColumns"]]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#columns GluePartition#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#columns GluePartition#columns}
         '''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GluePartitionStorageDescriptorColumns"]]], result)
@@ -701,37 +701,37 @@ class GluePartitionStorageDescriptor:
     def compressed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#compressed GluePartition#compressed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#compressed GluePartition#compressed}.'''
         result = self._values.get("compressed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def input_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#input_format GluePartition#input_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#input_format GluePartition#input_format}.'''
         result = self._values.get("input_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#location GluePartition#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#location GluePartition#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def number_of_buckets(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#number_of_buckets GluePartition#number_of_buckets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#number_of_buckets GluePartition#number_of_buckets}.'''
         result = self._values.get("number_of_buckets")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def output_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#output_format GluePartition#output_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#output_format GluePartition#output_format}.'''
         result = self._values.get("output_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -739,7 +739,7 @@ class GluePartitionStorageDescriptor:
     def ser_de_info(self) -> typing.Optional["GluePartitionStorageDescriptorSerDeInfo"]:
         '''ser_de_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#ser_de_info GluePartition#ser_de_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#ser_de_info GluePartition#ser_de_info}
         '''
         result = self._values.get("ser_de_info")
         return typing.cast(typing.Optional["GluePartitionStorageDescriptorSerDeInfo"], result)
@@ -750,7 +750,7 @@ class GluePartitionStorageDescriptor:
     ) -> typing.Optional["GluePartitionStorageDescriptorSkewedInfo"]:
         '''skewed_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_info GluePartition#skewed_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_info GluePartition#skewed_info}
         '''
         result = self._values.get("skewed_info")
         return typing.cast(typing.Optional["GluePartitionStorageDescriptorSkewedInfo"], result)
@@ -761,7 +761,7 @@ class GluePartitionStorageDescriptor:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GluePartitionStorageDescriptorSortColumns"]]]:
         '''sort_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#sort_columns GluePartition#sort_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#sort_columns GluePartition#sort_columns}
         '''
         result = self._values.get("sort_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GluePartitionStorageDescriptorSortColumns"]]], result)
@@ -770,7 +770,7 @@ class GluePartitionStorageDescriptor:
     def stored_as_sub_directories(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#stored_as_sub_directories GluePartition#stored_as_sub_directories}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#stored_as_sub_directories GluePartition#stored_as_sub_directories}.'''
         result = self._values.get("stored_as_sub_directories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -800,9 +800,9 @@ class GluePartitionStorageDescriptorColumns:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#name GluePartition#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#comment GluePartition#comment}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#type GluePartition#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#name GluePartition#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#comment GluePartition#comment}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#type GluePartition#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__645c118bf84ffde7431de465343e63f32fc9e25e0d98f7652af1f6290f1f8174)
@@ -819,20 +819,20 @@ class GluePartitionStorageDescriptorColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#name GluePartition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#name GluePartition#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#comment GluePartition#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#comment GluePartition#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#type GluePartition#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#type GluePartition#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1086,9 +1086,9 @@ class GluePartitionStorageDescriptorOutputReference(
         serialization_library: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#name GluePartition#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
-        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#serialization_library GluePartition#serialization_library}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#name GluePartition#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
+        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#serialization_library GluePartition#serialization_library}.
         '''
         value = GluePartitionStorageDescriptorSerDeInfo(
             name=name,
@@ -1107,9 +1107,9 @@ class GluePartitionStorageDescriptorOutputReference(
         skewed_column_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_names GluePartition#skewed_column_names}.
-        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_value_location_maps GluePartition#skewed_column_value_location_maps}.
-        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_values GluePartition#skewed_column_values}.
+        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_names GluePartition#skewed_column_names}.
+        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_value_location_maps GluePartition#skewed_column_value_location_maps}.
+        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_values GluePartition#skewed_column_values}.
         '''
         value = GluePartitionStorageDescriptorSkewedInfo(
             skewed_column_names=skewed_column_names,
@@ -1433,9 +1433,9 @@ class GluePartitionStorageDescriptorSerDeInfo:
         serialization_library: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#name GluePartition#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
-        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#serialization_library GluePartition#serialization_library}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#name GluePartition#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.
+        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#serialization_library GluePartition#serialization_library}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19e4db7aa01bd262c4b99599d02b8888bbc9bbb819fdf62d3c22e422c23d1427)
@@ -1452,19 +1452,19 @@ class GluePartitionStorageDescriptorSerDeInfo:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#name GluePartition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#name GluePartition#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#parameters GluePartition#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#parameters GluePartition#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def serialization_library(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#serialization_library GluePartition#serialization_library}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#serialization_library GluePartition#serialization_library}.'''
         result = self._values.get("serialization_library")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1601,9 +1601,9 @@ class GluePartitionStorageDescriptorSkewedInfo:
         skewed_column_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_names GluePartition#skewed_column_names}.
-        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_value_location_maps GluePartition#skewed_column_value_location_maps}.
-        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_values GluePartition#skewed_column_values}.
+        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_names GluePartition#skewed_column_names}.
+        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_value_location_maps GluePartition#skewed_column_value_location_maps}.
+        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_values GluePartition#skewed_column_values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69b24b82eaf4e90c9948e17ecb7af09ad58718066958184151ffb62304431c87)
@@ -1620,7 +1620,7 @@ class GluePartitionStorageDescriptorSkewedInfo:
 
     @builtins.property
     def skewed_column_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_names GluePartition#skewed_column_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_names GluePartition#skewed_column_names}.'''
         result = self._values.get("skewed_column_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1628,13 +1628,13 @@ class GluePartitionStorageDescriptorSkewedInfo:
     def skewed_column_value_location_maps(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_value_location_maps GluePartition#skewed_column_value_location_maps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_value_location_maps GluePartition#skewed_column_value_location_maps}.'''
         result = self._values.get("skewed_column_value_location_maps")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def skewed_column_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#skewed_column_values GluePartition#skewed_column_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#skewed_column_values GluePartition#skewed_column_values}.'''
         result = self._values.get("skewed_column_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1766,8 +1766,8 @@ class GluePartitionStorageDescriptorSkewedInfoOutputReference(
 class GluePartitionStorageDescriptorSortColumns:
     def __init__(self, *, column: builtins.str, sort_order: jsii.Number) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#column GluePartition#column}.
-        :param sort_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#sort_order GluePartition#sort_order}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#column GluePartition#column}.
+        :param sort_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#sort_order GluePartition#sort_order}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf6ffb8ab803c037d3ce361711d3cf538b4b2371a59f89dad0045346b9fe9d41)
@@ -1780,14 +1780,14 @@ class GluePartitionStorageDescriptorSortColumns:
 
     @builtins.property
     def column(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#column GluePartition#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#column GluePartition#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sort_order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_partition#sort_order GluePartition#sort_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_partition#sort_order GluePartition#sort_order}.'''
         result = self._values.get("sort_order")
         assert result is not None, "Required property 'sort_order' is missing"
         return typing.cast(jsii.Number, result)

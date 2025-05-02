@@ -251,6 +251,9 @@ class _LibraryState:
 
 
 class Library(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/library:Library"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -267,6 +270,8 @@ class Library(pulumi.CustomResource):
                  __props__=None):
         """
         Installs a [library](https://docs.databricks.com/libraries/index.html) on databricks_cluster. Each different type of library has a slightly different syntax. It's possible to set only one type of library within one resource. Otherwise, the plan will fail with an error.
+
+        > This resource can only be used with a workspace-level provider!
 
         > `Library` resource would always start the associated cluster if it's not running, so make sure to have auto-termination configured. It's not possible to atomically change the version of the same library without cluster restart. Libraries are fully removed from the cluster only after restart.
 
@@ -385,6 +390,8 @@ class Library(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Installs a [library](https://docs.databricks.com/libraries/index.html) on databricks_cluster. Each different type of library has a slightly different syntax. It's possible to set only one type of library within one resource. Otherwise, the plan will fail with an error.
+
+        > This resource can only be used with a workspace-level provider!
 
         > `Library` resource would always start the associated cluster if it's not running, so make sure to have auto-termination configured. It's not possible to atomically change the version of the same library without cluster restart. Libraries are fully removed from the cluster only after restart.
 

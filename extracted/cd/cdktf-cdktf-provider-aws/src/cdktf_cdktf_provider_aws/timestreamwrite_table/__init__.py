@@ -1,7 +1,7 @@
 r'''
 # `aws_timestreamwrite_table`
 
-Refer to the Terraform Registry for docs: [`aws_timestreamwrite_table`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table).
+Refer to the Terraform Registry for docs: [`aws_timestreamwrite_table`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TimestreamwriteTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.timestreamwriteTable.TimestreamwriteTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table aws_timestreamwrite_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table aws_timestreamwrite_table}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class TimestreamwriteTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table aws_timestreamwrite_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table aws_timestreamwrite_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#database_name TimestreamwriteTable#database_name}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#table_name TimestreamwriteTable#table_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#id TimestreamwriteTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param magnetic_store_write_properties: magnetic_store_write_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_write_properties TimestreamwriteTable#magnetic_store_write_properties}
-        :param retention_properties: retention_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#retention_properties TimestreamwriteTable#retention_properties}
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#schema TimestreamwriteTable#schema}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#tags TimestreamwriteTable#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#tags_all TimestreamwriteTable#tags_all}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#database_name TimestreamwriteTable#database_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#table_name TimestreamwriteTable#table_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#id TimestreamwriteTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param magnetic_store_write_properties: magnetic_store_write_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_write_properties TimestreamwriteTable#magnetic_store_write_properties}
+        :param retention_properties: retention_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#retention_properties TimestreamwriteTable#retention_properties}
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#schema TimestreamwriteTable#schema}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#tags TimestreamwriteTable#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#tags_all TimestreamwriteTable#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class TimestreamwriteTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TimestreamwriteTable to import.
-        :param import_from_id: The id of the existing TimestreamwriteTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TimestreamwriteTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TimestreamwriteTable to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class TimestreamwriteTable(
         magnetic_store_rejected_data_location: typing.Optional[typing.Union["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enable_magnetic_store_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#enable_magnetic_store_writes TimestreamwriteTable#enable_magnetic_store_writes}.
-        :param magnetic_store_rejected_data_location: magnetic_store_rejected_data_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_rejected_data_location TimestreamwriteTable#magnetic_store_rejected_data_location}
+        :param enable_magnetic_store_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#enable_magnetic_store_writes TimestreamwriteTable#enable_magnetic_store_writes}.
+        :param magnetic_store_rejected_data_location: magnetic_store_rejected_data_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_rejected_data_location TimestreamwriteTable#magnetic_store_rejected_data_location}
         '''
         value = TimestreamwriteTableMagneticStoreWriteProperties(
             enable_magnetic_store_writes=enable_magnetic_store_writes,
@@ -161,8 +161,8 @@ class TimestreamwriteTable(
         memory_store_retention_period_in_hours: jsii.Number,
     ) -> None:
         '''
-        :param magnetic_store_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_retention_period_in_days TimestreamwriteTable#magnetic_store_retention_period_in_days}.
-        :param memory_store_retention_period_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#memory_store_retention_period_in_hours TimestreamwriteTable#memory_store_retention_period_in_hours}.
+        :param magnetic_store_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_retention_period_in_days TimestreamwriteTable#magnetic_store_retention_period_in_days}.
+        :param memory_store_retention_period_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#memory_store_retention_period_in_hours TimestreamwriteTable#memory_store_retention_period_in_hours}.
         '''
         value = TimestreamwriteTableRetentionProperties(
             magnetic_store_retention_period_in_days=magnetic_store_retention_period_in_days,
@@ -178,7 +178,7 @@ class TimestreamwriteTable(
         composite_partition_key: typing.Optional[typing.Union["TimestreamwriteTableSchemaCompositePartitionKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param composite_partition_key: composite_partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#composite_partition_key TimestreamwriteTable#composite_partition_key}
+        :param composite_partition_key: composite_partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#composite_partition_key TimestreamwriteTable#composite_partition_key}
         '''
         value = TimestreamwriteTableSchema(
             composite_partition_key=composite_partition_key
@@ -403,14 +403,14 @@ class TimestreamwriteTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#database_name TimestreamwriteTable#database_name}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#table_name TimestreamwriteTable#table_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#id TimestreamwriteTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param magnetic_store_write_properties: magnetic_store_write_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_write_properties TimestreamwriteTable#magnetic_store_write_properties}
-        :param retention_properties: retention_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#retention_properties TimestreamwriteTable#retention_properties}
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#schema TimestreamwriteTable#schema}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#tags TimestreamwriteTable#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#tags_all TimestreamwriteTable#tags_all}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#database_name TimestreamwriteTable#database_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#table_name TimestreamwriteTable#table_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#id TimestreamwriteTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param magnetic_store_write_properties: magnetic_store_write_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_write_properties TimestreamwriteTable#magnetic_store_write_properties}
+        :param retention_properties: retention_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#retention_properties TimestreamwriteTable#retention_properties}
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#schema TimestreamwriteTable#schema}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#tags TimestreamwriteTable#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#tags_all TimestreamwriteTable#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -534,21 +534,21 @@ class TimestreamwriteTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#database_name TimestreamwriteTable#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#database_name TimestreamwriteTable#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#table_name TimestreamwriteTable#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#table_name TimestreamwriteTable#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#id TimestreamwriteTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#id TimestreamwriteTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -562,7 +562,7 @@ class TimestreamwriteTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["TimestreamwriteTableMagneticStoreWriteProperties"]:
         '''magnetic_store_write_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_write_properties TimestreamwriteTable#magnetic_store_write_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_write_properties TimestreamwriteTable#magnetic_store_write_properties}
         '''
         result = self._values.get("magnetic_store_write_properties")
         return typing.cast(typing.Optional["TimestreamwriteTableMagneticStoreWriteProperties"], result)
@@ -573,7 +573,7 @@ class TimestreamwriteTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["TimestreamwriteTableRetentionProperties"]:
         '''retention_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#retention_properties TimestreamwriteTable#retention_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#retention_properties TimestreamwriteTable#retention_properties}
         '''
         result = self._values.get("retention_properties")
         return typing.cast(typing.Optional["TimestreamwriteTableRetentionProperties"], result)
@@ -582,20 +582,20 @@ class TimestreamwriteTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> typing.Optional["TimestreamwriteTableSchema"]:
         '''schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#schema TimestreamwriteTable#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#schema TimestreamwriteTable#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional["TimestreamwriteTableSchema"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#tags TimestreamwriteTable#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#tags TimestreamwriteTable#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#tags_all TimestreamwriteTable#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#tags_all TimestreamwriteTable#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -627,8 +627,8 @@ class TimestreamwriteTableMagneticStoreWriteProperties:
         magnetic_store_rejected_data_location: typing.Optional[typing.Union["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enable_magnetic_store_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#enable_magnetic_store_writes TimestreamwriteTable#enable_magnetic_store_writes}.
-        :param magnetic_store_rejected_data_location: magnetic_store_rejected_data_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_rejected_data_location TimestreamwriteTable#magnetic_store_rejected_data_location}
+        :param enable_magnetic_store_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#enable_magnetic_store_writes TimestreamwriteTable#enable_magnetic_store_writes}.
+        :param magnetic_store_rejected_data_location: magnetic_store_rejected_data_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_rejected_data_location TimestreamwriteTable#magnetic_store_rejected_data_location}
         '''
         if isinstance(magnetic_store_rejected_data_location, dict):
             magnetic_store_rejected_data_location = TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocation(**magnetic_store_rejected_data_location)
@@ -646,7 +646,7 @@ class TimestreamwriteTableMagneticStoreWriteProperties:
     def enable_magnetic_store_writes(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#enable_magnetic_store_writes TimestreamwriteTable#enable_magnetic_store_writes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#enable_magnetic_store_writes TimestreamwriteTable#enable_magnetic_store_writes}.'''
         result = self._values.get("enable_magnetic_store_writes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -656,7 +656,7 @@ class TimestreamwriteTableMagneticStoreWriteProperties:
     ) -> typing.Optional["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocation"]:
         '''magnetic_store_rejected_data_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_rejected_data_location TimestreamwriteTable#magnetic_store_rejected_data_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_rejected_data_location TimestreamwriteTable#magnetic_store_rejected_data_location}
         '''
         result = self._values.get("magnetic_store_rejected_data_location")
         return typing.cast(typing.Optional["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocation"], result)
@@ -685,7 +685,7 @@ class TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataL
         s3_configuration: typing.Optional[typing.Union["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocationS3Configuration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#s3_configuration TimestreamwriteTable#s3_configuration}
+        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#s3_configuration TimestreamwriteTable#s3_configuration}
         '''
         if isinstance(s3_configuration, dict):
             s3_configuration = TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocationS3Configuration(**s3_configuration)
@@ -702,7 +702,7 @@ class TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataL
     ) -> typing.Optional["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocationS3Configuration"]:
         '''s3_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#s3_configuration TimestreamwriteTable#s3_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#s3_configuration TimestreamwriteTable#s3_configuration}
         '''
         result = self._values.get("s3_configuration")
         return typing.cast(typing.Optional["TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocationS3Configuration"], result)
@@ -749,10 +749,10 @@ class TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataL
         object_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#bucket_name TimestreamwriteTable#bucket_name}.
-        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#encryption_option TimestreamwriteTable#encryption_option}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#kms_key_id TimestreamwriteTable#kms_key_id}.
-        :param object_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#object_key_prefix TimestreamwriteTable#object_key_prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#bucket_name TimestreamwriteTable#bucket_name}.
+        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#encryption_option TimestreamwriteTable#encryption_option}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#kms_key_id TimestreamwriteTable#kms_key_id}.
+        :param object_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#object_key_prefix TimestreamwriteTable#object_key_prefix}.
         '''
         value = TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocationS3Configuration(
             bucket_name=bucket_name,
@@ -819,10 +819,10 @@ class TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataL
         object_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#bucket_name TimestreamwriteTable#bucket_name}.
-        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#encryption_option TimestreamwriteTable#encryption_option}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#kms_key_id TimestreamwriteTable#kms_key_id}.
-        :param object_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#object_key_prefix TimestreamwriteTable#object_key_prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#bucket_name TimestreamwriteTable#bucket_name}.
+        :param encryption_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#encryption_option TimestreamwriteTable#encryption_option}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#kms_key_id TimestreamwriteTable#kms_key_id}.
+        :param object_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#object_key_prefix TimestreamwriteTable#object_key_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9d74704d577928bd7ae18b72b65afbb20293b56037c3dd79370413a2996cf32)
@@ -842,25 +842,25 @@ class TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataL
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#bucket_name TimestreamwriteTable#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#bucket_name TimestreamwriteTable#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encryption_option(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#encryption_option TimestreamwriteTable#encryption_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#encryption_option TimestreamwriteTable#encryption_option}.'''
         result = self._values.get("encryption_option")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#kms_key_id TimestreamwriteTable#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#kms_key_id TimestreamwriteTable#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def object_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#object_key_prefix TimestreamwriteTable#object_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#object_key_prefix TimestreamwriteTable#object_key_prefix}.'''
         result = self._values.get("object_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1025,7 +1025,7 @@ class TimestreamwriteTableMagneticStoreWritePropertiesOutputReference(
         s3_configuration: typing.Optional[typing.Union[TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocationS3Configuration, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#s3_configuration TimestreamwriteTable#s3_configuration}
+        :param s3_configuration: s3_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#s3_configuration TimestreamwriteTable#s3_configuration}
         '''
         value = TimestreamwriteTableMagneticStoreWritePropertiesMagneticStoreRejectedDataLocation(
             s3_configuration=s3_configuration
@@ -1113,8 +1113,8 @@ class TimestreamwriteTableRetentionProperties:
         memory_store_retention_period_in_hours: jsii.Number,
     ) -> None:
         '''
-        :param magnetic_store_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_retention_period_in_days TimestreamwriteTable#magnetic_store_retention_period_in_days}.
-        :param memory_store_retention_period_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#memory_store_retention_period_in_hours TimestreamwriteTable#memory_store_retention_period_in_hours}.
+        :param magnetic_store_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_retention_period_in_days TimestreamwriteTable#magnetic_store_retention_period_in_days}.
+        :param memory_store_retention_period_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#memory_store_retention_period_in_hours TimestreamwriteTable#memory_store_retention_period_in_hours}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ce3c236a8ca85405331449808021d394c93a3a38c11903fc26a80c9bc79e009)
@@ -1127,14 +1127,14 @@ class TimestreamwriteTableRetentionProperties:
 
     @builtins.property
     def magnetic_store_retention_period_in_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#magnetic_store_retention_period_in_days TimestreamwriteTable#magnetic_store_retention_period_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#magnetic_store_retention_period_in_days TimestreamwriteTable#magnetic_store_retention_period_in_days}.'''
         result = self._values.get("magnetic_store_retention_period_in_days")
         assert result is not None, "Required property 'magnetic_store_retention_period_in_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def memory_store_retention_period_in_hours(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#memory_store_retention_period_in_hours TimestreamwriteTable#memory_store_retention_period_in_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#memory_store_retention_period_in_hours TimestreamwriteTable#memory_store_retention_period_in_hours}.'''
         result = self._values.get("memory_store_retention_period_in_hours")
         assert result is not None, "Required property 'memory_store_retention_period_in_hours' is missing"
         return typing.cast(jsii.Number, result)
@@ -1239,7 +1239,7 @@ class TimestreamwriteTableSchema:
         composite_partition_key: typing.Optional[typing.Union["TimestreamwriteTableSchemaCompositePartitionKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param composite_partition_key: composite_partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#composite_partition_key TimestreamwriteTable#composite_partition_key}
+        :param composite_partition_key: composite_partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#composite_partition_key TimestreamwriteTable#composite_partition_key}
         '''
         if isinstance(composite_partition_key, dict):
             composite_partition_key = TimestreamwriteTableSchemaCompositePartitionKey(**composite_partition_key)
@@ -1256,7 +1256,7 @@ class TimestreamwriteTableSchema:
     ) -> typing.Optional["TimestreamwriteTableSchemaCompositePartitionKey"]:
         '''composite_partition_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#composite_partition_key TimestreamwriteTable#composite_partition_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#composite_partition_key TimestreamwriteTable#composite_partition_key}
         '''
         result = self._values.get("composite_partition_key")
         return typing.cast(typing.Optional["TimestreamwriteTableSchemaCompositePartitionKey"], result)
@@ -1291,9 +1291,9 @@ class TimestreamwriteTableSchemaCompositePartitionKey:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#type TimestreamwriteTable#type}.
-        :param enforcement_in_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#enforcement_in_record TimestreamwriteTable#enforcement_in_record}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#name TimestreamwriteTable#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#type TimestreamwriteTable#type}.
+        :param enforcement_in_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#enforcement_in_record TimestreamwriteTable#enforcement_in_record}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#name TimestreamwriteTable#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce35f40a30c4614bdf65e717230f080fb39f01cf0fe85f25cf1847102493cb9a)
@@ -1310,20 +1310,20 @@ class TimestreamwriteTableSchemaCompositePartitionKey:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#type TimestreamwriteTable#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#type TimestreamwriteTable#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def enforcement_in_record(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#enforcement_in_record TimestreamwriteTable#enforcement_in_record}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#enforcement_in_record TimestreamwriteTable#enforcement_in_record}.'''
         result = self._values.get("enforcement_in_record")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#name TimestreamwriteTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#name TimestreamwriteTable#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1465,9 +1465,9 @@ class TimestreamwriteTableSchemaOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#type TimestreamwriteTable#type}.
-        :param enforcement_in_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#enforcement_in_record TimestreamwriteTable#enforcement_in_record}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/timestreamwrite_table#name TimestreamwriteTable#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#type TimestreamwriteTable#type}.
+        :param enforcement_in_record: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#enforcement_in_record TimestreamwriteTable#enforcement_in_record}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/timestreamwrite_table#name TimestreamwriteTable#name}.
         '''
         value = TimestreamwriteTableSchemaCompositePartitionKey(
             type=type, enforcement_in_record=enforcement_in_record, name=name

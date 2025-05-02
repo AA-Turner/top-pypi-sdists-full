@@ -2715,7 +2715,7 @@ class CfnWorkflow(
     - *ECR container images* : Create one or more container images for the workflow. Store the images in a private ECR repository.
     - (Optional) *Sentieon licenses* : Request a Sentieon license if you plan to use Sentieon software in a private workflow.
 
-    For more information, see `Creating private workflows in AWS HealthOmics <https://docs.aws.amazon.com/omics/latest/dev/workflows-setup.html>`_ in the AWS HealthOmics User Guide.
+    For more information, see `Creating or updating a private workflow in AWS HealthOmics <https://docs.aws.amazon.com/omics/latest/dev/creating-private-workflows.html>`_ in the AWS HealthOmics User Guide.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html
     :cloudformationResource: AWS::Omics::Workflow
@@ -2772,7 +2772,7 @@ class CfnWorkflow(
         :param main: The path of the main definition file for the workflow.
         :param name: The workflow's name.
         :param parameter_template: The workflow's parameter template.
-        :param storage_capacity: The default storage capacity for the workflow runs, in gibibytes.
+        :param storage_capacity: The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version.
         :param tags: Tags for the workflow.
         '''
         if __debug__:
@@ -2977,7 +2977,7 @@ class CfnWorkflow(
     @builtins.property
     @jsii.member(jsii_name="storageCapacity")
     def storage_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The default storage capacity for the workflow runs, in gibibytes.'''
+        '''The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "storageCapacity"))
 
     @storage_capacity.setter
@@ -3114,7 +3114,7 @@ class CfnWorkflowProps:
         :param main: The path of the main definition file for the workflow.
         :param name: The workflow's name.
         :param parameter_template: The workflow's parameter template.
-        :param storage_capacity: The default storage capacity for the workflow runs, in gibibytes.
+        :param storage_capacity: The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version.
         :param tags: Tags for the workflow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html
@@ -3242,7 +3242,7 @@ class CfnWorkflowProps:
 
     @builtins.property
     def storage_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The default storage capacity for the workflow runs, in gibibytes.
+        '''The default static storage capacity (in gibibytes) for runs that use this workflow or workflow version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-workflow.html#cfn-omics-workflow-storagecapacity
         '''

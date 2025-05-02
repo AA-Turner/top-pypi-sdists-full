@@ -1,0 +1,45 @@
+Metadata-Version: 1.1
+Name: causalmodels
+Version: 0.4.0
+Summary: Causal models in Python
+Home-page: http://github.com/roronya/causalmodels
+Author: roronya
+Author-email: roronya628@gmail.com
+License: MIT
+Description: causalmodels
+        ============
+        
+        causalmodels in Python.
+        
+        instalation
+        -----------
+        
+        ::
+        
+            $ pip install causalmodels
+        
+        usage
+        -----
+        
+        ::
+        
+            >>> import numpy as np
+            >>> import pandas as pd
+            >>> import causalmodels as cm
+            >>> a = np.random.laplace(size=500)
+            >>> b = np.random.laplace(size=500) + a
+            >>> c = np.random.laplace(size=500) + a + b
+            >>> data = pd.DataFrame({'a': a, 'b': b, 'c': c})
+            >>> model = cm.DirectLiNGAM(data.values, data.columns)
+            >>> results = model.fit()
+            >>> results.order
+            [2, 1, 0]
+            >>> result.plot()
+        
+Keywords: causality machine	learning causalmodels
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Mathematics

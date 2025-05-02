@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_bot_association`
 
-Refer to the Terraform Registry for docs: [`aws_connect_bot_association`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association).
+Refer to the Terraform Registry for docs: [`aws_connect_bot_association`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectBotAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectBotAssociation.ConnectBotAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association aws_connect_bot_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association aws_connect_bot_association}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class ConnectBotAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association aws_connect_bot_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association aws_connect_bot_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
-        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
+        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class ConnectBotAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectBotAssociation to import.
-        :param import_from_id: The id of the existing ConnectBotAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectBotAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectBotAssociation to import is found.
         '''
         if __debug__:
@@ -128,8 +128,8 @@ class ConnectBotAssociation(
         lex_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
-        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
+        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
         '''
         value = ConnectBotAssociationLexBot(name=name, lex_region=lex_region)
 
@@ -236,9 +236,9 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
-        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.
+        :param lex_bot: lex_bot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -343,7 +343,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#instance_id ConnectBotAssociation#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
@@ -352,7 +352,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lex_bot(self) -> "ConnectBotAssociationLexBot":
         '''lex_bot block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#lex_bot ConnectBotAssociation#lex_bot}
         '''
         result = self._values.get("lex_bot")
         assert result is not None, "Required property 'lex_bot' is missing"
@@ -360,7 +360,7 @@ class ConnectBotAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#id ConnectBotAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -393,8 +393,8 @@ class ConnectBotAssociationLexBot:
         lex_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
-        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.
+        :param lex_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8bd6ede854ce7d47a28cf94bc2922422d84b25577a5be3c28998c71013b7bd56)
@@ -408,14 +408,14 @@ class ConnectBotAssociationLexBot:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#name ConnectBotAssociation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lex_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_bot_association#lex_region ConnectBotAssociation#lex_region}.'''
         result = self._values.get("lex_region")
         return typing.cast(typing.Optional[builtins.str], result)
 

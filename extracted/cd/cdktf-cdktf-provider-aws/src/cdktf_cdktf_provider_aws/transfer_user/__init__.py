@@ -1,7 +1,7 @@
 r'''
 # `aws_transfer_user`
 
-Refer to the Terraform Registry for docs: [`aws_transfer_user`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user).
+Refer to the Terraform Registry for docs: [`aws_transfer_user`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TransferUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transferUser.TransferUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user aws_transfer_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user aws_transfer_user}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class TransferUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user aws_transfer_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user aws_transfer_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#role TransferUser#role}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#server_id TransferUser#server_id}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#user_name TransferUser#user_name}.
-        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory TransferUser#home_directory}.
-        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory_mappings TransferUser#home_directory_mappings}
-        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory_type TransferUser#home_directory_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#id TransferUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#policy TransferUser#policy}.
-        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#posix_profile TransferUser#posix_profile}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#tags TransferUser#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#tags_all TransferUser#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#timeouts TransferUser#timeouts}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#role TransferUser#role}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#server_id TransferUser#server_id}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#user_name TransferUser#user_name}.
+        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory TransferUser#home_directory}.
+        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory_mappings TransferUser#home_directory_mappings}
+        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory_type TransferUser#home_directory_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#id TransferUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#policy TransferUser#policy}.
+        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#posix_profile TransferUser#posix_profile}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#tags TransferUser#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#tags_all TransferUser#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#timeouts TransferUser#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class TransferUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TransferUser to import.
-        :param import_from_id: The id of the existing TransferUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TransferUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TransferUser to import is found.
         '''
         if __debug__:
@@ -169,9 +169,9 @@ class TransferUser(
         secondary_gids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#gid TransferUser#gid}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#uid TransferUser#uid}.
-        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#secondary_gids TransferUser#secondary_gids}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#gid TransferUser#gid}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#uid TransferUser#uid}.
+        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#secondary_gids TransferUser#secondary_gids}.
         '''
         value = TransferUserPosixProfile(
             gid=gid, uid=uid, secondary_gids=secondary_gids
@@ -182,7 +182,7 @@ class TransferUser(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#delete TransferUser#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#delete TransferUser#delete}.
         '''
         value = TransferUserTimeouts(delete=delete)
 
@@ -489,18 +489,18 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#role TransferUser#role}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#server_id TransferUser#server_id}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#user_name TransferUser#user_name}.
-        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory TransferUser#home_directory}.
-        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory_mappings TransferUser#home_directory_mappings}
-        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory_type TransferUser#home_directory_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#id TransferUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#policy TransferUser#policy}.
-        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#posix_profile TransferUser#posix_profile}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#tags TransferUser#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#tags_all TransferUser#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#timeouts TransferUser#timeouts}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#role TransferUser#role}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#server_id TransferUser#server_id}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#user_name TransferUser#user_name}.
+        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory TransferUser#home_directory}.
+        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory_mappings TransferUser#home_directory_mappings}
+        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory_type TransferUser#home_directory_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#id TransferUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#policy TransferUser#policy}.
+        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#posix_profile TransferUser#posix_profile}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#tags TransferUser#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#tags_all TransferUser#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#timeouts TransferUser#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -633,28 +633,28 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#role TransferUser#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#role TransferUser#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#server_id TransferUser#server_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#server_id TransferUser#server_id}.'''
         result = self._values.get("server_id")
         assert result is not None, "Required property 'server_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#user_name TransferUser#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#user_name TransferUser#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def home_directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory TransferUser#home_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory TransferUser#home_directory}.'''
         result = self._values.get("home_directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -664,20 +664,20 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferUserHomeDirectoryMappings"]]]:
         '''home_directory_mappings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory_mappings TransferUser#home_directory_mappings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory_mappings TransferUser#home_directory_mappings}
         '''
         result = self._values.get("home_directory_mappings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferUserHomeDirectoryMappings"]]], result)
 
     @builtins.property
     def home_directory_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#home_directory_type TransferUser#home_directory_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#home_directory_type TransferUser#home_directory_type}.'''
         result = self._values.get("home_directory_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#id TransferUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#id TransferUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -687,7 +687,7 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#policy TransferUser#policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#policy TransferUser#policy}.'''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -695,20 +695,20 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def posix_profile(self) -> typing.Optional["TransferUserPosixProfile"]:
         '''posix_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#posix_profile TransferUser#posix_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#posix_profile TransferUser#posix_profile}
         '''
         result = self._values.get("posix_profile")
         return typing.cast(typing.Optional["TransferUserPosixProfile"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#tags TransferUser#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#tags TransferUser#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#tags_all TransferUser#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#tags_all TransferUser#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -716,7 +716,7 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TransferUserTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#timeouts TransferUser#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#timeouts TransferUser#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TransferUserTimeouts"], result)
@@ -741,8 +741,8 @@ class TransferUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class TransferUserHomeDirectoryMappings:
     def __init__(self, *, entry: builtins.str, target: builtins.str) -> None:
         '''
-        :param entry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#entry TransferUser#entry}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#target TransferUser#target}.
+        :param entry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#entry TransferUser#entry}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#target TransferUser#target}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c8902cd95f8a98aba49cef837f8ecde6e7dd0e8c120d1c57bcd05bbb76da4b9)
@@ -755,14 +755,14 @@ class TransferUserHomeDirectoryMappings:
 
     @builtins.property
     def entry(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#entry TransferUser#entry}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#entry TransferUser#entry}.'''
         result = self._values.get("entry")
         assert result is not None, "Required property 'entry' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#target TransferUser#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#target TransferUser#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
@@ -964,9 +964,9 @@ class TransferUserPosixProfile:
         secondary_gids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#gid TransferUser#gid}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#uid TransferUser#uid}.
-        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#secondary_gids TransferUser#secondary_gids}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#gid TransferUser#gid}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#uid TransferUser#uid}.
+        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#secondary_gids TransferUser#secondary_gids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c8cbbc683891043501ecdf052d4bb9a093be9394b321f495f31fd75131e0900)
@@ -982,21 +982,21 @@ class TransferUserPosixProfile:
 
     @builtins.property
     def gid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#gid TransferUser#gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#gid TransferUser#gid}.'''
         result = self._values.get("gid")
         assert result is not None, "Required property 'gid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def uid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#uid TransferUser#uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#uid TransferUser#uid}.'''
         result = self._values.get("uid")
         assert result is not None, "Required property 'uid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def secondary_gids(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#secondary_gids TransferUser#secondary_gids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#secondary_gids TransferUser#secondary_gids}.'''
         result = self._values.get("secondary_gids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1108,7 +1108,7 @@ class TransferUserPosixProfileOutputReference(
 class TransferUserTimeouts:
     def __init__(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#delete TransferUser#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#delete TransferUser#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1871081a77beafffe51cae7738a009e95fbf3659dfe3bfcd7c50ffe0dcd1e2b1)
@@ -1119,7 +1119,7 @@ class TransferUserTimeouts:
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_user#delete TransferUser#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_user#delete TransferUser#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

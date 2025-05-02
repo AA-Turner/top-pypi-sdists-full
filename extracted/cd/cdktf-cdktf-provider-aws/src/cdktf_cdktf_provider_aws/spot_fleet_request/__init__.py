@@ -1,7 +1,7 @@
 r'''
 # `aws_spot_fleet_request`
 
-Refer to the Terraform Registry for docs: [`aws_spot_fleet_request`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request).
+Refer to the Terraform Registry for docs: [`aws_spot_fleet_request`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpotFleetRequest(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.spotFleetRequest.SpotFleetRequest",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request aws_spot_fleet_request}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request aws_spot_fleet_request}.'''
 
     def __init__(
         self,
@@ -87,38 +87,38 @@ class SpotFleetRequest(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request aws_spot_fleet_request} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request aws_spot_fleet_request} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param iam_fleet_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_fleet_role SpotFleetRequest#iam_fleet_role}.
-        :param target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_capacity SpotFleetRequest#target_capacity}.
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#allocation_strategy SpotFleetRequest#allocation_strategy}.
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#context SpotFleetRequest#context}.
-        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#excess_capacity_termination_policy SpotFleetRequest#excess_capacity_termination_policy}.
-        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#fleet_type SpotFleetRequest#fleet_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_interruption_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_interruption_behaviour SpotFleetRequest#instance_interruption_behaviour}.
-        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_pools_to_use_count SpotFleetRequest#instance_pools_to_use_count}.
-        :param launch_specification: launch_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_specification SpotFleetRequest#launch_specification}
-        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_template_config SpotFleetRequest#launch_template_config}
-        :param load_balancers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#load_balancers SpotFleetRequest#load_balancers}.
-        :param on_demand_allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_allocation_strategy SpotFleetRequest#on_demand_allocation_strategy}.
-        :param on_demand_max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_max_total_price SpotFleetRequest#on_demand_max_total_price}.
-        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_target_capacity SpotFleetRequest#on_demand_target_capacity}.
-        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#replace_unhealthy_instances SpotFleetRequest#replace_unhealthy_instances}.
-        :param spot_maintenance_strategies: spot_maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_maintenance_strategies SpotFleetRequest#spot_maintenance_strategies}
-        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags_all SpotFleetRequest#tags_all}.
-        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_capacity_unit_type SpotFleetRequest#target_capacity_unit_type}.
-        :param target_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_group_arns SpotFleetRequest#target_group_arns}.
-        :param terminate_instances_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#terminate_instances_on_delete SpotFleetRequest#terminate_instances_on_delete}.
-        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#terminate_instances_with_expiration SpotFleetRequest#terminate_instances_with_expiration}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#timeouts SpotFleetRequest#timeouts}
-        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#valid_from SpotFleetRequest#valid_from}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#valid_until SpotFleetRequest#valid_until}.
-        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#wait_for_fulfillment SpotFleetRequest#wait_for_fulfillment}.
+        :param iam_fleet_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_fleet_role SpotFleetRequest#iam_fleet_role}.
+        :param target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_capacity SpotFleetRequest#target_capacity}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#allocation_strategy SpotFleetRequest#allocation_strategy}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#context SpotFleetRequest#context}.
+        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#excess_capacity_termination_policy SpotFleetRequest#excess_capacity_termination_policy}.
+        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#fleet_type SpotFleetRequest#fleet_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_interruption_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_interruption_behaviour SpotFleetRequest#instance_interruption_behaviour}.
+        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_pools_to_use_count SpotFleetRequest#instance_pools_to_use_count}.
+        :param launch_specification: launch_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_specification SpotFleetRequest#launch_specification}
+        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_template_config SpotFleetRequest#launch_template_config}
+        :param load_balancers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#load_balancers SpotFleetRequest#load_balancers}.
+        :param on_demand_allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_allocation_strategy SpotFleetRequest#on_demand_allocation_strategy}.
+        :param on_demand_max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_max_total_price SpotFleetRequest#on_demand_max_total_price}.
+        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_target_capacity SpotFleetRequest#on_demand_target_capacity}.
+        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#replace_unhealthy_instances SpotFleetRequest#replace_unhealthy_instances}.
+        :param spot_maintenance_strategies: spot_maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_maintenance_strategies SpotFleetRequest#spot_maintenance_strategies}
+        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags_all SpotFleetRequest#tags_all}.
+        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_capacity_unit_type SpotFleetRequest#target_capacity_unit_type}.
+        :param target_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_group_arns SpotFleetRequest#target_group_arns}.
+        :param terminate_instances_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#terminate_instances_on_delete SpotFleetRequest#terminate_instances_on_delete}.
+        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#terminate_instances_with_expiration SpotFleetRequest#terminate_instances_with_expiration}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#timeouts SpotFleetRequest#timeouts}
+        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#valid_from SpotFleetRequest#valid_from}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#valid_until SpotFleetRequest#valid_until}.
+        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#wait_for_fulfillment SpotFleetRequest#wait_for_fulfillment}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -184,7 +184,7 @@ class SpotFleetRequest(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpotFleetRequest to import.
-        :param import_from_id: The id of the existing SpotFleetRequest that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpotFleetRequest that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpotFleetRequest to import is found.
         '''
         if __debug__:
@@ -228,7 +228,7 @@ class SpotFleetRequest(
         capacity_rebalance: typing.Optional[typing.Union["SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#capacity_rebalance SpotFleetRequest#capacity_rebalance}
+        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#capacity_rebalance SpotFleetRequest#capacity_rebalance}
         '''
         value = SpotFleetRequestSpotMaintenanceStrategies(
             capacity_rebalance=capacity_rebalance
@@ -245,9 +245,9 @@ class SpotFleetRequest(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#create SpotFleetRequest#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete SpotFleetRequest#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#update SpotFleetRequest#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#create SpotFleetRequest#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete SpotFleetRequest#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#update SpotFleetRequest#update}.
         '''
         value = SpotFleetRequestTimeouts(create=create, delete=delete, update=update)
 
@@ -951,34 +951,34 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param iam_fleet_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_fleet_role SpotFleetRequest#iam_fleet_role}.
-        :param target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_capacity SpotFleetRequest#target_capacity}.
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#allocation_strategy SpotFleetRequest#allocation_strategy}.
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#context SpotFleetRequest#context}.
-        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#excess_capacity_termination_policy SpotFleetRequest#excess_capacity_termination_policy}.
-        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#fleet_type SpotFleetRequest#fleet_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_interruption_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_interruption_behaviour SpotFleetRequest#instance_interruption_behaviour}.
-        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_pools_to_use_count SpotFleetRequest#instance_pools_to_use_count}.
-        :param launch_specification: launch_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_specification SpotFleetRequest#launch_specification}
-        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_template_config SpotFleetRequest#launch_template_config}
-        :param load_balancers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#load_balancers SpotFleetRequest#load_balancers}.
-        :param on_demand_allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_allocation_strategy SpotFleetRequest#on_demand_allocation_strategy}.
-        :param on_demand_max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_max_total_price SpotFleetRequest#on_demand_max_total_price}.
-        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_target_capacity SpotFleetRequest#on_demand_target_capacity}.
-        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#replace_unhealthy_instances SpotFleetRequest#replace_unhealthy_instances}.
-        :param spot_maintenance_strategies: spot_maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_maintenance_strategies SpotFleetRequest#spot_maintenance_strategies}
-        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags_all SpotFleetRequest#tags_all}.
-        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_capacity_unit_type SpotFleetRequest#target_capacity_unit_type}.
-        :param target_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_group_arns SpotFleetRequest#target_group_arns}.
-        :param terminate_instances_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#terminate_instances_on_delete SpotFleetRequest#terminate_instances_on_delete}.
-        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#terminate_instances_with_expiration SpotFleetRequest#terminate_instances_with_expiration}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#timeouts SpotFleetRequest#timeouts}
-        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#valid_from SpotFleetRequest#valid_from}.
-        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#valid_until SpotFleetRequest#valid_until}.
-        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#wait_for_fulfillment SpotFleetRequest#wait_for_fulfillment}.
+        :param iam_fleet_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_fleet_role SpotFleetRequest#iam_fleet_role}.
+        :param target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_capacity SpotFleetRequest#target_capacity}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#allocation_strategy SpotFleetRequest#allocation_strategy}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#context SpotFleetRequest#context}.
+        :param excess_capacity_termination_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#excess_capacity_termination_policy SpotFleetRequest#excess_capacity_termination_policy}.
+        :param fleet_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#fleet_type SpotFleetRequest#fleet_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_interruption_behaviour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_interruption_behaviour SpotFleetRequest#instance_interruption_behaviour}.
+        :param instance_pools_to_use_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_pools_to_use_count SpotFleetRequest#instance_pools_to_use_count}.
+        :param launch_specification: launch_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_specification SpotFleetRequest#launch_specification}
+        :param launch_template_config: launch_template_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_template_config SpotFleetRequest#launch_template_config}
+        :param load_balancers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#load_balancers SpotFleetRequest#load_balancers}.
+        :param on_demand_allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_allocation_strategy SpotFleetRequest#on_demand_allocation_strategy}.
+        :param on_demand_max_total_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_max_total_price SpotFleetRequest#on_demand_max_total_price}.
+        :param on_demand_target_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_target_capacity SpotFleetRequest#on_demand_target_capacity}.
+        :param replace_unhealthy_instances: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#replace_unhealthy_instances SpotFleetRequest#replace_unhealthy_instances}.
+        :param spot_maintenance_strategies: spot_maintenance_strategies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_maintenance_strategies SpotFleetRequest#spot_maintenance_strategies}
+        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags_all SpotFleetRequest#tags_all}.
+        :param target_capacity_unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_capacity_unit_type SpotFleetRequest#target_capacity_unit_type}.
+        :param target_group_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_group_arns SpotFleetRequest#target_group_arns}.
+        :param terminate_instances_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#terminate_instances_on_delete SpotFleetRequest#terminate_instances_on_delete}.
+        :param terminate_instances_with_expiration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#terminate_instances_with_expiration SpotFleetRequest#terminate_instances_with_expiration}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#timeouts SpotFleetRequest#timeouts}
+        :param valid_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#valid_from SpotFleetRequest#valid_from}.
+        :param valid_until: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#valid_until SpotFleetRequest#valid_until}.
+        :param wait_for_fulfillment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#wait_for_fulfillment SpotFleetRequest#wait_for_fulfillment}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1160,45 +1160,45 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def iam_fleet_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_fleet_role SpotFleetRequest#iam_fleet_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_fleet_role SpotFleetRequest#iam_fleet_role}.'''
         result = self._values.get("iam_fleet_role")
         assert result is not None, "Required property 'iam_fleet_role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_capacity SpotFleetRequest#target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_capacity SpotFleetRequest#target_capacity}.'''
         result = self._values.get("target_capacity")
         assert result is not None, "Required property 'target_capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def allocation_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#allocation_strategy SpotFleetRequest#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#allocation_strategy SpotFleetRequest#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def context(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#context SpotFleetRequest#context}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#context SpotFleetRequest#context}.'''
         result = self._values.get("context")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def excess_capacity_termination_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#excess_capacity_termination_policy SpotFleetRequest#excess_capacity_termination_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#excess_capacity_termination_policy SpotFleetRequest#excess_capacity_termination_policy}.'''
         result = self._values.get("excess_capacity_termination_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fleet_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#fleet_type SpotFleetRequest#fleet_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#fleet_type SpotFleetRequest#fleet_type}.'''
         result = self._values.get("fleet_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1208,13 +1208,13 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_interruption_behaviour(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_interruption_behaviour SpotFleetRequest#instance_interruption_behaviour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_interruption_behaviour SpotFleetRequest#instance_interruption_behaviour}.'''
         result = self._values.get("instance_interruption_behaviour")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_pools_to_use_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_pools_to_use_count SpotFleetRequest#instance_pools_to_use_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_pools_to_use_count SpotFleetRequest#instance_pools_to_use_count}.'''
         result = self._values.get("instance_pools_to_use_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1224,7 +1224,7 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecification"]]]:
         '''launch_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_specification SpotFleetRequest#launch_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_specification SpotFleetRequest#launch_specification}
         '''
         result = self._values.get("launch_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecification"]]], result)
@@ -1235,32 +1235,32 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchTemplateConfig"]]]:
         '''launch_template_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_template_config SpotFleetRequest#launch_template_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_template_config SpotFleetRequest#launch_template_config}
         '''
         result = self._values.get("launch_template_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchTemplateConfig"]]], result)
 
     @builtins.property
     def load_balancers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#load_balancers SpotFleetRequest#load_balancers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#load_balancers SpotFleetRequest#load_balancers}.'''
         result = self._values.get("load_balancers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def on_demand_allocation_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_allocation_strategy SpotFleetRequest#on_demand_allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_allocation_strategy SpotFleetRequest#on_demand_allocation_strategy}.'''
         result = self._values.get("on_demand_allocation_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def on_demand_max_total_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_max_total_price SpotFleetRequest#on_demand_max_total_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_max_total_price SpotFleetRequest#on_demand_max_total_price}.'''
         result = self._values.get("on_demand_max_total_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def on_demand_target_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_target_capacity SpotFleetRequest#on_demand_target_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_target_capacity SpotFleetRequest#on_demand_target_capacity}.'''
         result = self._values.get("on_demand_target_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1268,7 +1268,7 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replace_unhealthy_instances(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#replace_unhealthy_instances SpotFleetRequest#replace_unhealthy_instances}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#replace_unhealthy_instances SpotFleetRequest#replace_unhealthy_instances}.'''
         result = self._values.get("replace_unhealthy_instances")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1278,44 +1278,44 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SpotFleetRequestSpotMaintenanceStrategies"]:
         '''spot_maintenance_strategies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_maintenance_strategies SpotFleetRequest#spot_maintenance_strategies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_maintenance_strategies SpotFleetRequest#spot_maintenance_strategies}
         '''
         result = self._values.get("spot_maintenance_strategies")
         return typing.cast(typing.Optional["SpotFleetRequestSpotMaintenanceStrategies"], result)
 
     @builtins.property
     def spot_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.'''
         result = self._values.get("spot_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags_all SpotFleetRequest#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags_all SpotFleetRequest#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def target_capacity_unit_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_capacity_unit_type SpotFleetRequest#target_capacity_unit_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_capacity_unit_type SpotFleetRequest#target_capacity_unit_type}.'''
         result = self._values.get("target_capacity_unit_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_group_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#target_group_arns SpotFleetRequest#target_group_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#target_group_arns SpotFleetRequest#target_group_arns}.'''
         result = self._values.get("target_group_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def terminate_instances_on_delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#terminate_instances_on_delete SpotFleetRequest#terminate_instances_on_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#terminate_instances_on_delete SpotFleetRequest#terminate_instances_on_delete}.'''
         result = self._values.get("terminate_instances_on_delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1323,7 +1323,7 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def terminate_instances_with_expiration(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#terminate_instances_with_expiration SpotFleetRequest#terminate_instances_with_expiration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#terminate_instances_with_expiration SpotFleetRequest#terminate_instances_with_expiration}.'''
         result = self._values.get("terminate_instances_with_expiration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1331,20 +1331,20 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpotFleetRequestTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#timeouts SpotFleetRequest#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#timeouts SpotFleetRequest#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpotFleetRequestTimeouts"], result)
 
     @builtins.property
     def valid_from(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#valid_from SpotFleetRequest#valid_from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#valid_from SpotFleetRequest#valid_from}.'''
         result = self._values.get("valid_from")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def valid_until(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#valid_until SpotFleetRequest#valid_until}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#valid_until SpotFleetRequest#valid_until}.'''
         result = self._values.get("valid_until")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1352,7 +1352,7 @@ class SpotFleetRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait_for_fulfillment(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#wait_for_fulfillment SpotFleetRequest#wait_for_fulfillment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#wait_for_fulfillment SpotFleetRequest#wait_for_fulfillment}.'''
         result = self._values.get("wait_for_fulfillment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1420,26 +1420,26 @@ class SpotFleetRequestLaunchSpecification:
         weighted_capacity: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ami: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ami SpotFleetRequest#ami}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.
-        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#associate_public_ip_address SpotFleetRequest#associate_public_ip_address}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.
-        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ebs_block_device SpotFleetRequest#ebs_block_device}
-        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ebs_optimized SpotFleetRequest#ebs_optimized}.
-        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ephemeral_block_device SpotFleetRequest#ephemeral_block_device}
-        :param iam_instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_instance_profile SpotFleetRequest#iam_instance_profile}.
-        :param iam_instance_profile_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_instance_profile_arn SpotFleetRequest#iam_instance_profile_arn}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#key_name SpotFleetRequest#key_name}.
-        :param monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#monitoring SpotFleetRequest#monitoring}.
-        :param placement_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#placement_group SpotFleetRequest#placement_group}.
-        :param placement_tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#placement_tenancy SpotFleetRequest#placement_tenancy}.
-        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#root_block_device SpotFleetRequest#root_block_device}
-        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#user_data SpotFleetRequest#user_data}.
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#vpc_security_group_ids SpotFleetRequest#vpc_security_group_ids}.
-        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.
+        :param ami: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ami SpotFleetRequest#ami}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.
+        :param associate_public_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#associate_public_ip_address SpotFleetRequest#associate_public_ip_address}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.
+        :param ebs_block_device: ebs_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ebs_block_device SpotFleetRequest#ebs_block_device}
+        :param ebs_optimized: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ebs_optimized SpotFleetRequest#ebs_optimized}.
+        :param ephemeral_block_device: ephemeral_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ephemeral_block_device SpotFleetRequest#ephemeral_block_device}
+        :param iam_instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_instance_profile SpotFleetRequest#iam_instance_profile}.
+        :param iam_instance_profile_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_instance_profile_arn SpotFleetRequest#iam_instance_profile_arn}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#key_name SpotFleetRequest#key_name}.
+        :param monitoring: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#monitoring SpotFleetRequest#monitoring}.
+        :param placement_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#placement_group SpotFleetRequest#placement_group}.
+        :param placement_tenancy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#placement_tenancy SpotFleetRequest#placement_tenancy}.
+        :param root_block_device: root_block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#root_block_device SpotFleetRequest#root_block_device}
+        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#user_data SpotFleetRequest#user_data}.
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#vpc_security_group_ids SpotFleetRequest#vpc_security_group_ids}.
+        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0291818bdb58cbd88a7c0fa7053f8ebefc74570e264d06c191ff68608d2be450)
@@ -1506,14 +1506,14 @@ class SpotFleetRequestLaunchSpecification:
 
     @builtins.property
     def ami(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ami SpotFleetRequest#ami}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ami SpotFleetRequest#ami}.'''
         result = self._values.get("ami")
         assert result is not None, "Required property 'ami' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1522,13 +1522,13 @@ class SpotFleetRequestLaunchSpecification:
     def associate_public_ip_address(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#associate_public_ip_address SpotFleetRequest#associate_public_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#associate_public_ip_address SpotFleetRequest#associate_public_ip_address}.'''
         result = self._values.get("associate_public_ip_address")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1538,7 +1538,7 @@ class SpotFleetRequestLaunchSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecificationEbsBlockDevice"]]]:
         '''ebs_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ebs_block_device SpotFleetRequest#ebs_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ebs_block_device SpotFleetRequest#ebs_block_device}
         '''
         result = self._values.get("ebs_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecificationEbsBlockDevice"]]], result)
@@ -1547,7 +1547,7 @@ class SpotFleetRequestLaunchSpecification:
     def ebs_optimized(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ebs_optimized SpotFleetRequest#ebs_optimized}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ebs_optimized SpotFleetRequest#ebs_optimized}.'''
         result = self._values.get("ebs_optimized")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1557,26 +1557,26 @@ class SpotFleetRequestLaunchSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecificationEphemeralBlockDevice"]]]:
         '''ephemeral_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#ephemeral_block_device SpotFleetRequest#ephemeral_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#ephemeral_block_device SpotFleetRequest#ephemeral_block_device}
         '''
         result = self._values.get("ephemeral_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecificationEphemeralBlockDevice"]]], result)
 
     @builtins.property
     def iam_instance_profile(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_instance_profile SpotFleetRequest#iam_instance_profile}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_instance_profile SpotFleetRequest#iam_instance_profile}.'''
         result = self._values.get("iam_instance_profile")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_instance_profile_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iam_instance_profile_arn SpotFleetRequest#iam_instance_profile_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iam_instance_profile_arn SpotFleetRequest#iam_instance_profile_arn}.'''
         result = self._values.get("iam_instance_profile_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#key_name SpotFleetRequest#key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#key_name SpotFleetRequest#key_name}.'''
         result = self._values.get("key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1584,19 +1584,19 @@ class SpotFleetRequestLaunchSpecification:
     def monitoring(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#monitoring SpotFleetRequest#monitoring}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#monitoring SpotFleetRequest#monitoring}.'''
         result = self._values.get("monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def placement_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#placement_group SpotFleetRequest#placement_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#placement_group SpotFleetRequest#placement_group}.'''
         result = self._values.get("placement_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def placement_tenancy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#placement_tenancy SpotFleetRequest#placement_tenancy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#placement_tenancy SpotFleetRequest#placement_tenancy}.'''
         result = self._values.get("placement_tenancy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1606,44 +1606,44 @@ class SpotFleetRequestLaunchSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecificationRootBlockDevice"]]]:
         '''root_block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#root_block_device SpotFleetRequest#root_block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#root_block_device SpotFleetRequest#root_block_device}
         '''
         result = self._values.get("root_block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchSpecificationRootBlockDevice"]]], result)
 
     @builtins.property
     def spot_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.'''
         result = self._values.get("spot_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#tags SpotFleetRequest#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def user_data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#user_data SpotFleetRequest#user_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#user_data SpotFleetRequest#user_data}.'''
         result = self._values.get("user_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#vpc_security_group_ids SpotFleetRequest#vpc_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#vpc_security_group_ids SpotFleetRequest#vpc_security_group_ids}.'''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def weighted_capacity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.'''
         result = self._values.get("weighted_capacity")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1689,15 +1689,15 @@ class SpotFleetRequestLaunchSpecificationEbsBlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#snapshot_id SpotFleetRequest#snapshot_id}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#snapshot_id SpotFleetRequest#snapshot_id}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5e12a3bb17dfebdd70b5a26984281ddb279b5e3aeaaa1c5f974f14e34388443)
@@ -1732,7 +1732,7 @@ class SpotFleetRequestLaunchSpecificationEbsBlockDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1741,7 +1741,7 @@ class SpotFleetRequestLaunchSpecificationEbsBlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1749,43 +1749,43 @@ class SpotFleetRequestLaunchSpecificationEbsBlockDevice:
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#snapshot_id SpotFleetRequest#snapshot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#snapshot_id SpotFleetRequest#snapshot_id}.'''
         result = self._values.get("snapshot_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2148,8 +2148,8 @@ class SpotFleetRequestLaunchSpecificationEphemeralBlockDevice:
         virtual_name: builtins.str,
     ) -> None:
         '''
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.
-        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#virtual_name SpotFleetRequest#virtual_name}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.
+        :param virtual_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#virtual_name SpotFleetRequest#virtual_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29af3b33317b7946cf3b6cef2331c7b4a3339359e46df6efb83fc684859bc8fd)
@@ -2162,14 +2162,14 @@ class SpotFleetRequestLaunchSpecificationEphemeralBlockDevice:
 
     @builtins.property
     def device_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#device_name SpotFleetRequest#device_name}.'''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def virtual_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#virtual_name SpotFleetRequest#virtual_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#virtual_name SpotFleetRequest#virtual_name}.'''
         result = self._values.get("virtual_name")
         assert result is not None, "Required property 'virtual_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2979,13 +2979,13 @@ class SpotFleetRequestLaunchSpecificationRootBlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a33f193eea4bec22191f175520ddb5b55e11a23f62615ccc6fcfbe018e8c8456)
@@ -3016,7 +3016,7 @@ class SpotFleetRequestLaunchSpecificationRootBlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete_on_termination SpotFleetRequest#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3024,37 +3024,37 @@ class SpotFleetRequestLaunchSpecificationRootBlockDevice:
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#encrypted SpotFleetRequest#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#iops SpotFleetRequest#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#kms_key_id SpotFleetRequest#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#throughput SpotFleetRequest#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_size SpotFleetRequest#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#volume_type SpotFleetRequest#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3382,8 +3382,8 @@ class SpotFleetRequestLaunchTemplateConfig:
         overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SpotFleetRequestLaunchTemplateConfigOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param launch_template_specification: launch_template_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_template_specification SpotFleetRequest#launch_template_specification}
-        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#overrides SpotFleetRequest#overrides}
+        :param launch_template_specification: launch_template_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_template_specification SpotFleetRequest#launch_template_specification}
+        :param overrides: overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#overrides SpotFleetRequest#overrides}
         '''
         if isinstance(launch_template_specification, dict):
             launch_template_specification = SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification(**launch_template_specification)
@@ -3403,7 +3403,7 @@ class SpotFleetRequestLaunchTemplateConfig:
     ) -> "SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification":
         '''launch_template_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#launch_template_specification SpotFleetRequest#launch_template_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#launch_template_specification SpotFleetRequest#launch_template_specification}
         '''
         result = self._values.get("launch_template_specification")
         assert result is not None, "Required property 'launch_template_specification' is missing"
@@ -3415,7 +3415,7 @@ class SpotFleetRequestLaunchTemplateConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchTemplateConfigOverrides"]]]:
         '''overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#overrides SpotFleetRequest#overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#overrides SpotFleetRequest#overrides}
         '''
         result = self._values.get("overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SpotFleetRequestLaunchTemplateConfigOverrides"]]], result)
@@ -3446,9 +3446,9 @@ class SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#name SpotFleetRequest#name}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#version SpotFleetRequest#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#name SpotFleetRequest#name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#version SpotFleetRequest#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__584b12e7af0e82a6d96b4cfa2600be6264b1d585c389137b029d1442d67f4c60)
@@ -3465,7 +3465,7 @@ class SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3475,13 +3475,13 @@ class SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#name SpotFleetRequest#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#name SpotFleetRequest#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#version SpotFleetRequest#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#version SpotFleetRequest#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3726,9 +3726,9 @@ class SpotFleetRequestLaunchTemplateConfigOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#name SpotFleetRequest#name}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#version SpotFleetRequest#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#id SpotFleetRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#name SpotFleetRequest#name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#version SpotFleetRequest#version}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigLaunchTemplateSpecification(
             id=id, name=name, version=version
@@ -3823,13 +3823,13 @@ class SpotFleetRequestLaunchTemplateConfigOverrides:
         weighted_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.
-        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_requirements SpotFleetRequest#instance_requirements}
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#priority SpotFleetRequest#priority}.
-        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.
-        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.
+        :param instance_requirements: instance_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_requirements SpotFleetRequest#instance_requirements}
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#priority SpotFleetRequest#priority}.
+        :param spot_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.
+        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.
         '''
         if isinstance(instance_requirements, dict):
             instance_requirements = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements(**instance_requirements)
@@ -3860,7 +3860,7 @@ class SpotFleetRequestLaunchTemplateConfigOverrides:
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#availability_zone SpotFleetRequest#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3870,38 +3870,38 @@ class SpotFleetRequestLaunchTemplateConfigOverrides:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements"]:
         '''instance_requirements block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_requirements SpotFleetRequest#instance_requirements}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_requirements SpotFleetRequest#instance_requirements}
         '''
         result = self._values.get("instance_requirements")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements"], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_type SpotFleetRequest#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#priority SpotFleetRequest#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#priority SpotFleetRequest#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def spot_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_price SpotFleetRequest#spot_price}.'''
         result = self._values.get("spot_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#subnet_id SpotFleetRequest#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weighted_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#weighted_capacity SpotFleetRequest#weighted_capacity}.'''
         result = self._values.get("weighted_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3975,29 +3975,29 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
         vcpu_count: typing.Optional[typing.Union["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_count SpotFleetRequest#accelerator_count}
-        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_manufacturers SpotFleetRequest#accelerator_manufacturers}.
-        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_names SpotFleetRequest#accelerator_names}.
-        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_total_memory_mib SpotFleetRequest#accelerator_total_memory_mib}
-        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_types SpotFleetRequest#accelerator_types}.
-        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#allowed_instance_types SpotFleetRequest#allowed_instance_types}.
-        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#bare_metal SpotFleetRequest#bare_metal}.
-        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#baseline_ebs_bandwidth_mbps SpotFleetRequest#baseline_ebs_bandwidth_mbps}
-        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#burstable_performance SpotFleetRequest#burstable_performance}.
-        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#cpu_manufacturers SpotFleetRequest#cpu_manufacturers}.
-        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#excluded_instance_types SpotFleetRequest#excluded_instance_types}.
-        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_generations SpotFleetRequest#instance_generations}.
-        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#local_storage SpotFleetRequest#local_storage}.
-        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#local_storage_types SpotFleetRequest#local_storage_types}.
-        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#memory_gib_per_vcpu SpotFleetRequest#memory_gib_per_vcpu}
-        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#memory_mib SpotFleetRequest#memory_mib}
-        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#network_bandwidth_gbps SpotFleetRequest#network_bandwidth_gbps}
-        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#network_interface_count SpotFleetRequest#network_interface_count}
-        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_max_price_percentage_over_lowest_price SpotFleetRequest#on_demand_max_price_percentage_over_lowest_price}.
-        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#require_hibernate_support SpotFleetRequest#require_hibernate_support}.
-        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_max_price_percentage_over_lowest_price SpotFleetRequest#spot_max_price_percentage_over_lowest_price}.
-        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#total_local_storage_gb SpotFleetRequest#total_local_storage_gb}
-        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#vcpu_count SpotFleetRequest#vcpu_count}
+        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_count SpotFleetRequest#accelerator_count}
+        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_manufacturers SpotFleetRequest#accelerator_manufacturers}.
+        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_names SpotFleetRequest#accelerator_names}.
+        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_total_memory_mib SpotFleetRequest#accelerator_total_memory_mib}
+        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_types SpotFleetRequest#accelerator_types}.
+        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#allowed_instance_types SpotFleetRequest#allowed_instance_types}.
+        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#bare_metal SpotFleetRequest#bare_metal}.
+        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#baseline_ebs_bandwidth_mbps SpotFleetRequest#baseline_ebs_bandwidth_mbps}
+        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#burstable_performance SpotFleetRequest#burstable_performance}.
+        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#cpu_manufacturers SpotFleetRequest#cpu_manufacturers}.
+        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#excluded_instance_types SpotFleetRequest#excluded_instance_types}.
+        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_generations SpotFleetRequest#instance_generations}.
+        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#local_storage SpotFleetRequest#local_storage}.
+        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#local_storage_types SpotFleetRequest#local_storage_types}.
+        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#memory_gib_per_vcpu SpotFleetRequest#memory_gib_per_vcpu}
+        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#memory_mib SpotFleetRequest#memory_mib}
+        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#network_bandwidth_gbps SpotFleetRequest#network_bandwidth_gbps}
+        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#network_interface_count SpotFleetRequest#network_interface_count}
+        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_max_price_percentage_over_lowest_price SpotFleetRequest#on_demand_max_price_percentage_over_lowest_price}.
+        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#require_hibernate_support SpotFleetRequest#require_hibernate_support}.
+        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_max_price_percentage_over_lowest_price SpotFleetRequest#spot_max_price_percentage_over_lowest_price}.
+        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#total_local_storage_gb SpotFleetRequest#total_local_storage_gb}
+        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#vcpu_count SpotFleetRequest#vcpu_count}
         '''
         if isinstance(accelerator_count, dict):
             accelerator_count = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorCount(**accelerator_count)
@@ -4096,20 +4096,20 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorCount"]:
         '''accelerator_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_count SpotFleetRequest#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_count SpotFleetRequest#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorCount"], result)
 
     @builtins.property
     def accelerator_manufacturers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_manufacturers SpotFleetRequest#accelerator_manufacturers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_manufacturers SpotFleetRequest#accelerator_manufacturers}.'''
         result = self._values.get("accelerator_manufacturers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def accelerator_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_names SpotFleetRequest#accelerator_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_names SpotFleetRequest#accelerator_names}.'''
         result = self._values.get("accelerator_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4119,26 +4119,26 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorTotalMemoryMib"]:
         '''accelerator_total_memory_mib block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_total_memory_mib SpotFleetRequest#accelerator_total_memory_mib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_total_memory_mib SpotFleetRequest#accelerator_total_memory_mib}
         '''
         result = self._values.get("accelerator_total_memory_mib")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorTotalMemoryMib"], result)
 
     @builtins.property
     def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_types SpotFleetRequest#accelerator_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_types SpotFleetRequest#accelerator_types}.'''
         result = self._values.get("accelerator_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def allowed_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#allowed_instance_types SpotFleetRequest#allowed_instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#allowed_instance_types SpotFleetRequest#allowed_instance_types}.'''
         result = self._values.get("allowed_instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def bare_metal(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#bare_metal SpotFleetRequest#bare_metal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#bare_metal SpotFleetRequest#bare_metal}.'''
         result = self._values.get("bare_metal")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4148,44 +4148,44 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsBaselineEbsBandwidthMbps"]:
         '''baseline_ebs_bandwidth_mbps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#baseline_ebs_bandwidth_mbps SpotFleetRequest#baseline_ebs_bandwidth_mbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#baseline_ebs_bandwidth_mbps SpotFleetRequest#baseline_ebs_bandwidth_mbps}
         '''
         result = self._values.get("baseline_ebs_bandwidth_mbps")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsBaselineEbsBandwidthMbps"], result)
 
     @builtins.property
     def burstable_performance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#burstable_performance SpotFleetRequest#burstable_performance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#burstable_performance SpotFleetRequest#burstable_performance}.'''
         result = self._values.get("burstable_performance")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cpu_manufacturers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#cpu_manufacturers SpotFleetRequest#cpu_manufacturers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#cpu_manufacturers SpotFleetRequest#cpu_manufacturers}.'''
         result = self._values.get("cpu_manufacturers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def excluded_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#excluded_instance_types SpotFleetRequest#excluded_instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#excluded_instance_types SpotFleetRequest#excluded_instance_types}.'''
         result = self._values.get("excluded_instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def instance_generations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_generations SpotFleetRequest#instance_generations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_generations SpotFleetRequest#instance_generations}.'''
         result = self._values.get("instance_generations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def local_storage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#local_storage SpotFleetRequest#local_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#local_storage SpotFleetRequest#local_storage}.'''
         result = self._values.get("local_storage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def local_storage_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#local_storage_types SpotFleetRequest#local_storage_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#local_storage_types SpotFleetRequest#local_storage_types}.'''
         result = self._values.get("local_storage_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4195,7 +4195,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryGibPerVcpu"]:
         '''memory_gib_per_vcpu block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#memory_gib_per_vcpu SpotFleetRequest#memory_gib_per_vcpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#memory_gib_per_vcpu SpotFleetRequest#memory_gib_per_vcpu}
         '''
         result = self._values.get("memory_gib_per_vcpu")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryGibPerVcpu"], result)
@@ -4206,7 +4206,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib"]:
         '''memory_mib block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#memory_mib SpotFleetRequest#memory_mib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#memory_mib SpotFleetRequest#memory_mib}
         '''
         result = self._values.get("memory_mib")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib"], result)
@@ -4217,7 +4217,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkBandwidthGbps"]:
         '''network_bandwidth_gbps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#network_bandwidth_gbps SpotFleetRequest#network_bandwidth_gbps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#network_bandwidth_gbps SpotFleetRequest#network_bandwidth_gbps}
         '''
         result = self._values.get("network_bandwidth_gbps")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkBandwidthGbps"], result)
@@ -4228,7 +4228,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkInterfaceCount"]:
         '''network_interface_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#network_interface_count SpotFleetRequest#network_interface_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#network_interface_count SpotFleetRequest#network_interface_count}
         '''
         result = self._values.get("network_interface_count")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkInterfaceCount"], result)
@@ -4237,7 +4237,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     def on_demand_max_price_percentage_over_lowest_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_max_price_percentage_over_lowest_price SpotFleetRequest#on_demand_max_price_percentage_over_lowest_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_max_price_percentage_over_lowest_price SpotFleetRequest#on_demand_max_price_percentage_over_lowest_price}.'''
         result = self._values.get("on_demand_max_price_percentage_over_lowest_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4245,7 +4245,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     def require_hibernate_support(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#require_hibernate_support SpotFleetRequest#require_hibernate_support}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#require_hibernate_support SpotFleetRequest#require_hibernate_support}.'''
         result = self._values.get("require_hibernate_support")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4253,7 +4253,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     def spot_max_price_percentage_over_lowest_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_max_price_percentage_over_lowest_price SpotFleetRequest#spot_max_price_percentage_over_lowest_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_max_price_percentage_over_lowest_price SpotFleetRequest#spot_max_price_percentage_over_lowest_price}.'''
         result = self._values.get("spot_max_price_percentage_over_lowest_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4263,7 +4263,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsTotalLocalStorageGb"]:
         '''total_local_storage_gb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#total_local_storage_gb SpotFleetRequest#total_local_storage_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#total_local_storage_gb SpotFleetRequest#total_local_storage_gb}
         '''
         result = self._values.get("total_local_storage_gb")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsTotalLocalStorageGb"], result)
@@ -4274,7 +4274,7 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements:
     ) -> typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount"]:
         '''vcpu_count block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#vcpu_count SpotFleetRequest#vcpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#vcpu_count SpotFleetRequest#vcpu_count}
         '''
         result = self._values.get("vcpu_count")
         return typing.cast(typing.Optional["SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount"], result)
@@ -4304,8 +4304,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAccelerat
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c4c1449f35e7bc46a6a263a7dd3763c4fa20f280d61541a7ae1f22760922d10)
@@ -4319,13 +4319,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAccelerat
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4434,8 +4434,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAccelerat
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa40da979e3b46b116c3e1b047edcf18cb00122b4f1ad68a7cd9e9530a4c5979)
@@ -4449,13 +4449,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAccelerat
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4564,8 +4564,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsBaselineE
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b920e2be5555f45359eb1abed38a9bf7e3474960e954d6ffdede98756fc2fa4)
@@ -4579,13 +4579,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsBaselineE
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4694,8 +4694,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryGib
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0253d40eace59d9573c6f2d848b468f9fa5d78766308bf146f99c94f31333730)
@@ -4709,13 +4709,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryGib
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4824,8 +4824,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16c93be77d51f19b7b7700160436c7fc6470fcb627ae0232f4433e7a6ac3dc58)
@@ -4839,13 +4839,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4954,8 +4954,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkBa
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93e4051baa7b990c2308e4710d5cb05bfb942a675d1e3bb9dac49b2aa6f2bafa)
@@ -4969,13 +4969,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkBa
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5084,8 +5084,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkIn
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4140c036cfeaadac53c00a9aa531d63d84380f0d95897dfb4245a9283c706e4)
@@ -5099,13 +5099,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkIn
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5229,8 +5229,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorCount(
             max=max, min=min
@@ -5246,8 +5246,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsAcceleratorTotalMemoryMib(
             max=max, min=min
@@ -5263,8 +5263,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsBaselineEbsBandwidthMbps(
             max=max, min=min
@@ -5280,8 +5280,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryGibPerVcpu(
             max=max, min=min
@@ -5297,8 +5297,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsMemoryMib(
             max=max, min=min
@@ -5314,8 +5314,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkBandwidthGbps(
             max=max, min=min
@@ -5331,8 +5331,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsNetworkInterfaceCount(
             max=max, min=min
@@ -5348,8 +5348,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsTotalLocalStorageGb(
             max=max, min=min
@@ -5365,8 +5365,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsOutputRef
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount(
             max=max, min=min
@@ -5881,8 +5881,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsTotalLoca
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80547ede78dfff2538b6d035e84d0ebcca9022fdd6029b05c1203800938e4304)
@@ -5896,13 +5896,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsTotalLoca
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6011,8 +6011,8 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
-        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
+        :param max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.
+        :param min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe1381a5831f8e8a8eb0a6d764f26bfaf43c2a386ccdc39f5fdd0833c3d6a14b)
@@ -6026,13 +6026,13 @@ class SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount
 
     @builtins.property
     def max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#max SpotFleetRequest#max}.'''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#min SpotFleetRequest#min}.'''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6276,29 +6276,29 @@ class SpotFleetRequestLaunchTemplateConfigOverridesOutputReference(
         vcpu_count: typing.Optional[typing.Union[SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirementsVcpuCount, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_count SpotFleetRequest#accelerator_count}
-        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_manufacturers SpotFleetRequest#accelerator_manufacturers}.
-        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_names SpotFleetRequest#accelerator_names}.
-        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_total_memory_mib SpotFleetRequest#accelerator_total_memory_mib}
-        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#accelerator_types SpotFleetRequest#accelerator_types}.
-        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#allowed_instance_types SpotFleetRequest#allowed_instance_types}.
-        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#bare_metal SpotFleetRequest#bare_metal}.
-        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#baseline_ebs_bandwidth_mbps SpotFleetRequest#baseline_ebs_bandwidth_mbps}
-        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#burstable_performance SpotFleetRequest#burstable_performance}.
-        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#cpu_manufacturers SpotFleetRequest#cpu_manufacturers}.
-        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#excluded_instance_types SpotFleetRequest#excluded_instance_types}.
-        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#instance_generations SpotFleetRequest#instance_generations}.
-        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#local_storage SpotFleetRequest#local_storage}.
-        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#local_storage_types SpotFleetRequest#local_storage_types}.
-        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#memory_gib_per_vcpu SpotFleetRequest#memory_gib_per_vcpu}
-        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#memory_mib SpotFleetRequest#memory_mib}
-        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#network_bandwidth_gbps SpotFleetRequest#network_bandwidth_gbps}
-        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#network_interface_count SpotFleetRequest#network_interface_count}
-        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#on_demand_max_price_percentage_over_lowest_price SpotFleetRequest#on_demand_max_price_percentage_over_lowest_price}.
-        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#require_hibernate_support SpotFleetRequest#require_hibernate_support}.
-        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#spot_max_price_percentage_over_lowest_price SpotFleetRequest#spot_max_price_percentage_over_lowest_price}.
-        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#total_local_storage_gb SpotFleetRequest#total_local_storage_gb}
-        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#vcpu_count SpotFleetRequest#vcpu_count}
+        :param accelerator_count: accelerator_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_count SpotFleetRequest#accelerator_count}
+        :param accelerator_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_manufacturers SpotFleetRequest#accelerator_manufacturers}.
+        :param accelerator_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_names SpotFleetRequest#accelerator_names}.
+        :param accelerator_total_memory_mib: accelerator_total_memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_total_memory_mib SpotFleetRequest#accelerator_total_memory_mib}
+        :param accelerator_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#accelerator_types SpotFleetRequest#accelerator_types}.
+        :param allowed_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#allowed_instance_types SpotFleetRequest#allowed_instance_types}.
+        :param bare_metal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#bare_metal SpotFleetRequest#bare_metal}.
+        :param baseline_ebs_bandwidth_mbps: baseline_ebs_bandwidth_mbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#baseline_ebs_bandwidth_mbps SpotFleetRequest#baseline_ebs_bandwidth_mbps}
+        :param burstable_performance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#burstable_performance SpotFleetRequest#burstable_performance}.
+        :param cpu_manufacturers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#cpu_manufacturers SpotFleetRequest#cpu_manufacturers}.
+        :param excluded_instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#excluded_instance_types SpotFleetRequest#excluded_instance_types}.
+        :param instance_generations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#instance_generations SpotFleetRequest#instance_generations}.
+        :param local_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#local_storage SpotFleetRequest#local_storage}.
+        :param local_storage_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#local_storage_types SpotFleetRequest#local_storage_types}.
+        :param memory_gib_per_vcpu: memory_gib_per_vcpu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#memory_gib_per_vcpu SpotFleetRequest#memory_gib_per_vcpu}
+        :param memory_mib: memory_mib block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#memory_mib SpotFleetRequest#memory_mib}
+        :param network_bandwidth_gbps: network_bandwidth_gbps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#network_bandwidth_gbps SpotFleetRequest#network_bandwidth_gbps}
+        :param network_interface_count: network_interface_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#network_interface_count SpotFleetRequest#network_interface_count}
+        :param on_demand_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#on_demand_max_price_percentage_over_lowest_price SpotFleetRequest#on_demand_max_price_percentage_over_lowest_price}.
+        :param require_hibernate_support: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#require_hibernate_support SpotFleetRequest#require_hibernate_support}.
+        :param spot_max_price_percentage_over_lowest_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#spot_max_price_percentage_over_lowest_price SpotFleetRequest#spot_max_price_percentage_over_lowest_price}.
+        :param total_local_storage_gb: total_local_storage_gb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#total_local_storage_gb SpotFleetRequest#total_local_storage_gb}
+        :param vcpu_count: vcpu_count block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#vcpu_count SpotFleetRequest#vcpu_count}
         '''
         value = SpotFleetRequestLaunchTemplateConfigOverridesInstanceRequirements(
             accelerator_count=accelerator_count,
@@ -6502,7 +6502,7 @@ class SpotFleetRequestSpotMaintenanceStrategies:
         capacity_rebalance: typing.Optional[typing.Union["SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#capacity_rebalance SpotFleetRequest#capacity_rebalance}
+        :param capacity_rebalance: capacity_rebalance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#capacity_rebalance SpotFleetRequest#capacity_rebalance}
         '''
         if isinstance(capacity_rebalance, dict):
             capacity_rebalance = SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance(**capacity_rebalance)
@@ -6519,7 +6519,7 @@ class SpotFleetRequestSpotMaintenanceStrategies:
     ) -> typing.Optional["SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance"]:
         '''capacity_rebalance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#capacity_rebalance SpotFleetRequest#capacity_rebalance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#capacity_rebalance SpotFleetRequest#capacity_rebalance}
         '''
         result = self._values.get("capacity_rebalance")
         return typing.cast(typing.Optional["SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance"], result)
@@ -6548,7 +6548,7 @@ class SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance:
         replacement_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#replacement_strategy SpotFleetRequest#replacement_strategy}.
+        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#replacement_strategy SpotFleetRequest#replacement_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__baeb84af9bafe2fcd2e2df48c456f6885d252d0e06311ec552d2c6274e359181)
@@ -6559,7 +6559,7 @@ class SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance:
 
     @builtins.property
     def replacement_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#replacement_strategy SpotFleetRequest#replacement_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#replacement_strategy SpotFleetRequest#replacement_strategy}.'''
         result = self._values.get("replacement_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6661,7 +6661,7 @@ class SpotFleetRequestSpotMaintenanceStrategiesOutputReference(
         replacement_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#replacement_strategy SpotFleetRequest#replacement_strategy}.
+        :param replacement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#replacement_strategy SpotFleetRequest#replacement_strategy}.
         '''
         value = SpotFleetRequestSpotMaintenanceStrategiesCapacityRebalance(
             replacement_strategy=replacement_strategy
@@ -6719,9 +6719,9 @@ class SpotFleetRequestTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#create SpotFleetRequest#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete SpotFleetRequest#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#update SpotFleetRequest#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#create SpotFleetRequest#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete SpotFleetRequest#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#update SpotFleetRequest#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f55e04ba082b18ec4686eeb9a81f7658516ff3b27ecee248b2d975d9e9e0959)
@@ -6738,19 +6738,19 @@ class SpotFleetRequestTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#create SpotFleetRequest#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#create SpotFleetRequest#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#delete SpotFleetRequest#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#delete SpotFleetRequest#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/spot_fleet_request#update SpotFleetRequest#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/spot_fleet_request#update SpotFleetRequest#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

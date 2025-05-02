@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: jinjanator
-Version: 25.1.0
+Version: 25.2.0
 Summary: Command-line interface to Jinja2 for templating in shell scripts.
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator
@@ -559,13 +559,12 @@ def extra_tests():
 ```
 
 ## Release Information
-### Additions
+### Fixes
 
-- Added support for '--filters', '--tests' and '--customize' from j2cli
-  (contributed by @mlasevich).
-  [[#46](https://github.com/kpfleming/jinjanator/issues/46)](https://github.com/kpfleming/jinjanator/issues/46)
-- Added testing against Python 3.13 (again).
-  
+- Corrected behavior of '--customize' argument when the customization file
+  doesn't contain every possible type of customization function
+  (contributed by @itamaro).
+  [[#48](https://github.com/kpfleming/jinjanator/issues/48)](https://github.com/kpfleming/jinjanator/issues/48)
 
 ---
 [→ Full Changelog](https://github.com/kpfleming/jinjanator/blob/main/CHANGELOG.md)

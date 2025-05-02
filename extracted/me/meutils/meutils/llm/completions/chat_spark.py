@@ -12,6 +12,7 @@
 from meutils.pipe import *
 from meutils.io.openai_files import file_extract, guess_mime_type
 from meutils.str_utils.json_utils import json_path
+from meutils.str_utils.regular_expression import parse_url
 
 from meutils.llm.clients import AsyncOpenAI, zhipuai_client
 from meutils.llm.openai_utils import to_openai_params
@@ -26,25 +27,11 @@ class Completions(object):
 
     async def create(self, request: CompletionRequest):
         logger.debug(request.last_user_content)
+        logger.debug(parse_url(request.last_assistant_content))
 
         if request.last_user_content.startswith("http"):  # 文件问答-单轮
             file_url, *texts = request.last_user_content.split(maxsplit=1) + ["总结下"]
             text = texts[0]
-
-            # # 图片：走4v
-            # if guess_mime_type(file_url).startswith("image"):
-            #     request.model = "glm-4v-flash"
-            #     request.messages = [
-            #         {
-            #             'role': 'user',
-            #             'content': [{"type": "image_url", "image_url": {"url": file_url}}]
-            #         }
-            #     ]
-            # {
-            #     "type": "image_url",
-            #     "image_url": {
-            #         "url": {
-            #             "url":
 
             file_content = await file_extract(file_url)
 
@@ -59,7 +46,7 @@ class Completions(object):
 
             if guess_mime_type(url).startswith("image"):  # 图片问答
 
-                request.model = "glm-4v-flash"  # 6月过期
+                request.model = "glm-4v-flash" if "image" not in request.model else request.model
                 for i, message in enumerate(request.messages):
                     if message.get("role") == "user":
                         user_contents = message.get("content")
@@ -90,6 +77,13 @@ class Completions(object):
 
                             request.messages = request.messages[-i:]
                             break  # 截断：从最新的文件开始
+
+        elif image_urls := parse_url(request.last_assistant_content):
+            image_url = image_urls[-1]
+            request.messages[-1]["content"] = [
+                {"type": "text", "text": request.last_user_content},
+                {"type": "image_url", "image_url": {"url": image_url}}
+            ]
 
         logger.debug(request.model_dump_json(indent=4))
 

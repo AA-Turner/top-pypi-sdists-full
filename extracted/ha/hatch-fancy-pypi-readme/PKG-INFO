@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hatch-fancy-pypi-readme
-Version: 24.1.0
+Version: 25.1.0
 Summary: Fancy PyPI READMEs with Hatch
 Project-URL: Documentation, https://github.com/hynek/hatch-fancy-pypi-readme#readme
 Project-URL: Changelog, https://github.com/hynek/hatch-fancy-pypi-readme/blob/main/CHANGELOG.md
@@ -8,27 +8,26 @@ Project-URL: Source Code, https://github.com/hynek/hatch-fancy-pypi-readme
 Project-URL: Funding, https://github.com/sponsors/hynek
 Author-email: Hynek Schlawack <hs@ox.cx>
 License-Expression: MIT
-License-File: AUTHORS.md
 License-File: LICENSE.txt
 Keywords: documentation,hatch,pypi,readme
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Hatch
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Build Tools
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Requires-Dist: hatchling
 Requires-Dist: tomli; python_version < '3.11'
-Requires-Dist: typing-extensions; python_version < '3.8'
 Provides-Extra: dev
-Requires-Dist: hatch-fancy-pypi-readme[tests]; extra == 'dev'
+Requires-Dist: build; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: wheel; extra == 'dev'
 Provides-Extra: tests
 Requires-Dist: build; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'

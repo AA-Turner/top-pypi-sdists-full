@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 1.38.2
+Version: 1.38.3
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, nouamane@huggingface.co, info@nils-reimers.de
 License:                                  Apache License
@@ -245,7 +245,7 @@ Requires-Dist: pytest-rerunfailures>=15.0; extra == "dev"
 Requires-Dist: iso639>=0.1.4; extra == "dev"
 Requires-Dist: pre-commit>=4.1.0; extra == "dev"
 Provides-Extra: codecarbon
-Requires-Dist: codecarbon; extra == "codecarbon"
+Requires-Dist: codecarbon<3.0.0,>=2.0.0; extra == "codecarbon"
 Provides-Extra: speedtask
 Requires-Dist: setuptools!=78.0.1; extra == "speedtask"
 Requires-Dist: GPUtil>=1.4.0; extra == "speedtask"

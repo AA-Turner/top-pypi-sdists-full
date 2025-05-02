@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tensorrt_cu12
-Version: 10.9.0.34
+Version: 10.10.0.31
 Summary: A high performance deep learning inference library
 Home-page: https://github.com/nvidia/tensorrt
 Download-URL: https://developer.nvidia.com/tensorrt
@@ -13,8 +13,8 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: tensorrt_cu12_libs==10.9.0.34
-Requires-Dist: tensorrt_cu12_bindings==10.9.0.34
+Requires-Dist: tensorrt_cu12_libs==10.10.0.31
+Requires-Dist: tensorrt_cu12_bindings==10.10.0.31
 Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_cur_report_definition`
 
-Refer to the Terraform Registry for docs: [`aws_cur_report_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition).
+Refer to the Terraform Registry for docs: [`aws_cur_report_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CurReportDefinition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.curReportDefinition.CurReportDefinition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition aws_cur_report_definition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition aws_cur_report_definition}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class CurReportDefinition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition aws_cur_report_definition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition aws_cur_report_definition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param additional_schema_elements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#additional_schema_elements CurReportDefinition#additional_schema_elements}.
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#compression CurReportDefinition#compression}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#format CurReportDefinition#format}.
-        :param report_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#report_name CurReportDefinition#report_name}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_bucket CurReportDefinition#s3_bucket}.
-        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_region CurReportDefinition#s3_region}.
-        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#time_unit CurReportDefinition#time_unit}.
-        :param additional_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#additional_artifacts CurReportDefinition#additional_artifacts}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#id CurReportDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param refresh_closed_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#refresh_closed_reports CurReportDefinition#refresh_closed_reports}.
-        :param report_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#report_versioning CurReportDefinition#report_versioning}.
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_prefix CurReportDefinition#s3_prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#tags CurReportDefinition#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#tags_all CurReportDefinition#tags_all}.
+        :param additional_schema_elements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#additional_schema_elements CurReportDefinition#additional_schema_elements}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#compression CurReportDefinition#compression}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#format CurReportDefinition#format}.
+        :param report_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#report_name CurReportDefinition#report_name}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_bucket CurReportDefinition#s3_bucket}.
+        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_region CurReportDefinition#s3_region}.
+        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#time_unit CurReportDefinition#time_unit}.
+        :param additional_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#additional_artifacts CurReportDefinition#additional_artifacts}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#id CurReportDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param refresh_closed_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#refresh_closed_reports CurReportDefinition#refresh_closed_reports}.
+        :param report_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#report_versioning CurReportDefinition#report_versioning}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_prefix CurReportDefinition#s3_prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#tags CurReportDefinition#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#tags_all CurReportDefinition#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class CurReportDefinition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CurReportDefinition to import.
-        :param import_from_id: The id of the existing CurReportDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CurReportDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CurReportDefinition to import is found.
         '''
         if __debug__:
@@ -510,20 +510,20 @@ class CurReportDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param additional_schema_elements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#additional_schema_elements CurReportDefinition#additional_schema_elements}.
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#compression CurReportDefinition#compression}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#format CurReportDefinition#format}.
-        :param report_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#report_name CurReportDefinition#report_name}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_bucket CurReportDefinition#s3_bucket}.
-        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_region CurReportDefinition#s3_region}.
-        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#time_unit CurReportDefinition#time_unit}.
-        :param additional_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#additional_artifacts CurReportDefinition#additional_artifacts}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#id CurReportDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param refresh_closed_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#refresh_closed_reports CurReportDefinition#refresh_closed_reports}.
-        :param report_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#report_versioning CurReportDefinition#report_versioning}.
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_prefix CurReportDefinition#s3_prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#tags CurReportDefinition#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#tags_all CurReportDefinition#tags_all}.
+        :param additional_schema_elements: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#additional_schema_elements CurReportDefinition#additional_schema_elements}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#compression CurReportDefinition#compression}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#format CurReportDefinition#format}.
+        :param report_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#report_name CurReportDefinition#report_name}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_bucket CurReportDefinition#s3_bucket}.
+        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_region CurReportDefinition#s3_region}.
+        :param time_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#time_unit CurReportDefinition#time_unit}.
+        :param additional_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#additional_artifacts CurReportDefinition#additional_artifacts}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#id CurReportDefinition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param refresh_closed_reports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#refresh_closed_reports CurReportDefinition#refresh_closed_reports}.
+        :param report_versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#report_versioning CurReportDefinition#report_versioning}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_prefix CurReportDefinition#s3_prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#tags CurReportDefinition#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#tags_all CurReportDefinition#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -654,62 +654,62 @@ class CurReportDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def additional_schema_elements(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#additional_schema_elements CurReportDefinition#additional_schema_elements}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#additional_schema_elements CurReportDefinition#additional_schema_elements}.'''
         result = self._values.get("additional_schema_elements")
         assert result is not None, "Required property 'additional_schema_elements' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def compression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#compression CurReportDefinition#compression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#compression CurReportDefinition#compression}.'''
         result = self._values.get("compression")
         assert result is not None, "Required property 'compression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#format CurReportDefinition#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#format CurReportDefinition#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def report_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#report_name CurReportDefinition#report_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#report_name CurReportDefinition#report_name}.'''
         result = self._values.get("report_name")
         assert result is not None, "Required property 'report_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_bucket CurReportDefinition#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_bucket CurReportDefinition#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_region CurReportDefinition#s3_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_region CurReportDefinition#s3_region}.'''
         result = self._values.get("s3_region")
         assert result is not None, "Required property 's3_region' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#time_unit CurReportDefinition#time_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#time_unit CurReportDefinition#time_unit}.'''
         result = self._values.get("time_unit")
         assert result is not None, "Required property 'time_unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def additional_artifacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#additional_artifacts CurReportDefinition#additional_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#additional_artifacts CurReportDefinition#additional_artifacts}.'''
         result = self._values.get("additional_artifacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#id CurReportDefinition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#id CurReportDefinition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -721,31 +721,31 @@ class CurReportDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def refresh_closed_reports(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#refresh_closed_reports CurReportDefinition#refresh_closed_reports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#refresh_closed_reports CurReportDefinition#refresh_closed_reports}.'''
         result = self._values.get("refresh_closed_reports")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def report_versioning(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#report_versioning CurReportDefinition#report_versioning}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#report_versioning CurReportDefinition#report_versioning}.'''
         result = self._values.get("report_versioning")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#s3_prefix CurReportDefinition#s3_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#s3_prefix CurReportDefinition#s3_prefix}.'''
         result = self._values.get("s3_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#tags CurReportDefinition#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#tags CurReportDefinition#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cur_report_definition#tags_all CurReportDefinition#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cur_report_definition#tags_all CurReportDefinition#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

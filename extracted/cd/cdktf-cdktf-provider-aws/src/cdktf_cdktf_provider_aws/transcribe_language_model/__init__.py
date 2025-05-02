@@ -1,7 +1,7 @@
 r'''
 # `aws_transcribe_language_model`
 
-Refer to the Terraform Registry for docs: [`aws_transcribe_language_model`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model).
+Refer to the Terraform Registry for docs: [`aws_transcribe_language_model`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TranscribeLanguageModel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transcribeLanguageModel.TranscribeLanguageModel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model aws_transcribe_language_model}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model aws_transcribe_language_model}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class TranscribeLanguageModel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model aws_transcribe_language_model} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model aws_transcribe_language_model} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#base_model_name TranscribeLanguageModel#base_model_name}.
-        :param input_data_config: input_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#input_data_config TranscribeLanguageModel#input_data_config}
-        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#language_code TranscribeLanguageModel#language_code}.
-        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#model_name TranscribeLanguageModel#model_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#id TranscribeLanguageModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tags TranscribeLanguageModel#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tags_all TranscribeLanguageModel#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#timeouts TranscribeLanguageModel#timeouts}
+        :param base_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#base_model_name TranscribeLanguageModel#base_model_name}.
+        :param input_data_config: input_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#input_data_config TranscribeLanguageModel#input_data_config}
+        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#language_code TranscribeLanguageModel#language_code}.
+        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#model_name TranscribeLanguageModel#model_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#id TranscribeLanguageModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tags TranscribeLanguageModel#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tags_all TranscribeLanguageModel#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#timeouts TranscribeLanguageModel#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class TranscribeLanguageModel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TranscribeLanguageModel to import.
-        :param import_from_id: The id of the existing TranscribeLanguageModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TranscribeLanguageModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TranscribeLanguageModel to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class TranscribeLanguageModel(
         tuning_data_s3_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#data_access_role_arn TranscribeLanguageModel#data_access_role_arn}.
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#s3_uri TranscribeLanguageModel#s3_uri}.
-        :param tuning_data_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tuning_data_s3_uri TranscribeLanguageModel#tuning_data_s3_uri}.
+        :param data_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#data_access_role_arn TranscribeLanguageModel#data_access_role_arn}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#s3_uri TranscribeLanguageModel#s3_uri}.
+        :param tuning_data_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tuning_data_s3_uri TranscribeLanguageModel#tuning_data_s3_uri}.
         '''
         value = TranscribeLanguageModelInputDataConfig(
             data_access_role_arn=data_access_role_arn,
@@ -159,7 +159,7 @@ class TranscribeLanguageModel(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#create TranscribeLanguageModel#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#create TranscribeLanguageModel#create}.
         '''
         value = TranscribeLanguageModelTimeouts(create=create)
 
@@ -379,14 +379,14 @@ class TranscribeLanguageModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#base_model_name TranscribeLanguageModel#base_model_name}.
-        :param input_data_config: input_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#input_data_config TranscribeLanguageModel#input_data_config}
-        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#language_code TranscribeLanguageModel#language_code}.
-        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#model_name TranscribeLanguageModel#model_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#id TranscribeLanguageModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tags TranscribeLanguageModel#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tags_all TranscribeLanguageModel#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#timeouts TranscribeLanguageModel#timeouts}
+        :param base_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#base_model_name TranscribeLanguageModel#base_model_name}.
+        :param input_data_config: input_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#input_data_config TranscribeLanguageModel#input_data_config}
+        :param language_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#language_code TranscribeLanguageModel#language_code}.
+        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#model_name TranscribeLanguageModel#model_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#id TranscribeLanguageModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tags TranscribeLanguageModel#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tags_all TranscribeLanguageModel#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#timeouts TranscribeLanguageModel#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -506,7 +506,7 @@ class TranscribeLanguageModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def base_model_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#base_model_name TranscribeLanguageModel#base_model_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#base_model_name TranscribeLanguageModel#base_model_name}.'''
         result = self._values.get("base_model_name")
         assert result is not None, "Required property 'base_model_name' is missing"
         return typing.cast(builtins.str, result)
@@ -515,7 +515,7 @@ class TranscribeLanguageModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def input_data_config(self) -> "TranscribeLanguageModelInputDataConfig":
         '''input_data_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#input_data_config TranscribeLanguageModel#input_data_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#input_data_config TranscribeLanguageModel#input_data_config}
         '''
         result = self._values.get("input_data_config")
         assert result is not None, "Required property 'input_data_config' is missing"
@@ -523,21 +523,21 @@ class TranscribeLanguageModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def language_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#language_code TranscribeLanguageModel#language_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#language_code TranscribeLanguageModel#language_code}.'''
         result = self._values.get("language_code")
         assert result is not None, "Required property 'language_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def model_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#model_name TranscribeLanguageModel#model_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#model_name TranscribeLanguageModel#model_name}.'''
         result = self._values.get("model_name")
         assert result is not None, "Required property 'model_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#id TranscribeLanguageModel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#id TranscribeLanguageModel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -547,13 +547,13 @@ class TranscribeLanguageModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tags TranscribeLanguageModel#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tags TranscribeLanguageModel#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tags_all TranscribeLanguageModel#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tags_all TranscribeLanguageModel#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -561,7 +561,7 @@ class TranscribeLanguageModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TranscribeLanguageModelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#timeouts TranscribeLanguageModel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#timeouts TranscribeLanguageModel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TranscribeLanguageModelTimeouts"], result)
@@ -596,9 +596,9 @@ class TranscribeLanguageModelInputDataConfig:
         tuning_data_s3_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#data_access_role_arn TranscribeLanguageModel#data_access_role_arn}.
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#s3_uri TranscribeLanguageModel#s3_uri}.
-        :param tuning_data_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tuning_data_s3_uri TranscribeLanguageModel#tuning_data_s3_uri}.
+        :param data_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#data_access_role_arn TranscribeLanguageModel#data_access_role_arn}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#s3_uri TranscribeLanguageModel#s3_uri}.
+        :param tuning_data_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tuning_data_s3_uri TranscribeLanguageModel#tuning_data_s3_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ca329b5871465bb8ee625bd22b55a18b674eeb27723671979e787e0cea4c4f4)
@@ -614,21 +614,21 @@ class TranscribeLanguageModelInputDataConfig:
 
     @builtins.property
     def data_access_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#data_access_role_arn TranscribeLanguageModel#data_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#data_access_role_arn TranscribeLanguageModel#data_access_role_arn}.'''
         result = self._values.get("data_access_role_arn")
         assert result is not None, "Required property 'data_access_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#s3_uri TranscribeLanguageModel#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#s3_uri TranscribeLanguageModel#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tuning_data_s3_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#tuning_data_s3_uri TranscribeLanguageModel#tuning_data_s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#tuning_data_s3_uri TranscribeLanguageModel#tuning_data_s3_uri}.'''
         result = self._values.get("tuning_data_s3_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -743,7 +743,7 @@ class TranscribeLanguageModelInputDataConfigOutputReference(
 class TranscribeLanguageModelTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#create TranscribeLanguageModel#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#create TranscribeLanguageModel#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c65fa26ac3c300dc18532a3051c9d1118dc996f3cf9bf0c3cc63691601598fa)
@@ -754,7 +754,7 @@ class TranscribeLanguageModelTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transcribe_language_model#create TranscribeLanguageModel#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transcribe_language_model#create TranscribeLanguageModel#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

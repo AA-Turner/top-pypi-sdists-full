@@ -36,7 +36,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.13",
     install_requires=[
-        "dagster==1.10.12",
+        "dagster==1.10.13",
         "requests",
     ],
     zip_safe=False,
@@ -51,7 +51,7 @@ setup(
             "flaky",
         ],
         "managed": [
-            "dagster-managed-elements==0.26.12",
+            "dagster-managed-elements==0.26.13",
         ],
     },
 )

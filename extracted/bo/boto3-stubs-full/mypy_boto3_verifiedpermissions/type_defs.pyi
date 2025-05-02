@@ -22,6 +22,7 @@ from typing import Any, Union
 
 from .literals import (
     BatchGetPolicyErrorCodeType,
+    CedarVersionType,
     DecisionType,
     DeletionProtectionType,
     PolicyEffectType,
@@ -122,6 +123,8 @@ __all__ = (
     "ListPolicyTemplatesInputPaginateTypeDef",
     "ListPolicyTemplatesInputTypeDef",
     "ListPolicyTemplatesOutputTypeDef",
+    "ListTagsForResourceInputTypeDef",
+    "ListTagsForResourceOutputTypeDef",
     "OpenIdConnectAccessTokenConfigurationDetailTypeDef",
     "OpenIdConnectAccessTokenConfigurationItemTypeDef",
     "OpenIdConnectAccessTokenConfigurationTypeDef",
@@ -152,9 +155,11 @@ __all__ = (
     "StaticPolicyDefinitionDetailTypeDef",
     "StaticPolicyDefinitionItemTypeDef",
     "StaticPolicyDefinitionTypeDef",
+    "TagResourceInputTypeDef",
     "TemplateLinkedPolicyDefinitionDetailTypeDef",
     "TemplateLinkedPolicyDefinitionItemTypeDef",
     "TemplateLinkedPolicyDefinitionTypeDef",
+    "UntagResourceInputTypeDef",
     "UpdateCognitoGroupConfigurationTypeDef",
     "UpdateCognitoUserPoolConfigurationTypeDef",
     "UpdateConfigurationTypeDef",
@@ -256,6 +261,7 @@ class GetPolicyInputTypeDef(TypedDict):
 
 class GetPolicyStoreInputTypeDef(TypedDict):
     policyStoreId: str
+    tags: NotRequired[bool]
 
 class GetPolicyTemplateInputTypeDef(TypedDict):
     policyStoreId: str
@@ -300,6 +306,9 @@ class PolicyTemplateItemTypeDef(TypedDict):
     createdDate: datetime
     lastUpdatedDate: datetime
     description: NotRequired[str]
+
+class ListTagsForResourceInputTypeDef(TypedDict):
+    resourceArn: str
 
 class OpenIdConnectAccessTokenConfigurationDetailTypeDef(TypedDict):
     principalIdClaim: NotRequired[str]
@@ -350,6 +359,14 @@ class StaticPolicyDefinitionTypeDef(TypedDict):
 
 class SchemaDefinitionTypeDef(TypedDict):
     cedarJson: NotRequired[str]
+
+class TagResourceInputTypeDef(TypedDict):
+    resourceArn: str
+    tags: Mapping[str, str]
+
+class UntagResourceInputTypeDef(TypedDict):
+    resourceArn: str
+    tagKeys: Sequence[str]
 
 class UpdateCognitoGroupConfigurationTypeDef(TypedDict):
     groupEntityType: str
@@ -475,6 +492,10 @@ class GetSchemaOutputTypeDef(TypedDict):
     namespaces: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListTagsForResourceOutputTypeDef(TypedDict):
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class PutSchemaOutputTypeDef(TypedDict):
     policyStoreId: str
     namespaces: List[str]
@@ -550,6 +571,7 @@ class CreatePolicyStoreInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     description: NotRequired[str]
     deletionProtection: NotRequired[DeletionProtectionType]
+    tags: NotRequired[Mapping[str, str]]
 
 class GetPolicyStoreOutputTypeDef(TypedDict):
     policyStoreId: str
@@ -559,6 +581,8 @@ class GetPolicyStoreOutputTypeDef(TypedDict):
     lastUpdatedDate: datetime
     description: str
     deletionProtection: DeletionProtectionType
+    cedarVersion: CedarVersionType
+    tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePolicyStoreInputTypeDef(TypedDict):

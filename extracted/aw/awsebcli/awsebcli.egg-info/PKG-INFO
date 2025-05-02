@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awsebcli
-Version: 3.23.2
+Version: 3.23.3
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -125,6 +125,11 @@ in the *AWS Elastic Beanstalk Developer Guide*.
 
 Changelog
 =========
+--------------------
+3.23.3 (2025-05-01)
+--------------------
+- Fixed bug that causes eb on non-IIS server Windows machines to crash
+
 --------------------
 3.23.2 (2025-04-22)
 --------------------

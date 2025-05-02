@@ -1,7 +1,7 @@
 r'''
 # `aws_ivs_playback_key_pair`
 
-Refer to the Terraform Registry for docs: [`aws_ivs_playback_key_pair`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair).
+Refer to the Terraform Registry for docs: [`aws_ivs_playback_key_pair`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IvsPlaybackKeyPair(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ivsPlaybackKeyPair.IvsPlaybackKeyPair",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair aws_ivs_playback_key_pair}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair aws_ivs_playback_key_pair}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IvsPlaybackKeyPair(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair aws_ivs_playback_key_pair} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair aws_ivs_playback_key_pair} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#public_key IvsPlaybackKeyPair#public_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#id IvsPlaybackKeyPair#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#name IvsPlaybackKeyPair#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#tags IvsPlaybackKeyPair#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#tags_all IvsPlaybackKeyPair#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#timeouts IvsPlaybackKeyPair#timeouts}
+        :param public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#public_key IvsPlaybackKeyPair#public_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#id IvsPlaybackKeyPair#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#name IvsPlaybackKeyPair#name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#tags IvsPlaybackKeyPair#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#tags_all IvsPlaybackKeyPair#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#timeouts IvsPlaybackKeyPair#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IvsPlaybackKeyPair(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IvsPlaybackKeyPair to import.
-        :param import_from_id: The id of the existing IvsPlaybackKeyPair that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IvsPlaybackKeyPair that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IvsPlaybackKeyPair to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class IvsPlaybackKeyPair(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#create IvsPlaybackKeyPair#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#delete IvsPlaybackKeyPair#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#create IvsPlaybackKeyPair#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#delete IvsPlaybackKeyPair#delete}.
         '''
         value = IvsPlaybackKeyPairTimeouts(create=create, delete=delete)
 
@@ -332,12 +332,12 @@ class IvsPlaybackKeyPairConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#public_key IvsPlaybackKeyPair#public_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#id IvsPlaybackKeyPair#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#name IvsPlaybackKeyPair#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#tags IvsPlaybackKeyPair#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#tags_all IvsPlaybackKeyPair#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#timeouts IvsPlaybackKeyPair#timeouts}
+        :param public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#public_key IvsPlaybackKeyPair#public_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#id IvsPlaybackKeyPair#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#name IvsPlaybackKeyPair#name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#tags IvsPlaybackKeyPair#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#tags_all IvsPlaybackKeyPair#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#timeouts IvsPlaybackKeyPair#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -452,14 +452,14 @@ class IvsPlaybackKeyPairConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def public_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#public_key IvsPlaybackKeyPair#public_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#public_key IvsPlaybackKeyPair#public_key}.'''
         result = self._values.get("public_key")
         assert result is not None, "Required property 'public_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#id IvsPlaybackKeyPair#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#id IvsPlaybackKeyPair#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -469,19 +469,19 @@ class IvsPlaybackKeyPairConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#name IvsPlaybackKeyPair#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#name IvsPlaybackKeyPair#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#tags IvsPlaybackKeyPair#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#tags IvsPlaybackKeyPair#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#tags_all IvsPlaybackKeyPair#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#tags_all IvsPlaybackKeyPair#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -489,7 +489,7 @@ class IvsPlaybackKeyPairConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IvsPlaybackKeyPairTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#timeouts IvsPlaybackKeyPair#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#timeouts IvsPlaybackKeyPair#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IvsPlaybackKeyPairTimeouts"], result)
@@ -519,8 +519,8 @@ class IvsPlaybackKeyPairTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#create IvsPlaybackKeyPair#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#delete IvsPlaybackKeyPair#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#create IvsPlaybackKeyPair#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#delete IvsPlaybackKeyPair#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7eb3bbf287bec611653906ca919d40f95a4a1a1d2c6fefd8b1aef892a50e97f5)
@@ -534,13 +534,13 @@ class IvsPlaybackKeyPairTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#create IvsPlaybackKeyPair#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#create IvsPlaybackKeyPair#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ivs_playback_key_pair#delete IvsPlaybackKeyPair#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ivs_playback_key_pair#delete IvsPlaybackKeyPair#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

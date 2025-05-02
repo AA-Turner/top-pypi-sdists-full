@@ -1,10 +1,10 @@
 use core::ffi::{c_int, c_void, CStr};
-use core::mem;
 use pyo3_ffi::*;
 use std::fmt;
 use std::ops::Neg;
 use std::ptr::null_mut as NULL;
 
+use crate::common::math::*;
 use crate::common::*;
 use crate::date_delta::{self, parse_prefix, DateDelta, InitError, Unit as DateUnit};
 use crate::docstrings as doc;
@@ -26,8 +26,8 @@ impl DateTimeDelta {
     }
 
     pub(crate) fn new(ddelta: DateDelta, tdelta: TimeDelta) -> Option<Self> {
-        if ddelta.months >= 0 && ddelta.days >= 0 && tdelta.secs >= 0
-            || ddelta.months <= 0 && ddelta.days <= 0 && tdelta.secs <= 0
+        if ddelta.months.get() >= 0 && ddelta.days.get() >= 0 && tdelta.secs.get() >= 0
+            || ddelta.months.get() <= 0 && ddelta.days.get() <= 0 && tdelta.secs.get() <= 0
         {
             Some(Self { ddelta, tdelta })
         } else {
@@ -40,6 +40,7 @@ impl DateTimeDelta {
         ddelta
             .checked_mul(factor)
             .zip(tdelta.checked_mul(factor.into()))
+            // Safe: multiplication can't result in different signs
             .map(|(ddelta, tdelta)| Self { ddelta, tdelta })
     }
 
@@ -50,13 +51,38 @@ impl DateTimeDelta {
             .checked_add(other.tdelta)
             .ok_or(InitError::TooBig)?;
         // Confirm the signs of date- and timedelta didn't get out of sync
-        if ddelta.months >= 0 && ddelta.days >= 0 && tdelta.secs >= 0
-            || ddelta.months <= 0 && ddelta.days <= 0 && tdelta.secs <= 0
+        if ddelta.months.get() >= 0 && ddelta.days.get() >= 0 && tdelta.secs.get() >= 0
+            || ddelta.months.get() <= 0 && ddelta.days.get() <= 0 && tdelta.secs.get() <= 0
         {
             Ok(Self { ddelta, tdelta })
         } else {
             Err(InitError::MixedSign)
         }
+    }
+
+    fn fmt_iso(self) -> String {
+        let mut s = String::with_capacity(8);
+        let DateTimeDelta { ddelta, tdelta } = if self.tdelta.secs.get() < 0
+            || self.ddelta.months.get() < 0
+            || self.ddelta.days.get() < 0
+        {
+            s.push('-');
+            -self
+        } else if self.tdelta.is_zero() && self.ddelta.is_zero() {
+            return "P0D".to_string();
+        } else {
+            self
+        };
+        s.push('P');
+
+        if !ddelta.is_zero() {
+            date_delta::format_components(ddelta, &mut s);
+        }
+        if !tdelta.is_zero() {
+            s.push('T');
+            time_delta::fmt_components_abs(tdelta, &mut s);
+        }
+        s
     }
 }
 
@@ -88,16 +114,16 @@ pub(crate) unsafe fn handle_exact_unit(
         if (-max..=max).contains(&i) {
             Ok(i as i128 * factor)
         } else {
-            Err(value_err!("{} out of range", name))?
+            raise_value_err(format!("{} out of range", name))?
         }
     } else {
         let f = value
             .to_f64()?
-            .ok_or_else(|| value_err!("{} must be an integer or float", name))?;
+            .ok_or_else_value_err(|| format!("{} must be an integer or float", name))?;
         if (-max as f64..=max as f64).contains(&f) {
             Ok((f * factor as f64) as i128)
         } else {
-            Err(value_err!("{} out of range", name))?
+            raise_value_err(format!("{} out of range", name))?
         }
     }
 }
@@ -177,26 +203,15 @@ pub(crate) const SINGLETONS: &[(&CStr, DateTimeDelta); 1] = &[(
 
 impl fmt::Display for DateTimeDelta {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let DateTimeDelta { ddelta, tdelta } =
-            if self.tdelta.secs < 0 || self.ddelta.months < 0 || self.ddelta.days < 0 {
-                write!(f, "-P")?;
-                -*self
-            } else if self.tdelta.is_zero() && self.ddelta.is_zero() {
-                return write!(f, "P0D");
-            } else {
-                write!(f, "P")?;
-                *self
-            };
-
-        let mut s = String::with_capacity(8);
-        if !ddelta.is_zero() {
-            date_delta::format_components(ddelta, &mut s);
+        // A bit inefficient, but this isn't performance-critical
+        let mut isofmt = self.fmt_iso().into_bytes();
+        // Safe: we know the string is valid ASCII
+        for c in isofmt.iter_mut().skip(2) {
+            if *c != b'T' {
+                *c = c.to_ascii_lowercase();
+            }
         }
-        if !tdelta.is_zero() {
-            s.push('T');
-            time_delta::format_components(tdelta, &mut s);
-        }
-        f.write_str(&s)
+        f.write_str(unsafe { std::str::from_utf8_unchecked(&isofmt) })
     }
 }
 
@@ -213,8 +228,14 @@ unsafe fn __new__(cls: *mut PyTypeObject, args: *mut PyObject, kwargs: *mut PyOb
     let state = State::for_type(cls);
     match (nargs, nkwargs) {
         (0, 0) => DateTimeDelta {
-            ddelta: DateDelta { months: 0, days: 0 },
-            tdelta: TimeDelta { secs: 0, nanos: 0 },
+            ddelta: DateDelta {
+                months: DeltaMonths::ZERO,
+                days: DeltaDays::ZERO,
+            },
+            tdelta: TimeDelta {
+                secs: DeltaSeconds::ZERO,
+                subsec: SubSecNanos::MIN,
+            },
         }, // OPTIMIZE: return the singleton
         (0, _) => {
             handle_kwargs(
@@ -226,16 +247,18 @@ unsafe fn __new__(cls: *mut PyTypeObject, args: *mut PyObject, kwargs: *mut PyOb
             )?;
             if months >= 0 && days >= 0 && nanos >= 0 || months <= 0 && days <= 0 && nanos <= 0 {
                 DateTimeDelta {
-                    ddelta: DateDelta::from_same_sign(months, days)
+                    ddelta: DeltaMonths::new(months)
+                        .zip(DeltaDays::new(days))
+                        .map(|(m, d)| DateDelta { months: m, days: d })
                         .ok_or_value_err("Out of range")?,
                     tdelta: TimeDelta::from_nanos(nanos)
                         .ok_or_value_err("TimeDelta out of range")?,
                 }
             } else {
-                Err(value_err!("Mixed sign in DateTimeDelta"))?
+                raise_value_err("Mixed sign in DateTimeDelta")?
             }
         }
-        _ => Err(value_err!("TimeDelta() takes no positional arguments"))?,
+        _ => raise_value_err("TimeDelta() takes no positional arguments")?,
     }
     .to_obj(cls)
 }
@@ -272,7 +295,7 @@ unsafe fn __repr__(slf: *mut PyObject) -> PyReturn {
 }
 
 unsafe fn __str__(slf: *mut PyObject) -> PyReturn {
-    format!("{}", DateTimeDelta::extract(slf)).to_py()
+    DateTimeDelta::extract(slf).fmt_iso().to_py()
 }
 
 unsafe fn __mul__(obj_a: *mut PyObject, obj_b: *mut PyObject) -> PyReturn {
@@ -332,7 +355,7 @@ unsafe fn _add_method(obj_a: *mut PyObject, obj_b: *mut PyObject, negate: bool) 
                 }
             } else {
                 // We can safely discount other types within our module
-                return Err(value_err!(
+                return raise_value_err(format!(
                     "unsupported operand type(s) for +/-: {} and {}",
                     (type_a as *mut PyObject).repr(),
                     (type_b as *mut PyObject).repr()
@@ -348,9 +371,11 @@ unsafe fn _add_method(obj_a: *mut PyObject, obj_b: *mut PyObject, negate: bool) 
         b = -b;
     };
     a.checked_add(b)
-        .map_err(|e| match e {
-            InitError::TooBig => value_err!("Addition result out of bounds"),
-            InitError::MixedSign => value_err!("Mixed sign in DateTimeDelta"),
+        .map_err(|e| {
+            value_err(match e {
+                InitError::TooBig => "Addition result out of bounds",
+                InitError::MixedSign => "Mixed sign in DateTimeDelta",
+            })
         })?
         .to_obj(type_a)
 }
@@ -365,6 +390,7 @@ unsafe fn __abs__(slf: *mut PyObject) -> PyReturn {
     .to_obj(Py_TYPE(slf))
 }
 
+#[allow(static_mut_refs)]
 static mut SLOTS: &[PyType_Slot] = &[
     slotmethod!(Py_tp_new, __new__),
     slotmethod!(Py_tp_richcompare, __richcmp__),
@@ -403,7 +429,7 @@ static mut SLOTS: &[PyType_Slot] = &[
 ];
 
 unsafe fn format_common_iso(slf: *mut PyObject, _: *mut PyObject) -> PyReturn {
-    __str__(slf)
+    DateTimeDelta::extract(slf).fmt_iso().to_py()
 }
 
 pub(crate) fn parse_date_components(s: &mut &[u8]) -> Option<DateDelta> {
@@ -411,9 +437,10 @@ pub(crate) fn parse_date_components(s: &mut &[u8]) -> Option<DateDelta> {
     let mut days = 0;
     let mut prev_unit: Option<DateUnit> = None;
 
-    while !s.is_empty() && s[0] != b'T' {
+    while !s.is_empty() && !s[0].eq_ignore_ascii_case(&b'T') {
         let (value, unit) = date_delta::parse_component(s)?;
         match (unit, prev_unit.replace(unit)) {
+            // Note: We prevent overflow by limiting how many digits we parse
             (DateUnit::Years, None) => {
                 months += value * 12;
             }
@@ -430,29 +457,34 @@ pub(crate) fn parse_date_components(s: &mut &[u8]) -> Option<DateDelta> {
             _ => None?, // i.e. the order of the components is wrong
         }
     }
-    Some(DateDelta { months, days })
+    DeltaMonths::new(months)
+        .zip(DeltaDays::new(days))
+        .map(|(months, days)| DateDelta { months, days })
 }
 
 unsafe fn parse_common_iso(cls: *mut PyObject, s_obj: *mut PyObject) -> PyReturn {
     let s = &mut s_obj.to_utf8()?.ok_or_value_err("argument must be str")?;
-    let raise = || value_err!("Invalid format: {}", s_obj.repr());
+    let err = || format!("Invalid format or out of range: {}", s_obj.repr());
     if s.len() < 3 {
         // at least `P0D`
-        Err(raise())?
+        raise_value_err(err())?
     }
 
-    let negated = parse_prefix(s).ok_or_else(raise)?;
-    if s[s.len() - 1] == b'T' {
+    let negated = parse_prefix(s).ok_or_else_value_err(err)?;
+    // Safe: we checked the string is at least 3 bytes long
+    if s[s.len() - 1].eq_ignore_ascii_case(&b'T') {
         // catch 'empty' cases
-        Err(raise())?
+        raise_value_err(err())?
     }
-    let mut ddelta = parse_date_components(s).ok_or_else(raise)?;
+    let mut ddelta = parse_date_components(s).ok_or_else_value_err(err)?;
     let mut tdelta = if s.is_empty() {
         TimeDelta::ZERO
-    } else {
+    } else if s[0].eq_ignore_ascii_case(&b'T') {
         *s = &s[1..];
-        let (nanos, _) = time_delta::parse_all_components(s).ok_or_else(raise)?;
-        TimeDelta::from_nanos(nanos).ok_or_value_err("TimeDelta out of range")?
+        let (nanos, _) = time_delta::parse_all_components(s).ok_or_else_value_err(err)?;
+        TimeDelta::from_nanos(nanos).ok_or_else_value_err(err)?
+    } else {
+        raise_value_err(err())?
     };
     if negated {
         ddelta = -ddelta;
@@ -464,19 +496,20 @@ unsafe fn parse_common_iso(cls: *mut PyObject, s_obj: *mut PyObject) -> PyReturn
 unsafe fn in_months_days_secs_nanos(slf: *mut PyObject, _: *mut PyObject) -> PyReturn {
     let DateTimeDelta {
         ddelta: DateDelta { months, days },
-        tdelta: TimeDelta { mut secs, nanos },
+        tdelta: TimeDelta { secs, subsec },
     } = DateTimeDelta::extract(slf);
-    let signed_nanos = if secs < 0 && nanos > 0 {
+    let mut secs = secs.get();
+    let nanos = if secs < 0 && subsec.get() > 0 {
         secs += 1;
-        nanos as i32 - 1_000_000_000
+        subsec.get() - 1_000_000_000
     } else {
-        nanos as i32
+        subsec.get()
     };
     (
-        steal!(months.to_py()?),
-        steal!(days.to_py()?),
+        steal!(months.get().to_py()?),
+        steal!(days.get().to_py()?),
         steal!(secs.to_py()?),
-        steal!(signed_nanos.to_py()?),
+        steal!(nanos.to_py()?),
     )
         .to_py()
 }
@@ -496,17 +529,17 @@ unsafe fn time_part(slf: *mut PyObject, _: *mut PyObject) -> PyReturn {
 unsafe fn __reduce__(slf: *mut PyObject, _: *mut PyObject) -> PyReturn {
     let DateTimeDelta {
         ddelta: DateDelta { months, days },
-        tdelta: TimeDelta { secs, nanos },
+        tdelta: TimeDelta { secs, subsec },
     } = DateTimeDelta::extract(slf);
     (
         State::for_type(Py_TYPE(slf)).unpickle_datetime_delta,
-        // We don't do our own bit packing because the numbers are small
+        // We don't do our own bit packing because the numbers are usually small
         // and Python's pickle protocol handles them more efficiently.
         steal!((
-            steal!(months.to_py()?),
-            steal!(days.to_py()?),
-            steal!(secs.to_py()?),
-            steal!(nanos.to_py()?)
+            steal!(months.get().to_py()?),
+            steal!(days.get().to_py()?),
+            steal!(secs.get().to_py()?),
+            steal!(subsec.get().to_py()?)
         )
             .to_py()?),
     )
@@ -517,16 +550,24 @@ pub(crate) unsafe fn unpickle(module: *mut PyObject, args: &[*mut PyObject]) -> 
     match args {
         &[months, days, secs, nanos] => DateTimeDelta {
             ddelta: DateDelta {
-                months: months.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
-                days: days.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
+                months: DeltaMonths::new_unchecked(
+                    months.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
+                ),
+                days: DeltaDays::new_unchecked(
+                    days.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
+                ),
             },
             tdelta: TimeDelta {
-                secs: secs.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
-                nanos: nanos.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
+                secs: DeltaSeconds::new_unchecked(
+                    secs.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
+                ),
+                subsec: SubSecNanos::new_unchecked(
+                    nanos.to_long()?.ok_or_type_err("Invalid pickle data")? as _,
+                ),
             },
         }
         .to_obj(State::for_mod(module).datetime_delta_type),
-        _ => Err(type_err!("Invalid pickle data"))?,
+        _ => raise_type_err("Invalid pickle data")?,
     }
 }
 
@@ -549,4 +590,5 @@ static mut METHODS: &[PyMethodDef] = &[
     PyMethodDef::zeroed(),
 ];
 
-type_spec!(DateTimeDelta, SLOTS);
+pub(crate) static mut SPEC: PyType_Spec =
+    type_spec::<DateTimeDelta>(c"whenever.DateTimeDelta", unsafe { SLOTS });

@@ -1,7 +1,7 @@
 r'''
 # `aws_memorydb_user`
 
-Refer to the Terraform Registry for docs: [`aws_memorydb_user`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user).
+Refer to the Terraform Registry for docs: [`aws_memorydb_user`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MemorydbUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.memorydbUser.MemorydbUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user aws_memorydb_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user aws_memorydb_user}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class MemorydbUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user aws_memorydb_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user aws_memorydb_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#access_string MemorydbUser#access_string}.
-        :param authentication_mode: authentication_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#authentication_mode MemorydbUser#authentication_mode}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#user_name MemorydbUser#user_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#id MemorydbUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#tags MemorydbUser#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#tags_all MemorydbUser#tags_all}.
+        :param access_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#access_string MemorydbUser#access_string}.
+        :param authentication_mode: authentication_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#authentication_mode MemorydbUser#authentication_mode}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#user_name MemorydbUser#user_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#id MemorydbUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#tags MemorydbUser#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#tags_all MemorydbUser#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class MemorydbUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MemorydbUser to import.
-        :param import_from_id: The id of the existing MemorydbUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MemorydbUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MemorydbUser to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class MemorydbUser(
         passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#type MemorydbUser#type}.
-        :param passwords: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#passwords MemorydbUser#passwords}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#type MemorydbUser#type}.
+        :param passwords: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#passwords MemorydbUser#passwords}.
         '''
         value = MemorydbUserAuthenticationMode(type=type, passwords=passwords)
 
@@ -292,8 +292,8 @@ class MemorydbUserAuthenticationMode:
         passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#type MemorydbUser#type}.
-        :param passwords: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#passwords MemorydbUser#passwords}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#type MemorydbUser#type}.
+        :param passwords: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#passwords MemorydbUser#passwords}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab8466852ed299eca978bd9c1bc383fba5a2fd02edb61496e46d57914daa9072)
@@ -307,14 +307,14 @@ class MemorydbUserAuthenticationMode:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#type MemorydbUser#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#type MemorydbUser#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def passwords(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#passwords MemorydbUser#passwords}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#passwords MemorydbUser#passwords}.'''
         result = self._values.get("passwords")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -454,12 +454,12 @@ class MemorydbUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#access_string MemorydbUser#access_string}.
-        :param authentication_mode: authentication_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#authentication_mode MemorydbUser#authentication_mode}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#user_name MemorydbUser#user_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#id MemorydbUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#tags MemorydbUser#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#tags_all MemorydbUser#tags_all}.
+        :param access_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#access_string MemorydbUser#access_string}.
+        :param authentication_mode: authentication_mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#authentication_mode MemorydbUser#authentication_mode}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#user_name MemorydbUser#user_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#id MemorydbUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#tags MemorydbUser#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#tags_all MemorydbUser#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -572,7 +572,7 @@ class MemorydbUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def access_string(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#access_string MemorydbUser#access_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#access_string MemorydbUser#access_string}.'''
         result = self._values.get("access_string")
         assert result is not None, "Required property 'access_string' is missing"
         return typing.cast(builtins.str, result)
@@ -581,7 +581,7 @@ class MemorydbUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authentication_mode(self) -> MemorydbUserAuthenticationMode:
         '''authentication_mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#authentication_mode MemorydbUser#authentication_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#authentication_mode MemorydbUser#authentication_mode}
         '''
         result = self._values.get("authentication_mode")
         assert result is not None, "Required property 'authentication_mode' is missing"
@@ -589,14 +589,14 @@ class MemorydbUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#user_name MemorydbUser#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#user_name MemorydbUser#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#id MemorydbUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#id MemorydbUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -606,13 +606,13 @@ class MemorydbUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#tags MemorydbUser#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#tags MemorydbUser#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/memorydb_user#tags_all MemorydbUser#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/memorydb_user#tags_all MemorydbUser#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

@@ -1,0 +1,373 @@
+Metadata-Version: 2.1
+Name: astronomer-providers
+Version: 1.19.4
+Summary: Apache Airflow Providers containing Deferrable Operators & Sensors from Astronomer
+Home-page: https://github.com/astronomer/astronomer-providers/
+Author: Astronomer
+Author-email: humans@astronomer.io
+License: Apache License 2.0
+Project-URL: Source Code, https://github.com/astronomer/astronomer-providers/
+Project-URL: Homepage, https://astronomer.io/
+Project-URL: Documentation, https://astronomer-providers.rtfd.io/
+Project-URL: Changelog, https://github.com/astronomer/astronomer-providers/blob/main/CHANGELOG.rst
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Apache Airflow
+Classifier: Framework :: Apache Airflow :: Provider
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Requires-Dist: apache-airflow>=2.6.0
+Requires-Dist: Flask-Session<0.6.0
+Requires-Dist: aiohttp
+Requires-Dist: aiofiles
+Requires-Dist: asgiref
+Requires-Dist: markupsafe>=1.1.1
+Provides-Extra: amazon
+Requires-Dist: apache-airflow-providers-amazon>=8.18.0; extra == "amazon"
+Requires-Dist: aiobotocore>=2.1.1; extra == "amazon"
+Provides-Extra: apache-hive
+Requires-Dist: apache-airflow-providers-apache-hive>=6.1.5; extra == "apache-hive"
+Requires-Dist: impyla; extra == "apache-hive"
+Provides-Extra: apache-livy
+Requires-Dist: apache-airflow-providers-apache-livy>=3.7.1; extra == "apache-livy"
+Requires-Dist: paramiko; extra == "apache-livy"
+Provides-Extra: cncf-kubernetes
+Requires-Dist: apache-airflow-providers-cncf-kubernetes>=8.0.0; extra == "cncf-kubernetes"
+Requires-Dist: kubernetes_asyncio; extra == "cncf-kubernetes"
+Provides-Extra: databricks
+Requires-Dist: apache-airflow-providers-databricks>=6.1.0; extra == "databricks"
+Requires-Dist: databricks-sql-connector>=2.0.4; python_version >= "3.10" and extra == "databricks"
+Provides-Extra: dbt-cloud
+Requires-Dist: apache-airflow-providers-dbt-cloud>=3.5.1; extra == "dbt-cloud"
+Provides-Extra: google
+Requires-Dist: apache-airflow-providers-google>=10.15.0; extra == "google"
+Requires-Dist: gcloud-aio-storage; extra == "google"
+Requires-Dist: gcloud-aio-bigquery; extra == "google"
+Provides-Extra: http
+Requires-Dist: apache-airflow-providers-http>=4.9.0; extra == "http"
+Provides-Extra: microsoft-azure
+Requires-Dist: apache-airflow-providers-microsoft-azure>=9.0.0; extra == "microsoft-azure"
+Provides-Extra: sftp
+Requires-Dist: apache-airflow-providers-sftp>=4.9.0; extra == "sftp"
+Requires-Dist: asyncssh>=2.12.0; extra == "sftp"
+Provides-Extra: snowflake
+Requires-Dist: apache-airflow-providers-snowflake>=5.3.0; extra == "snowflake"
+Requires-Dist: snowflake-sqlalchemy>=1.4.4; extra == "snowflake"
+Provides-Extra: openlineage
+Requires-Dist: openlineage-airflow>=0.12.0; extra == "openlineage"
+Provides-Extra: tests
+Requires-Dist: aioresponses; extra == "tests"
+Requires-Dist: asynctest; extra == "tests"
+Requires-Dist: parameterized; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-asyncio; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pre-commit; extra == "tests"
+Provides-Extra: mypy
+Requires-Dist: mypy>=0.950; extra == "mypy"
+Requires-Dist: types-aiofiles; extra == "mypy"
+Requires-Dist: types-boto; extra == "mypy"
+Requires-Dist: types-certifi; extra == "mypy"
+Requires-Dist: types-croniter; extra == "mypy"
+Requires-Dist: types-Deprecated; extra == "mypy"
+Requires-Dist: types-docutils; extra == "mypy"
+Requires-Dist: types-freezegun; extra == "mypy"
+Requires-Dist: types-paramiko; extra == "mypy"
+Requires-Dist: types-protobuf; extra == "mypy"
+Requires-Dist: types-python-dateutil; extra == "mypy"
+Requires-Dist: types-python-slugify; extra == "mypy"
+Requires-Dist: types-pytz; extra == "mypy"
+Requires-Dist: types-redis; extra == "mypy"
+Requires-Dist: types-requests; extra == "mypy"
+Requires-Dist: types-setuptools; extra == "mypy"
+Requires-Dist: types-termcolor; extra == "mypy"
+Requires-Dist: types-tabulate; extra == "mypy"
+Requires-Dist: types-toml; extra == "mypy"
+Requires-Dist: types-Markdown; extra == "mypy"
+Requires-Dist: types-PyMySQL; extra == "mypy"
+Requires-Dist: types-PyYAML; extra == "mypy"
+Requires-Dist: snowflake-connector-python>=3.3.0; extra == "mypy"
+Provides-Extra: all
+Requires-Dist: aiobotocore>=2.1.1; extra == "all"
+Requires-Dist: apache-airflow-providers-amazon>=8.18.0; extra == "all"
+Requires-Dist: apache-airflow-providers-apache-hive>=6.1.5; extra == "all"
+Requires-Dist: apache-airflow-providers-apache-livy>=3.7.1; extra == "all"
+Requires-Dist: apache-airflow-providers-cncf-kubernetes>=8.0.0; extra == "all"
+Requires-Dist: apache-airflow-providers-databricks>=6.1.0; extra == "all"
+Requires-Dist: apache-airflow-providers-google>=10.15.0; extra == "all"
+Requires-Dist: apache-airflow-providers-http>=4.9.0; extra == "all"
+Requires-Dist: apache-airflow-providers-snowflake>=5.3.0; extra == "all"
+Requires-Dist: apache-airflow-providers-sftp>=4.9.0; extra == "all"
+Requires-Dist: apache-airflow-providers-microsoft-azure>=9.0.0; extra == "all"
+Requires-Dist: asyncssh>=2.12.0; extra == "all"
+Requires-Dist: databricks-sql-connector>=2.0.4; python_version >= "3.10" and extra == "all"
+Requires-Dist: apache-airflow-providers-dbt-cloud>=3.5.1; extra == "all"
+Requires-Dist: gcloud-aio-bigquery; extra == "all"
+Requires-Dist: gcloud-aio-storage; extra == "all"
+Requires-Dist: kubernetes_asyncio; extra == "all"
+Requires-Dist: impyla; extra == "all"
+Requires-Dist: openlineage-airflow>=0.12.0; extra == "all"
+Requires-Dist: paramiko; extra == "all"
+Requires-Dist: snowflake-sqlalchemy>=1.4.4; extra == "all"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-autoapi; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: astronomer-providers[all]; extra == "docs"
+
+Astronomer Providers
+====================
+
+.. image:: https://badge.fury.io/py/astronomer-providers.svg
+    :target: https://badge.fury.io/py/astronomer-providers
+    :alt: PyPI Version
+.. image:: https://img.shields.io/pypi/pyversions/astronomer-providers
+    :target: https://img.shields.io/pypi/pyversions/astronomer-providers
+    :alt: PyPI - Python Version
+.. image:: https://img.shields.io/pypi/l/astronomer-providers?color=blue
+    :target: https://img.shields.io/pypi/l/astronomer-providers?color=blue
+    :alt: PyPI - License
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+    :alt: Code style: black
+.. image:: https://codecov.io/gh/astronomer/astronomer-providers/branch/main/graph/badge.svg?token=LPHFRC3CB3
+    :target: https://codecov.io/gh/astronomer/astronomer-providers
+    :alt: CodeCov
+.. image:: https://readthedocs.org/projects/astronomer-providers/badge/?version=latest
+    :target: https://astronomer-providers.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+.. image:: https://img.shields.io/badge/security-bandit-green.svg
+   :target: https://github.com/PyCQA/bandit
+   :alt: Security: bandit
+
+
+.. warning::
+    The majority of operators and sensors within this repository have been deprecated and will not receive further updates.
+    Read more about the deprecation in the `Deprecation Notice` section below.
+
+Deprecation Notice
+------------------
+
+With the release ``1.19.0`` of the astronomer-providers package, most of the operators and sensors are deprecated and will
+no longer receive updates. We recommend migrating to the official Apache Airflow Providers for the latest features and support.
+For the operators and sensors that are deprecated in this repository, migrating to the official Apache Airflow Providers
+is as simple as changing the import path from
+
+.. code-block::
+
+    from astronomer.providers.*.*.operator_module import SomeOperatorAsync
+
+to
+
+.. code-block::
+
+    from airflow.providers.*.*.operator_module import SomeOperator
+
+and setting the ``deferrable`` argument to ``True`` while using the operator or sensor in your DAG.
+Setting the ``deferrable`` argument to ``True`` will ensure that the operator or sensor is using the async version
+of the operator or sensor from the official Apache Airflow Providers.
+
+For example, to migrate from
+``astronomer.providers.amazon.aws.operators.batch.BatchOperatorAsync`` to
+``airflow.providers.amazon.aws.operators.s3.BatchOperator``, simply change the import path and pass
+the deferrable argument:
+
+.. code-block:: python
+
+    BatchOperator(
+        task_id="copy_object",
+        your_arguments,
+        your_keyword_arguments,
+        deferrable=True,
+    )
+
+For more information on using the deferrable operators and sensors from the official Apache Airflow Providers, visit the following links:
+
+- https://airflow.apache.org/docs/apache-airflow-providers/index.html
+- https://airflow.apache.org/docs/#providers-packages-docs-apache-airflow-providers-index-html
+- https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/deferring.html
+
+.. note::
+    Although the default value for the `deferrable` argument is `False`, it's possible to configure the default value for the `deferrable` argument across
+    your deployment by setting the `default_deferrable` flag in the `operators` sections of your Airflow configuration. Once you set the `default_deferrable` flag to `True`,
+    you can remove the `deferrable` argument from your operators and sensors and they will use the async version of the operator or sensor from the official Apache Airflow Providers
+    if it exists.
+
+    See more at: https://airflow.apache.org/docs/apache-airflow/stable/configurations-ref.html#default-deferrable
+
+For troubleshooting of issues with migrations, you are suggested to open up a `GitHub discussion <https://github.com/astronomer/astronomer-providers/discussions>`_
+
+
+Installation
+------------
+
+Install and update using `pip <https://pip.pypa.io/en/stable/getting-started/>`_:
+
+.. code-block:: bash
+
+    pip install astronomer-providers
+
+This only installs dependencies for core provider. To install all dependencies, run:
+
+.. code-block:: bash
+
+    pip install 'astronomer-providers[all]'
+
+To only install the dependencies for a specific provider, specify the integration name as extra argument, example
+to install Kubernetes provider dependencies, run:
+
+.. code-block:: bash
+
+    pip install 'astronomer-providers[cncf.kubernetes]'
+
+Extras
+^^^^^^
+
+.. EXTRA_DOC_START
+
+.. list-table::
+   :header-rows: 1
+
+   * - Extra Name
+     - Installation Command
+     - Dependencies
+
+   * - ``all``
+     - ``pip install 'astronomer-providers[all]'``
+     - All
+
+   * - ``amazon``
+     - ``pip install 'astronomer-providers[amazon]'``
+     - Amazon
+
+   * - ``apache.hive``
+     - ``pip install 'astronomer-providers[apache.hive]'``
+     - Apache Hive
+
+   * - ``apache.livy``
+     - ``pip install 'astronomer-providers[apache.livy]'``
+     - Apache Livy
+
+   * - ``cncf.kubernetes``
+     - ``pip install 'astronomer-providers[cncf.kubernetes]'``
+     - Cncf Kubernetes
+
+   * - ``databricks``
+     - ``pip install 'astronomer-providers[databricks]'``
+     - Databricks
+
+   * - ``dbt.cloud``
+     - ``pip install 'astronomer-providers[dbt.cloud]'``
+     - Dbt Cloud
+
+   * - ``google``
+     - ``pip install 'astronomer-providers[google]'``
+     - Google
+
+   * - ``http``
+     - ``pip install 'astronomer-providers[http]'``
+     - Http
+
+   * - ``microsoft.azure``
+     - ``pip install 'astronomer-providers[microsoft.azure]'``
+     - Microsoft Azure
+
+   * - ``openlineage``
+     - ``pip install 'astronomer-providers[openlineage]'``
+     - Openlineage
+
+   * - ``sftp``
+     - ``pip install 'astronomer-providers[sftp]'``
+     - Sftp
+
+   * - ``snowflake``
+     - ``pip install 'astronomer-providers[snowflake]'``
+     - Snowflake
+
+.. EXTRA_DOC_END
+
+Example Usage
+-------------
+
+This repo is structured same as the Apache Airflow's source code, so for example
+if you want to import Async operators, you can import it as follows:
+
+.. code-block:: python
+
+    from astronomer.providers.amazon.aws.sensors.s3 import S3KeySensorAsync as S3KeySensor
+
+    waiting_for_s3_key = S3KeySensor(
+        task_id="waiting_for_s3_key",
+        bucket_key="sample_key.txt",
+        wildcard_match=False,
+        bucket_name="sample-bucket",
+    )
+
+**Example DAGs** for each provider is within the respective provider's folder. For example,
+the Kubernetes provider's DAGs are within the
+`astronomer/providers/cncf/kubernetes/example_dags <https://github.com/astronomer/astronomer-providers/tree/main/astronomer/providers/cncf/kubernetes/example_dags>`_
+folder.
+
+Principle
+---------
+
+We will only create Async operators for the "sync-version" of operators that do some level of polling
+(take more than a few seconds to complete).
+
+For example, we won’t create an async Operator for a ``BigQueryCreateEmptyTableOperator`` but will create one
+for ``BigQueryInsertJobOperator`` that actually runs queries and can take hours in the worst case for task completion.
+
+To create async operators, we need to inherit from the corresponding airflow sync operators.
+If sync version isn't available, then inherit from airflow ``BaseOperator``.
+
+To create async sensors, we need to inherit from the corresponding sync sensors.
+If sync version isn't available, then inherit from airflow ``BaseSensorOperator``.
+
+Changelog
+---------
+
+We follow `Semantic Versioning <https://semver.org/>`_ for releases.
+Check `CHANGELOG.rst <https://github.com/astronomer/astronomer-providers/blob/main/CHANGELOG.rst>`_
+for the latest changes.
+
+Contributing Guide
+------------------
+
+All contributions, bug reports, bug fixes, documentation improvements, enhancements, and ideas are welcome.
+
+A detailed overview on how to contribute can be found in the
+`Contributing Guide <https://github.com/astronomer/astronomer-providers/blob/main/CONTRIBUTING.rst>`_.
+
+As contributors and maintainers to this project, you are expected to abide by the
+`Contributor Code of Conduct <https://github.com/astronomer/astronomer-providers/blob/main/CODE_OF_CONDUCT.md>`_.
+
+Goals for the project
+---------------------
+
+- Our focus is on the speed of iteration and development in this stage of the project and so we want to be able to
+  quickly iterate with our community members and customers and cut releases as necessary
+- Airflow Providers are separate packages from the core ``apache-airflow`` package and we would like to avoid
+  further bloating the Airflow repo
+- We want users and the community to be able to easily track features and the roadmap for individual providers
+  that we develop
+- We would love to see the Airflow community members create, maintain and share their providers to build an Ecosystem
+  of Providers.
+
+Limitations
+-----------
+
+- In Airflow sensors have a param ``mode`` which can be ``poke`` and ``reschedule``.
+  In async sensors, this param has no usage since tasks gets deferred to Triggerer.
+
+License
+-------
+
+`Apache License 2.0 <https://github.com/astronomer/astronomer-providers/blob/main/LICENSE>`_

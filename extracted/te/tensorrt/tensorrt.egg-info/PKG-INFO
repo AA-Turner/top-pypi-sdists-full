@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tensorrt
-Version: 10.9.0.34
+Version: 10.10.0.31
 Summary: TensorRT Metapackage
 Home-page: https://github.com/nvidia/tensorrt
 Download-URL: https://developer.nvidia.com/tensorrt
@@ -12,7 +12,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: tensorrt_cu12==10.9.0.34
+Requires-Dist: tensorrt_cu12==10.10.0.31
 
 
 Metapackage for NVIDIA TensorRT, which is an SDK that facilitates high-performance machine learning inference. It is designed to work in a complementary fashion with training frameworks such as TensorFlow, PyTorch, and MXNet. It focuses specifically on running an already-trained network quickly and efficiently on NVIDIA hardware.

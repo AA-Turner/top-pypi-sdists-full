@@ -1,7 +1,7 @@
 r'''
 # `aws_networkmanager_device`
 
-Refer to the Terraform Registry for docs: [`aws_networkmanager_device`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device).
+Refer to the Terraform Registry for docs: [`aws_networkmanager_device`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkmanagerDevice(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.networkmanagerDevice.NetworkmanagerDevice",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device aws_networkmanager_device}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device aws_networkmanager_device}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class NetworkmanagerDevice(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device aws_networkmanager_device} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device aws_networkmanager_device} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param global_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#global_network_id NetworkmanagerDevice#global_network_id}.
-        :param aws_location: aws_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#aws_location NetworkmanagerDevice#aws_location}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#description NetworkmanagerDevice#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#id NetworkmanagerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#location NetworkmanagerDevice#location}
-        :param model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#model NetworkmanagerDevice#model}.
-        :param serial_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#serial_number NetworkmanagerDevice#serial_number}.
-        :param site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#site_id NetworkmanagerDevice#site_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#tags NetworkmanagerDevice#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#tags_all NetworkmanagerDevice#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#timeouts NetworkmanagerDevice#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#type NetworkmanagerDevice#type}.
-        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#vendor NetworkmanagerDevice#vendor}.
+        :param global_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#global_network_id NetworkmanagerDevice#global_network_id}.
+        :param aws_location: aws_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#aws_location NetworkmanagerDevice#aws_location}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#description NetworkmanagerDevice#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#id NetworkmanagerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#location NetworkmanagerDevice#location}
+        :param model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#model NetworkmanagerDevice#model}.
+        :param serial_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#serial_number NetworkmanagerDevice#serial_number}.
+        :param site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#site_id NetworkmanagerDevice#site_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#tags NetworkmanagerDevice#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#tags_all NetworkmanagerDevice#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#timeouts NetworkmanagerDevice#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#type NetworkmanagerDevice#type}.
+        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#vendor NetworkmanagerDevice#vendor}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class NetworkmanagerDevice(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkmanagerDevice to import.
-        :param import_from_id: The id of the existing NetworkmanagerDevice that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkmanagerDevice that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkmanagerDevice to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class NetworkmanagerDevice(
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subnet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#subnet_arn NetworkmanagerDevice#subnet_arn}.
-        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#zone NetworkmanagerDevice#zone}.
+        :param subnet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#subnet_arn NetworkmanagerDevice#subnet_arn}.
+        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#zone NetworkmanagerDevice#zone}.
         '''
         value = NetworkmanagerDeviceAwsLocation(subnet_arn=subnet_arn, zone=zone)
 
@@ -174,9 +174,9 @@ class NetworkmanagerDevice(
         longitude: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#address NetworkmanagerDevice#address}.
-        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#latitude NetworkmanagerDevice#latitude}.
-        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#longitude NetworkmanagerDevice#longitude}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#address NetworkmanagerDevice#address}.
+        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#latitude NetworkmanagerDevice#latitude}.
+        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#longitude NetworkmanagerDevice#longitude}.
         '''
         value = NetworkmanagerDeviceLocation(
             address=address, latitude=latitude, longitude=longitude
@@ -193,9 +193,9 @@ class NetworkmanagerDevice(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#create NetworkmanagerDevice#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#delete NetworkmanagerDevice#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#update NetworkmanagerDevice#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#create NetworkmanagerDevice#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#delete NetworkmanagerDevice#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#update NetworkmanagerDevice#update}.
         '''
         value = NetworkmanagerDeviceTimeouts(
             create=create, delete=delete, update=update
@@ -487,8 +487,8 @@ class NetworkmanagerDeviceAwsLocation:
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subnet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#subnet_arn NetworkmanagerDevice#subnet_arn}.
-        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#zone NetworkmanagerDevice#zone}.
+        :param subnet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#subnet_arn NetworkmanagerDevice#subnet_arn}.
+        :param zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#zone NetworkmanagerDevice#zone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf1f7461f8d950abef6a7429b39461f2d5d66166c7ae35c98fd57a57ee7bffc3)
@@ -502,13 +502,13 @@ class NetworkmanagerDeviceAwsLocation:
 
     @builtins.property
     def subnet_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#subnet_arn NetworkmanagerDevice#subnet_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#subnet_arn NetworkmanagerDevice#subnet_arn}.'''
         result = self._values.get("subnet_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#zone NetworkmanagerDevice#zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#zone NetworkmanagerDevice#zone}.'''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -661,19 +661,19 @@ class NetworkmanagerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param global_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#global_network_id NetworkmanagerDevice#global_network_id}.
-        :param aws_location: aws_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#aws_location NetworkmanagerDevice#aws_location}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#description NetworkmanagerDevice#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#id NetworkmanagerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#location NetworkmanagerDevice#location}
-        :param model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#model NetworkmanagerDevice#model}.
-        :param serial_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#serial_number NetworkmanagerDevice#serial_number}.
-        :param site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#site_id NetworkmanagerDevice#site_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#tags NetworkmanagerDevice#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#tags_all NetworkmanagerDevice#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#timeouts NetworkmanagerDevice#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#type NetworkmanagerDevice#type}.
-        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#vendor NetworkmanagerDevice#vendor}.
+        :param global_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#global_network_id NetworkmanagerDevice#global_network_id}.
+        :param aws_location: aws_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#aws_location NetworkmanagerDevice#aws_location}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#description NetworkmanagerDevice#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#id NetworkmanagerDevice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#location NetworkmanagerDevice#location}
+        :param model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#model NetworkmanagerDevice#model}.
+        :param serial_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#serial_number NetworkmanagerDevice#serial_number}.
+        :param site_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#site_id NetworkmanagerDevice#site_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#tags NetworkmanagerDevice#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#tags_all NetworkmanagerDevice#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#timeouts NetworkmanagerDevice#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#type NetworkmanagerDevice#type}.
+        :param vendor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#vendor NetworkmanagerDevice#vendor}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -813,7 +813,7 @@ class NetworkmanagerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def global_network_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#global_network_id NetworkmanagerDevice#global_network_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#global_network_id NetworkmanagerDevice#global_network_id}.'''
         result = self._values.get("global_network_id")
         assert result is not None, "Required property 'global_network_id' is missing"
         return typing.cast(builtins.str, result)
@@ -822,20 +822,20 @@ class NetworkmanagerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_location(self) -> typing.Optional[NetworkmanagerDeviceAwsLocation]:
         '''aws_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#aws_location NetworkmanagerDevice#aws_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#aws_location NetworkmanagerDevice#aws_location}
         '''
         result = self._values.get("aws_location")
         return typing.cast(typing.Optional[NetworkmanagerDeviceAwsLocation], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#description NetworkmanagerDevice#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#description NetworkmanagerDevice#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#id NetworkmanagerDevice#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#id NetworkmanagerDevice#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -847,38 +847,38 @@ class NetworkmanagerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional["NetworkmanagerDeviceLocation"]:
         '''location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#location NetworkmanagerDevice#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#location NetworkmanagerDevice#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional["NetworkmanagerDeviceLocation"], result)
 
     @builtins.property
     def model(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#model NetworkmanagerDevice#model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#model NetworkmanagerDevice#model}.'''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def serial_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#serial_number NetworkmanagerDevice#serial_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#serial_number NetworkmanagerDevice#serial_number}.'''
         result = self._values.get("serial_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def site_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#site_id NetworkmanagerDevice#site_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#site_id NetworkmanagerDevice#site_id}.'''
         result = self._values.get("site_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#tags NetworkmanagerDevice#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#tags NetworkmanagerDevice#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#tags_all NetworkmanagerDevice#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#tags_all NetworkmanagerDevice#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -886,20 +886,20 @@ class NetworkmanagerDeviceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetworkmanagerDeviceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#timeouts NetworkmanagerDevice#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#timeouts NetworkmanagerDevice#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkmanagerDeviceTimeouts"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#type NetworkmanagerDevice#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#type NetworkmanagerDevice#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vendor(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#vendor NetworkmanagerDevice#vendor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#vendor NetworkmanagerDevice#vendor}.'''
         result = self._values.get("vendor")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -933,9 +933,9 @@ class NetworkmanagerDeviceLocation:
         longitude: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#address NetworkmanagerDevice#address}.
-        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#latitude NetworkmanagerDevice#latitude}.
-        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#longitude NetworkmanagerDevice#longitude}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#address NetworkmanagerDevice#address}.
+        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#latitude NetworkmanagerDevice#latitude}.
+        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#longitude NetworkmanagerDevice#longitude}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60907a1efcae8277d7a771e54e34f15d38cbe085b84e0ae7eab3e342fd3031a1)
@@ -952,19 +952,19 @@ class NetworkmanagerDeviceLocation:
 
     @builtins.property
     def address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#address NetworkmanagerDevice#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#address NetworkmanagerDevice#address}.'''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def latitude(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#latitude NetworkmanagerDevice#latitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#latitude NetworkmanagerDevice#latitude}.'''
         result = self._values.get("latitude")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def longitude(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#longitude NetworkmanagerDevice#longitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#longitude NetworkmanagerDevice#longitude}.'''
         result = self._values.get("longitude")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1093,9 +1093,9 @@ class NetworkmanagerDeviceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#create NetworkmanagerDevice#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#delete NetworkmanagerDevice#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#update NetworkmanagerDevice#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#create NetworkmanagerDevice#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#delete NetworkmanagerDevice#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#update NetworkmanagerDevice#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1fc7d821d34dd4c1db34d2147956d9b3cb690a15cab905405b7ddd0437319b1)
@@ -1112,19 +1112,19 @@ class NetworkmanagerDeviceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#create NetworkmanagerDevice#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#create NetworkmanagerDevice#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#delete NetworkmanagerDevice#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#delete NetworkmanagerDevice#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/networkmanager_device#update NetworkmanagerDevice#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/networkmanager_device#update NetworkmanagerDevice#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

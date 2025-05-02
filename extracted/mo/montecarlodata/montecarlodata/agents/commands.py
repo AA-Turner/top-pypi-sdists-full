@@ -207,8 +207,6 @@ def register_aws_agent(ctx, lambda_arn, **kwargs):
     help="OAuth2 Client Credentials - Client ID.",
     required=False,
     cls=AdvancedOptions,
-    required_with_options=["client_secret", "auth_url"],
-    mutually_exclusive_options=["username", "password"],
 )
 @click.option(
     "--client-secret",
@@ -217,7 +215,6 @@ def register_aws_agent(ctx, lambda_arn, **kwargs):
     cls=AdvancedOptions,
     prompt_if_requested=True,
     required_with_options=["client_id", "auth_url"],
-    mutually_exclusive_options=["username", "password"],
 )
 @click.option(
     "--username",
@@ -225,7 +222,6 @@ def register_aws_agent(ctx, lambda_arn, **kwargs):
     required=False,
     cls=AdvancedOptions,
     required_with_options=["password", "auth_url", "authentication"],
-    mutually_exclusive_options=["client_id", "client_secret"],
 )
 @click.option(
     "--password",
@@ -234,7 +230,6 @@ def register_aws_agent(ctx, lambda_arn, **kwargs):
     cls=AdvancedOptions,
     prompt_if_requested=True,
     required_with_options=["username", "auth_url", "authentication"],
-    mutually_exclusive_options=["client_id", "client_secret"],
 )
 @click.option(
     "--deployment-type",

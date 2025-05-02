@@ -23,13 +23,11 @@ class HTMLPage:
     def add_panzoom(self):
         for idx, element in enumerate(self.containers):
             panzoom_box = create_panzoom_box(self.soup,self.config,idx)
-            #panzoom_container = self.soup.new_tag("div",**{"class": "panzoom-container"})
-            test = element.wrap(panzoom_box)
-
-            panzoom_box.append(create_info_box(self.soup,self.config))
-
-            #test.wrap(panzoom_container)
-        #print(self.soup.prettify())
+            element.wrap(panzoom_box)
+            if self.config.get("hint_location", "bottom") == "bottom":
+                print("heeelp")
+                panzoom_box.append(create_info_box(self.soup,self.config))
+            # panzoom_box.append(create_info_box(self.soup,self.config))
 
         # Include the css and js in the file
         self.soup.head.append(create_css_link(self.soup,self.page))

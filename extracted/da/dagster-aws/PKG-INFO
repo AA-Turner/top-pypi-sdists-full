@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster-aws
-Version: 0.26.12
+Version: 0.26.13
 Summary: Package for AWS-specific Dagster framework solid and resource components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-aws
 Author: Dagster Labs
@@ -13,8 +13,31 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
-Provides-Extra: redshift
-Provides-Extra: pyspark
-Provides-Extra: stubs
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: boto3
+Requires-Dist: dagster==1.10.13
+Requires-Dist: packaging
+Requires-Dist: requests
+Provides-Extra: redshift
+Requires-Dist: psycopg2-binary; extra == "redshift"
+Provides-Extra: pyspark
+Requires-Dist: dagster-pyspark; extra == "pyspark"
+Provides-Extra: stubs
+Requires-Dist: boto3-stubs-lite[ecs,emr,emr-containers,emr-serverless,glue,logs,s3]; extra == "stubs"
+Provides-Extra: test
+Requires-Dist: botocore!=1.32.1; extra == "test"
+Requires-Dist: moto[emrcontainers,emrserverless,glue,logs,s3,server]<5.0,>=2.2.8; extra == "test"
+Requires-Dist: requests-mock; extra == "test"
+Requires-Dist: xmltodict==0.12.0; extra == "test"
+Requires-Dist: flaky; extra == "test"
+Requires-Dist: pytest-cases; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

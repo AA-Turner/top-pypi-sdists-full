@@ -1,7 +1,7 @@
 r'''
 # `aws_appflow_connector_profile`
 
-Refer to the Terraform Registry for docs: [`aws_appflow_connector_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile).
+Refer to the Terraform Registry for docs: [`aws_appflow_connector_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppflowConnectorProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appflowConnectorProfile.AppflowConnectorProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile aws_appflow_connector_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile aws_appflow_connector_profile}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class AppflowConnectorProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile aws_appflow_connector_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile aws_appflow_connector_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param connection_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connection_mode AppflowConnectorProfile#connection_mode}.
-        :param connector_profile_config: connector_profile_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_config AppflowConnectorProfile#connector_profile_config}
-        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_type AppflowConnectorProfile#connector_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#name AppflowConnectorProfile#name}.
-        :param connector_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_label AppflowConnectorProfile#connector_label}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#id AppflowConnectorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#kms_arn AppflowConnectorProfile#kms_arn}.
+        :param connection_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connection_mode AppflowConnectorProfile#connection_mode}.
+        :param connector_profile_config: connector_profile_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_config AppflowConnectorProfile#connector_profile_config}
+        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_type AppflowConnectorProfile#connector_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#name AppflowConnectorProfile#name}.
+        :param connector_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_label AppflowConnectorProfile#connector_label}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#id AppflowConnectorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#kms_arn AppflowConnectorProfile#kms_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class AppflowConnectorProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppflowConnectorProfile to import.
-        :param import_from_id: The id of the existing AppflowConnectorProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppflowConnectorProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppflowConnectorProfile to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class AppflowConnectorProfile(
         connector_profile_properties: typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param connector_profile_credentials: connector_profile_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_credentials AppflowConnectorProfile#connector_profile_credentials}
-        :param connector_profile_properties: connector_profile_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_properties AppflowConnectorProfile#connector_profile_properties}
+        :param connector_profile_credentials: connector_profile_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_credentials AppflowConnectorProfile#connector_profile_credentials}
+        :param connector_profile_properties: connector_profile_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_properties AppflowConnectorProfile#connector_profile_properties}
         '''
         value = AppflowConnectorProfileConnectorProfileConfig(
             connector_profile_credentials=connector_profile_credentials,
@@ -349,13 +349,13 @@ class AppflowConnectorProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param connection_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connection_mode AppflowConnectorProfile#connection_mode}.
-        :param connector_profile_config: connector_profile_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_config AppflowConnectorProfile#connector_profile_config}
-        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_type AppflowConnectorProfile#connector_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#name AppflowConnectorProfile#name}.
-        :param connector_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_label AppflowConnectorProfile#connector_label}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#id AppflowConnectorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#kms_arn AppflowConnectorProfile#kms_arn}.
+        :param connection_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connection_mode AppflowConnectorProfile#connection_mode}.
+        :param connector_profile_config: connector_profile_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_config AppflowConnectorProfile#connector_profile_config}
+        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_type AppflowConnectorProfile#connector_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#name AppflowConnectorProfile#name}.
+        :param connector_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_label AppflowConnectorProfile#connector_label}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#id AppflowConnectorProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#kms_arn AppflowConnectorProfile#kms_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -470,7 +470,7 @@ class AppflowConnectorProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def connection_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connection_mode AppflowConnectorProfile#connection_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connection_mode AppflowConnectorProfile#connection_mode}.'''
         result = self._values.get("connection_mode")
         assert result is not None, "Required property 'connection_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -481,7 +481,7 @@ class AppflowConnectorProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "AppflowConnectorProfileConnectorProfileConfig":
         '''connector_profile_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_config AppflowConnectorProfile#connector_profile_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_config AppflowConnectorProfile#connector_profile_config}
         '''
         result = self._values.get("connector_profile_config")
         assert result is not None, "Required property 'connector_profile_config' is missing"
@@ -489,27 +489,27 @@ class AppflowConnectorProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def connector_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_type AppflowConnectorProfile#connector_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_type AppflowConnectorProfile#connector_type}.'''
         result = self._values.get("connector_type")
         assert result is not None, "Required property 'connector_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#name AppflowConnectorProfile#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#name AppflowConnectorProfile#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def connector_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_label AppflowConnectorProfile#connector_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_label AppflowConnectorProfile#connector_label}.'''
         result = self._values.get("connector_label")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#id AppflowConnectorProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#id AppflowConnectorProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -519,7 +519,7 @@ class AppflowConnectorProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#kms_arn AppflowConnectorProfile#kms_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#kms_arn AppflowConnectorProfile#kms_arn}.'''
         result = self._values.get("kms_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -551,8 +551,8 @@ class AppflowConnectorProfileConnectorProfileConfig:
         connector_profile_properties: typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param connector_profile_credentials: connector_profile_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_credentials AppflowConnectorProfile#connector_profile_credentials}
-        :param connector_profile_properties: connector_profile_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_properties AppflowConnectorProfile#connector_profile_properties}
+        :param connector_profile_credentials: connector_profile_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_credentials AppflowConnectorProfile#connector_profile_credentials}
+        :param connector_profile_properties: connector_profile_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_properties AppflowConnectorProfile#connector_profile_properties}
         '''
         if isinstance(connector_profile_credentials, dict):
             connector_profile_credentials = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials(**connector_profile_credentials)
@@ -573,7 +573,7 @@ class AppflowConnectorProfileConnectorProfileConfig:
     ) -> "AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials":
         '''connector_profile_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_credentials AppflowConnectorProfile#connector_profile_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_credentials AppflowConnectorProfile#connector_profile_credentials}
         '''
         result = self._values.get("connector_profile_credentials")
         assert result is not None, "Required property 'connector_profile_credentials' is missing"
@@ -585,7 +585,7 @@ class AppflowConnectorProfileConnectorProfileConfig:
     ) -> "AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties":
         '''connector_profile_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#connector_profile_properties AppflowConnectorProfile#connector_profile_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#connector_profile_properties AppflowConnectorProfile#connector_profile_properties}
         '''
         result = self._values.get("connector_profile_properties")
         assert result is not None, "Required property 'connector_profile_properties' is missing"
@@ -651,24 +651,24 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
         zendesk: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendesk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
-        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
-        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
-        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
-        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
-        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
-        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
-        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
-        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
-        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
+        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
+        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
+        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
+        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
+        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
+        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
+        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
+        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
+        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
+        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
         '''
         if isinstance(amplitude, dict):
             amplitude = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsAmplitude(**amplitude)
@@ -770,7 +770,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsAmplitude"]:
         '''amplitude block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
         '''
         result = self._values.get("amplitude")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsAmplitude"], result)
@@ -781,7 +781,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnector"]:
         '''custom_connector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
         '''
         result = self._values.get("custom_connector")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnector"], result)
@@ -792,7 +792,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDatadog"]:
         '''datadog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
         '''
         result = self._values.get("datadog")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDatadog"], result)
@@ -803,7 +803,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDynatrace"]:
         '''dynatrace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
         '''
         result = self._values.get("dynatrace")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDynatrace"], result)
@@ -814,7 +814,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalytics"]:
         '''google_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
         '''
         result = self._values.get("google_analytics")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalytics"], result)
@@ -825,7 +825,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycode"]:
         '''honeycode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
         '''
         result = self._values.get("honeycode")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycode"], result)
@@ -836,7 +836,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsInforNexus"]:
         '''infor_nexus block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
         '''
         result = self._values.get("infor_nexus")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsInforNexus"], result)
@@ -847,7 +847,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketo"]:
         '''marketo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
         '''
         result = self._values.get("marketo")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketo"], result)
@@ -858,7 +858,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsRedshift"]:
         '''redshift block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
         '''
         result = self._values.get("redshift")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsRedshift"], result)
@@ -869,7 +869,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforce"]:
         '''salesforce block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
         '''
         result = self._values.get("salesforce")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforce"], result)
@@ -880,7 +880,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoData"]:
         '''sapo_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
         '''
         result = self._values.get("sapo_data")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoData"], result)
@@ -891,7 +891,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsServiceNow"]:
         '''service_now block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
         '''
         result = self._values.get("service_now")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsServiceNow"], result)
@@ -902,7 +902,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSingular"]:
         '''singular block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
         '''
         result = self._values.get("singular")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSingular"], result)
@@ -913,7 +913,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlack"]:
         '''slack block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
         '''
         result = self._values.get("slack")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlack"], result)
@@ -924,7 +924,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSnowflake"]:
         '''snowflake block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
         '''
         result = self._values.get("snowflake")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSnowflake"], result)
@@ -935,7 +935,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsTrendmicro"]:
         '''trendmicro block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
         '''
         result = self._values.get("trendmicro")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsTrendmicro"], result)
@@ -946,7 +946,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsVeeva"]:
         '''veeva block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
         '''
         result = self._values.get("veeva")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsVeeva"], result)
@@ -957,7 +957,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendesk"]:
         '''zendesk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
         '''
         result = self._values.get("zendesk")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendesk"], result)
@@ -982,8 +982,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials:
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsAmplitude:
     def __init__(self, *, api_key: builtins.str, secret_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
-        :param secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#secret_key AppflowConnectorProfile#secret_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#secret_key AppflowConnectorProfile#secret_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e750a1c287e345a9cfd066208b9209308c878db9ba3b6d9d0a5c7ed4b2ca948)
@@ -996,14 +996,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsAm
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def secret_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#secret_key AppflowConnectorProfile#secret_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#secret_key AppflowConnectorProfile#secret_key}.'''
         result = self._values.get("secret_key")
         assert result is not None, "Required property 'secret_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1114,11 +1114,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         oauth2: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#authentication_type AppflowConnectorProfile#authentication_type}.
-        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}
-        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#basic AppflowConnectorProfile#basic}
-        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom AppflowConnectorProfile#custom}
-        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2 AppflowConnectorProfile#oauth2}
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#authentication_type AppflowConnectorProfile#authentication_type}.
+        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}
+        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#basic AppflowConnectorProfile#basic}
+        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom AppflowConnectorProfile#custom}
+        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2 AppflowConnectorProfile#oauth2}
         '''
         if isinstance(api_key, dict):
             api_key = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorApiKey(**api_key)
@@ -1149,7 +1149,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 
     @builtins.property
     def authentication_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#authentication_type AppflowConnectorProfile#authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#authentication_type AppflowConnectorProfile#authentication_type}.'''
         result = self._values.get("authentication_type")
         assert result is not None, "Required property 'authentication_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1160,7 +1160,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorApiKey"]:
         '''api_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}
         '''
         result = self._values.get("api_key")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorApiKey"], result)
@@ -1171,7 +1171,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorBasic"]:
         '''basic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#basic AppflowConnectorProfile#basic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#basic AppflowConnectorProfile#basic}
         '''
         result = self._values.get("basic")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorBasic"], result)
@@ -1182,7 +1182,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorCustom"]:
         '''custom block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom AppflowConnectorProfile#custom}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom AppflowConnectorProfile#custom}
         '''
         result = self._values.get("custom")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorCustom"], result)
@@ -1193,7 +1193,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2"]:
         '''oauth2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2 AppflowConnectorProfile#oauth2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2 AppflowConnectorProfile#oauth2}
         '''
         result = self._values.get("oauth2")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2"], result)
@@ -1223,8 +1223,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         api_secret_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
-        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ed3491a4a8e3303e2fd26e7aec33ba6f4277c28d7a282537b88e3c48cd7570f)
@@ -1238,14 +1238,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def api_secret_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.'''
         result = self._values.get("api_secret_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1345,8 +1345,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorBasic:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__349b09f29a2922e9dbf95f830174143bdc96e0301e8ec496ba36f343d762a691)
@@ -1359,14 +1359,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -1471,8 +1471,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         credentials_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param custom_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_authentication_type AppflowConnectorProfile#custom_authentication_type}.
-        :param credentials_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#credentials_map AppflowConnectorProfile#credentials_map}.
+        :param custom_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_authentication_type AppflowConnectorProfile#custom_authentication_type}.
+        :param credentials_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#credentials_map AppflowConnectorProfile#credentials_map}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e865dc3c8db82c257f2b7fe5dda30048e671102d1731c35c2c9326638070f69)
@@ -1486,7 +1486,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 
     @builtins.property
     def custom_authentication_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_authentication_type AppflowConnectorProfile#custom_authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_authentication_type AppflowConnectorProfile#custom_authentication_type}.'''
         result = self._values.get("custom_authentication_type")
         assert result is not None, "Required property 'custom_authentication_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1495,7 +1495,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     def credentials_map(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#credentials_map AppflowConnectorProfile#credentials_map}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#credentials_map AppflowConnectorProfile#credentials_map}.'''
         result = self._values.get("credentials_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1614,11 +1614,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2OauthRequest(**oauth_request)
@@ -1643,19 +1643,19 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1665,14 +1665,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2OauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2OauthRequest"], result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1701,8 +1701,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4792571588aca63a1980a450b5447632da7a65dc83c854205798052070e0a267)
@@ -1716,13 +1716,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1846,8 +1846,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2OauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -2003,8 +2003,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         api_secret_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
-        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorApiKey(
             api_key=api_key, api_secret_key=api_secret_key
@@ -2015,8 +2015,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
     @jsii.member(jsii_name="putBasic")
     def put_basic(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorBasic(
             password=password, username=username
@@ -2032,8 +2032,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         credentials_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param custom_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_authentication_type AppflowConnectorProfile#custom_authentication_type}.
-        :param credentials_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#credentials_map AppflowConnectorProfile#credentials_map}.
+        :param custom_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_authentication_type AppflowConnectorProfile#custom_authentication_type}.
+        :param credentials_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#credentials_map AppflowConnectorProfile#credentials_map}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorCustom(
             custom_authentication_type=custom_authentication_type,
@@ -2053,11 +2053,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2(
             access_token=access_token,
@@ -2184,8 +2184,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCu
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDatadog:
     def __init__(self, *, api_key: builtins.str, application_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
-        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_key AppflowConnectorProfile#application_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_key AppflowConnectorProfile#application_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cb368de38e48a08c8f36cbd1189ad61af711b407d7c5d2c575abc0241036b47)
@@ -2198,14 +2198,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDa
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def application_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_key AppflowConnectorProfile#application_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_key AppflowConnectorProfile#application_key}.'''
         result = self._values.get("application_key")
         assert result is not None, "Required property 'application_key' is missing"
         return typing.cast(builtins.str, result)
@@ -2302,7 +2302,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDa
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDynatrace:
     def __init__(self, *, api_token: builtins.str) -> None:
         '''
-        :param api_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_token AppflowConnectorProfile#api_token}.
+        :param api_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_token AppflowConnectorProfile#api_token}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b8741009c3fecc832012dde3a00ff7cc624b0857260545a30670467cab67c67)
@@ -2313,7 +2313,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDy
 
     @builtins.property
     def api_token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_token AppflowConnectorProfile#api_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_token AppflowConnectorProfile#api_token}.'''
         result = self._values.get("api_token")
         assert result is not None, "Required property 'api_token' is missing"
         return typing.cast(builtins.str, result)
@@ -2407,11 +2407,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGo
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalyticsOauthRequest(**oauth_request)
@@ -2435,21 +2435,21 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGo
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2459,14 +2459,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGo
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalyticsOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalyticsOauthRequest"], result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2495,8 +2495,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGo
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9afb42a5260090cd033b2c18145c75a8ea0b6aea1c93ec6ae28d0a3b9884d09f)
@@ -2510,13 +2510,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGo
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2640,8 +2640,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGo
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalyticsOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -2779,9 +2779,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHo
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycodeOauthRequest(**oauth_request)
@@ -2800,7 +2800,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHo
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2810,14 +2810,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHo
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycodeOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycodeOauthRequest"], result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2846,8 +2846,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHo
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c33e6ed4f2839797cbead3a434930ad363d3aa6e8165c391bdab12d0acc58b4)
@@ -2861,13 +2861,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHo
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2991,8 +2991,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHo
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycodeOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -3098,10 +3098,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsIn
         user_id: builtins.str,
     ) -> None:
         '''
-        :param access_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_key_id AppflowConnectorProfile#access_key_id}.
-        :param datakey: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datakey AppflowConnectorProfile#datakey}.
-        :param secret_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#secret_access_key AppflowConnectorProfile#secret_access_key}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#user_id AppflowConnectorProfile#user_id}.
+        :param access_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_key_id AppflowConnectorProfile#access_key_id}.
+        :param datakey: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datakey AppflowConnectorProfile#datakey}.
+        :param secret_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#secret_access_key AppflowConnectorProfile#secret_access_key}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#user_id AppflowConnectorProfile#user_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2c5813a0886b341013d4b5b261580c5a846b3ef89b80125d3b798c17e02f99c)
@@ -3118,28 +3118,28 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsIn
 
     @builtins.property
     def access_key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_key_id AppflowConnectorProfile#access_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_key_id AppflowConnectorProfile#access_key_id}.'''
         result = self._values.get("access_key_id")
         assert result is not None, "Required property 'access_key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def datakey(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datakey AppflowConnectorProfile#datakey}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datakey AppflowConnectorProfile#datakey}.'''
         result = self._values.get("datakey")
         assert result is not None, "Required property 'datakey' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def secret_access_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#secret_access_key AppflowConnectorProfile#secret_access_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#secret_access_key AppflowConnectorProfile#secret_access_key}.'''
         result = self._values.get("secret_access_key")
         assert result is not None, "Required property 'secret_access_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#user_id AppflowConnectorProfile#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#user_id AppflowConnectorProfile#user_id}.'''
         result = self._values.get("user_id")
         assert result is not None, "Required property 'user_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3282,10 +3282,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMa
         oauth_request: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketoOauthRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketoOauthRequest(**oauth_request)
@@ -3306,21 +3306,21 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMa
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3330,7 +3330,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMa
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketoOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketoOauthRequest"], result)
@@ -3360,8 +3360,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMa
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f4dddffe9a8494f2f765a19b607697a328633e2e223a50896123cf34646939e)
@@ -3375,13 +3375,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMa
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3505,8 +3505,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMa
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketoOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -3628,8 +3628,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putAmplitude")
     def put_amplitude(self, *, api_key: builtins.str, secret_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
-        :param secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#secret_key AppflowConnectorProfile#secret_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#secret_key AppflowConnectorProfile#secret_key}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsAmplitude(
             api_key=api_key, secret_key=secret_key
@@ -3648,11 +3648,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         oauth2: typing.Optional[typing.Union[AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnectorOauth2, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#authentication_type AppflowConnectorProfile#authentication_type}.
-        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}
-        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#basic AppflowConnectorProfile#basic}
-        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom AppflowConnectorProfile#custom}
-        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2 AppflowConnectorProfile#oauth2}
+        :param authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#authentication_type AppflowConnectorProfile#authentication_type}.
+        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}
+        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#basic AppflowConnectorProfile#basic}
+        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom AppflowConnectorProfile#custom}
+        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2 AppflowConnectorProfile#oauth2}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsCustomConnector(
             authentication_type=authentication_type,
@@ -3672,8 +3672,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         application_key: builtins.str,
     ) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
-        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_key AppflowConnectorProfile#application_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_key AppflowConnectorProfile#application_key}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDatadog(
             api_key=api_key, application_key=application_key
@@ -3684,7 +3684,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putDynatrace")
     def put_dynatrace(self, *, api_token: builtins.str) -> None:
         '''
-        :param api_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_token AppflowConnectorProfile#api_token}.
+        :param api_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_token AppflowConnectorProfile#api_token}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsDynatrace(
             api_token=api_token
@@ -3703,11 +3703,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsGoogleAnalytics(
             client_id=client_id,
@@ -3728,9 +3728,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsHoneycode(
             access_token=access_token,
@@ -3750,10 +3750,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         user_id: builtins.str,
     ) -> None:
         '''
-        :param access_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_key_id AppflowConnectorProfile#access_key_id}.
-        :param datakey: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datakey AppflowConnectorProfile#datakey}.
-        :param secret_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#secret_access_key AppflowConnectorProfile#secret_access_key}.
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#user_id AppflowConnectorProfile#user_id}.
+        :param access_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_key_id AppflowConnectorProfile#access_key_id}.
+        :param datakey: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datakey AppflowConnectorProfile#datakey}.
+        :param secret_access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#secret_access_key AppflowConnectorProfile#secret_access_key}.
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#user_id AppflowConnectorProfile#user_id}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsInforNexus(
             access_key_id=access_key_id,
@@ -3774,10 +3774,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         oauth_request: typing.Optional[typing.Union[AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketoOauthRequest, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsMarketo(
             client_id=client_id,
@@ -3791,8 +3791,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putRedshift")
     def put_redshift(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsRedshift(
             password=password, username=username
@@ -3812,12 +3812,12 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param client_credentials_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_credentials_arn AppflowConnectorProfile#client_credentials_arn}.
-        :param jwt_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#jwt_token AppflowConnectorProfile#jwt_token}.
-        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param client_credentials_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_credentials_arn AppflowConnectorProfile#client_credentials_arn}.
+        :param jwt_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#jwt_token AppflowConnectorProfile#jwt_token}.
+        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforce(
             access_token=access_token,
@@ -3838,8 +3838,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         oauth_credentials: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param basic_auth_credentials: basic_auth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#basic_auth_credentials AppflowConnectorProfile#basic_auth_credentials}
-        :param oauth_credentials: oauth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_credentials AppflowConnectorProfile#oauth_credentials}
+        :param basic_auth_credentials: basic_auth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#basic_auth_credentials AppflowConnectorProfile#basic_auth_credentials}
+        :param oauth_credentials: oauth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_credentials AppflowConnectorProfile#oauth_credentials}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoData(
             basic_auth_credentials=basic_auth_credentials,
@@ -3856,8 +3856,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         username: builtins.str,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsServiceNow(
             password=password, username=username
@@ -3868,7 +3868,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putSingular")
     def put_singular(self, *, api_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSingular(
             api_key=api_key
@@ -3886,10 +3886,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         oauth_request: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlackOauthRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlack(
             client_id=client_id,
@@ -3903,8 +3903,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putSnowflake")
     def put_snowflake(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSnowflake(
             password=password, username=username
@@ -3915,7 +3915,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putTrendmicro")
     def put_trendmicro(self, *, api_secret_key: builtins.str) -> None:
         '''
-        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
+        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsTrendmicro(
             api_secret_key=api_secret_key
@@ -3926,8 +3926,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
     @jsii.member(jsii_name="putVeeva")
     def put_veeva(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsVeeva(
             password=password, username=username
@@ -3945,10 +3945,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
         oauth_request: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendeskOauthRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendesk(
             client_id=client_id,
@@ -4309,8 +4309,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsOu
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsRedshift:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e87aaed92c36e91c6f52d976c46181c6221cf5adea758863535d9de2a6fa9d89)
@@ -4323,14 +4323,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsRe
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -4443,12 +4443,12 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param client_credentials_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_credentials_arn AppflowConnectorProfile#client_credentials_arn}.
-        :param jwt_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#jwt_token AppflowConnectorProfile#jwt_token}.
-        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param client_credentials_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_credentials_arn AppflowConnectorProfile#client_credentials_arn}.
+        :param jwt_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#jwt_token AppflowConnectorProfile#jwt_token}.
+        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforceOauthRequest(**oauth_request)
@@ -4476,25 +4476,25 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_credentials_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_credentials_arn AppflowConnectorProfile#client_credentials_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_credentials_arn AppflowConnectorProfile#client_credentials_arn}.'''
         result = self._values.get("client_credentials_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def jwt_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#jwt_token AppflowConnectorProfile#jwt_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#jwt_token AppflowConnectorProfile#jwt_token}.'''
         result = self._values.get("jwt_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def oauth2_grant_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.'''
         result = self._values.get("oauth2_grant_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4504,14 +4504,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforceOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforceOauthRequest"], result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4540,8 +4540,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__496f6512fe4dd625947947caf58814c7943a5a4baa6d56901431ec080c121c71)
@@ -4555,13 +4555,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4685,8 +4685,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSalesforceOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -4851,8 +4851,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         oauth_credentials: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param basic_auth_credentials: basic_auth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#basic_auth_credentials AppflowConnectorProfile#basic_auth_credentials}
-        :param oauth_credentials: oauth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_credentials AppflowConnectorProfile#oauth_credentials}
+        :param basic_auth_credentials: basic_auth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#basic_auth_credentials AppflowConnectorProfile#basic_auth_credentials}
+        :param oauth_credentials: oauth_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_credentials AppflowConnectorProfile#oauth_credentials}
         '''
         if isinstance(basic_auth_credentials, dict):
             basic_auth_credentials = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataBasicAuthCredentials(**basic_auth_credentials)
@@ -4874,7 +4874,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataBasicAuthCredentials"]:
         '''basic_auth_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#basic_auth_credentials AppflowConnectorProfile#basic_auth_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#basic_auth_credentials AppflowConnectorProfile#basic_auth_credentials}
         '''
         result = self._values.get("basic_auth_credentials")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataBasicAuthCredentials"], result)
@@ -4885,7 +4885,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentials"]:
         '''oauth_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_credentials AppflowConnectorProfile#oauth_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_credentials AppflowConnectorProfile#oauth_credentials}
         '''
         result = self._values.get("oauth_credentials")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentials"], result)
@@ -4910,8 +4910,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataBasicAuthCredentials:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86ba028ec3b1202870eee9de8e843b3a2831ef3a0998a52df0ef585f43b4d64f)
@@ -4924,14 +4924,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -5042,11 +5042,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentialsOauthRequest(**oauth_request)
@@ -5070,21 +5070,21 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5094,14 +5094,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentialsOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentialsOauthRequest"], result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5130,8 +5130,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ec3805f91f4ff0bda60f5c67d9df8a84c90e9cafee7b8769bb03d76bad82db6)
@@ -5145,13 +5145,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5275,8 +5275,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentialsOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -5424,8 +5424,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         username: builtins.str,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataBasicAuthCredentials(
             password=password, username=username
@@ -5444,11 +5444,11 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#refresh_token AppflowConnectorProfile#refresh_token}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSapoDataOauthCredentials(
             client_id=client_id,
@@ -5522,8 +5522,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSa
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsServiceNow:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8fde00243188e9090ee195d76f062bd061b75ab41c83c4c2fb16cda01d88a18)
@@ -5536,14 +5536,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSe
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -5640,7 +5640,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSe
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSingular:
     def __init__(self, *, api_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed6ca4f54914aa3e9045b9722572e5a7a96c99dffd3d898e0a66079f158107ef)
@@ -5651,7 +5651,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSi
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_key AppflowConnectorProfile#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
@@ -5743,10 +5743,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
         oauth_request: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlackOauthRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlackOauthRequest(**oauth_request)
@@ -5767,21 +5767,21 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5791,7 +5791,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlackOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlackOauthRequest"], result)
@@ -5821,8 +5821,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d3b8177e802e57ade557c0ddcd3a96844a8f7e575168f26683fd1b69590a37c)
@@ -5836,13 +5836,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5966,8 +5966,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSlackOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -6074,8 +6074,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSl
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSnowflake:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe9d71908b05e2d983447d9601156cdef9feb9d792d7c8ad8da14a9d6c0d5316)
@@ -6088,14 +6088,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSn
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -6192,7 +6192,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsSn
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsTrendmicro:
     def __init__(self, *, api_secret_key: builtins.str) -> None:
         '''
-        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
+        :param api_secret_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fe0eed58d83be8097be2339872eaca1ed8451e6e7412d5153e911dd6178d91e)
@@ -6203,7 +6203,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsTr
 
     @builtins.property
     def api_secret_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#api_secret_key AppflowConnectorProfile#api_secret_key}.'''
         result = self._values.get("api_secret_key")
         assert result is not None, "Required property 'api_secret_key' is missing"
         return typing.cast(builtins.str, result)
@@ -6283,8 +6283,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsTr
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsVeeva:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bd5f2ff5f0ea4fac482245256ada3b1d547f232bc6f75704d58b429960e3e5f)
@@ -6297,14 +6297,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsVe
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#password AppflowConnectorProfile#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#username AppflowConnectorProfile#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -6413,10 +6413,10 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZe
         oauth_request: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendeskOauthRequest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
-        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
-        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.
+        :param access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.
+        :param oauth_request: oauth_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         if isinstance(oauth_request, dict):
             oauth_request = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendeskOauthRequest(**oauth_request)
@@ -6437,21 +6437,21 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZe
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_id AppflowConnectorProfile#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_secret AppflowConnectorProfile#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#access_token AppflowConnectorProfile#access_token}.'''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6461,7 +6461,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZe
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendeskOauthRequest"]:
         '''oauth_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_request AppflowConnectorProfile#oauth_request}
         '''
         result = self._values.get("oauth_request")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendeskOauthRequest"], result)
@@ -6491,8 +6491,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZe
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58b056472356c1f8762da1248b957193fbbe5e0dd04659b04168f947a95cc7fa)
@@ -6506,13 +6506,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZe
 
     @builtins.property
     def auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.'''
         result = self._values.get("auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6636,8 +6636,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZe
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
+        :param auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code AppflowConnectorProfile#auth_code}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redirect_uri AppflowConnectorProfile#redirect_uri}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendeskOauthRequest(
             auth_code=auth_code, redirect_uri=redirect_uri
@@ -6784,24 +6784,24 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
         zendesk: typing.Optional[typing.Union["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZendesk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
-        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
-        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
-        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
-        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
-        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
-        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
-        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
-        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
-        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
+        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
+        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
+        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
+        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
+        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
+        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
+        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
+        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
+        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
+        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
         '''
         if isinstance(amplitude, dict):
             amplitude = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesAmplitude(**amplitude)
@@ -6903,7 +6903,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesAmplitude"]:
         '''amplitude block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
         '''
         result = self._values.get("amplitude")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesAmplitude"], result)
@@ -6914,7 +6914,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnector"]:
         '''custom_connector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
         '''
         result = self._values.get("custom_connector")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnector"], result)
@@ -6925,7 +6925,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDatadog"]:
         '''datadog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
         '''
         result = self._values.get("datadog")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDatadog"], result)
@@ -6936,7 +6936,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDynatrace"]:
         '''dynatrace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
         '''
         result = self._values.get("dynatrace")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDynatrace"], result)
@@ -6947,7 +6947,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesGoogleAnalytics"]:
         '''google_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
         '''
         result = self._values.get("google_analytics")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesGoogleAnalytics"], result)
@@ -6958,7 +6958,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesHoneycode"]:
         '''honeycode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
         '''
         result = self._values.get("honeycode")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesHoneycode"], result)
@@ -6969,7 +6969,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesInforNexus"]:
         '''infor_nexus block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
         '''
         result = self._values.get("infor_nexus")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesInforNexus"], result)
@@ -6980,7 +6980,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesMarketo"]:
         '''marketo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
         '''
         result = self._values.get("marketo")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesMarketo"], result)
@@ -6991,7 +6991,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesRedshift"]:
         '''redshift block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
         '''
         result = self._values.get("redshift")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesRedshift"], result)
@@ -7002,7 +7002,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSalesforce"]:
         '''salesforce block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
         '''
         result = self._values.get("salesforce")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSalesforce"], result)
@@ -7013,7 +7013,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoData"]:
         '''sapo_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
         '''
         result = self._values.get("sapo_data")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoData"], result)
@@ -7024,7 +7024,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesServiceNow"]:
         '''service_now block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
         '''
         result = self._values.get("service_now")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesServiceNow"], result)
@@ -7035,7 +7035,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSingular"]:
         '''singular block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
         '''
         result = self._values.get("singular")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSingular"], result)
@@ -7046,7 +7046,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSlack"]:
         '''slack block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
         '''
         result = self._values.get("slack")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSlack"], result)
@@ -7057,7 +7057,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSnowflake"]:
         '''snowflake block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
         '''
         result = self._values.get("snowflake")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSnowflake"], result)
@@ -7068,7 +7068,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesTrendmicro"]:
         '''trendmicro block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
         '''
         result = self._values.get("trendmicro")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesTrendmicro"], result)
@@ -7079,7 +7079,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesVeeva"]:
         '''veeva block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
         '''
         result = self._values.get("veeva")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesVeeva"], result)
@@ -7090,7 +7090,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties:
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZendesk"]:
         '''zendesk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
         '''
         result = self._values.get("zendesk")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZendesk"], result)
@@ -7182,8 +7182,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
         profile_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param oauth2_properties: oauth2_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_properties AppflowConnectorProfile#oauth2_properties}
-        :param profile_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#profile_properties AppflowConnectorProfile#profile_properties}.
+        :param oauth2_properties: oauth2_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_properties AppflowConnectorProfile#oauth2_properties}
+        :param profile_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#profile_properties AppflowConnectorProfile#profile_properties}.
         '''
         if isinstance(oauth2_properties, dict):
             oauth2_properties = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnectorOauth2Properties(**oauth2_properties)
@@ -7203,7 +7203,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnectorOauth2Properties"]:
         '''oauth2_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_properties AppflowConnectorProfile#oauth2_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_properties AppflowConnectorProfile#oauth2_properties}
         '''
         result = self._values.get("oauth2_properties")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnectorOauth2Properties"], result)
@@ -7212,7 +7212,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
     def profile_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#profile_properties AppflowConnectorProfile#profile_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#profile_properties AppflowConnectorProfile#profile_properties}.'''
         result = self._values.get("profile_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -7246,9 +7246,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
         token_url_custom_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
-        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
-        :param token_url_custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url_custom_properties AppflowConnectorProfile#token_url_custom_properties}.
+        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
+        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
+        :param token_url_custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url_custom_properties AppflowConnectorProfile#token_url_custom_properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c205fc9fa836e1e496293d7d5c1d18ddf358ac26b6d2ad18b06905f555b6980)
@@ -7264,14 +7264,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
 
     @builtins.property
     def oauth2_grant_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.'''
         result = self._values.get("oauth2_grant_type")
         assert result is not None, "Required property 'oauth2_grant_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.'''
         result = self._values.get("token_url")
         assert result is not None, "Required property 'token_url' is missing"
         return typing.cast(builtins.str, result)
@@ -7280,7 +7280,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
     def token_url_custom_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url_custom_properties AppflowConnectorProfile#token_url_custom_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url_custom_properties AppflowConnectorProfile#token_url_custom_properties}.'''
         result = self._values.get("token_url_custom_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -7423,9 +7423,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
         token_url_custom_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
-        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
-        :param token_url_custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url_custom_properties AppflowConnectorProfile#token_url_custom_properties}.
+        :param oauth2_grant_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_grant_type AppflowConnectorProfile#oauth2_grant_type}.
+        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
+        :param token_url_custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url_custom_properties AppflowConnectorProfile#token_url_custom_properties}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnectorOauth2Properties(
             oauth2_grant_type=oauth2_grant_type,
@@ -7505,7 +7505,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCus
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDatadog:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a84cc8a5f4fc82fcbb0df96b7c434c31088caa096974a857a654f879fa7a20db)
@@ -7516,7 +7516,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDat
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -7596,7 +7596,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDat
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDynatrace:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bafa46462c63ce8c851a38330d38fc9f2783cb43e3f8e39da68100c8b2bd6e32)
@@ -7607,7 +7607,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDyn
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -7805,7 +7805,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesHon
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesInforNexus:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9656519824c3aeb802b60f2e466a70e5a548cb152b4fb4c9a9cb8baf348ac855)
@@ -7816,7 +7816,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesInf
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -7896,7 +7896,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesInf
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesMarketo:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af32d0bce6a7f0884bf4a59c2df101770332d194a85870650b0c04aeea6ec69c)
@@ -7907,7 +7907,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesMar
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -8013,8 +8013,8 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
         profile_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param oauth2_properties: oauth2_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth2_properties AppflowConnectorProfile#oauth2_properties}
-        :param profile_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#profile_properties AppflowConnectorProfile#profile_properties}.
+        :param oauth2_properties: oauth2_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth2_properties AppflowConnectorProfile#oauth2_properties}
+        :param profile_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#profile_properties AppflowConnectorProfile#profile_properties}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesCustomConnector(
             oauth2_properties=oauth2_properties, profile_properties=profile_properties
@@ -8025,7 +8025,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putDatadog")
     def put_datadog(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDatadog(
             instance_url=instance_url
@@ -8036,7 +8036,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putDynatrace")
     def put_dynatrace(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesDynatrace(
             instance_url=instance_url
@@ -8059,7 +8059,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putInforNexus")
     def put_infor_nexus(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesInforNexus(
             instance_url=instance_url
@@ -8070,7 +8070,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putMarketo")
     def put_marketo(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesMarketo(
             instance_url=instance_url
@@ -8091,13 +8091,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
         database_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#role_arn AppflowConnectorProfile#role_arn}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#cluster_identifier AppflowConnectorProfile#cluster_identifier}.
-        :param data_api_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#data_api_role_arn AppflowConnectorProfile#data_api_role_arn}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#database_name AppflowConnectorProfile#database_name}.
-        :param database_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#database_url AppflowConnectorProfile#database_url}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#role_arn AppflowConnectorProfile#role_arn}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#cluster_identifier AppflowConnectorProfile#cluster_identifier}.
+        :param data_api_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#data_api_role_arn AppflowConnectorProfile#data_api_role_arn}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#database_name AppflowConnectorProfile#database_name}.
+        :param database_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#database_url AppflowConnectorProfile#database_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesRedshift(
             bucket_name=bucket_name,
@@ -8120,9 +8120,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
         use_privatelink_for_metadata_and_authorization: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
-        :param is_sandbox_environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#is_sandbox_environment AppflowConnectorProfile#is_sandbox_environment}.
-        :param use_privatelink_for_metadata_and_authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#use_privatelink_for_metadata_and_authorization AppflowConnectorProfile#use_privatelink_for_metadata_and_authorization}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param is_sandbox_environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#is_sandbox_environment AppflowConnectorProfile#is_sandbox_environment}.
+        :param use_privatelink_for_metadata_and_authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#use_privatelink_for_metadata_and_authorization AppflowConnectorProfile#use_privatelink_for_metadata_and_authorization}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSalesforce(
             instance_url=instance_url,
@@ -8145,13 +8145,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
         private_link_service_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_host_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_host_url AppflowConnectorProfile#application_host_url}.
-        :param application_service_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_service_path AppflowConnectorProfile#application_service_path}.
-        :param client_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_number AppflowConnectorProfile#client_number}.
-        :param port_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#port_number AppflowConnectorProfile#port_number}.
-        :param logon_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#logon_language AppflowConnectorProfile#logon_language}.
-        :param oauth_properties: oauth_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_properties AppflowConnectorProfile#oauth_properties}
-        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
+        :param application_host_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_host_url AppflowConnectorProfile#application_host_url}.
+        :param application_service_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_service_path AppflowConnectorProfile#application_service_path}.
+        :param client_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_number AppflowConnectorProfile#client_number}.
+        :param port_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#port_number AppflowConnectorProfile#port_number}.
+        :param logon_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#logon_language AppflowConnectorProfile#logon_language}.
+        :param oauth_properties: oauth_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_properties AppflowConnectorProfile#oauth_properties}
+        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoData(
             application_host_url=application_host_url,
@@ -8168,7 +8168,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putServiceNow")
     def put_service_now(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesServiceNow(
             instance_url=instance_url
@@ -8185,7 +8185,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putSlack")
     def put_slack(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSlack(
             instance_url=instance_url
@@ -8206,13 +8206,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
-        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#stage AppflowConnectorProfile#stage}.
-        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#warehouse AppflowConnectorProfile#warehouse}.
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#account_name AppflowConnectorProfile#account_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
-        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#region AppflowConnectorProfile#region}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
+        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#stage AppflowConnectorProfile#stage}.
+        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#warehouse AppflowConnectorProfile#warehouse}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#account_name AppflowConnectorProfile#account_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
+        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#region AppflowConnectorProfile#region}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSnowflake(
             bucket_name=bucket_name,
@@ -8235,7 +8235,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putVeeva")
     def put_veeva(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesVeeva(
             instance_url=instance_url
@@ -8246,7 +8246,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesOut
     @jsii.member(jsii_name="putZendesk")
     def put_zendesk(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZendesk(
             instance_url=instance_url
@@ -8622,13 +8622,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesRed
         database_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#role_arn AppflowConnectorProfile#role_arn}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#cluster_identifier AppflowConnectorProfile#cluster_identifier}.
-        :param data_api_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#data_api_role_arn AppflowConnectorProfile#data_api_role_arn}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#database_name AppflowConnectorProfile#database_name}.
-        :param database_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#database_url AppflowConnectorProfile#database_url}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#role_arn AppflowConnectorProfile#role_arn}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#cluster_identifier AppflowConnectorProfile#cluster_identifier}.
+        :param data_api_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#data_api_role_arn AppflowConnectorProfile#data_api_role_arn}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#database_name AppflowConnectorProfile#database_name}.
+        :param database_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#database_url AppflowConnectorProfile#database_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53171a920fc9f383ab550cd23accad63fc55b99f7c17f57e073980e2df945df3)
@@ -8656,45 +8656,45 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesRed
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#role_arn AppflowConnectorProfile#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#role_arn AppflowConnectorProfile#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#cluster_identifier AppflowConnectorProfile#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#cluster_identifier AppflowConnectorProfile#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_api_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#data_api_role_arn AppflowConnectorProfile#data_api_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#data_api_role_arn AppflowConnectorProfile#data_api_role_arn}.'''
         result = self._values.get("data_api_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#database_name AppflowConnectorProfile#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#database_name AppflowConnectorProfile#database_name}.'''
         result = self._values.get("database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def database_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#database_url AppflowConnectorProfile#database_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#database_url AppflowConnectorProfile#database_url}.'''
         result = self._values.get("database_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8905,9 +8905,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSal
         use_privatelink_for_metadata_and_authorization: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
-        :param is_sandbox_environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#is_sandbox_environment AppflowConnectorProfile#is_sandbox_environment}.
-        :param use_privatelink_for_metadata_and_authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#use_privatelink_for_metadata_and_authorization AppflowConnectorProfile#use_privatelink_for_metadata_and_authorization}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param is_sandbox_environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#is_sandbox_environment AppflowConnectorProfile#is_sandbox_environment}.
+        :param use_privatelink_for_metadata_and_authorization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#use_privatelink_for_metadata_and_authorization AppflowConnectorProfile#use_privatelink_for_metadata_and_authorization}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__354bad9bb2e0e4db9bc12b7e02e34fe3a34c92871294761275f53edb3967ced1)
@@ -8924,7 +8924,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSal
 
     @builtins.property
     def instance_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8932,7 +8932,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSal
     def is_sandbox_environment(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#is_sandbox_environment AppflowConnectorProfile#is_sandbox_environment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#is_sandbox_environment AppflowConnectorProfile#is_sandbox_environment}.'''
         result = self._values.get("is_sandbox_environment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -8940,7 +8940,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSal
     def use_privatelink_for_metadata_and_authorization(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#use_privatelink_for_metadata_and_authorization AppflowConnectorProfile#use_privatelink_for_metadata_and_authorization}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#use_privatelink_for_metadata_and_authorization AppflowConnectorProfile#use_privatelink_for_metadata_and_authorization}.'''
         result = self._values.get("use_privatelink_for_metadata_and_authorization")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -9097,13 +9097,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
         private_link_service_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_host_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_host_url AppflowConnectorProfile#application_host_url}.
-        :param application_service_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_service_path AppflowConnectorProfile#application_service_path}.
-        :param client_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_number AppflowConnectorProfile#client_number}.
-        :param port_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#port_number AppflowConnectorProfile#port_number}.
-        :param logon_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#logon_language AppflowConnectorProfile#logon_language}.
-        :param oauth_properties: oauth_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_properties AppflowConnectorProfile#oauth_properties}
-        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
+        :param application_host_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_host_url AppflowConnectorProfile#application_host_url}.
+        :param application_service_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_service_path AppflowConnectorProfile#application_service_path}.
+        :param client_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_number AppflowConnectorProfile#client_number}.
+        :param port_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#port_number AppflowConnectorProfile#port_number}.
+        :param logon_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#logon_language AppflowConnectorProfile#logon_language}.
+        :param oauth_properties: oauth_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_properties AppflowConnectorProfile#oauth_properties}
+        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
         '''
         if isinstance(oauth_properties, dict):
             oauth_properties = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoDataOauthProperties(**oauth_properties)
@@ -9131,35 +9131,35 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
 
     @builtins.property
     def application_host_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_host_url AppflowConnectorProfile#application_host_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_host_url AppflowConnectorProfile#application_host_url}.'''
         result = self._values.get("application_host_url")
         assert result is not None, "Required property 'application_host_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def application_service_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#application_service_path AppflowConnectorProfile#application_service_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#application_service_path AppflowConnectorProfile#application_service_path}.'''
         result = self._values.get("application_service_path")
         assert result is not None, "Required property 'application_service_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_number(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#client_number AppflowConnectorProfile#client_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#client_number AppflowConnectorProfile#client_number}.'''
         result = self._values.get("client_number")
         assert result is not None, "Required property 'client_number' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port_number(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#port_number AppflowConnectorProfile#port_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#port_number AppflowConnectorProfile#port_number}.'''
         result = self._values.get("port_number")
         assert result is not None, "Required property 'port_number' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def logon_language(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#logon_language AppflowConnectorProfile#logon_language}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#logon_language AppflowConnectorProfile#logon_language}.'''
         result = self._values.get("logon_language")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9169,14 +9169,14 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
     ) -> typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoDataOauthProperties"]:
         '''oauth_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_properties AppflowConnectorProfile#oauth_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_properties AppflowConnectorProfile#oauth_properties}
         '''
         result = self._values.get("oauth_properties")
         return typing.cast(typing.Optional["AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoDataOauthProperties"], result)
 
     @builtins.property
     def private_link_service_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.'''
         result = self._values.get("private_link_service_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9210,9 +9210,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
         token_url: builtins.str,
     ) -> None:
         '''
-        :param auth_code_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code_url AppflowConnectorProfile#auth_code_url}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_scopes AppflowConnectorProfile#oauth_scopes}.
-        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
+        :param auth_code_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code_url AppflowConnectorProfile#auth_code_url}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_scopes AppflowConnectorProfile#oauth_scopes}.
+        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a851c7ce629ca694e175df21b48b94966842d34a4f49cb257a9b2a90389102d7)
@@ -9227,21 +9227,21 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
 
     @builtins.property
     def auth_code_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code_url AppflowConnectorProfile#auth_code_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code_url AppflowConnectorProfile#auth_code_url}.'''
         result = self._values.get("auth_code_url")
         assert result is not None, "Required property 'auth_code_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_scopes AppflowConnectorProfile#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_scopes AppflowConnectorProfile#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         assert result is not None, "Required property 'oauth_scopes' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def token_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.'''
         result = self._values.get("token_url")
         assert result is not None, "Required property 'token_url' is missing"
         return typing.cast(builtins.str, result)
@@ -9376,9 +9376,9 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
         token_url: builtins.str,
     ) -> None:
         '''
-        :param auth_code_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#auth_code_url AppflowConnectorProfile#auth_code_url}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#oauth_scopes AppflowConnectorProfile#oauth_scopes}.
-        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
+        :param auth_code_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#auth_code_url AppflowConnectorProfile#auth_code_url}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#oauth_scopes AppflowConnectorProfile#oauth_scopes}.
+        :param token_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#token_url AppflowConnectorProfile#token_url}.
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSapoDataOauthProperties(
             auth_code_url=auth_code_url, oauth_scopes=oauth_scopes, token_url=token_url
@@ -9540,7 +9540,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSap
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesServiceNow:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6517c7fd52fb09c4e8e76e1a87d9211901a862c38edfda6c14b31f47cad986d6)
@@ -9551,7 +9551,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSer
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -9690,7 +9690,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSin
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSlack:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f11ed2a060d0e2a13da4c5265b1e4bd853b0bd24ae8b0fb4838d64a99d18993d)
@@ -9701,7 +9701,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSla
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -9799,13 +9799,13 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSno
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
-        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#stage AppflowConnectorProfile#stage}.
-        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#warehouse AppflowConnectorProfile#warehouse}.
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#account_name AppflowConnectorProfile#account_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
-        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#region AppflowConnectorProfile#region}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.
+        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#stage AppflowConnectorProfile#stage}.
+        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#warehouse AppflowConnectorProfile#warehouse}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#account_name AppflowConnectorProfile#account_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.
+        :param private_link_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#region AppflowConnectorProfile#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4fb3f6fca3a5053e7ff111409eb0671d01a6bdab8e99064bb4abcce6192b1c2)
@@ -9832,46 +9832,46 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesSno
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_name AppflowConnectorProfile#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stage(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#stage AppflowConnectorProfile#stage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#stage AppflowConnectorProfile#stage}.'''
         result = self._values.get("stage")
         assert result is not None, "Required property 'stage' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def warehouse(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#warehouse AppflowConnectorProfile#warehouse}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#warehouse AppflowConnectorProfile#warehouse}.'''
         result = self._values.get("warehouse")
         assert result is not None, "Required property 'warehouse' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#account_name AppflowConnectorProfile#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#account_name AppflowConnectorProfile#account_name}.'''
         result = self._values.get("account_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#bucket_prefix AppflowConnectorProfile#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_link_service_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#private_link_service_name AppflowConnectorProfile#private_link_service_name}.'''
         result = self._values.get("private_link_service_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#region AppflowConnectorProfile#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#region AppflowConnectorProfile#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10127,7 +10127,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesTre
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesVeeva:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ce1028e3986595573bf18c25af875ef881c4475de3618c55359bfc9ff1c98c7)
@@ -10138,7 +10138,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesVee
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -10218,7 +10218,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesVee
 class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZendesk:
     def __init__(self, *, instance_url: builtins.str) -> None:
         '''
-        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
+        :param instance_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37aacca09f0f6337ae7c7b418858fcd52accd1ca2bfd692ea21fce7511b8268b)
@@ -10229,7 +10229,7 @@ class AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZen
 
     @builtins.property
     def instance_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#instance_url AppflowConnectorProfile#instance_url}.'''
         result = self._values.get("instance_url")
         assert result is not None, "Required property 'instance_url' is missing"
         return typing.cast(builtins.str, result)
@@ -10345,24 +10345,24 @@ class AppflowConnectorProfileConnectorProfileConfigOutputReference(
         zendesk: typing.Optional[typing.Union[AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentialsZendesk, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
-        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
-        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
-        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
-        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
-        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
-        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
-        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
-        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
-        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
+        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
+        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
+        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
+        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
+        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
+        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
+        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
+        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
+        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
+        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileCredentials(
             amplitude=amplitude,
@@ -10411,24 +10411,24 @@ class AppflowConnectorProfileConnectorProfileConfigOutputReference(
         zendesk: typing.Optional[typing.Union[AppflowConnectorProfileConnectorProfileConfigConnectorProfilePropertiesZendesk, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
-        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
-        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
-        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
-        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
-        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
-        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
-        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
-        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
-        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
+        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#amplitude AppflowConnectorProfile#amplitude}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#custom_connector AppflowConnectorProfile#custom_connector}
+        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#datadog AppflowConnectorProfile#datadog}
+        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#dynatrace AppflowConnectorProfile#dynatrace}
+        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#google_analytics AppflowConnectorProfile#google_analytics}
+        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#honeycode AppflowConnectorProfile#honeycode}
+        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#infor_nexus AppflowConnectorProfile#infor_nexus}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#marketo AppflowConnectorProfile#marketo}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#redshift AppflowConnectorProfile#redshift}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#salesforce AppflowConnectorProfile#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#sapo_data AppflowConnectorProfile#sapo_data}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#service_now AppflowConnectorProfile#service_now}
+        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#singular AppflowConnectorProfile#singular}
+        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#slack AppflowConnectorProfile#slack}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#snowflake AppflowConnectorProfile#snowflake}
+        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#trendmicro AppflowConnectorProfile#trendmicro}
+        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#veeva AppflowConnectorProfile#veeva}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_connector_profile#zendesk AppflowConnectorProfile#zendesk}
         '''
         value = AppflowConnectorProfileConnectorProfileConfigConnectorProfileProperties(
             amplitude=amplitude,

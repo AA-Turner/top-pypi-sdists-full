@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster-celery
-Version: 0.26.12
+Version: 0.26.13
 Summary: Package for using Celery as Dagster's execution engine.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-celery
 Author: Dagster Labs
@@ -11,8 +11,26 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
-Provides-Extra: flower
-Provides-Extra: redis
-Provides-Extra: kubernetes
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: dagster==1.10.13
+Requires-Dist: celery>=4.3.0
+Requires-Dist: click<9.0,>=5.0
+Requires-Dist: importlib_metadata<5.0.0; python_version < "3.8"
+Provides-Extra: flower
+Requires-Dist: flower; extra == "flower"
+Provides-Extra: redis
+Requires-Dist: redis; extra == "redis"
+Provides-Extra: kubernetes
+Requires-Dist: kubernetes; extra == "kubernetes"
+Provides-Extra: test
+Requires-Dist: docker; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

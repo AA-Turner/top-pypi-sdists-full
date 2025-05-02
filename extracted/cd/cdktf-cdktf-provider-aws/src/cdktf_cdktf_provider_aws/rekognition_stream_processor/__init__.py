@@ -1,7 +1,7 @@
 r'''
 # `aws_rekognition_stream_processor`
 
-Refer to the Terraform Registry for docs: [`aws_rekognition_stream_processor`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor).
+Refer to the Terraform Registry for docs: [`aws_rekognition_stream_processor`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RekognitionStreamProcessor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.rekognitionStreamProcessor.RekognitionStreamProcessor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor aws_rekognition_stream_processor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor aws_rekognition_stream_processor}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class RekognitionStreamProcessor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor aws_rekognition_stream_processor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor aws_rekognition_stream_processor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: An identifier you assign to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#name RekognitionStreamProcessor#name}
-        :param role_arn: The Amazon Resource Number (ARN) of the IAM role that allows access to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#role_arn RekognitionStreamProcessor#role_arn}
-        :param data_sharing_preference: data_sharing_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#data_sharing_preference RekognitionStreamProcessor#data_sharing_preference}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#input RekognitionStreamProcessor#input}
-        :param kms_key_id: The identifier for your AWS Key Management Service key (AWS KMS key). You can supply the Amazon Resource Name (ARN) of your KMS key, the ID of your KMS key, an alias for your KMS key, or an alias ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kms_key_id RekognitionStreamProcessor#kms_key_id}
-        :param notification_channel: notification_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#notification_channel RekognitionStreamProcessor#notification_channel}
-        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#output RekognitionStreamProcessor#output}
-        :param regions_of_interest: regions_of_interest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#regions_of_interest RekognitionStreamProcessor#regions_of_interest}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#settings RekognitionStreamProcessor#settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#tags RekognitionStreamProcessor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#timeouts RekognitionStreamProcessor#timeouts}
+        :param name: An identifier you assign to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#name RekognitionStreamProcessor#name}
+        :param role_arn: The Amazon Resource Number (ARN) of the IAM role that allows access to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#role_arn RekognitionStreamProcessor#role_arn}
+        :param data_sharing_preference: data_sharing_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#data_sharing_preference RekognitionStreamProcessor#data_sharing_preference}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#input RekognitionStreamProcessor#input}
+        :param kms_key_id: The identifier for your AWS Key Management Service key (AWS KMS key). You can supply the Amazon Resource Name (ARN) of your KMS key, the ID of your KMS key, an alias for your KMS key, or an alias ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kms_key_id RekognitionStreamProcessor#kms_key_id}
+        :param notification_channel: notification_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#notification_channel RekognitionStreamProcessor#notification_channel}
+        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#output RekognitionStreamProcessor#output}
+        :param regions_of_interest: regions_of_interest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#regions_of_interest RekognitionStreamProcessor#regions_of_interest}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#settings RekognitionStreamProcessor#settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#tags RekognitionStreamProcessor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#timeouts RekognitionStreamProcessor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class RekognitionStreamProcessor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RekognitionStreamProcessor to import.
-        :param import_from_id: The id of the existing RekognitionStreamProcessor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RekognitionStreamProcessor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RekognitionStreamProcessor to import is found.
         '''
         if __debug__:
@@ -231,9 +231,9 @@ class RekognitionStreamProcessor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#create RekognitionStreamProcessor#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#delete RekognitionStreamProcessor#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#update RekognitionStreamProcessor#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#create RekognitionStreamProcessor#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#delete RekognitionStreamProcessor#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#update RekognitionStreamProcessor#update}
         '''
         value = RekognitionStreamProcessorTimeouts(
             create=create, delete=delete, update=update
@@ -517,17 +517,17 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: An identifier you assign to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#name RekognitionStreamProcessor#name}
-        :param role_arn: The Amazon Resource Number (ARN) of the IAM role that allows access to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#role_arn RekognitionStreamProcessor#role_arn}
-        :param data_sharing_preference: data_sharing_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#data_sharing_preference RekognitionStreamProcessor#data_sharing_preference}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#input RekognitionStreamProcessor#input}
-        :param kms_key_id: The identifier for your AWS Key Management Service key (AWS KMS key). You can supply the Amazon Resource Name (ARN) of your KMS key, the ID of your KMS key, an alias for your KMS key, or an alias ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kms_key_id RekognitionStreamProcessor#kms_key_id}
-        :param notification_channel: notification_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#notification_channel RekognitionStreamProcessor#notification_channel}
-        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#output RekognitionStreamProcessor#output}
-        :param regions_of_interest: regions_of_interest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#regions_of_interest RekognitionStreamProcessor#regions_of_interest}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#settings RekognitionStreamProcessor#settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#tags RekognitionStreamProcessor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#timeouts RekognitionStreamProcessor#timeouts}
+        :param name: An identifier you assign to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#name RekognitionStreamProcessor#name}
+        :param role_arn: The Amazon Resource Number (ARN) of the IAM role that allows access to the stream processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#role_arn RekognitionStreamProcessor#role_arn}
+        :param data_sharing_preference: data_sharing_preference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#data_sharing_preference RekognitionStreamProcessor#data_sharing_preference}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#input RekognitionStreamProcessor#input}
+        :param kms_key_id: The identifier for your AWS Key Management Service key (AWS KMS key). You can supply the Amazon Resource Name (ARN) of your KMS key, the ID of your KMS key, an alias for your KMS key, or an alias ARN. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kms_key_id RekognitionStreamProcessor#kms_key_id}
+        :param notification_channel: notification_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#notification_channel RekognitionStreamProcessor#notification_channel}
+        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#output RekognitionStreamProcessor#output}
+        :param regions_of_interest: regions_of_interest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#regions_of_interest RekognitionStreamProcessor#regions_of_interest}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#settings RekognitionStreamProcessor#settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#tags RekognitionStreamProcessor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#timeouts RekognitionStreamProcessor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -658,7 +658,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''An identifier you assign to the stream processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#name RekognitionStreamProcessor#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#name RekognitionStreamProcessor#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -668,7 +668,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_arn(self) -> builtins.str:
         '''The Amazon Resource Number (ARN) of the IAM role that allows access to the stream processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#role_arn RekognitionStreamProcessor#role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#role_arn RekognitionStreamProcessor#role_arn}
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
@@ -680,7 +680,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorDataSharingPreference"]]]:
         '''data_sharing_preference block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#data_sharing_preference RekognitionStreamProcessor#data_sharing_preference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#data_sharing_preference RekognitionStreamProcessor#data_sharing_preference}
         '''
         result = self._values.get("data_sharing_preference")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorDataSharingPreference"]]], result)
@@ -691,7 +691,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorInput"]]]:
         '''input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#input RekognitionStreamProcessor#input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#input RekognitionStreamProcessor#input}
         '''
         result = self._values.get("input")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorInput"]]], result)
@@ -702,7 +702,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         You can supply the Amazon Resource Name (ARN) of your KMS key, the ID of your KMS key, an alias for your KMS key, or an alias ARN.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kms_key_id RekognitionStreamProcessor#kms_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kms_key_id RekognitionStreamProcessor#kms_key_id}
         '''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -713,7 +713,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorNotificationChannel"]]]:
         '''notification_channel block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#notification_channel RekognitionStreamProcessor#notification_channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#notification_channel RekognitionStreamProcessor#notification_channel}
         '''
         result = self._values.get("notification_channel")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorNotificationChannel"]]], result)
@@ -724,7 +724,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorOutput"]]]:
         '''output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#output RekognitionStreamProcessor#output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#output RekognitionStreamProcessor#output}
         '''
         result = self._values.get("output")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorOutput"]]], result)
@@ -735,7 +735,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorRegionsOfInterest"]]]:
         '''regions_of_interest block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#regions_of_interest RekognitionStreamProcessor#regions_of_interest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#regions_of_interest RekognitionStreamProcessor#regions_of_interest}
         '''
         result = self._values.get("regions_of_interest")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorRegionsOfInterest"]]], result)
@@ -746,14 +746,14 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorSettings"]]]:
         '''settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#settings RekognitionStreamProcessor#settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#settings RekognitionStreamProcessor#settings}
         '''
         result = self._values.get("settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorSettings"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#tags RekognitionStreamProcessor#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#tags RekognitionStreamProcessor#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -761,7 +761,7 @@ class RekognitionStreamProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RekognitionStreamProcessorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#timeouts RekognitionStreamProcessor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#timeouts RekognitionStreamProcessor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RekognitionStreamProcessorTimeouts"], result)
@@ -790,7 +790,7 @@ class RekognitionStreamProcessorDataSharingPreference:
         opt_in: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param opt_in: Do you want to share data with Rekognition to improve model performance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#opt_in RekognitionStreamProcessor#opt_in}
+        :param opt_in: Do you want to share data with Rekognition to improve model performance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#opt_in RekognitionStreamProcessor#opt_in}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__444bbd4f2f41bb361ef4f3954bb42bfc0fa41513840a95a7c3bd03fde243311e)
@@ -803,7 +803,7 @@ class RekognitionStreamProcessorDataSharingPreference:
     def opt_in(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Do you want to share data with Rekognition to improve model performance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#opt_in RekognitionStreamProcessor#opt_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#opt_in RekognitionStreamProcessor#opt_in}
         '''
         result = self._values.get("opt_in")
         assert result is not None, "Required property 'opt_in' is missing"
@@ -992,7 +992,7 @@ class RekognitionStreamProcessorInput:
         kinesis_video_stream: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RekognitionStreamProcessorInputKinesisVideoStream", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param kinesis_video_stream: kinesis_video_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kinesis_video_stream RekognitionStreamProcessor#kinesis_video_stream}
+        :param kinesis_video_stream: kinesis_video_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kinesis_video_stream RekognitionStreamProcessor#kinesis_video_stream}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__622d94174e3987af06508580bbfecdecae0f544b3fbccb900a1ee109f1b7b5be)
@@ -1007,7 +1007,7 @@ class RekognitionStreamProcessorInput:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorInputKinesisVideoStream"]]]:
         '''kinesis_video_stream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kinesis_video_stream RekognitionStreamProcessor#kinesis_video_stream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kinesis_video_stream RekognitionStreamProcessor#kinesis_video_stream}
         '''
         result = self._values.get("kinesis_video_stream")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorInputKinesisVideoStream"]]], result)
@@ -1032,7 +1032,7 @@ class RekognitionStreamProcessorInput:
 class RekognitionStreamProcessorInputKinesisVideoStream:
     def __init__(self, *, arn: builtins.str) -> None:
         '''
-        :param arn: ARN of the Kinesis video stream stream that streams the source video. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
+        :param arn: ARN of the Kinesis video stream stream that streams the source video. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b4e69db4cbdf36972ca992a0cde0570eea8f27fdd1472c3bcd012ea6b416416)
@@ -1045,7 +1045,7 @@ class RekognitionStreamProcessorInputKinesisVideoStream:
     def arn(self) -> builtins.str:
         '''ARN of the Kinesis video stream stream that streams the source video.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
         '''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
@@ -1393,7 +1393,7 @@ class RekognitionStreamProcessorInputOutputReference(
 class RekognitionStreamProcessorNotificationChannel:
     def __init__(self, *, sns_topic_arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param sns_topic_arn: The Amazon Resource Number (ARN) of the Amazon Amazon Simple Notification Service topic to which Amazon Rekognition posts the completion status. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#sns_topic_arn RekognitionStreamProcessor#sns_topic_arn}
+        :param sns_topic_arn: The Amazon Resource Number (ARN) of the Amazon Amazon Simple Notification Service topic to which Amazon Rekognition posts the completion status. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#sns_topic_arn RekognitionStreamProcessor#sns_topic_arn}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4e77cf89d0d204f1404ecc585480aaaa89f628aa56ddd6b4ec6d4e82d8b4cbd)
@@ -1406,7 +1406,7 @@ class RekognitionStreamProcessorNotificationChannel:
     def sns_topic_arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Number (ARN) of the Amazon Amazon Simple Notification Service topic to which Amazon Rekognition posts the completion status.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#sns_topic_arn RekognitionStreamProcessor#sns_topic_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#sns_topic_arn RekognitionStreamProcessor#sns_topic_arn}
         '''
         result = self._values.get("sns_topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1597,8 +1597,8 @@ class RekognitionStreamProcessorOutput:
         s3_destination: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RekognitionStreamProcessorOutputS3Destination", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param kinesis_data_stream: kinesis_data_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kinesis_data_stream RekognitionStreamProcessor#kinesis_data_stream}
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#s3_destination RekognitionStreamProcessor#s3_destination}
+        :param kinesis_data_stream: kinesis_data_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kinesis_data_stream RekognitionStreamProcessor#kinesis_data_stream}
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#s3_destination RekognitionStreamProcessor#s3_destination}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87c03a9bbc942aa0585fb44fe37f5813abcbb4513132bb08cc40b3af7b6015d8)
@@ -1616,7 +1616,7 @@ class RekognitionStreamProcessorOutput:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorOutputKinesisDataStream"]]]:
         '''kinesis_data_stream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#kinesis_data_stream RekognitionStreamProcessor#kinesis_data_stream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#kinesis_data_stream RekognitionStreamProcessor#kinesis_data_stream}
         '''
         result = self._values.get("kinesis_data_stream")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorOutputKinesisDataStream"]]], result)
@@ -1627,7 +1627,7 @@ class RekognitionStreamProcessorOutput:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorOutputS3Destination"]]]:
         '''s3_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#s3_destination RekognitionStreamProcessor#s3_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#s3_destination RekognitionStreamProcessor#s3_destination}
         '''
         result = self._values.get("s3_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorOutputS3Destination"]]], result)
@@ -1652,7 +1652,7 @@ class RekognitionStreamProcessorOutput:
 class RekognitionStreamProcessorOutputKinesisDataStream:
     def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param arn: ARN of the output Amazon Kinesis Data Streams stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
+        :param arn: ARN of the output Amazon Kinesis Data Streams stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb43dfc2c2b4024c1dc1ea51218a40617a014803f181b261e7e28eeae49032ed)
@@ -1665,7 +1665,7 @@ class RekognitionStreamProcessorOutputKinesisDataStream:
     def arn(self) -> typing.Optional[builtins.str]:
         '''ARN of the output Amazon Kinesis Data Streams stream.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#arn RekognitionStreamProcessor#arn}
         '''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2050,8 +2050,8 @@ class RekognitionStreamProcessorOutputS3Destination:
         key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The name of the Amazon S3 bucket you want to associate with the streaming video project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#bucket RekognitionStreamProcessor#bucket}
-        :param key_prefix: The prefix value of the location within the bucket that you want the information to be published to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#key_prefix RekognitionStreamProcessor#key_prefix}
+        :param bucket: The name of the Amazon S3 bucket you want to associate with the streaming video project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#bucket RekognitionStreamProcessor#bucket}
+        :param key_prefix: The prefix value of the location within the bucket that you want the information to be published to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#key_prefix RekognitionStreamProcessor#key_prefix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2dad1f9cc83ffe5a0d4220f952f8b0791c84c1e2bdcddae53473d65740f1a96d)
@@ -2067,7 +2067,7 @@ class RekognitionStreamProcessorOutputS3Destination:
     def bucket(self) -> typing.Optional[builtins.str]:
         '''The name of the Amazon S3 bucket you want to associate with the streaming video project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#bucket RekognitionStreamProcessor#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#bucket RekognitionStreamProcessor#bucket}
         '''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2076,7 +2076,7 @@ class RekognitionStreamProcessorOutputS3Destination:
     def key_prefix(self) -> typing.Optional[builtins.str]:
         '''The prefix value of the location within the bucket that you want the information to be published to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#key_prefix RekognitionStreamProcessor#key_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#key_prefix RekognitionStreamProcessor#key_prefix}
         '''
         result = self._values.get("key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2285,8 +2285,8 @@ class RekognitionStreamProcessorRegionsOfInterest:
         polygon: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RekognitionStreamProcessorRegionsOfInterestPolygon", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param bounding_box: bounding_box block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#bounding_box RekognitionStreamProcessor#bounding_box}
-        :param polygon: polygon block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#polygon RekognitionStreamProcessor#polygon}
+        :param bounding_box: bounding_box block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#bounding_box RekognitionStreamProcessor#bounding_box}
+        :param polygon: polygon block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#polygon RekognitionStreamProcessor#polygon}
         '''
         if isinstance(bounding_box, dict):
             bounding_box = RekognitionStreamProcessorRegionsOfInterestBoundingBox(**bounding_box)
@@ -2306,7 +2306,7 @@ class RekognitionStreamProcessorRegionsOfInterest:
     ) -> typing.Optional["RekognitionStreamProcessorRegionsOfInterestBoundingBox"]:
         '''bounding_box block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#bounding_box RekognitionStreamProcessor#bounding_box}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#bounding_box RekognitionStreamProcessor#bounding_box}
         '''
         result = self._values.get("bounding_box")
         return typing.cast(typing.Optional["RekognitionStreamProcessorRegionsOfInterestBoundingBox"], result)
@@ -2317,7 +2317,7 @@ class RekognitionStreamProcessorRegionsOfInterest:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorRegionsOfInterestPolygon"]]]:
         '''polygon block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#polygon RekognitionStreamProcessor#polygon}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#polygon RekognitionStreamProcessor#polygon}
         '''
         result = self._values.get("polygon")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorRegionsOfInterestPolygon"]]], result)
@@ -2349,10 +2349,10 @@ class RekognitionStreamProcessorRegionsOfInterestBoundingBox:
         width: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param height: Height of the bounding box as a ratio of the overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#height RekognitionStreamProcessor#height}
-        :param left: Left coordinate of the bounding box as a ratio of overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#left RekognitionStreamProcessor#left}
-        :param top: Top coordinate of the bounding box as a ratio of overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#top RekognitionStreamProcessor#top}
-        :param width: Width of the bounding box as a ratio of the overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#width RekognitionStreamProcessor#width}
+        :param height: Height of the bounding box as a ratio of the overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#height RekognitionStreamProcessor#height}
+        :param left: Left coordinate of the bounding box as a ratio of overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#left RekognitionStreamProcessor#left}
+        :param top: Top coordinate of the bounding box as a ratio of overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#top RekognitionStreamProcessor#top}
+        :param width: Width of the bounding box as a ratio of the overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#width RekognitionStreamProcessor#width}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c15f1625359a39f4b062dc7957b91d7e98a53ee848e383634f8302f655f345b)
@@ -2374,7 +2374,7 @@ class RekognitionStreamProcessorRegionsOfInterestBoundingBox:
     def height(self) -> typing.Optional[jsii.Number]:
         '''Height of the bounding box as a ratio of the overall image height.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#height RekognitionStreamProcessor#height}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#height RekognitionStreamProcessor#height}
         '''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2383,7 +2383,7 @@ class RekognitionStreamProcessorRegionsOfInterestBoundingBox:
     def left(self) -> typing.Optional[jsii.Number]:
         '''Left coordinate of the bounding box as a ratio of overall image width.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#left RekognitionStreamProcessor#left}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#left RekognitionStreamProcessor#left}
         '''
         result = self._values.get("left")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2392,7 +2392,7 @@ class RekognitionStreamProcessorRegionsOfInterestBoundingBox:
     def top(self) -> typing.Optional[jsii.Number]:
         '''Top coordinate of the bounding box as a ratio of overall image height.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#top RekognitionStreamProcessor#top}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#top RekognitionStreamProcessor#top}
         '''
         result = self._values.get("top")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2401,7 +2401,7 @@ class RekognitionStreamProcessorRegionsOfInterestBoundingBox:
     def width(self) -> typing.Optional[jsii.Number]:
         '''Width of the bounding box as a ratio of the overall image width.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#width RekognitionStreamProcessor#width}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#width RekognitionStreamProcessor#width}
         '''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2669,10 +2669,10 @@ class RekognitionStreamProcessorRegionsOfInterestOutputReference(
         width: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param height: Height of the bounding box as a ratio of the overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#height RekognitionStreamProcessor#height}
-        :param left: Left coordinate of the bounding box as a ratio of overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#left RekognitionStreamProcessor#left}
-        :param top: Top coordinate of the bounding box as a ratio of overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#top RekognitionStreamProcessor#top}
-        :param width: Width of the bounding box as a ratio of the overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#width RekognitionStreamProcessor#width}
+        :param height: Height of the bounding box as a ratio of the overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#height RekognitionStreamProcessor#height}
+        :param left: Left coordinate of the bounding box as a ratio of overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#left RekognitionStreamProcessor#left}
+        :param top: Top coordinate of the bounding box as a ratio of overall image height. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#top RekognitionStreamProcessor#top}
+        :param width: Width of the bounding box as a ratio of the overall image width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#width RekognitionStreamProcessor#width}
         '''
         value = RekognitionStreamProcessorRegionsOfInterestBoundingBox(
             height=height, left=left, top=top, width=width
@@ -2758,8 +2758,8 @@ class RekognitionStreamProcessorRegionsOfInterestPolygon:
         y: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param x: The value of the X coordinate for a point on a Polygon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#x RekognitionStreamProcessor#x}
-        :param y: The value of the Y coordinate for a point on a Polygon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#y RekognitionStreamProcessor#y}
+        :param x: The value of the X coordinate for a point on a Polygon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#x RekognitionStreamProcessor#x}
+        :param y: The value of the Y coordinate for a point on a Polygon. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#y RekognitionStreamProcessor#y}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__baa441fa77e507b81d7467fe3ee70e201b03e150e60d26ef9af9826a6330300b)
@@ -2775,7 +2775,7 @@ class RekognitionStreamProcessorRegionsOfInterestPolygon:
     def x(self) -> typing.Optional[jsii.Number]:
         '''The value of the X coordinate for a point on a Polygon.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#x RekognitionStreamProcessor#x}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#x RekognitionStreamProcessor#x}
         '''
         result = self._values.get("x")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2784,7 +2784,7 @@ class RekognitionStreamProcessorRegionsOfInterestPolygon:
     def y(self) -> typing.Optional[jsii.Number]:
         '''The value of the Y coordinate for a point on a Polygon.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#y RekognitionStreamProcessor#y}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#y RekognitionStreamProcessor#y}
         '''
         result = self._values.get("y")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2993,8 +2993,8 @@ class RekognitionStreamProcessorSettings:
         face_search: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RekognitionStreamProcessorSettingsFaceSearch", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param connected_home: connected_home block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#connected_home RekognitionStreamProcessor#connected_home}
-        :param face_search: face_search block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#face_search RekognitionStreamProcessor#face_search}
+        :param connected_home: connected_home block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#connected_home RekognitionStreamProcessor#connected_home}
+        :param face_search: face_search block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#face_search RekognitionStreamProcessor#face_search}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1298591b734ec0475f02e95cccc120229e7ffc35364c47411d815dce9579e4b5)
@@ -3012,7 +3012,7 @@ class RekognitionStreamProcessorSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorSettingsConnectedHome"]]]:
         '''connected_home block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#connected_home RekognitionStreamProcessor#connected_home}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#connected_home RekognitionStreamProcessor#connected_home}
         '''
         result = self._values.get("connected_home")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorSettingsConnectedHome"]]], result)
@@ -3023,7 +3023,7 @@ class RekognitionStreamProcessorSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorSettingsFaceSearch"]]]:
         '''face_search block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#face_search RekognitionStreamProcessor#face_search}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#face_search RekognitionStreamProcessor#face_search}
         '''
         result = self._values.get("face_search")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RekognitionStreamProcessorSettingsFaceSearch"]]], result)
@@ -3053,8 +3053,8 @@ class RekognitionStreamProcessorSettingsConnectedHome:
         min_confidence: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param labels: Specifies what you want to detect in the video, such as people, packages, or pets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#labels RekognitionStreamProcessor#labels}
-        :param min_confidence: The minimum confidence required to label an object in the video. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#min_confidence RekognitionStreamProcessor#min_confidence}
+        :param labels: Specifies what you want to detect in the video, such as people, packages, or pets. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#labels RekognitionStreamProcessor#labels}
+        :param min_confidence: The minimum confidence required to label an object in the video. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#min_confidence RekognitionStreamProcessor#min_confidence}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acaf4dc1398161da8f80fb4cc9e326e49f327302db6f6bea543769fbc0141e14)
@@ -3070,7 +3070,7 @@ class RekognitionStreamProcessorSettingsConnectedHome:
     def labels(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies what you want to detect in the video, such as people, packages, or pets.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#labels RekognitionStreamProcessor#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#labels RekognitionStreamProcessor#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3079,7 +3079,7 @@ class RekognitionStreamProcessorSettingsConnectedHome:
     def min_confidence(self) -> typing.Optional[jsii.Number]:
         '''The minimum confidence required to label an object in the video.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#min_confidence RekognitionStreamProcessor#min_confidence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#min_confidence RekognitionStreamProcessor#min_confidence}
         '''
         result = self._values.get("min_confidence")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3291,8 +3291,8 @@ class RekognitionStreamProcessorSettingsFaceSearch:
         face_match_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param collection_id: The ID of a collection that contains faces that you want to search for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#collection_id RekognitionStreamProcessor#collection_id}
-        :param face_match_threshold: Minimum face match confidence score that must be met to return a result for a recognized face. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#face_match_threshold RekognitionStreamProcessor#face_match_threshold}
+        :param collection_id: The ID of a collection that contains faces that you want to search for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#collection_id RekognitionStreamProcessor#collection_id}
+        :param face_match_threshold: Minimum face match confidence score that must be met to return a result for a recognized face. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#face_match_threshold RekognitionStreamProcessor#face_match_threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa27b8e6d41c781852e0c7edcce8173b6c5c7b16366ff56fa450384429e8e300)
@@ -3308,7 +3308,7 @@ class RekognitionStreamProcessorSettingsFaceSearch:
     def collection_id(self) -> builtins.str:
         '''The ID of a collection that contains faces that you want to search for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#collection_id RekognitionStreamProcessor#collection_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#collection_id RekognitionStreamProcessor#collection_id}
         '''
         result = self._values.get("collection_id")
         assert result is not None, "Required property 'collection_id' is missing"
@@ -3318,7 +3318,7 @@ class RekognitionStreamProcessorSettingsFaceSearch:
     def face_match_threshold(self) -> typing.Optional[jsii.Number]:
         '''Minimum face match confidence score that must be met to return a result for a recognized face.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#face_match_threshold RekognitionStreamProcessor#face_match_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#face_match_threshold RekognitionStreamProcessor#face_match_threshold}
         '''
         result = self._values.get("face_match_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3719,9 +3719,9 @@ class RekognitionStreamProcessorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#create RekognitionStreamProcessor#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#delete RekognitionStreamProcessor#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#update RekognitionStreamProcessor#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#create RekognitionStreamProcessor#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#delete RekognitionStreamProcessor#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#update RekognitionStreamProcessor#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3a240d5203226d3b4567e91cf4f36a678e9eb3841d0120090dae2dbf52b27c2)
@@ -3740,7 +3740,7 @@ class RekognitionStreamProcessorTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#create RekognitionStreamProcessor#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#create RekognitionStreamProcessor#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3749,7 +3749,7 @@ class RekognitionStreamProcessorTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#delete RekognitionStreamProcessor#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#delete RekognitionStreamProcessor#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3758,7 +3758,7 @@ class RekognitionStreamProcessorTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rekognition_stream_processor#update RekognitionStreamProcessor#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rekognition_stream_processor#update RekognitionStreamProcessor#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

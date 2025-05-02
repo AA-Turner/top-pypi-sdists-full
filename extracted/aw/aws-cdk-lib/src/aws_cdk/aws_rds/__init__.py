@@ -8878,6 +8878,7 @@ class CfnDBInstance(
             character_set_name="characterSetName",
             copy_tags_to_snapshot=False,
             custom_iam_instance_profile="customIamInstanceProfile",
+            database_insights_mode="databaseInsightsMode",
             db_cluster_identifier="dbClusterIdentifier",
             db_cluster_snapshot_identifier="dbClusterSnapshotIdentifier",
             db_instance_class="dbInstanceClass",
@@ -8974,6 +8975,7 @@ class CfnDBInstance(
         character_set_name: typing.Optional[builtins.str] = None,
         copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         custom_iam_instance_profile: typing.Optional[builtins.str] = None,
+        database_insights_mode: typing.Optional[builtins.str] = None,
         db_cluster_identifier: typing.Optional[builtins.str] = None,
         db_cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
         db_instance_class: typing.Optional[builtins.str] = None,
@@ -9057,6 +9059,7 @@ class CfnDBInstance(
         :param character_set_name: For supported engines, indicates that the DB instance should be associated with the specified character set. *Amazon Aurora* Not applicable. The character set is managed by the DB cluster. For more information, see `AWS::RDS::DBCluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html>`_ .
         :param copy_tags_to_snapshot: Specifies whether to copy tags from the DB instance to snapshots of the DB instance. By default, tags are not copied. This setting doesn't apply to Amazon Aurora DB instances. Copying tags to snapshots is managed by the DB cluster. Setting this value for an Aurora DB instance has no effect on the DB cluster setting.
         :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance of an RDS Custom DB instance. This setting is required for RDS Custom. Constraints: - The profile must exist in your account. - The profile must have an IAM role that Amazon EC2 has permissions to assume. - The instance profile name and the associated IAM role name must start with the prefix ``AWSRDSCustom`` . For the list of permissions required for the IAM role, see `Configure IAM and your VPC <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/custom-setup-orcl.html#custom-setup-orcl.iam-vpc>`_ in the *Amazon RDS User Guide* .
+        :param database_insights_mode: The mode of Database Insights to enable for the DB instance. .. epigraph:: Aurora DB instances inherit this value from the DB cluster, so you can't change this value.
         :param db_cluster_identifier: The identifier of the DB cluster that this DB instance will belong to. This setting doesn't apply to RDS Custom DB instances.
         :param db_cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from. For more information on Multi-AZ DB clusters, see `Multi-AZ DB cluster deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`_ in the *Amazon RDS User Guide* . Constraints: - Must match the identifier of an existing Multi-AZ DB cluster snapshot. - Can't be specified when ``DBSnapshotIdentifier`` is specified. - Must be specified when ``DBSnapshotIdentifier`` isn't specified. - If you are restoring from a shared manual Multi-AZ DB cluster snapshot, the ``DBClusterSnapshotIdentifier`` must be the ARN of the shared snapshot. - Can't be the identifier of an Aurora DB cluster snapshot.
         :param db_instance_class: The compute and memory capacity of the DB instance, for example ``db.m5.large`` . Not all DB instance classes are available in all AWS Regions , or for all database engines. For the full list of DB instance classes, and availability for your engine, see `DB instance classes <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html>`_ in the *Amazon RDS User Guide* or `Aurora DB instance classes <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html>`_ in the *Amazon Aurora User Guide* .
@@ -9142,6 +9145,7 @@ class CfnDBInstance(
             character_set_name=character_set_name,
             copy_tags_to_snapshot=copy_tags_to_snapshot,
             custom_iam_instance_profile=custom_iam_instance_profile,
+            database_insights_mode=database_insights_mode,
             db_cluster_identifier=db_cluster_identifier,
             db_cluster_snapshot_identifier=db_cluster_snapshot_identifier,
             db_instance_class=db_instance_class,
@@ -9272,8 +9276,7 @@ class CfnDBInstance(
     @builtins.property
     @jsii.member(jsii_name="attrDatabaseInsightsMode")
     def attr_database_insights_mode(self) -> builtins.str:
-        '''The mode of Database Insights that is enabled for the instance.
-
+        '''
         :cloudformationAttribute: DatabaseInsightsMode
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrDatabaseInsightsMode"))
@@ -9616,6 +9619,19 @@ class CfnDBInstance(
             type_hints = typing.get_type_hints(_typecheckingstub__226e820a1b504a7c3743da9e7c7340401e28197ad7bd4b0cb3f5526c4eee15e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customIamInstanceProfile", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseInsightsMode")
+    def database_insights_mode(self) -> typing.Optional[builtins.str]:
+        '''The mode of Database Insights to enable for the DB instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "databaseInsightsMode"))
+
+    @database_insights_mode.setter
+    def database_insights_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b46fcfbcf52de4fba0e79ef45cfd1f9b086be851a81f128b407d6e590bcc50de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "databaseInsightsMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterIdentifier")
@@ -10968,6 +10984,7 @@ class CfnDBInstance(
         "character_set_name": "characterSetName",
         "copy_tags_to_snapshot": "copyTagsToSnapshot",
         "custom_iam_instance_profile": "customIamInstanceProfile",
+        "database_insights_mode": "databaseInsightsMode",
         "db_cluster_identifier": "dbClusterIdentifier",
         "db_cluster_snapshot_identifier": "dbClusterSnapshotIdentifier",
         "db_instance_class": "dbInstanceClass",
@@ -11053,6 +11070,7 @@ class CfnDBInstanceProps:
         character_set_name: typing.Optional[builtins.str] = None,
         copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         custom_iam_instance_profile: typing.Optional[builtins.str] = None,
+        database_insights_mode: typing.Optional[builtins.str] = None,
         db_cluster_identifier: typing.Optional[builtins.str] = None,
         db_cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
         db_instance_class: typing.Optional[builtins.str] = None,
@@ -11135,6 +11153,7 @@ class CfnDBInstanceProps:
         :param character_set_name: For supported engines, indicates that the DB instance should be associated with the specified character set. *Amazon Aurora* Not applicable. The character set is managed by the DB cluster. For more information, see `AWS::RDS::DBCluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html>`_ .
         :param copy_tags_to_snapshot: Specifies whether to copy tags from the DB instance to snapshots of the DB instance. By default, tags are not copied. This setting doesn't apply to Amazon Aurora DB instances. Copying tags to snapshots is managed by the DB cluster. Setting this value for an Aurora DB instance has no effect on the DB cluster setting.
         :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance of an RDS Custom DB instance. This setting is required for RDS Custom. Constraints: - The profile must exist in your account. - The profile must have an IAM role that Amazon EC2 has permissions to assume. - The instance profile name and the associated IAM role name must start with the prefix ``AWSRDSCustom`` . For the list of permissions required for the IAM role, see `Configure IAM and your VPC <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/custom-setup-orcl.html#custom-setup-orcl.iam-vpc>`_ in the *Amazon RDS User Guide* .
+        :param database_insights_mode: The mode of Database Insights to enable for the DB instance. .. epigraph:: Aurora DB instances inherit this value from the DB cluster, so you can't change this value.
         :param db_cluster_identifier: The identifier of the DB cluster that this DB instance will belong to. This setting doesn't apply to RDS Custom DB instances.
         :param db_cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from. For more information on Multi-AZ DB clusters, see `Multi-AZ DB cluster deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`_ in the *Amazon RDS User Guide* . Constraints: - Must match the identifier of an existing Multi-AZ DB cluster snapshot. - Can't be specified when ``DBSnapshotIdentifier`` is specified. - Must be specified when ``DBSnapshotIdentifier`` isn't specified. - If you are restoring from a shared manual Multi-AZ DB cluster snapshot, the ``DBClusterSnapshotIdentifier`` must be the ARN of the shared snapshot. - Can't be the identifier of an Aurora DB cluster snapshot.
         :param db_instance_class: The compute and memory capacity of the DB instance, for example ``db.m5.large`` . Not all DB instance classes are available in all AWS Regions , or for all database engines. For the full list of DB instance classes, and availability for your engine, see `DB instance classes <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html>`_ in the *Amazon RDS User Guide* or `Aurora DB instance classes <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html>`_ in the *Amazon Aurora User Guide* .
@@ -11228,6 +11247,7 @@ class CfnDBInstanceProps:
                 character_set_name="characterSetName",
                 copy_tags_to_snapshot=False,
                 custom_iam_instance_profile="customIamInstanceProfile",
+                database_insights_mode="databaseInsightsMode",
                 db_cluster_identifier="dbClusterIdentifier",
                 db_cluster_snapshot_identifier="dbClusterSnapshotIdentifier",
                 db_instance_class="dbInstanceClass",
@@ -11320,6 +11340,7 @@ class CfnDBInstanceProps:
             check_type(argname="argument character_set_name", value=character_set_name, expected_type=type_hints["character_set_name"])
             check_type(argname="argument copy_tags_to_snapshot", value=copy_tags_to_snapshot, expected_type=type_hints["copy_tags_to_snapshot"])
             check_type(argname="argument custom_iam_instance_profile", value=custom_iam_instance_profile, expected_type=type_hints["custom_iam_instance_profile"])
+            check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument db_cluster_identifier", value=db_cluster_identifier, expected_type=type_hints["db_cluster_identifier"])
             check_type(argname="argument db_cluster_snapshot_identifier", value=db_cluster_snapshot_identifier, expected_type=type_hints["db_cluster_snapshot_identifier"])
             check_type(argname="argument db_instance_class", value=db_instance_class, expected_type=type_hints["db_instance_class"])
@@ -11415,6 +11436,8 @@ class CfnDBInstanceProps:
             self._values["copy_tags_to_snapshot"] = copy_tags_to_snapshot
         if custom_iam_instance_profile is not None:
             self._values["custom_iam_instance_profile"] = custom_iam_instance_profile
+        if database_insights_mode is not None:
+            self._values["database_insights_mode"] = database_insights_mode
         if db_cluster_identifier is not None:
             self._values["db_cluster_identifier"] = db_cluster_identifier
         if db_cluster_snapshot_identifier is not None:
@@ -11832,6 +11855,19 @@ class CfnDBInstanceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-customiaminstanceprofile
         '''
         result = self._values.get("custom_iam_instance_profile")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def database_insights_mode(self) -> typing.Optional[builtins.str]:
+        '''The mode of Database Insights to enable for the DB instance.
+
+        .. epigraph::
+
+           Aurora DB instances inherit this value from the DB cluster, so you can't change this value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-databaseinsightsmode
+        '''
+        result = self._values.get("database_insights_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -48424,6 +48460,7 @@ def _typecheckingstub__255b0779ca741853674876540bf77279f6293bea05de2cd18724d2b92
     character_set_name: typing.Optional[builtins.str] = None,
     copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     custom_iam_instance_profile: typing.Optional[builtins.str] = None,
+    database_insights_mode: typing.Optional[builtins.str] = None,
     db_cluster_identifier: typing.Optional[builtins.str] = None,
     db_cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
     db_instance_class: typing.Optional[builtins.str] = None,
@@ -48589,6 +48626,12 @@ def _typecheckingstub__cefd61afb4df8c491b91bfe227e165b190c98273315fd7ee9c3fb459c
     pass
 
 def _typecheckingstub__226e820a1b504a7c3743da9e7c7340401e28197ad7bd4b0cb3f5526c4eee15e0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b46fcfbcf52de4fba0e79ef45cfd1f9b086be851a81f128b407d6e590bcc50de(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -49036,6 +49079,7 @@ def _typecheckingstub__3bddb1be0bd1f1699e3a084c5859d94d8879ff15011f2f2eaac29ec16
     character_set_name: typing.Optional[builtins.str] = None,
     copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     custom_iam_instance_profile: typing.Optional[builtins.str] = None,
+    database_insights_mode: typing.Optional[builtins.str] = None,
     db_cluster_identifier: typing.Optional[builtins.str] = None,
     db_cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
     db_instance_class: typing.Optional[builtins.str] = None,

@@ -1,7 +1,7 @@
 r'''
 # `aws_athena_prepared_statement`
 
-Refer to the Terraform Registry for docs: [`aws_athena_prepared_statement`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement).
+Refer to the Terraform Registry for docs: [`aws_athena_prepared_statement`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AthenaPreparedStatement(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.athenaPreparedStatement.AthenaPreparedStatement",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement aws_athena_prepared_statement}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement aws_athena_prepared_statement}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class AthenaPreparedStatement(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement aws_athena_prepared_statement} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement aws_athena_prepared_statement} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#name AthenaPreparedStatement#name}.
-        :param query_statement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#query_statement AthenaPreparedStatement#query_statement}.
-        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#workgroup AthenaPreparedStatement#workgroup}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#description AthenaPreparedStatement#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#id AthenaPreparedStatement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#timeouts AthenaPreparedStatement#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#name AthenaPreparedStatement#name}.
+        :param query_statement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#query_statement AthenaPreparedStatement#query_statement}.
+        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#workgroup AthenaPreparedStatement#workgroup}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#description AthenaPreparedStatement#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#id AthenaPreparedStatement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#timeouts AthenaPreparedStatement#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class AthenaPreparedStatement(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AthenaPreparedStatement to import.
-        :param import_from_id: The id of the existing AthenaPreparedStatement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AthenaPreparedStatement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AthenaPreparedStatement to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class AthenaPreparedStatement(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#create AthenaPreparedStatement#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#delete AthenaPreparedStatement#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#update AthenaPreparedStatement#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#create AthenaPreparedStatement#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#delete AthenaPreparedStatement#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#update AthenaPreparedStatement#update}.
         '''
         value = AthenaPreparedStatementTimeouts(
             create=create, delete=delete, update=update
@@ -316,12 +316,12 @@ class AthenaPreparedStatementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#name AthenaPreparedStatement#name}.
-        :param query_statement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#query_statement AthenaPreparedStatement#query_statement}.
-        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#workgroup AthenaPreparedStatement#workgroup}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#description AthenaPreparedStatement#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#id AthenaPreparedStatement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#timeouts AthenaPreparedStatement#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#name AthenaPreparedStatement#name}.
+        :param query_statement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#query_statement AthenaPreparedStatement#query_statement}.
+        :param workgroup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#workgroup AthenaPreparedStatement#workgroup}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#description AthenaPreparedStatement#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#id AthenaPreparedStatement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#timeouts AthenaPreparedStatement#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -434,34 +434,34 @@ class AthenaPreparedStatementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#name AthenaPreparedStatement#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#name AthenaPreparedStatement#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def query_statement(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#query_statement AthenaPreparedStatement#query_statement}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#query_statement AthenaPreparedStatement#query_statement}.'''
         result = self._values.get("query_statement")
         assert result is not None, "Required property 'query_statement' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workgroup(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#workgroup AthenaPreparedStatement#workgroup}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#workgroup AthenaPreparedStatement#workgroup}.'''
         result = self._values.get("workgroup")
         assert result is not None, "Required property 'workgroup' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#description AthenaPreparedStatement#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#description AthenaPreparedStatement#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#id AthenaPreparedStatement#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#id AthenaPreparedStatement#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -473,7 +473,7 @@ class AthenaPreparedStatementConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AthenaPreparedStatementTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#timeouts AthenaPreparedStatement#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#timeouts AthenaPreparedStatement#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AthenaPreparedStatementTimeouts"], result)
@@ -504,9 +504,9 @@ class AthenaPreparedStatementTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#create AthenaPreparedStatement#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#delete AthenaPreparedStatement#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#update AthenaPreparedStatement#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#create AthenaPreparedStatement#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#delete AthenaPreparedStatement#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#update AthenaPreparedStatement#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1524f876d76e8ad679ef5bc4f17371959a9e46722333de62943b4090b35e48fd)
@@ -523,19 +523,19 @@ class AthenaPreparedStatementTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#create AthenaPreparedStatement#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#create AthenaPreparedStatement#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#delete AthenaPreparedStatement#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#delete AthenaPreparedStatement#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/athena_prepared_statement#update AthenaPreparedStatement#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/athena_prepared_statement#update AthenaPreparedStatement#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

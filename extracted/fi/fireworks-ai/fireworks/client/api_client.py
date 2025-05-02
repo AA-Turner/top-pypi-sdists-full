@@ -64,9 +64,7 @@ class FireworksClient:
         self.client_kwargs = kwargs
 
         self._client: httpx.Client = self.create_client(extra_headers=extra_headers)
-        self._async_client: httpx.AsyncClient = self.create_async_client(
-            extra_headers=extra_headers
-        )
+        self._async_client: httpx.AsyncClient = self.create_async_client(extra_headers=extra_headers)
 
     def _raise_for(self, status_code: int, error_message: Callable[[], str]):
         if status_code == 400:
@@ -156,9 +154,7 @@ class FireworksClient:
         data: Optional[Dict[str, Any]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        response = self._client.post(
-            url, json=data, headers=self._get_headers(extra_headers)
-        )
+        response = self._client.post(url, json=data, headers=self._get_headers(extra_headers))
         self._error_handling(response)
         return response.json()
 
@@ -185,9 +181,7 @@ class FireworksClient:
         data: Optional[Dict[str, Any]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        response = await self._async_client.post(
-            url, json=data, headers=self._get_headers(extra_headers)
-        )
+        response = await self._async_client.post(url, json=data, headers=self._get_headers(extra_headers))
         await self._async_error_handling(response)
         return response.json()
 
@@ -209,9 +203,7 @@ class FireworksClient:
     async def aclose(self):
         await self._async_client.aclose()
 
-    def create_client(
-        self, extra_headers: Optional[Dict[str, str]] = None
-    ) -> httpx.Client:
+    def create_client(self, extra_headers: Optional[Dict[str, str]] = None) -> httpx.Client:
         headers = {"Authorization": f"Bearer {self.api_key}"}
         if extra_headers:
             headers = {**headers, **extra_headers}
@@ -221,9 +213,7 @@ class FireworksClient:
             **self.client_kwargs,
         )
 
-    def create_async_client(
-        self, extra_headers: Optional[Dict[str, str]] = None
-    ) -> httpx.AsyncClient:
+    def create_async_client(self, extra_headers: Optional[Dict[str, str]] = None) -> httpx.AsyncClient:
         headers = {"Authorization": f"Bearer {self.api_key}"}
         if extra_headers:
             headers = {**headers, **extra_headers}

@@ -1,7 +1,7 @@
 r'''
 # `aws_iam_user_login_profile`
 
-Refer to the Terraform Registry for docs: [`aws_iam_user_login_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile).
+Refer to the Terraform Registry for docs: [`aws_iam_user_login_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamUserLoginProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.iamUserLoginProfile.IamUserLoginProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile aws_iam_user_login_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile aws_iam_user_login_profile}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class IamUserLoginProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile aws_iam_user_login_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile aws_iam_user_login_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#user IamUserLoginProfile#user}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#id IamUserLoginProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param password_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#password_length IamUserLoginProfile#password_length}.
-        :param password_reset_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#password_reset_required IamUserLoginProfile#password_reset_required}.
-        :param pgp_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#pgp_key IamUserLoginProfile#pgp_key}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#user IamUserLoginProfile#user}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#id IamUserLoginProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param password_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#password_length IamUserLoginProfile#password_length}.
+        :param password_reset_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#password_reset_required IamUserLoginProfile#password_reset_required}.
+        :param pgp_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#pgp_key IamUserLoginProfile#pgp_key}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class IamUserLoginProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamUserLoginProfile to import.
-        :param import_from_id: The id of the existing IamUserLoginProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamUserLoginProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamUserLoginProfile to import is found.
         '''
         if __debug__:
@@ -306,11 +306,11 @@ class IamUserLoginProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#user IamUserLoginProfile#user}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#id IamUserLoginProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param password_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#password_length IamUserLoginProfile#password_length}.
-        :param password_reset_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#password_reset_required IamUserLoginProfile#password_reset_required}.
-        :param pgp_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#pgp_key IamUserLoginProfile#pgp_key}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#user IamUserLoginProfile#user}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#id IamUserLoginProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param password_length: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#password_length IamUserLoginProfile#password_length}.
+        :param password_reset_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#password_reset_required IamUserLoginProfile#password_reset_required}.
+        :param pgp_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#pgp_key IamUserLoginProfile#pgp_key}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -420,14 +420,14 @@ class IamUserLoginProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def user(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#user IamUserLoginProfile#user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#user IamUserLoginProfile#user}.'''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#id IamUserLoginProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#id IamUserLoginProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -437,7 +437,7 @@ class IamUserLoginProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def password_length(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#password_length IamUserLoginProfile#password_length}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#password_length IamUserLoginProfile#password_length}.'''
         result = self._values.get("password_length")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -445,13 +445,13 @@ class IamUserLoginProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def password_reset_required(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#password_reset_required IamUserLoginProfile#password_reset_required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#password_reset_required IamUserLoginProfile#password_reset_required}.'''
         result = self._values.get("password_reset_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def pgp_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iam_user_login_profile#pgp_key IamUserLoginProfile#pgp_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_user_login_profile#pgp_key IamUserLoginProfile#pgp_key}.'''
         result = self._values.get("pgp_key")
         return typing.cast(typing.Optional[builtins.str], result)
 

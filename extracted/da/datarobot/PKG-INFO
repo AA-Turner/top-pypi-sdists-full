@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.7.0
+Version: 3.7.1
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -37,7 +37,8 @@ Requires-Dist: typing-extensions<5,>=4.3.0
 Requires-Dist: mypy-extensions<2,>=0.4.0
 Requires-Dist: strenum>=0.4.15
 Provides-Extra: dev
-Requires-Dist: pytest==7.3.0; extra == "dev"
+Requires-Dist: pytest<8.0.0,>=7.3.0; python_version < "3.8" and extra == "dev"
+Requires-Dist: pytest>=8.3.0; python_version >= "3.8" and extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: responses==0.21; extra == "dev"
 Requires-Dist: pytest-asyncio==0.21.1; extra == "dev"
@@ -115,7 +116,8 @@ Provides-Extra: images
 Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "images"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "images"
 Provides-Extra: test
-Requires-Dist: pytest==7.3.0; extra == "test"
+Requires-Dist: pytest<8.0.0,>=7.3.0; python_version < "3.8" and extra == "test"
+Requires-Dist: pytest>=8.3.0; python_version >= "3.8" and extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: responses==0.21; extra == "test"
 Requires-Dist: pytest-asyncio==0.21.1; extra == "test"

@@ -1,7 +1,7 @@
 r'''
 # `aws_auditmanager_control`
 
-Refer to the Terraform Registry for docs: [`aws_auditmanager_control`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control).
+Refer to the Terraform Registry for docs: [`aws_auditmanager_control`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AuditmanagerControl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.auditmanagerControl.AuditmanagerControl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control aws_auditmanager_control}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control aws_auditmanager_control}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class AuditmanagerControl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control aws_auditmanager_control} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control aws_auditmanager_control} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#name AuditmanagerControl#name}.
-        :param action_plan_instructions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#action_plan_instructions AuditmanagerControl#action_plan_instructions}.
-        :param action_plan_title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#action_plan_title AuditmanagerControl#action_plan_title}.
-        :param control_mapping_sources: control_mapping_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#control_mapping_sources AuditmanagerControl#control_mapping_sources}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#description AuditmanagerControl#description}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#tags AuditmanagerControl#tags}.
-        :param testing_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#testing_information AuditmanagerControl#testing_information}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#name AuditmanagerControl#name}.
+        :param action_plan_instructions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#action_plan_instructions AuditmanagerControl#action_plan_instructions}.
+        :param action_plan_title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#action_plan_title AuditmanagerControl#action_plan_title}.
+        :param control_mapping_sources: control_mapping_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#control_mapping_sources AuditmanagerControl#control_mapping_sources}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#description AuditmanagerControl#description}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#tags AuditmanagerControl#tags}.
+        :param testing_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#testing_information AuditmanagerControl#testing_information}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class AuditmanagerControl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AuditmanagerControl to import.
-        :param import_from_id: The id of the existing AuditmanagerControl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AuditmanagerControl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AuditmanagerControl to import is found.
         '''
         if __debug__:
@@ -364,13 +364,13 @@ class AuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#name AuditmanagerControl#name}.
-        :param action_plan_instructions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#action_plan_instructions AuditmanagerControl#action_plan_instructions}.
-        :param action_plan_title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#action_plan_title AuditmanagerControl#action_plan_title}.
-        :param control_mapping_sources: control_mapping_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#control_mapping_sources AuditmanagerControl#control_mapping_sources}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#description AuditmanagerControl#description}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#tags AuditmanagerControl#tags}.
-        :param testing_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#testing_information AuditmanagerControl#testing_information}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#name AuditmanagerControl#name}.
+        :param action_plan_instructions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#action_plan_instructions AuditmanagerControl#action_plan_instructions}.
+        :param action_plan_title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#action_plan_title AuditmanagerControl#action_plan_title}.
+        :param control_mapping_sources: control_mapping_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#control_mapping_sources AuditmanagerControl#control_mapping_sources}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#description AuditmanagerControl#description}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#tags AuditmanagerControl#tags}.
+        :param testing_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#testing_information AuditmanagerControl#testing_information}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -486,20 +486,20 @@ class AuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#name AuditmanagerControl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#name AuditmanagerControl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def action_plan_instructions(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#action_plan_instructions AuditmanagerControl#action_plan_instructions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#action_plan_instructions AuditmanagerControl#action_plan_instructions}.'''
         result = self._values.get("action_plan_instructions")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def action_plan_title(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#action_plan_title AuditmanagerControl#action_plan_title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#action_plan_title AuditmanagerControl#action_plan_title}.'''
         result = self._values.get("action_plan_title")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -509,26 +509,26 @@ class AuditmanagerControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerControlControlMappingSources"]]]:
         '''control_mapping_sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#control_mapping_sources AuditmanagerControl#control_mapping_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#control_mapping_sources AuditmanagerControl#control_mapping_sources}
         '''
         result = self._values.get("control_mapping_sources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerControlControlMappingSources"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#description AuditmanagerControl#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#description AuditmanagerControl#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#tags AuditmanagerControl#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#tags AuditmanagerControl#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def testing_information(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#testing_information AuditmanagerControl#testing_information}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#testing_information AuditmanagerControl#testing_information}.'''
         result = self._values.get("testing_information")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -570,13 +570,13 @@ class AuditmanagerControlControlMappingSources:
         troubleshooting_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_name AuditmanagerControl#source_name}.
-        :param source_set_up_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_set_up_option AuditmanagerControl#source_set_up_option}.
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_type AuditmanagerControl#source_type}.
-        :param source_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_description AuditmanagerControl#source_description}.
-        :param source_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_frequency AuditmanagerControl#source_frequency}.
-        :param source_keyword: source_keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_keyword AuditmanagerControl#source_keyword}
-        :param troubleshooting_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#troubleshooting_text AuditmanagerControl#troubleshooting_text}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_name AuditmanagerControl#source_name}.
+        :param source_set_up_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_set_up_option AuditmanagerControl#source_set_up_option}.
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_type AuditmanagerControl#source_type}.
+        :param source_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_description AuditmanagerControl#source_description}.
+        :param source_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_frequency AuditmanagerControl#source_frequency}.
+        :param source_keyword: source_keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_keyword AuditmanagerControl#source_keyword}
+        :param troubleshooting_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#troubleshooting_text AuditmanagerControl#troubleshooting_text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e262b86edc49042cab324345f447d8fe35bcfd5204ec439d0ddaf8759fa63848)
@@ -603,34 +603,34 @@ class AuditmanagerControlControlMappingSources:
 
     @builtins.property
     def source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_name AuditmanagerControl#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_name AuditmanagerControl#source_name}.'''
         result = self._values.get("source_name")
         assert result is not None, "Required property 'source_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_set_up_option(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_set_up_option AuditmanagerControl#source_set_up_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_set_up_option AuditmanagerControl#source_set_up_option}.'''
         result = self._values.get("source_set_up_option")
         assert result is not None, "Required property 'source_set_up_option' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_type AuditmanagerControl#source_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_type AuditmanagerControl#source_type}.'''
         result = self._values.get("source_type")
         assert result is not None, "Required property 'source_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_description AuditmanagerControl#source_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_description AuditmanagerControl#source_description}.'''
         result = self._values.get("source_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_frequency AuditmanagerControl#source_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_frequency AuditmanagerControl#source_frequency}.'''
         result = self._values.get("source_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -640,14 +640,14 @@ class AuditmanagerControlControlMappingSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerControlControlMappingSourcesSourceKeyword"]]]:
         '''source_keyword block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#source_keyword AuditmanagerControl#source_keyword}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#source_keyword AuditmanagerControl#source_keyword}
         '''
         result = self._values.get("source_keyword")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AuditmanagerControlControlMappingSourcesSourceKeyword"]]], result)
 
     @builtins.property
     def troubleshooting_text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#troubleshooting_text AuditmanagerControl#troubleshooting_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#troubleshooting_text AuditmanagerControl#troubleshooting_text}.'''
         result = self._values.get("troubleshooting_text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -966,8 +966,8 @@ class AuditmanagerControlControlMappingSourcesSourceKeyword:
         keyword_value: builtins.str,
     ) -> None:
         '''
-        :param keyword_input_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#keyword_input_type AuditmanagerControl#keyword_input_type}.
-        :param keyword_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#keyword_value AuditmanagerControl#keyword_value}.
+        :param keyword_input_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#keyword_input_type AuditmanagerControl#keyword_input_type}.
+        :param keyword_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#keyword_value AuditmanagerControl#keyword_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__047d22929a136f171d8efa8b23dffdaacb82cd87f2b1d5ee85ee4fc25f396091)
@@ -980,14 +980,14 @@ class AuditmanagerControlControlMappingSourcesSourceKeyword:
 
     @builtins.property
     def keyword_input_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#keyword_input_type AuditmanagerControl#keyword_input_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#keyword_input_type AuditmanagerControl#keyword_input_type}.'''
         result = self._values.get("keyword_input_type")
         assert result is not None, "Required property 'keyword_input_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def keyword_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/auditmanager_control#keyword_value AuditmanagerControl#keyword_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/auditmanager_control#keyword_value AuditmanagerControl#keyword_value}.'''
         result = self._values.get("keyword_value")
         assert result is not None, "Required property 'keyword_value' is missing"
         return typing.cast(builtins.str, result)

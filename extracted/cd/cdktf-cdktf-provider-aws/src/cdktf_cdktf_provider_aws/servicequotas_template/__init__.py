@@ -1,7 +1,7 @@
 r'''
 # `aws_servicequotas_template`
 
-Refer to the Terraform Registry for docs: [`aws_servicequotas_template`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template).
+Refer to the Terraform Registry for docs: [`aws_servicequotas_template`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServicequotasTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.servicequotasTemplate.ServicequotasTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template aws_servicequotas_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template aws_servicequotas_template}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ServicequotasTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template aws_servicequotas_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template aws_servicequotas_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
-        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
+        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
+        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ServicequotasTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServicequotasTemplate to import.
-        :param import_from_id: The id of the existing ServicequotasTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServicequotasTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServicequotasTemplate to import is found.
         '''
         if __debug__:
@@ -271,10 +271,10 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
-        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
+        :param quota_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.
+        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,28 +378,28 @@ class ServicequotasTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def quota_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#quota_code ServicequotasTemplate#quota_code}.'''
         result = self._values.get("quota_code")
         assert result is not None, "Required property 'quota_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#region ServicequotasTemplate#region}.'''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#service_code ServicequotasTemplate#service_code}.'''
         result = self._values.get("service_code")
         assert result is not None, "Required property 'service_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/servicequotas_template#value ServicequotasTemplate#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)

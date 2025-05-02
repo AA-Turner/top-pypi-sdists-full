@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_code_signing_config`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_code_signing_config`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config).
+Refer to the Terraform Registry for docs: [`aws_lambda_code_signing_config`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaCodeSigningConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaCodeSigningConfig.LambdaCodeSigningConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config aws_lambda_code_signing_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config aws_lambda_code_signing_config}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class LambdaCodeSigningConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config aws_lambda_code_signing_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config aws_lambda_code_signing_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param allowed_publishers: allowed_publishers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#allowed_publishers LambdaCodeSigningConfig#allowed_publishers}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#description LambdaCodeSigningConfig#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#id LambdaCodeSigningConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#policies LambdaCodeSigningConfig#policies}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#tags LambdaCodeSigningConfig#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#tags_all LambdaCodeSigningConfig#tags_all}.
+        :param allowed_publishers: allowed_publishers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#allowed_publishers LambdaCodeSigningConfig#allowed_publishers}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#description LambdaCodeSigningConfig#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#id LambdaCodeSigningConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#policies LambdaCodeSigningConfig#policies}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#tags LambdaCodeSigningConfig#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#tags_all LambdaCodeSigningConfig#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class LambdaCodeSigningConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaCodeSigningConfig to import.
-        :param import_from_id: The id of the existing LambdaCodeSigningConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaCodeSigningConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaCodeSigningConfig to import is found.
         '''
         if __debug__:
@@ -136,7 +136,7 @@ class LambdaCodeSigningConfig(
         signing_profile_version_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param signing_profile_version_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#signing_profile_version_arns LambdaCodeSigningConfig#signing_profile_version_arns}.
+        :param signing_profile_version_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#signing_profile_version_arns LambdaCodeSigningConfig#signing_profile_version_arns}.
         '''
         value = LambdaCodeSigningConfigAllowedPublishers(
             signing_profile_version_arns=signing_profile_version_arns
@@ -147,7 +147,7 @@ class LambdaCodeSigningConfig(
     @jsii.member(jsii_name="putPolicies")
     def put_policies(self, *, untrusted_artifact_on_deployment: builtins.str) -> None:
         '''
-        :param untrusted_artifact_on_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#untrusted_artifact_on_deployment LambdaCodeSigningConfig#untrusted_artifact_on_deployment}.
+        :param untrusted_artifact_on_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#untrusted_artifact_on_deployment LambdaCodeSigningConfig#untrusted_artifact_on_deployment}.
         '''
         value = LambdaCodeSigningConfigPolicies(
             untrusted_artifact_on_deployment=untrusted_artifact_on_deployment
@@ -310,7 +310,7 @@ class LambdaCodeSigningConfigAllowedPublishers:
         signing_profile_version_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param signing_profile_version_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#signing_profile_version_arns LambdaCodeSigningConfig#signing_profile_version_arns}.
+        :param signing_profile_version_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#signing_profile_version_arns LambdaCodeSigningConfig#signing_profile_version_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__701a936b84cae234d94743dca1cf753078073c3e5260d65f4aa2acf29c76d71e)
@@ -321,7 +321,7 @@ class LambdaCodeSigningConfigAllowedPublishers:
 
     @builtins.property
     def signing_profile_version_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#signing_profile_version_arns LambdaCodeSigningConfig#signing_profile_version_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#signing_profile_version_arns LambdaCodeSigningConfig#signing_profile_version_arns}.'''
         result = self._values.get("signing_profile_version_arns")
         assert result is not None, "Required property 'signing_profile_version_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -440,12 +440,12 @@ class LambdaCodeSigningConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param allowed_publishers: allowed_publishers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#allowed_publishers LambdaCodeSigningConfig#allowed_publishers}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#description LambdaCodeSigningConfig#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#id LambdaCodeSigningConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#policies LambdaCodeSigningConfig#policies}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#tags LambdaCodeSigningConfig#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#tags_all LambdaCodeSigningConfig#tags_all}.
+        :param allowed_publishers: allowed_publishers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#allowed_publishers LambdaCodeSigningConfig#allowed_publishers}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#description LambdaCodeSigningConfig#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#id LambdaCodeSigningConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#policies LambdaCodeSigningConfig#policies}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#tags LambdaCodeSigningConfig#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#tags_all LambdaCodeSigningConfig#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -564,7 +564,7 @@ class LambdaCodeSigningConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allowed_publishers(self) -> LambdaCodeSigningConfigAllowedPublishers:
         '''allowed_publishers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#allowed_publishers LambdaCodeSigningConfig#allowed_publishers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#allowed_publishers LambdaCodeSigningConfig#allowed_publishers}
         '''
         result = self._values.get("allowed_publishers")
         assert result is not None, "Required property 'allowed_publishers' is missing"
@@ -572,13 +572,13 @@ class LambdaCodeSigningConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#description LambdaCodeSigningConfig#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#description LambdaCodeSigningConfig#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#id LambdaCodeSigningConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#id LambdaCodeSigningConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -590,20 +590,20 @@ class LambdaCodeSigningConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policies(self) -> typing.Optional["LambdaCodeSigningConfigPolicies"]:
         '''policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#policies LambdaCodeSigningConfig#policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#policies LambdaCodeSigningConfig#policies}
         '''
         result = self._values.get("policies")
         return typing.cast(typing.Optional["LambdaCodeSigningConfigPolicies"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#tags LambdaCodeSigningConfig#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#tags LambdaCodeSigningConfig#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#tags_all LambdaCodeSigningConfig#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#tags_all LambdaCodeSigningConfig#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -627,7 +627,7 @@ class LambdaCodeSigningConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class LambdaCodeSigningConfigPolicies:
     def __init__(self, *, untrusted_artifact_on_deployment: builtins.str) -> None:
         '''
-        :param untrusted_artifact_on_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#untrusted_artifact_on_deployment LambdaCodeSigningConfig#untrusted_artifact_on_deployment}.
+        :param untrusted_artifact_on_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#untrusted_artifact_on_deployment LambdaCodeSigningConfig#untrusted_artifact_on_deployment}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a15e61af611adc15f1e8beaae2da11c92ce07b3cb20cfaef144d9f8c76de51e)
@@ -638,7 +638,7 @@ class LambdaCodeSigningConfigPolicies:
 
     @builtins.property
     def untrusted_artifact_on_deployment(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_code_signing_config#untrusted_artifact_on_deployment LambdaCodeSigningConfig#untrusted_artifact_on_deployment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_code_signing_config#untrusted_artifact_on_deployment LambdaCodeSigningConfig#untrusted_artifact_on_deployment}.'''
         result = self._values.get("untrusted_artifact_on_deployment")
         assert result is not None, "Required property 'untrusted_artifact_on_deployment' is missing"
         return typing.cast(builtins.str, result)

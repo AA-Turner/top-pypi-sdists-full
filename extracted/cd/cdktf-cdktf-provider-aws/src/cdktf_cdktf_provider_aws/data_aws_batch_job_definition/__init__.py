@@ -1,7 +1,7 @@
 r'''
 # `data_aws_batch_job_definition`
 
-Refer to the Terraform Registry for docs: [`data_aws_batch_job_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition).
+Refer to the Terraform Registry for docs: [`data_aws_batch_job_definition`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsBatchJobDefinition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsBatchJobDefinition.DataAwsBatchJobDefinition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition aws_batch_job_definition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition aws_batch_job_definition}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataAwsBatchJobDefinition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition aws_batch_job_definition} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition aws_batch_job_definition} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#arn DataAwsBatchJobDefinition#arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#name DataAwsBatchJobDefinition#name}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#revision DataAwsBatchJobDefinition#revision}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#status DataAwsBatchJobDefinition#status}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#arn DataAwsBatchJobDefinition#arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#name DataAwsBatchJobDefinition#name}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#revision DataAwsBatchJobDefinition#revision}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#status DataAwsBatchJobDefinition#status}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataAwsBatchJobDefinition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsBatchJobDefinition to import.
-        :param import_from_id: The id of the existing DataAwsBatchJobDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsBatchJobDefinition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsBatchJobDefinition to import is found.
         '''
         if __debug__:
@@ -312,10 +312,10 @@ class DataAwsBatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#arn DataAwsBatchJobDefinition#arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#name DataAwsBatchJobDefinition#name}.
-        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#revision DataAwsBatchJobDefinition#revision}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#status DataAwsBatchJobDefinition#status}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#arn DataAwsBatchJobDefinition#arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#name DataAwsBatchJobDefinition#name}.
+        :param revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#revision DataAwsBatchJobDefinition#revision}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#status DataAwsBatchJobDefinition#status}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -422,25 +422,25 @@ class DataAwsBatchJobDefinitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#arn DataAwsBatchJobDefinition#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#arn DataAwsBatchJobDefinition#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#name DataAwsBatchJobDefinition#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#name DataAwsBatchJobDefinition#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def revision(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#revision DataAwsBatchJobDefinition#revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#revision DataAwsBatchJobDefinition#revision}.'''
         result = self._values.get("revision")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/batch_job_definition#status DataAwsBatchJobDefinition#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/batch_job_definition#status DataAwsBatchJobDefinition#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 

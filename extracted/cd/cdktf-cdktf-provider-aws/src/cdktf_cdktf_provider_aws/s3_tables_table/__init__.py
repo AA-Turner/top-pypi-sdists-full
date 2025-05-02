@@ -1,7 +1,7 @@
 r'''
 # `aws_s3tables_table`
 
-Refer to the Terraform Registry for docs: [`aws_s3tables_table`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table).
+Refer to the Terraform Registry for docs: [`aws_s3tables_table`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3TablesTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3TablesTable.S3TablesTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table aws_s3tables_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table aws_s3tables_table}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class S3TablesTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table aws_s3tables_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table aws_s3tables_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#format S3TablesTable#format}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#name S3TablesTable#name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#namespace S3TablesTable#namespace}.
-        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#table_bucket_arn S3TablesTable#table_bucket_arn}.
-        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#maintenance_configuration S3TablesTable#maintenance_configuration}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#format S3TablesTable#format}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#name S3TablesTable#name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#namespace S3TablesTable#namespace}.
+        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#table_bucket_arn S3TablesTable#table_bucket_arn}.
+        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#maintenance_configuration S3TablesTable#maintenance_configuration}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class S3TablesTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3TablesTable to import.
-        :param import_from_id: The id of the existing S3TablesTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3TablesTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3TablesTable to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class S3TablesTable(
         iceberg_snapshot_management: typing.Optional[typing.Union["S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iceberg_compaction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#iceberg_compaction S3TablesTable#iceberg_compaction}.
-        :param iceberg_snapshot_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#iceberg_snapshot_management S3TablesTable#iceberg_snapshot_management}.
+        :param iceberg_compaction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#iceberg_compaction S3TablesTable#iceberg_compaction}.
+        :param iceberg_snapshot_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#iceberg_snapshot_management S3TablesTable#iceberg_snapshot_management}.
         '''
         value = S3TablesTableMaintenanceConfiguration(
             iceberg_compaction=iceberg_compaction,
@@ -337,11 +337,11 @@ class S3TablesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#format S3TablesTable#format}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#name S3TablesTable#name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#namespace S3TablesTable#namespace}.
-        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#table_bucket_arn S3TablesTable#table_bucket_arn}.
-        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#maintenance_configuration S3TablesTable#maintenance_configuration}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#format S3TablesTable#format}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#name S3TablesTable#name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#namespace S3TablesTable#namespace}.
+        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#table_bucket_arn S3TablesTable#table_bucket_arn}.
+        :param maintenance_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#maintenance_configuration S3TablesTable#maintenance_configuration}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -450,28 +450,28 @@ class S3TablesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#format S3TablesTable#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#format S3TablesTable#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#name S3TablesTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#name S3TablesTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#namespace S3TablesTable#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#namespace S3TablesTable#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_bucket_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#table_bucket_arn S3TablesTable#table_bucket_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#table_bucket_arn S3TablesTable#table_bucket_arn}.'''
         result = self._values.get("table_bucket_arn")
         assert result is not None, "Required property 'table_bucket_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -480,7 +480,7 @@ class S3TablesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maintenance_configuration(
         self,
     ) -> typing.Optional["S3TablesTableMaintenanceConfiguration"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#maintenance_configuration S3TablesTable#maintenance_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#maintenance_configuration S3TablesTable#maintenance_configuration}.'''
         result = self._values.get("maintenance_configuration")
         return typing.cast(typing.Optional["S3TablesTableMaintenanceConfiguration"], result)
 
@@ -512,8 +512,8 @@ class S3TablesTableMaintenanceConfiguration:
         iceberg_snapshot_management: typing.Optional[typing.Union["S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iceberg_compaction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#iceberg_compaction S3TablesTable#iceberg_compaction}.
-        :param iceberg_snapshot_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#iceberg_snapshot_management S3TablesTable#iceberg_snapshot_management}.
+        :param iceberg_compaction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#iceberg_compaction S3TablesTable#iceberg_compaction}.
+        :param iceberg_snapshot_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#iceberg_snapshot_management S3TablesTable#iceberg_snapshot_management}.
         '''
         if isinstance(iceberg_compaction, dict):
             iceberg_compaction = S3TablesTableMaintenanceConfigurationIcebergCompaction(**iceberg_compaction)
@@ -533,7 +533,7 @@ class S3TablesTableMaintenanceConfiguration:
     def iceberg_compaction(
         self,
     ) -> typing.Optional["S3TablesTableMaintenanceConfigurationIcebergCompaction"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#iceberg_compaction S3TablesTable#iceberg_compaction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#iceberg_compaction S3TablesTable#iceberg_compaction}.'''
         result = self._values.get("iceberg_compaction")
         return typing.cast(typing.Optional["S3TablesTableMaintenanceConfigurationIcebergCompaction"], result)
 
@@ -541,7 +541,7 @@ class S3TablesTableMaintenanceConfiguration:
     def iceberg_snapshot_management(
         self,
     ) -> typing.Optional["S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#iceberg_snapshot_management S3TablesTable#iceberg_snapshot_management}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#iceberg_snapshot_management S3TablesTable#iceberg_snapshot_management}.'''
         result = self._values.get("iceberg_snapshot_management")
         return typing.cast(typing.Optional["S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement"], result)
 
@@ -570,8 +570,8 @@ class S3TablesTableMaintenanceConfigurationIcebergCompaction:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#status S3TablesTable#status}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#status S3TablesTable#status}.
         '''
         if isinstance(settings, dict):
             settings = S3TablesTableMaintenanceConfigurationIcebergCompactionSettings(**settings)
@@ -589,13 +589,13 @@ class S3TablesTableMaintenanceConfigurationIcebergCompaction:
     def settings(
         self,
     ) -> typing.Optional["S3TablesTableMaintenanceConfigurationIcebergCompactionSettings"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.'''
         result = self._values.get("settings")
         return typing.cast(typing.Optional["S3TablesTableMaintenanceConfigurationIcebergCompactionSettings"], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#status S3TablesTable#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#status S3TablesTable#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -638,7 +638,7 @@ class S3TablesTableMaintenanceConfigurationIcebergCompactionOutputReference(
         target_file_size_mb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#target_file_size_mb S3TablesTable#target_file_size_mb}.
+        :param target_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#target_file_size_mb S3TablesTable#target_file_size_mb}.
         '''
         value = S3TablesTableMaintenanceConfigurationIcebergCompactionSettings(
             target_file_size_mb=target_file_size_mb
@@ -715,7 +715,7 @@ class S3TablesTableMaintenanceConfigurationIcebergCompactionSettings:
         target_file_size_mb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#target_file_size_mb S3TablesTable#target_file_size_mb}.
+        :param target_file_size_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#target_file_size_mb S3TablesTable#target_file_size_mb}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8f9d438291e911dfdc715955f3feecfce4bce9b723235b648d7138774716d68)
@@ -726,7 +726,7 @@ class S3TablesTableMaintenanceConfigurationIcebergCompactionSettings:
 
     @builtins.property
     def target_file_size_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#target_file_size_mb S3TablesTable#target_file_size_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#target_file_size_mb S3TablesTable#target_file_size_mb}.'''
         result = self._values.get("target_file_size_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -814,8 +814,8 @@ class S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#status S3TablesTable#status}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#status S3TablesTable#status}.
         '''
         if isinstance(settings, dict):
             settings = S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementSettings(**settings)
@@ -833,13 +833,13 @@ class S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement:
     def settings(
         self,
     ) -> typing.Optional["S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementSettings"]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.'''
         result = self._values.get("settings")
         return typing.cast(typing.Optional["S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementSettings"], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#status S3TablesTable#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#status S3TablesTable#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -883,8 +883,8 @@ class S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementOutputRefere
         min_snapshots_to_keep: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_snapshot_age_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#max_snapshot_age_hours S3TablesTable#max_snapshot_age_hours}.
-        :param min_snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#min_snapshots_to_keep S3TablesTable#min_snapshots_to_keep}.
+        :param max_snapshot_age_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#max_snapshot_age_hours S3TablesTable#max_snapshot_age_hours}.
+        :param min_snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#min_snapshots_to_keep S3TablesTable#min_snapshots_to_keep}.
         '''
         value = S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementSettings(
             max_snapshot_age_hours=max_snapshot_age_hours,
@@ -966,8 +966,8 @@ class S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementSettings:
         min_snapshots_to_keep: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_snapshot_age_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#max_snapshot_age_hours S3TablesTable#max_snapshot_age_hours}.
-        :param min_snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#min_snapshots_to_keep S3TablesTable#min_snapshots_to_keep}.
+        :param max_snapshot_age_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#max_snapshot_age_hours S3TablesTable#max_snapshot_age_hours}.
+        :param min_snapshots_to_keep: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#min_snapshots_to_keep S3TablesTable#min_snapshots_to_keep}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6bbea8a2debbecbc1626bffee65f48273063b0fdb63855fa233f9efa3ebb16c)
@@ -981,13 +981,13 @@ class S3TablesTableMaintenanceConfigurationIcebergSnapshotManagementSettings:
 
     @builtins.property
     def max_snapshot_age_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#max_snapshot_age_hours S3TablesTable#max_snapshot_age_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#max_snapshot_age_hours S3TablesTable#max_snapshot_age_hours}.'''
         result = self._values.get("max_snapshot_age_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_snapshots_to_keep(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#min_snapshots_to_keep S3TablesTable#min_snapshots_to_keep}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#min_snapshots_to_keep S3TablesTable#min_snapshots_to_keep}.'''
         result = self._values.get("min_snapshots_to_keep")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1111,8 +1111,8 @@ class S3TablesTableMaintenanceConfigurationOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#status S3TablesTable#status}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#status S3TablesTable#status}.
         '''
         value = S3TablesTableMaintenanceConfigurationIcebergCompaction(
             settings=settings, status=status
@@ -1128,8 +1128,8 @@ class S3TablesTableMaintenanceConfigurationOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_table#status S3TablesTable#status}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#settings S3TablesTable#settings}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_table#status S3TablesTable#status}.
         '''
         value = S3TablesTableMaintenanceConfigurationIcebergSnapshotManagement(
             settings=settings, status=status

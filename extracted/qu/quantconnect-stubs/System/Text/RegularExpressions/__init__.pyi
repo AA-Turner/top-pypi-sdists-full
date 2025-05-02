@@ -150,6 +150,9 @@ class GroupCollection(System.Object, System.Collections.Generic.IList[System.Tex
     def values(self) -> typing.Iterable[System.Text.RegularExpressions.Group]:
         ...
 
+    def __contains__(self, key: str) -> bool:
+        ...
+
     @overload
     def __getitem__(self, groupnum: int) -> System.Text.RegularExpressions.Group:
         ...
@@ -159,6 +162,9 @@ class GroupCollection(System.Object, System.Collections.Generic.IList[System.Tex
         ...
 
     def __iter__(self) -> typing.Iterator[System.Text.RegularExpressions.Group]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def contains_key(self, key: str) -> bool:

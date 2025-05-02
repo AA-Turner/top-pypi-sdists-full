@@ -1,7 +1,7 @@
 r'''
 # `aws_route53_cidr_collection`
 
-Refer to the Terraform Registry for docs: [`aws_route53_cidr_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection).
+Refer to the Terraform Registry for docs: [`aws_route53_cidr_collection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Route53CidrCollection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.route53CidrCollection.Route53CidrCollection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection aws_route53_cidr_collection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection aws_route53_cidr_collection}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class Route53CidrCollection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection aws_route53_cidr_collection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection aws_route53_cidr_collection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection#name Route53CidrCollection#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection#name Route53CidrCollection#name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class Route53CidrCollection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Route53CidrCollection to import.
-        :param import_from_id: The id of the existing Route53CidrCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Route53CidrCollection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Route53CidrCollection to import is found.
         '''
         if __debug__:
@@ -195,7 +195,7 @@ class Route53CidrCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection#name Route53CidrCollection#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection#name Route53CidrCollection#name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -293,7 +293,7 @@ class Route53CidrCollectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_collection#name Route53CidrCollection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_collection#name Route53CidrCollection#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)

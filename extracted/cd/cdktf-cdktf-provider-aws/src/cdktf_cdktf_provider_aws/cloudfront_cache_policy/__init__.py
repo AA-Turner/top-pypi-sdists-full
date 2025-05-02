@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudfront_cache_policy`
 
-Refer to the Terraform Registry for docs: [`aws_cloudfront_cache_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy).
+Refer to the Terraform Registry for docs: [`aws_cloudfront_cache_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudfrontCachePolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudfrontCachePolicy.CloudfrontCachePolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy aws_cloudfront_cache_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy aws_cloudfront_cache_policy}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class CloudfrontCachePolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy aws_cloudfront_cache_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy aws_cloudfront_cache_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#name CloudfrontCachePolicy#name}.
-        :param parameters_in_cache_key_and_forwarded_to_origin: parameters_in_cache_key_and_forwarded_to_origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#parameters_in_cache_key_and_forwarded_to_origin CloudfrontCachePolicy#parameters_in_cache_key_and_forwarded_to_origin}
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#comment CloudfrontCachePolicy#comment}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#default_ttl CloudfrontCachePolicy#default_ttl}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#id CloudfrontCachePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#max_ttl CloudfrontCachePolicy#max_ttl}.
-        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#min_ttl CloudfrontCachePolicy#min_ttl}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#name CloudfrontCachePolicy#name}.
+        :param parameters_in_cache_key_and_forwarded_to_origin: parameters_in_cache_key_and_forwarded_to_origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#parameters_in_cache_key_and_forwarded_to_origin CloudfrontCachePolicy#parameters_in_cache_key_and_forwarded_to_origin}
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#comment CloudfrontCachePolicy#comment}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#default_ttl CloudfrontCachePolicy#default_ttl}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#id CloudfrontCachePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#max_ttl CloudfrontCachePolicy#max_ttl}.
+        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#min_ttl CloudfrontCachePolicy#min_ttl}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class CloudfrontCachePolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudfrontCachePolicy to import.
-        :param import_from_id: The id of the existing CloudfrontCachePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudfrontCachePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudfrontCachePolicy to import is found.
         '''
         if __debug__:
@@ -143,11 +143,11 @@ class CloudfrontCachePolicy(
         enable_accept_encoding_gzip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookies_config CloudfrontCachePolicy#cookies_config}
-        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#headers_config CloudfrontCachePolicy#headers_config}
-        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_strings_config CloudfrontCachePolicy#query_strings_config}
-        :param enable_accept_encoding_brotli: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_brotli CloudfrontCachePolicy#enable_accept_encoding_brotli}.
-        :param enable_accept_encoding_gzip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_gzip CloudfrontCachePolicy#enable_accept_encoding_gzip}.
+        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookies_config CloudfrontCachePolicy#cookies_config}
+        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#headers_config CloudfrontCachePolicy#headers_config}
+        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_strings_config CloudfrontCachePolicy#query_strings_config}
+        :param enable_accept_encoding_brotli: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_brotli CloudfrontCachePolicy#enable_accept_encoding_brotli}.
+        :param enable_accept_encoding_gzip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_gzip CloudfrontCachePolicy#enable_accept_encoding_gzip}.
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin(
             cookies_config=cookies_config,
@@ -366,13 +366,13 @@ class CloudfrontCachePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#name CloudfrontCachePolicy#name}.
-        :param parameters_in_cache_key_and_forwarded_to_origin: parameters_in_cache_key_and_forwarded_to_origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#parameters_in_cache_key_and_forwarded_to_origin CloudfrontCachePolicy#parameters_in_cache_key_and_forwarded_to_origin}
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#comment CloudfrontCachePolicy#comment}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#default_ttl CloudfrontCachePolicy#default_ttl}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#id CloudfrontCachePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#max_ttl CloudfrontCachePolicy#max_ttl}.
-        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#min_ttl CloudfrontCachePolicy#min_ttl}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#name CloudfrontCachePolicy#name}.
+        :param parameters_in_cache_key_and_forwarded_to_origin: parameters_in_cache_key_and_forwarded_to_origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#parameters_in_cache_key_and_forwarded_to_origin CloudfrontCachePolicy#parameters_in_cache_key_and_forwarded_to_origin}
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#comment CloudfrontCachePolicy#comment}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#default_ttl CloudfrontCachePolicy#default_ttl}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#id CloudfrontCachePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#max_ttl CloudfrontCachePolicy#max_ttl}.
+        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#min_ttl CloudfrontCachePolicy#min_ttl}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -489,7 +489,7 @@ class CloudfrontCachePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#name CloudfrontCachePolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#name CloudfrontCachePolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -500,7 +500,7 @@ class CloudfrontCachePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin":
         '''parameters_in_cache_key_and_forwarded_to_origin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#parameters_in_cache_key_and_forwarded_to_origin CloudfrontCachePolicy#parameters_in_cache_key_and_forwarded_to_origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#parameters_in_cache_key_and_forwarded_to_origin CloudfrontCachePolicy#parameters_in_cache_key_and_forwarded_to_origin}
         '''
         result = self._values.get("parameters_in_cache_key_and_forwarded_to_origin")
         assert result is not None, "Required property 'parameters_in_cache_key_and_forwarded_to_origin' is missing"
@@ -508,19 +508,19 @@ class CloudfrontCachePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#comment CloudfrontCachePolicy#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#comment CloudfrontCachePolicy#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#default_ttl CloudfrontCachePolicy#default_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#default_ttl CloudfrontCachePolicy#default_ttl}.'''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#id CloudfrontCachePolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#id CloudfrontCachePolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -530,13 +530,13 @@ class CloudfrontCachePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#max_ttl CloudfrontCachePolicy#max_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#max_ttl CloudfrontCachePolicy#max_ttl}.'''
         result = self._values.get("max_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#min_ttl CloudfrontCachePolicy#min_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#min_ttl CloudfrontCachePolicy#min_ttl}.'''
         result = self._values.get("min_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -574,11 +574,11 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin:
         enable_accept_encoding_gzip: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookies_config CloudfrontCachePolicy#cookies_config}
-        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#headers_config CloudfrontCachePolicy#headers_config}
-        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_strings_config CloudfrontCachePolicy#query_strings_config}
-        :param enable_accept_encoding_brotli: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_brotli CloudfrontCachePolicy#enable_accept_encoding_brotli}.
-        :param enable_accept_encoding_gzip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_gzip CloudfrontCachePolicy#enable_accept_encoding_gzip}.
+        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookies_config CloudfrontCachePolicy#cookies_config}
+        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#headers_config CloudfrontCachePolicy#headers_config}
+        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_strings_config CloudfrontCachePolicy#query_strings_config}
+        :param enable_accept_encoding_brotli: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_brotli CloudfrontCachePolicy#enable_accept_encoding_brotli}.
+        :param enable_accept_encoding_gzip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_gzip CloudfrontCachePolicy#enable_accept_encoding_gzip}.
         '''
         if isinstance(cookies_config, dict):
             cookies_config = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig(**cookies_config)
@@ -609,7 +609,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin:
     ) -> "CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig":
         '''cookies_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookies_config CloudfrontCachePolicy#cookies_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookies_config CloudfrontCachePolicy#cookies_config}
         '''
         result = self._values.get("cookies_config")
         assert result is not None, "Required property 'cookies_config' is missing"
@@ -621,7 +621,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin:
     ) -> "CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig":
         '''headers_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#headers_config CloudfrontCachePolicy#headers_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#headers_config CloudfrontCachePolicy#headers_config}
         '''
         result = self._values.get("headers_config")
         assert result is not None, "Required property 'headers_config' is missing"
@@ -633,7 +633,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin:
     ) -> "CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfig":
         '''query_strings_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_strings_config CloudfrontCachePolicy#query_strings_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_strings_config CloudfrontCachePolicy#query_strings_config}
         '''
         result = self._values.get("query_strings_config")
         assert result is not None, "Required property 'query_strings_config' is missing"
@@ -643,7 +643,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin:
     def enable_accept_encoding_brotli(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_brotli CloudfrontCachePolicy#enable_accept_encoding_brotli}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_brotli CloudfrontCachePolicy#enable_accept_encoding_brotli}.'''
         result = self._values.get("enable_accept_encoding_brotli")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -651,7 +651,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOrigin:
     def enable_accept_encoding_gzip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_gzip CloudfrontCachePolicy#enable_accept_encoding_gzip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#enable_accept_encoding_gzip CloudfrontCachePolicy#enable_accept_encoding_gzip}.'''
         result = self._values.get("enable_accept_encoding_gzip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -680,8 +680,8 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig
         cookies: typing.Optional[typing.Union["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfigCookies", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookie_behavior CloudfrontCachePolicy#cookie_behavior}.
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookies CloudfrontCachePolicy#cookies}
+        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookie_behavior CloudfrontCachePolicy#cookie_behavior}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookies CloudfrontCachePolicy#cookies}
         '''
         if isinstance(cookies, dict):
             cookies = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfigCookies(**cookies)
@@ -697,7 +697,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig
 
     @builtins.property
     def cookie_behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookie_behavior CloudfrontCachePolicy#cookie_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookie_behavior CloudfrontCachePolicy#cookie_behavior}.'''
         result = self._values.get("cookie_behavior")
         assert result is not None, "Required property 'cookie_behavior' is missing"
         return typing.cast(builtins.str, result)
@@ -708,7 +708,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig
     ) -> typing.Optional["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfigCookies"]:
         '''cookies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookies CloudfrontCachePolicy#cookies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookies CloudfrontCachePolicy#cookies}
         '''
         result = self._values.get("cookies")
         return typing.cast(typing.Optional["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfigCookies"], result)
@@ -737,7 +737,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a7563ee3aff291fddfcd3997740dd886afa8f183f905d88f802aef4a2409e50)
@@ -748,7 +748,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig
 
     @builtins.property
     def items(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.'''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -850,7 +850,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfigCookies(
             items=items
@@ -924,8 +924,8 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig
         headers: typing.Optional[typing.Union["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfigHeaders", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#header_behavior CloudfrontCachePolicy#header_behavior}.
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#headers CloudfrontCachePolicy#headers}
+        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#header_behavior CloudfrontCachePolicy#header_behavior}.
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#headers CloudfrontCachePolicy#headers}
         '''
         if isinstance(headers, dict):
             headers = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfigHeaders(**headers)
@@ -941,7 +941,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig
 
     @builtins.property
     def header_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#header_behavior CloudfrontCachePolicy#header_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#header_behavior CloudfrontCachePolicy#header_behavior}.'''
         result = self._values.get("header_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -951,7 +951,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig
     ) -> typing.Optional["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfigHeaders"]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#headers CloudfrontCachePolicy#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#headers CloudfrontCachePolicy#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfigHeaders"], result)
@@ -980,7 +980,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85ae30b0ea994a8c902190deb039331198e078e468b7f34f098c866e8fefeee5)
@@ -991,7 +991,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig
 
     @builtins.property
     def items(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.'''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1093,7 +1093,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfigHeaders(
             items=items
@@ -1186,8 +1186,8 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginOutputReferen
         cookies: typing.Optional[typing.Union[CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfigCookies, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookie_behavior CloudfrontCachePolicy#cookie_behavior}.
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#cookies CloudfrontCachePolicy#cookies}
+        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookie_behavior CloudfrontCachePolicy#cookie_behavior}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#cookies CloudfrontCachePolicy#cookies}
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginCookiesConfig(
             cookie_behavior=cookie_behavior, cookies=cookies
@@ -1203,8 +1203,8 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginOutputReferen
         headers: typing.Optional[typing.Union[CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfigHeaders, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#header_behavior CloudfrontCachePolicy#header_behavior}.
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#headers CloudfrontCachePolicy#headers}
+        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#header_behavior CloudfrontCachePolicy#header_behavior}.
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#headers CloudfrontCachePolicy#headers}
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginHeadersConfig(
             header_behavior=header_behavior, headers=headers
@@ -1220,8 +1220,8 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginOutputReferen
         query_strings: typing.Optional[typing.Union["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfigQueryStrings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_string_behavior CloudfrontCachePolicy#query_string_behavior}.
-        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_strings CloudfrontCachePolicy#query_strings}
+        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_string_behavior CloudfrontCachePolicy#query_string_behavior}.
+        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_strings CloudfrontCachePolicy#query_strings}
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfig(
             query_string_behavior=query_string_behavior, query_strings=query_strings
@@ -1361,8 +1361,8 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsC
         query_strings: typing.Optional[typing.Union["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfigQueryStrings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_string_behavior CloudfrontCachePolicy#query_string_behavior}.
-        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_strings CloudfrontCachePolicy#query_strings}
+        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_string_behavior CloudfrontCachePolicy#query_string_behavior}.
+        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_strings CloudfrontCachePolicy#query_strings}
         '''
         if isinstance(query_strings, dict):
             query_strings = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfigQueryStrings(**query_strings)
@@ -1378,7 +1378,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsC
 
     @builtins.property
     def query_string_behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_string_behavior CloudfrontCachePolicy#query_string_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_string_behavior CloudfrontCachePolicy#query_string_behavior}.'''
         result = self._values.get("query_string_behavior")
         assert result is not None, "Required property 'query_string_behavior' is missing"
         return typing.cast(builtins.str, result)
@@ -1389,7 +1389,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsC
     ) -> typing.Optional["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfigQueryStrings"]:
         '''query_strings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#query_strings CloudfrontCachePolicy#query_strings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#query_strings CloudfrontCachePolicy#query_strings}
         '''
         result = self._values.get("query_strings")
         return typing.cast(typing.Optional["CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfigQueryStrings"], result)
@@ -1433,7 +1433,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsC
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
         '''
         value = CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsConfigQueryStrings(
             items=items
@@ -1506,7 +1506,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsC
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d96ffaa94f73bb59fc38e3d7c5b61366a686c23f19579a2b2a8aca0ef110c900)
@@ -1517,7 +1517,7 @@ class CloudfrontCachePolicyParametersInCacheKeyAndForwardedToOriginQueryStringsC
 
     @builtins.property
     def items(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_cache_policy#items CloudfrontCachePolicy#items}.'''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

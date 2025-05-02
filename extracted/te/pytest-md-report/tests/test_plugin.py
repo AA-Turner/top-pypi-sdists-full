@@ -54,6 +54,15 @@ PYFILE_MIX_TESTS = dedent(
         assert True
     """
 )
+PYFILE_PARAMETIZED_TESTS = dedent(
+    """\
+    import pytest
+
+    @pytest.mark.parametrize("param", [1, 2, 3])
+    def test_param(param):
+        assert param == 1
+    """
+)
 
 
 def print_test_result(expected, actual, error=None):
@@ -164,6 +173,39 @@ def test_pytest_md_report_output(testdir):
     assert out == expected
     with open(output_filepath) as f:
         assert f.read().strip() == expected
+
+
+def test_pytest_md_report_verbose(testdir):
+    testdir.makepyfile(PYFILE_PARAMETIZED_TESTS)
+    expected = dedent(
+        """\
+        |             filepath             |  function  | passed | failed | SUBTOTAL |
+        | -------------------------------- | ---------- | -----: | -----: | -------: |
+        | test_pytest_md_report_verbose.py | test_param |      1 |      2 |        3 |
+        | TOTAL                            |            |      1 |      2 |        3 |"""
+    )
+    result = testdir.runpytest(
+        "--md-report", "--md-report-color", "never", "--md-report-verbose", "1"
+    )
+    out = "\n".join(result.outlines[-4:])
+    print_test_result(expected=expected, actual=out)
+    assert out == expected
+
+    expected = dedent(
+        """\
+        |             filepath             |  function  | params | passed | failed | SUBTOTAL |
+        | -------------------------------- | ---------- | -----: | -----: | -----: | -------: |
+        | test_pytest_md_report_verbose.py | test_param |      1 |      1 |      0 |        1 |
+        | test_pytest_md_report_verbose.py | test_param |      2 |      0 |      1 |        1 |
+        | test_pytest_md_report_verbose.py | test_param |      3 |      0 |      1 |        1 |
+        | TOTAL                            |            |        |      1 |      2 |        3 |"""
+    )
+    result = testdir.runpytest(
+        "--md-report", "--md-report-color", "never", "--md-report-verbose", "2"
+    )
+    out = "\n".join(result.outlines[-6:])
+    print_test_result(expected=expected, actual=out)
+    assert out == expected
 
 
 def test_pytest_md_report_margin(testdir):

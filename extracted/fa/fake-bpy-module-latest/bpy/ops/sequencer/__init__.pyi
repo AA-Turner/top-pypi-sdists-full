@@ -583,15 +583,15 @@ def fades_add(
     Fade Out -- Fade out selected strips.
 
     CURSOR_FROM
-    From Current Frame -- Fade from the time cursor to the end of overlapping sequences.
+    From Current Frame -- Fade from the time cursor to the end of overlapping strips.
 
     CURSOR_TO
-    To Current Frame -- Fade from the start of sequences under the time cursor to the current frame.
+    To Current Frame -- Fade from the start of strips under the time cursor to the current frame.
         :type type: typing.Literal['IN_OUT','IN','OUT','CURSOR_FROM','CURSOR_TO'] | None
     """
 
 def fades_clear(execution_context: int | str | None = None, undo: bool | None = None):
-    """Removes fade animation from selected sequences
+    """Removes fade animation from selected strips
 
     :type execution_context: int | str | None
     :type undo: bool | None
@@ -1181,7 +1181,7 @@ def rename_channel(
     """
 
 def rendersize(execution_context: int | str | None = None, undo: bool | None = None):
-    """Set render size and aspect from active sequence
+    """Set render size and aspect from active strip
 
     :type execution_context: int | str | None
     :type undo: bool | None

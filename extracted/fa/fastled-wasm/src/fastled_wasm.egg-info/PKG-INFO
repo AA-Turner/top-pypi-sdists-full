@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: fastled-wasm
+Version: 1.0.16
+Summary: FastLED Wasm Compiler
+Home-page: https://github.com/zackees/fastled-wasm
+Maintainer: Zachary Vorhies
+License: BSD 3-Clause License
+Keywords: template-python-cmd
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: docker
+Requires-Dist: keyring
+Requires-Dist: httpx
+Requires-Dist: keyrings.alt; platform_system == "Linux"
+Requires-Dist: watchdog
+Requires-Dist: livereload
+Requires-Dist: download
+
+# fastled-wasm is now fled
+
+Please migrate using `pip install fled`

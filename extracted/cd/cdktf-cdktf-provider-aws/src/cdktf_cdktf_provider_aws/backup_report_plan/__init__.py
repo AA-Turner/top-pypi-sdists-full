@@ -1,7 +1,7 @@
 r'''
 # `aws_backup_report_plan`
 
-Refer to the Terraform Registry for docs: [`aws_backup_report_plan`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan).
+Refer to the Terraform Registry for docs: [`aws_backup_report_plan`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BackupReportPlan(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.backupReportPlan.BackupReportPlan",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan aws_backup_report_plan}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan aws_backup_report_plan}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class BackupReportPlan(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan aws_backup_report_plan} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan aws_backup_report_plan} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#name BackupReportPlan#name}.
-        :param report_delivery_channel: report_delivery_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_delivery_channel BackupReportPlan#report_delivery_channel}
-        :param report_setting: report_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_setting BackupReportPlan#report_setting}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#description BackupReportPlan#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#id BackupReportPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#tags BackupReportPlan#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#tags_all BackupReportPlan#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#name BackupReportPlan#name}.
+        :param report_delivery_channel: report_delivery_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_delivery_channel BackupReportPlan#report_delivery_channel}
+        :param report_setting: report_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_setting BackupReportPlan#report_setting}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#description BackupReportPlan#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#id BackupReportPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#tags BackupReportPlan#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#tags_all BackupReportPlan#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class BackupReportPlan(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BackupReportPlan to import.
-        :param import_from_id: The id of the existing BackupReportPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BackupReportPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BackupReportPlan to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class BackupReportPlan(
         s3_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#s3_bucket_name BackupReportPlan#s3_bucket_name}.
-        :param formats: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#formats BackupReportPlan#formats}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#s3_key_prefix BackupReportPlan#s3_key_prefix}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#s3_bucket_name BackupReportPlan#s3_bucket_name}.
+        :param formats: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#formats BackupReportPlan#formats}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#s3_key_prefix BackupReportPlan#s3_key_prefix}.
         '''
         value = BackupReportPlanReportDeliveryChannel(
             s3_bucket_name=s3_bucket_name, formats=formats, s3_key_prefix=s3_key_prefix
@@ -163,12 +163,12 @@ class BackupReportPlan(
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param report_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_template BackupReportPlan#report_template}.
-        :param accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#accounts BackupReportPlan#accounts}.
-        :param framework_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#framework_arns BackupReportPlan#framework_arns}.
-        :param number_of_frameworks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#number_of_frameworks BackupReportPlan#number_of_frameworks}.
-        :param organization_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#organization_units BackupReportPlan#organization_units}.
-        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#regions BackupReportPlan#regions}.
+        :param report_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_template BackupReportPlan#report_template}.
+        :param accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#accounts BackupReportPlan#accounts}.
+        :param framework_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#framework_arns BackupReportPlan#framework_arns}.
+        :param number_of_frameworks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#number_of_frameworks BackupReportPlan#number_of_frameworks}.
+        :param organization_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#organization_units BackupReportPlan#organization_units}.
+        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#regions BackupReportPlan#regions}.
         '''
         value = BackupReportPlanReportSetting(
             report_template=report_template,
@@ -384,13 +384,13 @@ class BackupReportPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#name BackupReportPlan#name}.
-        :param report_delivery_channel: report_delivery_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_delivery_channel BackupReportPlan#report_delivery_channel}
-        :param report_setting: report_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_setting BackupReportPlan#report_setting}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#description BackupReportPlan#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#id BackupReportPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#tags BackupReportPlan#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#tags_all BackupReportPlan#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#name BackupReportPlan#name}.
+        :param report_delivery_channel: report_delivery_channel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_delivery_channel BackupReportPlan#report_delivery_channel}
+        :param report_setting: report_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_setting BackupReportPlan#report_setting}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#description BackupReportPlan#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#id BackupReportPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#tags BackupReportPlan#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#tags_all BackupReportPlan#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -508,7 +508,7 @@ class BackupReportPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#name BackupReportPlan#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#name BackupReportPlan#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -517,7 +517,7 @@ class BackupReportPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def report_delivery_channel(self) -> "BackupReportPlanReportDeliveryChannel":
         '''report_delivery_channel block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_delivery_channel BackupReportPlan#report_delivery_channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_delivery_channel BackupReportPlan#report_delivery_channel}
         '''
         result = self._values.get("report_delivery_channel")
         assert result is not None, "Required property 'report_delivery_channel' is missing"
@@ -527,7 +527,7 @@ class BackupReportPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def report_setting(self) -> "BackupReportPlanReportSetting":
         '''report_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_setting BackupReportPlan#report_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_setting BackupReportPlan#report_setting}
         '''
         result = self._values.get("report_setting")
         assert result is not None, "Required property 'report_setting' is missing"
@@ -535,13 +535,13 @@ class BackupReportPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#description BackupReportPlan#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#description BackupReportPlan#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#id BackupReportPlan#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#id BackupReportPlan#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -551,13 +551,13 @@ class BackupReportPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#tags BackupReportPlan#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#tags BackupReportPlan#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#tags_all BackupReportPlan#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#tags_all BackupReportPlan#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -591,9 +591,9 @@ class BackupReportPlanReportDeliveryChannel:
         s3_key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#s3_bucket_name BackupReportPlan#s3_bucket_name}.
-        :param formats: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#formats BackupReportPlan#formats}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#s3_key_prefix BackupReportPlan#s3_key_prefix}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#s3_bucket_name BackupReportPlan#s3_bucket_name}.
+        :param formats: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#formats BackupReportPlan#formats}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#s3_key_prefix BackupReportPlan#s3_key_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef4fadfac7b49f84f11fe4b928682636f3ab405c246ce553e5538d7c07a16bfa)
@@ -610,20 +610,20 @@ class BackupReportPlanReportDeliveryChannel:
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#s3_bucket_name BackupReportPlan#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#s3_bucket_name BackupReportPlan#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def formats(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#formats BackupReportPlan#formats}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#formats BackupReportPlan#formats}.'''
         result = self._values.get("formats")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#s3_key_prefix BackupReportPlan#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#s3_key_prefix BackupReportPlan#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -758,12 +758,12 @@ class BackupReportPlanReportSetting:
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param report_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_template BackupReportPlan#report_template}.
-        :param accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#accounts BackupReportPlan#accounts}.
-        :param framework_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#framework_arns BackupReportPlan#framework_arns}.
-        :param number_of_frameworks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#number_of_frameworks BackupReportPlan#number_of_frameworks}.
-        :param organization_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#organization_units BackupReportPlan#organization_units}.
-        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#regions BackupReportPlan#regions}.
+        :param report_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_template BackupReportPlan#report_template}.
+        :param accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#accounts BackupReportPlan#accounts}.
+        :param framework_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#framework_arns BackupReportPlan#framework_arns}.
+        :param number_of_frameworks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#number_of_frameworks BackupReportPlan#number_of_frameworks}.
+        :param organization_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#organization_units BackupReportPlan#organization_units}.
+        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#regions BackupReportPlan#regions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05bf10e5acc006aa4c4f4af642955f07fe7f8224805d5440a501926f08f69f7c)
@@ -789,38 +789,38 @@ class BackupReportPlanReportSetting:
 
     @builtins.property
     def report_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#report_template BackupReportPlan#report_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#report_template BackupReportPlan#report_template}.'''
         result = self._values.get("report_template")
         assert result is not None, "Required property 'report_template' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def accounts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#accounts BackupReportPlan#accounts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#accounts BackupReportPlan#accounts}.'''
         result = self._values.get("accounts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def framework_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#framework_arns BackupReportPlan#framework_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#framework_arns BackupReportPlan#framework_arns}.'''
         result = self._values.get("framework_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def number_of_frameworks(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#number_of_frameworks BackupReportPlan#number_of_frameworks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#number_of_frameworks BackupReportPlan#number_of_frameworks}.'''
         result = self._values.get("number_of_frameworks")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def organization_units(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#organization_units BackupReportPlan#organization_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#organization_units BackupReportPlan#organization_units}.'''
         result = self._values.get("organization_units")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/backup_report_plan#regions BackupReportPlan#regions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/backup_report_plan#regions BackupReportPlan#regions}.'''
         result = self._values.get("regions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

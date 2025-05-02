@@ -1,7 +1,7 @@
 r'''
 # `aws_ecr_repository`
 
-Refer to the Terraform Registry for docs: [`aws_ecr_repository`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository).
+Refer to the Terraform Registry for docs: [`aws_ecr_repository`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcrRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecrRepository.EcrRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository aws_ecr_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository aws_ecr_repository}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class EcrRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository aws_ecr_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository aws_ecr_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#name EcrRepository#name}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#encryption_configuration EcrRepository#encryption_configuration}
-        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#force_delete EcrRepository#force_delete}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#id EcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_scanning_configuration: image_scanning_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#image_scanning_configuration EcrRepository#image_scanning_configuration}
-        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#image_tag_mutability EcrRepository#image_tag_mutability}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#tags EcrRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#tags_all EcrRepository#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#timeouts EcrRepository#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#name EcrRepository#name}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#encryption_configuration EcrRepository#encryption_configuration}
+        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#force_delete EcrRepository#force_delete}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#id EcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_scanning_configuration: image_scanning_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#image_scanning_configuration EcrRepository#image_scanning_configuration}
+        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#image_tag_mutability EcrRepository#image_tag_mutability}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#tags EcrRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#tags_all EcrRepository#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#timeouts EcrRepository#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class EcrRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcrRepository to import.
-        :param import_from_id: The id of the existing EcrRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcrRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcrRepository to import is found.
         '''
         if __debug__:
@@ -158,7 +158,7 @@ class EcrRepository(
         scan_on_push: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param scan_on_push: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#scan_on_push EcrRepository#scan_on_push}.
+        :param scan_on_push: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#scan_on_push EcrRepository#scan_on_push}.
         '''
         value = EcrRepositoryImageScanningConfiguration(scan_on_push=scan_on_push)
 
@@ -167,7 +167,7 @@ class EcrRepository(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#delete EcrRepository#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#delete EcrRepository#delete}.
         '''
         value = EcrRepositoryTimeouts(delete=delete)
 
@@ -432,15 +432,15 @@ class EcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#name EcrRepository#name}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#encryption_configuration EcrRepository#encryption_configuration}
-        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#force_delete EcrRepository#force_delete}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#id EcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_scanning_configuration: image_scanning_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#image_scanning_configuration EcrRepository#image_scanning_configuration}
-        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#image_tag_mutability EcrRepository#image_tag_mutability}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#tags EcrRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#tags_all EcrRepository#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#timeouts EcrRepository#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#name EcrRepository#name}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#encryption_configuration EcrRepository#encryption_configuration}
+        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#force_delete EcrRepository#force_delete}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#id EcrRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_scanning_configuration: image_scanning_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#image_scanning_configuration EcrRepository#image_scanning_configuration}
+        :param image_tag_mutability: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#image_tag_mutability EcrRepository#image_tag_mutability}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#tags EcrRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#tags_all EcrRepository#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#timeouts EcrRepository#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -566,7 +566,7 @@ class EcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#name EcrRepository#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#name EcrRepository#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -577,7 +577,7 @@ class EcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryEncryptionConfiguration"]]]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#encryption_configuration EcrRepository#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#encryption_configuration EcrRepository#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcrRepositoryEncryptionConfiguration"]]], result)
@@ -586,13 +586,13 @@ class EcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_delete(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#force_delete EcrRepository#force_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#force_delete EcrRepository#force_delete}.'''
         result = self._values.get("force_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#id EcrRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#id EcrRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -606,26 +606,26 @@ class EcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcrRepositoryImageScanningConfiguration"]:
         '''image_scanning_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#image_scanning_configuration EcrRepository#image_scanning_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#image_scanning_configuration EcrRepository#image_scanning_configuration}
         '''
         result = self._values.get("image_scanning_configuration")
         return typing.cast(typing.Optional["EcrRepositoryImageScanningConfiguration"], result)
 
     @builtins.property
     def image_tag_mutability(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#image_tag_mutability EcrRepository#image_tag_mutability}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#image_tag_mutability EcrRepository#image_tag_mutability}.'''
         result = self._values.get("image_tag_mutability")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#tags EcrRepository#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#tags EcrRepository#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#tags_all EcrRepository#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#tags_all EcrRepository#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -633,7 +633,7 @@ class EcrRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EcrRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#timeouts EcrRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#timeouts EcrRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EcrRepositoryTimeouts"], result)
@@ -663,8 +663,8 @@ class EcrRepositoryEncryptionConfiguration:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#encryption_type EcrRepository#encryption_type}.
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#kms_key EcrRepository#kms_key}.
+        :param encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#encryption_type EcrRepository#encryption_type}.
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#kms_key EcrRepository#kms_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db34d81b45203ec53a378f832fe8385ba0a14bc5f449f51b588d0140ab74dbd8)
@@ -678,13 +678,13 @@ class EcrRepositoryEncryptionConfiguration:
 
     @builtins.property
     def encryption_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#encryption_type EcrRepository#encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#encryption_type EcrRepository#encryption_type}.'''
         result = self._values.get("encryption_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#kms_key EcrRepository#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#kms_key EcrRepository#kms_key}.'''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -891,7 +891,7 @@ class EcrRepositoryImageScanningConfiguration:
         scan_on_push: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param scan_on_push: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#scan_on_push EcrRepository#scan_on_push}.
+        :param scan_on_push: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#scan_on_push EcrRepository#scan_on_push}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acb452b6ff462ef1b2c73013358b523a8930417432a805fd2982224ff5a37431)
@@ -902,7 +902,7 @@ class EcrRepositoryImageScanningConfiguration:
 
     @builtins.property
     def scan_on_push(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#scan_on_push EcrRepository#scan_on_push}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#scan_on_push EcrRepository#scan_on_push}.'''
         result = self._values.get("scan_on_push")
         assert result is not None, "Required property 'scan_on_push' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -987,7 +987,7 @@ class EcrRepositoryImageScanningConfigurationOutputReference(
 class EcrRepositoryTimeouts:
     def __init__(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#delete EcrRepository#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#delete EcrRepository#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b181505d0f321d06f4f70515585b95340707613009f2756afc8eefc2d49993e7)
@@ -998,7 +998,7 @@ class EcrRepositoryTimeouts:
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ecr_repository#delete EcrRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ecr_repository#delete EcrRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

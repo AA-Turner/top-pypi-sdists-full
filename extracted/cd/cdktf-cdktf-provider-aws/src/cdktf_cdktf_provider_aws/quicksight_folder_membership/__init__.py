@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_folder_membership`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_folder_membership`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership).
+Refer to the Terraform Registry for docs: [`aws_quicksight_folder_membership`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightFolderMembership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightFolderMembership.QuicksightFolderMembership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership aws_quicksight_folder_membership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership aws_quicksight_folder_membership}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class QuicksightFolderMembership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership aws_quicksight_folder_membership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership aws_quicksight_folder_membership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param folder_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#folder_id QuicksightFolderMembership#folder_id}.
-        :param member_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#member_id QuicksightFolderMembership#member_id}.
-        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#member_type QuicksightFolderMembership#member_type}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#aws_account_id QuicksightFolderMembership#aws_account_id}.
+        :param folder_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#folder_id QuicksightFolderMembership#folder_id}.
+        :param member_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#member_id QuicksightFolderMembership#member_id}.
+        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#member_type QuicksightFolderMembership#member_type}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#aws_account_id QuicksightFolderMembership#aws_account_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class QuicksightFolderMembership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightFolderMembership to import.
-        :param import_from_id: The id of the existing QuicksightFolderMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightFolderMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightFolderMembership to import is found.
         '''
         if __debug__:
@@ -255,10 +255,10 @@ class QuicksightFolderMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param folder_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#folder_id QuicksightFolderMembership#folder_id}.
-        :param member_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#member_id QuicksightFolderMembership#member_id}.
-        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#member_type QuicksightFolderMembership#member_type}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#aws_account_id QuicksightFolderMembership#aws_account_id}.
+        :param folder_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#folder_id QuicksightFolderMembership#folder_id}.
+        :param member_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#member_id QuicksightFolderMembership#member_id}.
+        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#member_type QuicksightFolderMembership#member_type}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#aws_account_id QuicksightFolderMembership#aws_account_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -363,28 +363,28 @@ class QuicksightFolderMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def folder_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#folder_id QuicksightFolderMembership#folder_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#folder_id QuicksightFolderMembership#folder_id}.'''
         result = self._values.get("folder_id")
         assert result is not None, "Required property 'folder_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def member_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#member_id QuicksightFolderMembership#member_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#member_id QuicksightFolderMembership#member_id}.'''
         result = self._values.get("member_id")
         assert result is not None, "Required property 'member_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def member_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#member_type QuicksightFolderMembership#member_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#member_type QuicksightFolderMembership#member_type}.'''
         result = self._values.get("member_type")
         assert result is not None, "Required property 'member_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_folder_membership#aws_account_id QuicksightFolderMembership#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_folder_membership#aws_account_id QuicksightFolderMembership#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

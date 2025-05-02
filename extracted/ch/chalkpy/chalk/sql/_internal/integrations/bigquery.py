@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, cast
 from uuid import uuid4
 
+import google
 import pyarrow as pa
 
 from chalk.clogging import chalk_logger
@@ -21,39 +22,13 @@ from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
+    import google.cloud.bigquery
     import sqlalchemy
     from google.cloud.bigquery import ScalarQueryParameterType
     from sqlalchemy.engine import Connection
     from sqlalchemy.engine.url import URL
     from sqlalchemy.sql.ddl import CreateTable, DropTable
 
-# Used by monkeypatched BQ table download function.
-# If this variable fails to be resolved (remains as None)
-# then we will not monkeypatch the function.
-_is_read_session_optional = None
-try:
-    import google.cloud.bigquery
-except ModuleNotFoundError:
-    # the user did not specify that they want to use the bigquery module
-    pass
-else:
-    try:
-        from google.cloud.bigquery._versions_helpers import BQ_STORAGE_VERSIONS
-
-        _is_read_session_optional = BQ_STORAGE_VERSIONS.is_read_session_optional
-    except:
-        try:
-            # If customer's requirements.txt pins to some older version of bigquery
-            from google.cloud.bigquery._helpers import (
-                BQ_STORAGE_VERSIONS,  # pyright: ignore[reportAttributeAccessIssue]
-            )
-
-            _is_read_session_optional = BQ_STORAGE_VERSIONS.is_read_session_optional
-        except:
-            # Failed to resolve the _is_read_session_optional variable.
-            # We will evaluate the variable below and not monkeypatch
-            # the BQ table download function.
-            pass
 
 try:
     import sqlalchemy as sa
@@ -101,6 +76,38 @@ using to monkeypatch the deadlocking BQ table download function for detailed exp
 _logger = get_logger(__name__)
 
 
+@functools.lru_cache(maxsize=None)
+def _determine_is_read_session_optional():
+    # Used by monkeypatched BQ table download function.
+    # If this variable fails to be resolved (remains as None)
+    # then we will not monkeypatch the function.
+    _is_read_session_optional = None
+    try:
+        import google.cloud.bigquery  # pyright: ignore[reportUnusedImport]
+    except ModuleNotFoundError:
+        # the user did not specify that they want to use the bigquery module
+        pass
+    else:
+        try:
+            from google.cloud.bigquery._versions_helpers import BQ_STORAGE_VERSIONS
+
+            _is_read_session_optional = BQ_STORAGE_VERSIONS.is_read_session_optional
+        except:
+            try:
+                # If customer's requirements.txt pins to some older version of bigquery
+                from google.cloud.bigquery._helpers import (
+                    BQ_STORAGE_VERSIONS,  # pyright: ignore[reportAttributeAccessIssue]
+                )
+
+                _is_read_session_optional = BQ_STORAGE_VERSIONS.is_read_session_optional
+            except:
+                # Failed to resolve the _is_read_session_optional variable.
+                # We will evaluate the variable below and not monkeypatch
+                # the BQ table download function.
+                pass
+    return _is_read_session_optional
+
+
 def _download_table_bqstorage_stream_no_deadlock(
     download_state,  # pyright: ignore[reportMissingParameterType]
     bqstorage_client,  # pyright: ignore[reportMissingParameterType]
@@ -130,7 +137,7 @@ def _download_table_bqstorage_stream_no_deadlock(
 
     # Avoid deprecation warnings for passing in unnecessary read session.
     # https://github.com/googleapis/python-bigquery-storage/issues/229
-    if _is_read_session_optional:
+    if _determine_is_read_session_optional():
         rowstream = reader.rows()
     else:
         rowstream = reader.rows(session)
@@ -148,41 +155,43 @@ def _download_table_bqstorage_stream_no_deadlock(
                 break
 
 
-try:
-    import google.cloud.bigquery
-except ModuleNotFoundError:
-    # the user did not specify that they want to use the bigquery module
-    pass
-else:
-    # _is_read_session_optional being `None` means we failed to resolve the variable
-    # due to import issues related to the BQ module. In that case, don't monkeypatch.
-    _should_fallback = env_var_bool("CHALK_FALLBACK_TO_ORIGINAL_TABLE_DOWNLOAD_FUNC")
-    if _should_fallback or _is_read_session_optional is None:
-        _logger.warning(
-            f"Not monkeypatching BQ table download function {_is_read_session_optional=} {_should_fallback=}"
-        )
+def monkeypatch_bq_table_download():
+    try:
+        import google.cloud.bigquery
+    except ModuleNotFoundError:
+        # the user did not specify that they want to use the bigquery module
+        pass
     else:
-        try:
-            import google.cloud.bigquery._pandas_helpers
-        except ImportError:
-            _logger.warning("Failed to import google.cloud.bigquery._pandas_helpers. Skipping monkey-patch.")
-            pass
+        _is_read_session_optional = _determine_is_read_session_optional()
+        # _is_read_session_optional being `None` means we failed to resolve the variable
+        # due to import issues related to the BQ module. In that case, don't monkeypatch.
+        _should_fallback = env_var_bool("CHALK_FALLBACK_TO_ORIGINAL_TABLE_DOWNLOAD_FUNC")
+        if _should_fallback or _is_read_session_optional is None:
+            _logger.warning(
+                f"Not monkeypatching BQ table download function {_is_read_session_optional=} {_should_fallback=}"
+            )
         else:
-            _download_func_name = "_download_table_bqstorage_stream"
-            if hasattr(google.cloud.bigquery._pandas_helpers, _download_func_name):
-                _logger.info("Monkeypatching BQ table download function")
-                setattr(
-                    google.cloud.bigquery._pandas_helpers,
-                    _download_func_name,
-                    _download_table_bqstorage_stream_no_deadlock,
-                )
+            try:
+                import google.cloud.bigquery._pandas_helpers
+            except ImportError:
+                _logger.warning("Failed to import google.cloud.bigquery._pandas_helpers. Skipping monkey-patch.")
+                pass
             else:
-                _logger.warning(
-                    (
-                        f"No {_download_func_name} function found in google.cloud.bigquery._pandas_helpers. "
-                        "Skipping monkey-patch."
+                _download_func_name = "_download_table_bqstorage_stream"
+                if hasattr(google.cloud.bigquery._pandas_helpers, _download_func_name):
+                    _logger.info("Monkeypatching BQ table download function")
+                    setattr(
+                        google.cloud.bigquery._pandas_helpers,
+                        _download_func_name,
+                        _download_table_bqstorage_stream_no_deadlock,
                     )
-                )
+                else:
+                    _logger.warning(
+                        (
+                            f"No {_download_func_name} function found in google.cloud.bigquery._pandas_helpers. "
+                            "Skipping monkey-patch."
+                        )
+                    )
 
 
 def _compile_parameter_to_bq_scalar_type(primitive: Any) -> ScalarQueryParameterType:
@@ -238,6 +247,7 @@ class BigQuerySourceImpl(BaseSQLSource):
         except ModuleNotFoundError:
             raise missing_dependency_exception("chalkpy[bigquery]")
         del sqlalchemy_bigquery  # unused
+        monkeypatch_bq_table_download()
         if engine_args is None:
             engine_args = {}
         engine_args.setdefault("pool_size", 20)

@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: pip-hello-world
+Version: 0.1
+Summary: Hello World testing setuptools
+Home-page: http://www.hello.com
+Author: benlindsay
+Author-email: benjlindsay@gmail.com
+License: BSD
+Description: README.txt
+Platform: UNKNOWN

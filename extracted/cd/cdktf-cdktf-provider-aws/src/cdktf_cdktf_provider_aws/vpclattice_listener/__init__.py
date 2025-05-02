@@ -1,7 +1,7 @@
 r'''
 # `aws_vpclattice_listener`
 
-Refer to the Terraform Registry for docs: [`aws_vpclattice_listener`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener).
+Refer to the Terraform Registry for docs: [`aws_vpclattice_listener`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VpclatticeListener(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.vpclatticeListener.VpclatticeListener",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener aws_vpclattice_listener}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener aws_vpclattice_listener}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class VpclatticeListener(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener aws_vpclattice_listener} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener aws_vpclattice_listener} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#default_action VpclatticeListener#default_action}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#name VpclatticeListener#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#protocol VpclatticeListener#protocol}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#id VpclatticeListener#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#port VpclatticeListener#port}.
-        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#service_arn VpclatticeListener#service_arn}.
-        :param service_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#service_identifier VpclatticeListener#service_identifier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#tags VpclatticeListener#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#tags_all VpclatticeListener#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#timeouts VpclatticeListener#timeouts}
+        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#default_action VpclatticeListener#default_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#name VpclatticeListener#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#protocol VpclatticeListener#protocol}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#id VpclatticeListener#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#port VpclatticeListener#port}.
+        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#service_arn VpclatticeListener#service_arn}.
+        :param service_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#service_identifier VpclatticeListener#service_identifier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#tags VpclatticeListener#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#tags_all VpclatticeListener#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#timeouts VpclatticeListener#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class VpclatticeListener(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VpclatticeListener to import.
-        :param import_from_id: The id of the existing VpclatticeListener that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VpclatticeListener that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VpclatticeListener to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class VpclatticeListener(
         forward: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["VpclatticeListenerDefaultActionForward", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#fixed_response VpclatticeListener#fixed_response}
-        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#forward VpclatticeListener#forward}
+        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#fixed_response VpclatticeListener#fixed_response}
+        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#forward VpclatticeListener#forward}
         '''
         value = VpclatticeListenerDefaultAction(
             fixed_response=fixed_response, forward=forward
@@ -167,9 +167,9 @@ class VpclatticeListener(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#create VpclatticeListener#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#delete VpclatticeListener#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#update VpclatticeListener#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#create VpclatticeListener#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#delete VpclatticeListener#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#update VpclatticeListener#update}.
         '''
         value = VpclatticeListenerTimeouts(create=create, delete=delete, update=update)
 
@@ -452,16 +452,16 @@ class VpclatticeListenerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#default_action VpclatticeListener#default_action}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#name VpclatticeListener#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#protocol VpclatticeListener#protocol}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#id VpclatticeListener#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#port VpclatticeListener#port}.
-        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#service_arn VpclatticeListener#service_arn}.
-        :param service_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#service_identifier VpclatticeListener#service_identifier}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#tags VpclatticeListener#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#tags_all VpclatticeListener#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#timeouts VpclatticeListener#timeouts}
+        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#default_action VpclatticeListener#default_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#name VpclatticeListener#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#protocol VpclatticeListener#protocol}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#id VpclatticeListener#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#port VpclatticeListener#port}.
+        :param service_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#service_arn VpclatticeListener#service_arn}.
+        :param service_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#service_identifier VpclatticeListener#service_identifier}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#tags VpclatticeListener#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#tags_all VpclatticeListener#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#timeouts VpclatticeListener#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -590,7 +590,7 @@ class VpclatticeListenerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_action(self) -> "VpclatticeListenerDefaultAction":
         '''default_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#default_action VpclatticeListener#default_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#default_action VpclatticeListener#default_action}
         '''
         result = self._values.get("default_action")
         assert result is not None, "Required property 'default_action' is missing"
@@ -598,21 +598,21 @@ class VpclatticeListenerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#name VpclatticeListener#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#name VpclatticeListener#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#protocol VpclatticeListener#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#protocol VpclatticeListener#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#id VpclatticeListener#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#id VpclatticeListener#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -622,31 +622,31 @@ class VpclatticeListenerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#port VpclatticeListener#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#port VpclatticeListener#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#service_arn VpclatticeListener#service_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#service_arn VpclatticeListener#service_arn}.'''
         result = self._values.get("service_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#service_identifier VpclatticeListener#service_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#service_identifier VpclatticeListener#service_identifier}.'''
         result = self._values.get("service_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#tags VpclatticeListener#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#tags VpclatticeListener#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#tags_all VpclatticeListener#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#tags_all VpclatticeListener#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -654,7 +654,7 @@ class VpclatticeListenerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VpclatticeListenerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#timeouts VpclatticeListener#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#timeouts VpclatticeListener#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VpclatticeListenerTimeouts"], result)
@@ -684,8 +684,8 @@ class VpclatticeListenerDefaultAction:
         forward: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["VpclatticeListenerDefaultActionForward", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#fixed_response VpclatticeListener#fixed_response}
-        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#forward VpclatticeListener#forward}
+        :param fixed_response: fixed_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#fixed_response VpclatticeListener#fixed_response}
+        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#forward VpclatticeListener#forward}
         '''
         if isinstance(fixed_response, dict):
             fixed_response = VpclatticeListenerDefaultActionFixedResponse(**fixed_response)
@@ -705,7 +705,7 @@ class VpclatticeListenerDefaultAction:
     ) -> typing.Optional["VpclatticeListenerDefaultActionFixedResponse"]:
         '''fixed_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#fixed_response VpclatticeListener#fixed_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#fixed_response VpclatticeListener#fixed_response}
         '''
         result = self._values.get("fixed_response")
         return typing.cast(typing.Optional["VpclatticeListenerDefaultActionFixedResponse"], result)
@@ -716,7 +716,7 @@ class VpclatticeListenerDefaultAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpclatticeListenerDefaultActionForward"]]]:
         '''forward block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#forward VpclatticeListener#forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#forward VpclatticeListener#forward}
         '''
         result = self._values.get("forward")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpclatticeListenerDefaultActionForward"]]], result)
@@ -741,7 +741,7 @@ class VpclatticeListenerDefaultAction:
 class VpclatticeListenerDefaultActionFixedResponse:
     def __init__(self, *, status_code: jsii.Number) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#status_code VpclatticeListener#status_code}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#status_code VpclatticeListener#status_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fbd84ed99fae5d9dab6aa32b29e1d2be14549467282716181a2f7700f323612e)
@@ -752,7 +752,7 @@ class VpclatticeListenerDefaultActionFixedResponse:
 
     @builtins.property
     def status_code(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#status_code VpclatticeListener#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#status_code VpclatticeListener#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(jsii.Number, result)
@@ -836,7 +836,7 @@ class VpclatticeListenerDefaultActionForward:
         target_groups: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["VpclatticeListenerDefaultActionForwardTargetGroups", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param target_groups: target_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#target_groups VpclatticeListener#target_groups}
+        :param target_groups: target_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#target_groups VpclatticeListener#target_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__871865309f18b87f99ee3a3d64eed6e347e4a42f3f2ccabd6b5298d4138f92c2)
@@ -851,7 +851,7 @@ class VpclatticeListenerDefaultActionForward:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpclatticeListenerDefaultActionForwardTargetGroups"]]]:
         '''target_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#target_groups VpclatticeListener#target_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#target_groups VpclatticeListener#target_groups}
         '''
         result = self._values.get("target_groups")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpclatticeListenerDefaultActionForwardTargetGroups"]]], result)
@@ -1050,8 +1050,8 @@ class VpclatticeListenerDefaultActionForwardTargetGroups:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_group_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#target_group_identifier VpclatticeListener#target_group_identifier}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#weight VpclatticeListener#weight}.
+        :param target_group_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#target_group_identifier VpclatticeListener#target_group_identifier}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#weight VpclatticeListener#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9433acd2002b6adacfb526ca7c0c96a9f410b9ad02514c88535b769f4de66aef)
@@ -1065,13 +1065,13 @@ class VpclatticeListenerDefaultActionForwardTargetGroups:
 
     @builtins.property
     def target_group_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#target_group_identifier VpclatticeListener#target_group_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#target_group_identifier VpclatticeListener#target_group_identifier}.'''
         result = self._values.get("target_group_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#weight VpclatticeListener#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#weight VpclatticeListener#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1289,7 +1289,7 @@ class VpclatticeListenerDefaultActionOutputReference(
     @jsii.member(jsii_name="putFixedResponse")
     def put_fixed_response(self, *, status_code: jsii.Number) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#status_code VpclatticeListener#status_code}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#status_code VpclatticeListener#status_code}.
         '''
         value = VpclatticeListenerDefaultActionFixedResponse(status_code=status_code)
 
@@ -1372,9 +1372,9 @@ class VpclatticeListenerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#create VpclatticeListener#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#delete VpclatticeListener#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#update VpclatticeListener#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#create VpclatticeListener#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#delete VpclatticeListener#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#update VpclatticeListener#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd94aa637fd158dfa0fbdbc57ab12dd28cab26b9d1107cea44961b4399d67fa7)
@@ -1391,19 +1391,19 @@ class VpclatticeListenerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#create VpclatticeListener#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#create VpclatticeListener#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#delete VpclatticeListener#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#delete VpclatticeListener#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/vpclattice_listener#update VpclatticeListener#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpclattice_listener#update VpclatticeListener#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

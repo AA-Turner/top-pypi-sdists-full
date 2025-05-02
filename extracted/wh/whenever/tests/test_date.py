@@ -9,8 +9,8 @@ import pytest
 from whenever import (
     Date,
     DateDelta,
-    LocalDateTime,
     MonthDay,
+    PlainDateTime,
     Time,
     Weekday,
     YearMonth,
@@ -183,8 +183,16 @@ class TestParseCommonIso:
     @pytest.mark.parametrize(
         "s, expected",
         [
-            ("2021-01-02", Date(2021, 1, 2)),
-            ("2014-12-31", Date(2014, 12, 31)),
+            # Extended ISO format
+            ("0001-01-01", Date(1, 1, 1)),
+            ("2000-01-01", Date(2000, 1, 1)),
+            ("2015-11-22", Date(2015, 11, 22)),
+            ("9999-12-31", Date(9999, 12, 31)),
+            # "Basic" ISO format
+            ("00010101", Date(1, 1, 1)),
+            ("20000101", Date(2000, 1, 1)),
+            ("20150902", Date(2015, 9, 2)),
+            ("99991231", Date(9999, 12, 31)),
         ],
     )
     def test_valid(self, s, expected):
@@ -193,15 +201,59 @@ class TestParseCommonIso:
     @pytest.mark.parametrize(
         "s",
         [
-            "202A-01-02",  # non-digit
+            # non-digits
+            "202A-01-02",
+            "2022-a1-02",
+            "2022-a1-02",
+            "2023-01-3o",
+            "2023Ww1-3",
             "2021-01-02T03:04:05",  # with a time
-            "2021-1-2",  # no padding
-            "2020-123",  # ordinal date
-            "2020-W12-3",  # week date
+            # bad separators
+            "2021-01/02",
+            "2021/01-02",
+            # wrong padding
+            "2021-1-2",
+            "021-1-002",
+            # inconsistent dash use
+            "2020W12-3",
+            "2020-W123",
+            "2020W01-3",
+            "202011-12",
+            "2020-1112",
+            "2020-1112",
+            "2020-w12-3",  # lowercase w
+            # other
             "20-12-03",  # two-digit year
             "-012-12-03",  # negative year
             "312🧨-12-03",  # non-ASCII
             "202𝟙-11-02",  # non-ascii
+            "999991112",  # too many digits
+            "2023-W03-",  # empty day
+            "YYYY-MM-DD",
+            "2023/11/01",
+            "2023.11.01",
+            "",
+            "1234",
+            "1",
+            "1_992101",
+            # invalid dates
+            "2021-02-29",
+            "2021-366",
+            "2000-00-03",
+            "2000-13-03",
+            "2000-01-32",
+            "2000-01-00",
+            "1989-W53",
+            "1989-W22-8",
+            "1989-W22-0",
+            # Week and ordinal not implemented
+            "2021-W01-01",
+            "2021-344",
+            "2021W134",
+            "2021214",
+            # incomplete
+            "2021-01",
+            "202101",
         ],
     )
     def test_invalid(self, s):
@@ -212,7 +264,7 @@ class TestParseCommonIso:
             Date.parse_common_iso(s)
 
     def test_no_string(self):
-        with pytest.raises(TypeError, match="(int|str)"):
+        with pytest.raises((TypeError, AttributeError), match="(int|str)"):
             Date.parse_common_iso(20210102)  # type: ignore[arg-type]
 
 
@@ -245,7 +297,7 @@ def test_kwarg_interning_bug_issue_149():
 
 def test_at():
     d = Date(2021, 1, 2)
-    assert d.at(Time(3, 4, 5)) == LocalDateTime(2021, 1, 2, 3, 4, 5)
+    assert d.at(Time(3, 4, 5)) == PlainDateTime(2021, 1, 2, 3, 4, 5)
 
 
 def test_repr():
@@ -409,7 +461,7 @@ class TestDaysUntilAndSince:
 
     def test_invalid(self):
         with pytest.raises((TypeError, AttributeError)):
-            Date(2021, 1, 1).days_until(LocalDateTime(2021, 1, 1, 1, 2, 3))  # type: ignore[arg-type]
+            Date(2021, 1, 1).days_until(PlainDateTime(2021, 1, 1, 1, 2, 3))  # type: ignore[arg-type]
 
 
 _EXAMPLE_DATES = [
@@ -612,6 +664,14 @@ def test_day_of_week():
     assert Date(2021, 1, 6).day_of_week() is Weekday.WEDNESDAY
     assert Date(2021, 1, 7).day_of_week() is Weekday.THURSDAY
     assert Date(2021, 1, 8).day_of_week() is Weekday.FRIDAY
+
+    assert Date(1915, 7, 19).day_of_week() is Weekday.MONDAY
+    assert Date(1915, 7, 20).day_of_week() is Weekday.TUESDAY
+    assert Date(1915, 7, 21).day_of_week() is Weekday.WEDNESDAY
+    assert Date(1915, 7, 22).day_of_week() is Weekday.THURSDAY
+    assert Date(1915, 7, 23).day_of_week() is Weekday.FRIDAY
+    assert Date(1915, 7, 24).day_of_week() is Weekday.SATURDAY
+    assert Date(1915, 7, 25).day_of_week() is Weekday.SUNDAY
 
 
 def test_pickling():

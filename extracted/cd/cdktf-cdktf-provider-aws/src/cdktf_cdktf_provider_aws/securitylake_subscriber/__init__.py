@@ -1,7 +1,7 @@
 r'''
 # `aws_securitylake_subscriber`
 
-Refer to the Terraform Registry for docs: [`aws_securitylake_subscriber`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber).
+Refer to the Terraform Registry for docs: [`aws_securitylake_subscriber`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecuritylakeSubscriber(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securitylakeSubscriber.SecuritylakeSubscriber",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber aws_securitylake_subscriber}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber aws_securitylake_subscriber}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class SecuritylakeSubscriber(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber aws_securitylake_subscriber} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber aws_securitylake_subscriber} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#access_type SecuritylakeSubscriber#access_type}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source SecuritylakeSubscriber#source}
-        :param subscriber_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_description SecuritylakeSubscriber#subscriber_description}.
-        :param subscriber_identity: subscriber_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_identity SecuritylakeSubscriber#subscriber_identity}
-        :param subscriber_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_name SecuritylakeSubscriber#subscriber_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#tags SecuritylakeSubscriber#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#timeouts SecuritylakeSubscriber#timeouts}
+        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#access_type SecuritylakeSubscriber#access_type}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source SecuritylakeSubscriber#source}
+        :param subscriber_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_description SecuritylakeSubscriber#subscriber_description}.
+        :param subscriber_identity: subscriber_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_identity SecuritylakeSubscriber#subscriber_identity}
+        :param subscriber_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_name SecuritylakeSubscriber#subscriber_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#tags SecuritylakeSubscriber#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#timeouts SecuritylakeSubscriber#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class SecuritylakeSubscriber(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecuritylakeSubscriber to import.
-        :param import_from_id: The id of the existing SecuritylakeSubscriber that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecuritylakeSubscriber that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecuritylakeSubscriber to import is found.
         '''
         if __debug__:
@@ -167,9 +167,9 @@ class SecuritylakeSubscriber(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#create SecuritylakeSubscriber#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#delete SecuritylakeSubscriber#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#update SecuritylakeSubscriber#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#create SecuritylakeSubscriber#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#delete SecuritylakeSubscriber#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#update SecuritylakeSubscriber#update}
         '''
         value = SecuritylakeSubscriberTimeouts(
             create=create, delete=delete, update=update
@@ -415,13 +415,13 @@ class SecuritylakeSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#access_type SecuritylakeSubscriber#access_type}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source SecuritylakeSubscriber#source}
-        :param subscriber_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_description SecuritylakeSubscriber#subscriber_description}.
-        :param subscriber_identity: subscriber_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_identity SecuritylakeSubscriber#subscriber_identity}
-        :param subscriber_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_name SecuritylakeSubscriber#subscriber_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#tags SecuritylakeSubscriber#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#timeouts SecuritylakeSubscriber#timeouts}
+        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#access_type SecuritylakeSubscriber#access_type}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source SecuritylakeSubscriber#source}
+        :param subscriber_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_description SecuritylakeSubscriber#subscriber_description}.
+        :param subscriber_identity: subscriber_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_identity SecuritylakeSubscriber#subscriber_identity}
+        :param subscriber_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_name SecuritylakeSubscriber#subscriber_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#tags SecuritylakeSubscriber#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#timeouts SecuritylakeSubscriber#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -539,7 +539,7 @@ class SecuritylakeSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def access_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#access_type SecuritylakeSubscriber#access_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#access_type SecuritylakeSubscriber#access_type}.'''
         result = self._values.get("access_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -549,14 +549,14 @@ class SecuritylakeSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSource"]]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source SecuritylakeSubscriber#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source SecuritylakeSubscriber#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSource"]]], result)
 
     @builtins.property
     def subscriber_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_description SecuritylakeSubscriber#subscriber_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_description SecuritylakeSubscriber#subscriber_description}.'''
         result = self._values.get("subscriber_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -566,20 +566,20 @@ class SecuritylakeSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSubscriberIdentity"]]]:
         '''subscriber_identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_identity SecuritylakeSubscriber#subscriber_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_identity SecuritylakeSubscriber#subscriber_identity}
         '''
         result = self._values.get("subscriber_identity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSubscriberIdentity"]]], result)
 
     @builtins.property
     def subscriber_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#subscriber_name SecuritylakeSubscriber#subscriber_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#subscriber_name SecuritylakeSubscriber#subscriber_name}.'''
         result = self._values.get("subscriber_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#tags SecuritylakeSubscriber#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#tags SecuritylakeSubscriber#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -587,7 +587,7 @@ class SecuritylakeSubscriberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SecuritylakeSubscriberTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#timeouts SecuritylakeSubscriber#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#timeouts SecuritylakeSubscriber#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SecuritylakeSubscriberTimeouts"], result)
@@ -620,8 +620,8 @@ class SecuritylakeSubscriberSource:
         custom_log_source_resource: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecuritylakeSubscriberSourceCustomLogSourceResource", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aws_log_source_resource: aws_log_source_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#aws_log_source_resource SecuritylakeSubscriber#aws_log_source_resource}
-        :param custom_log_source_resource: custom_log_source_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#custom_log_source_resource SecuritylakeSubscriber#custom_log_source_resource}
+        :param aws_log_source_resource: aws_log_source_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#aws_log_source_resource SecuritylakeSubscriber#aws_log_source_resource}
+        :param custom_log_source_resource: custom_log_source_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#custom_log_source_resource SecuritylakeSubscriber#custom_log_source_resource}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e743156bcbef543716aba9cffb57659635d5f90eca4af78cae2d43011fc6bd8e)
@@ -639,7 +639,7 @@ class SecuritylakeSubscriberSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSourceAwsLogSourceResource"]]]:
         '''aws_log_source_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#aws_log_source_resource SecuritylakeSubscriber#aws_log_source_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#aws_log_source_resource SecuritylakeSubscriber#aws_log_source_resource}
         '''
         result = self._values.get("aws_log_source_resource")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSourceAwsLogSourceResource"]]], result)
@@ -650,7 +650,7 @@ class SecuritylakeSubscriberSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSourceCustomLogSourceResource"]]]:
         '''custom_log_source_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#custom_log_source_resource SecuritylakeSubscriber#custom_log_source_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#custom_log_source_resource SecuritylakeSubscriber#custom_log_source_resource}
         '''
         result = self._values.get("custom_log_source_resource")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeSubscriberSourceCustomLogSourceResource"]]], result)
@@ -680,8 +680,8 @@ class SecuritylakeSubscriberSourceAwsLogSourceResource:
         source_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6482c1c5d8a152cd890bc1ec1b62324add461be0e19227b5edd91a5b15c0e07c)
@@ -695,14 +695,14 @@ class SecuritylakeSubscriberSourceAwsLogSourceResource:
 
     @builtins.property
     def source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.'''
         result = self._values.get("source_name")
         assert result is not None, "Required property 'source_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.'''
         result = self._values.get("source_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -906,8 +906,8 @@ class SecuritylakeSubscriberSourceCustomLogSourceResource:
         source_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36f3b7fa3675e9ce456500f5c6c0d304144eb8f84a439cc7c5a7b6b1ea817a96)
@@ -921,14 +921,14 @@ class SecuritylakeSubscriberSourceCustomLogSourceResource:
 
     @builtins.property
     def source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_name SecuritylakeSubscriber#source_name}.'''
         result = self._values.get("source_name")
         assert result is not None, "Required property 'source_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#source_version SecuritylakeSubscriber#source_version}.'''
         result = self._values.get("source_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1644,8 +1644,8 @@ class SecuritylakeSubscriberSourceOutputReference(
 class SecuritylakeSubscriberSubscriberIdentity:
     def __init__(self, *, external_id: builtins.str, principal: builtins.str) -> None:
         '''
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#external_id SecuritylakeSubscriber#external_id}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#principal SecuritylakeSubscriber#principal}.
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#external_id SecuritylakeSubscriber#external_id}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#principal SecuritylakeSubscriber#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0f0b3be3cd03de27a8d108f9be9f2818a746e8491c371d15291e40135eee256)
@@ -1658,14 +1658,14 @@ class SecuritylakeSubscriberSubscriberIdentity:
 
     @builtins.property
     def external_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#external_id SecuritylakeSubscriber#external_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#external_id SecuritylakeSubscriber#external_id}.'''
         result = self._values.get("external_id")
         assert result is not None, "Required property 'external_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#principal SecuritylakeSubscriber#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#principal SecuritylakeSubscriber#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -1867,9 +1867,9 @@ class SecuritylakeSubscriberTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#create SecuritylakeSubscriber#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#delete SecuritylakeSubscriber#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#update SecuritylakeSubscriber#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#create SecuritylakeSubscriber#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#delete SecuritylakeSubscriber#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#update SecuritylakeSubscriber#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ed7d73a0f949e3cad844ee4c077ad4cb9924cd145a54cdd2628e00776d84bc2)
@@ -1888,7 +1888,7 @@ class SecuritylakeSubscriberTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#create SecuritylakeSubscriber#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#create SecuritylakeSubscriber#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1897,7 +1897,7 @@ class SecuritylakeSubscriberTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#delete SecuritylakeSubscriber#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#delete SecuritylakeSubscriber#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1906,7 +1906,7 @@ class SecuritylakeSubscriberTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_subscriber#update SecuritylakeSubscriber#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_subscriber#update SecuritylakeSubscriber#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

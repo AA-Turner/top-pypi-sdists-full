@@ -1,7 +1,7 @@
 r'''
 # `aws_redshift_logging`
 
-Refer to the Terraform Registry for docs: [`aws_redshift_logging`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging).
+Refer to the Terraform Registry for docs: [`aws_redshift_logging`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedshiftLogging(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.redshiftLogging.RedshiftLogging",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging aws_redshift_logging}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging aws_redshift_logging}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class RedshiftLogging(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging aws_redshift_logging} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging aws_redshift_logging} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
-        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
+        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
+        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class RedshiftLogging(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedshiftLogging to import.
-        :param import_from_id: The id of the existing RedshiftLogging that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedshiftLogging that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedshiftLogging to import is found.
         '''
         if __debug__:
@@ -289,11 +289,11 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
-        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
-        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.
+        :param log_destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.
+        :param log_exports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -403,32 +403,32 @@ class RedshiftLoggingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#cluster_identifier RedshiftLogging#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#bucket_name RedshiftLogging#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_destination_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#log_destination_type RedshiftLogging#log_destination_type}.'''
         result = self._values.get("log_destination_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#log_exports RedshiftLogging#log_exports}.'''
         result = self._values.get("log_exports")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_logging#s3_key_prefix RedshiftLogging#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 

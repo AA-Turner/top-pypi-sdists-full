@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "kubernetes-stubs-elephant-fork"
+homepage = "https://github.com/lexdene/kubernetes-stubs"
+description = "Type stubs for the Kubernetes Python API client"
+authors = ["Nikhil Benesch <nikhil.benesch@gmail.com>", "Rami Chowdhury <rami.chowdhury@gmail.com>", "Elephant Liu"]
+license = "Apache-2.0"
+readme = "README.md"
+
+# version will be updated by build script
+version = "32.0.1"
+
+packages = [
+    { include = "kubernetes_ext" },
+    { include = "kubernetes-stubs" },
+]
+include = [
+    { path = "kubernetes_ext/**/*" },
+    { path = "kubernetes-stubs/**/*" },
+]
+
+[tool.poetry.dev-dependencies]
+black = "^21.6b0"
+isort = "^5.9.2"
+inflection = "^0.5.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

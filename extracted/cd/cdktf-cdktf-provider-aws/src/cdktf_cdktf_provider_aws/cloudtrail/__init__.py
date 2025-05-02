@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudtrail`
 
-Refer to the Terraform Registry for docs: [`aws_cloudtrail`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail).
+Refer to the Terraform Registry for docs: [`aws_cloudtrail`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Cloudtrail(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudtrail.Cloudtrail",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail aws_cloudtrail}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail aws_cloudtrail}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class Cloudtrail(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail aws_cloudtrail} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail aws_cloudtrail} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#name Cloudtrail#name}.
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#s3_bucket_name Cloudtrail#s3_bucket_name}.
-        :param advanced_event_selector: advanced_event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#advanced_event_selector Cloudtrail#advanced_event_selector}
-        :param cloud_watch_logs_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#cloud_watch_logs_group_arn Cloudtrail#cloud_watch_logs_group_arn}.
-        :param cloud_watch_logs_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#cloud_watch_logs_role_arn Cloudtrail#cloud_watch_logs_role_arn}.
-        :param enable_log_file_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#enable_log_file_validation Cloudtrail#enable_log_file_validation}.
-        :param enable_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#enable_logging Cloudtrail#enable_logging}.
-        :param event_selector: event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#event_selector Cloudtrail#event_selector}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#id Cloudtrail#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_global_service_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#include_global_service_events Cloudtrail#include_global_service_events}.
-        :param insight_selector: insight_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#insight_selector Cloudtrail#insight_selector}
-        :param is_multi_region_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#is_multi_region_trail Cloudtrail#is_multi_region_trail}.
-        :param is_organization_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#is_organization_trail Cloudtrail#is_organization_trail}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#kms_key_id Cloudtrail#kms_key_id}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#s3_key_prefix Cloudtrail#s3_key_prefix}.
-        :param sns_topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#sns_topic_name Cloudtrail#sns_topic_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#tags Cloudtrail#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#tags_all Cloudtrail#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#name Cloudtrail#name}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#s3_bucket_name Cloudtrail#s3_bucket_name}.
+        :param advanced_event_selector: advanced_event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#advanced_event_selector Cloudtrail#advanced_event_selector}
+        :param cloud_watch_logs_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#cloud_watch_logs_group_arn Cloudtrail#cloud_watch_logs_group_arn}.
+        :param cloud_watch_logs_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#cloud_watch_logs_role_arn Cloudtrail#cloud_watch_logs_role_arn}.
+        :param enable_log_file_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#enable_log_file_validation Cloudtrail#enable_log_file_validation}.
+        :param enable_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#enable_logging Cloudtrail#enable_logging}.
+        :param event_selector: event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#event_selector Cloudtrail#event_selector}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#id Cloudtrail#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_global_service_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#include_global_service_events Cloudtrail#include_global_service_events}.
+        :param insight_selector: insight_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#insight_selector Cloudtrail#insight_selector}
+        :param is_multi_region_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#is_multi_region_trail Cloudtrail#is_multi_region_trail}.
+        :param is_organization_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#is_organization_trail Cloudtrail#is_organization_trail}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#kms_key_id Cloudtrail#kms_key_id}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#s3_key_prefix Cloudtrail#s3_key_prefix}.
+        :param sns_topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#sns_topic_name Cloudtrail#sns_topic_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#tags Cloudtrail#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#tags_all Cloudtrail#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class Cloudtrail(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Cloudtrail to import.
-        :param import_from_id: The id of the existing Cloudtrail that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Cloudtrail that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Cloudtrail to import is found.
         '''
         if __debug__:
@@ -638,8 +638,8 @@ class CloudtrailAdvancedEventSelector:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param field_selector: field_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#field_selector Cloudtrail#field_selector}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#name Cloudtrail#name}.
+        :param field_selector: field_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#field_selector Cloudtrail#field_selector}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#name Cloudtrail#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b3bfb43d3850dafd8571bc42633a0a322c0a3793111fb766f9ffd9b476797ff)
@@ -657,7 +657,7 @@ class CloudtrailAdvancedEventSelector:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailAdvancedEventSelectorFieldSelector"]]:
         '''field_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#field_selector Cloudtrail#field_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#field_selector Cloudtrail#field_selector}
         '''
         result = self._values.get("field_selector")
         assert result is not None, "Required property 'field_selector' is missing"
@@ -665,7 +665,7 @@ class CloudtrailAdvancedEventSelector:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#name Cloudtrail#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#name Cloudtrail#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -707,13 +707,13 @@ class CloudtrailAdvancedEventSelectorFieldSelector:
         starts_with: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#field Cloudtrail#field}.
-        :param ends_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#ends_with Cloudtrail#ends_with}.
-        :param equal_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#equals Cloudtrail#equals}.
-        :param not_ends_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#not_ends_with Cloudtrail#not_ends_with}.
-        :param not_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#not_equals Cloudtrail#not_equals}.
-        :param not_starts_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#not_starts_with Cloudtrail#not_starts_with}.
-        :param starts_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#starts_with Cloudtrail#starts_with}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#field Cloudtrail#field}.
+        :param ends_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#ends_with Cloudtrail#ends_with}.
+        :param equal_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#equals Cloudtrail#equals}.
+        :param not_ends_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#not_ends_with Cloudtrail#not_ends_with}.
+        :param not_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#not_equals Cloudtrail#not_equals}.
+        :param not_starts_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#not_starts_with Cloudtrail#not_starts_with}.
+        :param starts_with: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#starts_with Cloudtrail#starts_with}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f2b4f370c7bf61d064999d5b42681224dbf5aec742c6c305522ddfcf9654edd)
@@ -742,44 +742,44 @@ class CloudtrailAdvancedEventSelectorFieldSelector:
 
     @builtins.property
     def field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#field Cloudtrail#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#field Cloudtrail#field}.'''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ends_with(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#ends_with Cloudtrail#ends_with}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#ends_with Cloudtrail#ends_with}.'''
         result = self._values.get("ends_with")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def equal_to(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#equals Cloudtrail#equals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#equals Cloudtrail#equals}.'''
         result = self._values.get("equal_to")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def not_ends_with(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#not_ends_with Cloudtrail#not_ends_with}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#not_ends_with Cloudtrail#not_ends_with}.'''
         result = self._values.get("not_ends_with")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def not_equals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#not_equals Cloudtrail#not_equals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#not_equals Cloudtrail#not_equals}.'''
         result = self._values.get("not_equals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def not_starts_with(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#not_starts_with Cloudtrail#not_starts_with}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#not_starts_with Cloudtrail#not_starts_with}.'''
         result = self._values.get("not_starts_with")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def starts_with(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#starts_with Cloudtrail#starts_with}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#starts_with Cloudtrail#starts_with}.'''
         result = self._values.get("starts_with")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1327,24 +1327,24 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#name Cloudtrail#name}.
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#s3_bucket_name Cloudtrail#s3_bucket_name}.
-        :param advanced_event_selector: advanced_event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#advanced_event_selector Cloudtrail#advanced_event_selector}
-        :param cloud_watch_logs_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#cloud_watch_logs_group_arn Cloudtrail#cloud_watch_logs_group_arn}.
-        :param cloud_watch_logs_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#cloud_watch_logs_role_arn Cloudtrail#cloud_watch_logs_role_arn}.
-        :param enable_log_file_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#enable_log_file_validation Cloudtrail#enable_log_file_validation}.
-        :param enable_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#enable_logging Cloudtrail#enable_logging}.
-        :param event_selector: event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#event_selector Cloudtrail#event_selector}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#id Cloudtrail#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_global_service_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#include_global_service_events Cloudtrail#include_global_service_events}.
-        :param insight_selector: insight_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#insight_selector Cloudtrail#insight_selector}
-        :param is_multi_region_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#is_multi_region_trail Cloudtrail#is_multi_region_trail}.
-        :param is_organization_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#is_organization_trail Cloudtrail#is_organization_trail}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#kms_key_id Cloudtrail#kms_key_id}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#s3_key_prefix Cloudtrail#s3_key_prefix}.
-        :param sns_topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#sns_topic_name Cloudtrail#sns_topic_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#tags Cloudtrail#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#tags_all Cloudtrail#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#name Cloudtrail#name}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#s3_bucket_name Cloudtrail#s3_bucket_name}.
+        :param advanced_event_selector: advanced_event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#advanced_event_selector Cloudtrail#advanced_event_selector}
+        :param cloud_watch_logs_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#cloud_watch_logs_group_arn Cloudtrail#cloud_watch_logs_group_arn}.
+        :param cloud_watch_logs_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#cloud_watch_logs_role_arn Cloudtrail#cloud_watch_logs_role_arn}.
+        :param enable_log_file_validation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#enable_log_file_validation Cloudtrail#enable_log_file_validation}.
+        :param enable_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#enable_logging Cloudtrail#enable_logging}.
+        :param event_selector: event_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#event_selector Cloudtrail#event_selector}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#id Cloudtrail#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_global_service_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#include_global_service_events Cloudtrail#include_global_service_events}.
+        :param insight_selector: insight_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#insight_selector Cloudtrail#insight_selector}
+        :param is_multi_region_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#is_multi_region_trail Cloudtrail#is_multi_region_trail}.
+        :param is_organization_trail: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#is_organization_trail Cloudtrail#is_organization_trail}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#kms_key_id Cloudtrail#kms_key_id}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#s3_key_prefix Cloudtrail#s3_key_prefix}.
+        :param sns_topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#sns_topic_name Cloudtrail#sns_topic_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#tags Cloudtrail#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#tags_all Cloudtrail#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1492,14 +1492,14 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#name Cloudtrail#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#name Cloudtrail#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#s3_bucket_name Cloudtrail#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#s3_bucket_name Cloudtrail#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1510,20 +1510,20 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CloudtrailAdvancedEventSelector]]]:
         '''advanced_event_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#advanced_event_selector Cloudtrail#advanced_event_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#advanced_event_selector Cloudtrail#advanced_event_selector}
         '''
         result = self._values.get("advanced_event_selector")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CloudtrailAdvancedEventSelector]]], result)
 
     @builtins.property
     def cloud_watch_logs_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#cloud_watch_logs_group_arn Cloudtrail#cloud_watch_logs_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#cloud_watch_logs_group_arn Cloudtrail#cloud_watch_logs_group_arn}.'''
         result = self._values.get("cloud_watch_logs_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_watch_logs_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#cloud_watch_logs_role_arn Cloudtrail#cloud_watch_logs_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#cloud_watch_logs_role_arn Cloudtrail#cloud_watch_logs_role_arn}.'''
         result = self._values.get("cloud_watch_logs_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1531,7 +1531,7 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_log_file_validation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#enable_log_file_validation Cloudtrail#enable_log_file_validation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#enable_log_file_validation Cloudtrail#enable_log_file_validation}.'''
         result = self._values.get("enable_log_file_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1539,7 +1539,7 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_logging(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#enable_logging Cloudtrail#enable_logging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#enable_logging Cloudtrail#enable_logging}.'''
         result = self._values.get("enable_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1549,14 +1549,14 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailEventSelector"]]]:
         '''event_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#event_selector Cloudtrail#event_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#event_selector Cloudtrail#event_selector}
         '''
         result = self._values.get("event_selector")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailEventSelector"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#id Cloudtrail#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#id Cloudtrail#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1568,7 +1568,7 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def include_global_service_events(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#include_global_service_events Cloudtrail#include_global_service_events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#include_global_service_events Cloudtrail#include_global_service_events}.'''
         result = self._values.get("include_global_service_events")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1578,7 +1578,7 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailInsightSelector"]]]:
         '''insight_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#insight_selector Cloudtrail#insight_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#insight_selector Cloudtrail#insight_selector}
         '''
         result = self._values.get("insight_selector")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailInsightSelector"]]], result)
@@ -1587,7 +1587,7 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_multi_region_trail(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#is_multi_region_trail Cloudtrail#is_multi_region_trail}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#is_multi_region_trail Cloudtrail#is_multi_region_trail}.'''
         result = self._values.get("is_multi_region_trail")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1595,37 +1595,37 @@ class CloudtrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_organization_trail(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#is_organization_trail Cloudtrail#is_organization_trail}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#is_organization_trail Cloudtrail#is_organization_trail}.'''
         result = self._values.get("is_organization_trail")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#kms_key_id Cloudtrail#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#kms_key_id Cloudtrail#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#s3_key_prefix Cloudtrail#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#s3_key_prefix Cloudtrail#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sns_topic_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#sns_topic_name Cloudtrail#sns_topic_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#sns_topic_name Cloudtrail#sns_topic_name}.'''
         result = self._values.get("sns_topic_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#tags Cloudtrail#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#tags Cloudtrail#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#tags_all Cloudtrail#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#tags_all Cloudtrail#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1661,10 +1661,10 @@ class CloudtrailEventSelector:
         read_write_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_resource: data_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#data_resource Cloudtrail#data_resource}
-        :param exclude_management_event_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#exclude_management_event_sources Cloudtrail#exclude_management_event_sources}.
-        :param include_management_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#include_management_events Cloudtrail#include_management_events}.
-        :param read_write_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#read_write_type Cloudtrail#read_write_type}.
+        :param data_resource: data_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#data_resource Cloudtrail#data_resource}
+        :param exclude_management_event_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#exclude_management_event_sources Cloudtrail#exclude_management_event_sources}.
+        :param include_management_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#include_management_events Cloudtrail#include_management_events}.
+        :param read_write_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#read_write_type Cloudtrail#read_write_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1548058f1e1edc01bf0baf0765779849dbb1b563db4dd3ef22c4ca8fe29d8ce1)
@@ -1688,7 +1688,7 @@ class CloudtrailEventSelector:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailEventSelectorDataResource"]]]:
         '''data_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#data_resource Cloudtrail#data_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#data_resource Cloudtrail#data_resource}
         '''
         result = self._values.get("data_resource")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudtrailEventSelectorDataResource"]]], result)
@@ -1697,7 +1697,7 @@ class CloudtrailEventSelector:
     def exclude_management_event_sources(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#exclude_management_event_sources Cloudtrail#exclude_management_event_sources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#exclude_management_event_sources Cloudtrail#exclude_management_event_sources}.'''
         result = self._values.get("exclude_management_event_sources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1705,13 +1705,13 @@ class CloudtrailEventSelector:
     def include_management_events(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#include_management_events Cloudtrail#include_management_events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#include_management_events Cloudtrail#include_management_events}.'''
         result = self._values.get("include_management_events")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def read_write_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#read_write_type Cloudtrail#read_write_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#read_write_type Cloudtrail#read_write_type}.'''
         result = self._values.get("read_write_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1740,8 +1740,8 @@ class CloudtrailEventSelectorDataResource:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#type Cloudtrail#type}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#values Cloudtrail#values}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#type Cloudtrail#type}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#values Cloudtrail#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8f6edf56814520140e48f034d24f6f9741ce3f62a1b13d36ea8bacd577a1912)
@@ -1754,14 +1754,14 @@ class CloudtrailEventSelectorDataResource:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#type Cloudtrail#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#type Cloudtrail#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#values Cloudtrail#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#values Cloudtrail#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2195,7 +2195,7 @@ class CloudtrailEventSelectorOutputReference(
 class CloudtrailInsightSelector:
     def __init__(self, *, insight_type: builtins.str) -> None:
         '''
-        :param insight_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#insight_type Cloudtrail#insight_type}.
+        :param insight_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#insight_type Cloudtrail#insight_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1b5070f69c33134b947dd77cc0790c5daba0b7475910b3a79f43f260ec165ca)
@@ -2206,7 +2206,7 @@ class CloudtrailInsightSelector:
 
     @builtins.property
     def insight_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudtrail#insight_type Cloudtrail#insight_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudtrail#insight_type Cloudtrail#insight_type}.'''
         result = self._values.get("insight_type")
         assert result is not None, "Required property 'insight_type' is missing"
         return typing.cast(builtins.str, result)

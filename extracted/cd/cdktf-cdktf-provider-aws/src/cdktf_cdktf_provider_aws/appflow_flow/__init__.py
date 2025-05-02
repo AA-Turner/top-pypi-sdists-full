@@ -1,7 +1,7 @@
 r'''
 # `aws_appflow_flow`
 
-Refer to the Terraform Registry for docs: [`aws_appflow_flow`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow).
+Refer to the Terraform Registry for docs: [`aws_appflow_flow`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppflowFlow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appflowFlow.AppflowFlow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow aws_appflow_flow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow aws_appflow_flow}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class AppflowFlow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow aws_appflow_flow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow aws_appflow_flow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_flow_config: destination_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_flow_config AppflowFlow#destination_flow_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#name AppflowFlow#name}.
-        :param source_flow_config: source_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_flow_config AppflowFlow#source_flow_config}
-        :param task: task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task AppflowFlow#task}
-        :param trigger_config: trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_config AppflowFlow#trigger_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#description AppflowFlow#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id AppflowFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#kms_arn AppflowFlow#kms_arn}.
-        :param metadata_catalog_config: metadata_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#metadata_catalog_config AppflowFlow#metadata_catalog_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#tags AppflowFlow#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#tags_all AppflowFlow#tags_all}.
+        :param destination_flow_config: destination_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_flow_config AppflowFlow#destination_flow_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#name AppflowFlow#name}.
+        :param source_flow_config: source_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_flow_config AppflowFlow#source_flow_config}
+        :param task: task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task AppflowFlow#task}
+        :param trigger_config: trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_config AppflowFlow#trigger_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#description AppflowFlow#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id AppflowFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#kms_arn AppflowFlow#kms_arn}.
+        :param metadata_catalog_config: metadata_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#metadata_catalog_config AppflowFlow#metadata_catalog_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#tags AppflowFlow#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#tags_all AppflowFlow#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class AppflowFlow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppflowFlow to import.
-        :param import_from_id: The id of the existing AppflowFlow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppflowFlow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppflowFlow to import is found.
         '''
         if __debug__:
@@ -164,7 +164,7 @@ class AppflowFlow(
         glue_data_catalog: typing.Optional[typing.Union["AppflowFlowMetadataCatalogConfigGlueDataCatalog", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param glue_data_catalog: glue_data_catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#glue_data_catalog AppflowFlow#glue_data_catalog}
+        :param glue_data_catalog: glue_data_catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#glue_data_catalog AppflowFlow#glue_data_catalog}
         '''
         value = AppflowFlowMetadataCatalogConfig(glue_data_catalog=glue_data_catalog)
 
@@ -181,11 +181,11 @@ class AppflowFlow(
         incremental_pull_config: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigIncrementalPullConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.
-        :param source_connector_properties: source_connector_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_connector_properties AppflowFlow#source_connector_properties}
-        :param api_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.
-        :param connector_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.
-        :param incremental_pull_config: incremental_pull_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#incremental_pull_config AppflowFlow#incremental_pull_config}
+        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.
+        :param source_connector_properties: source_connector_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_connector_properties AppflowFlow#source_connector_properties}
+        :param api_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.
+        :param connector_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.
+        :param incremental_pull_config: incremental_pull_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#incremental_pull_config AppflowFlow#incremental_pull_config}
         '''
         value = AppflowFlowSourceFlowConfig(
             connector_type=connector_type,
@@ -218,8 +218,8 @@ class AppflowFlow(
         trigger_properties: typing.Optional[typing.Union["AppflowFlowTriggerConfigTriggerProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trigger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_type AppflowFlow#trigger_type}.
-        :param trigger_properties: trigger_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_properties AppflowFlow#trigger_properties}
+        :param trigger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_type AppflowFlow#trigger_type}.
+        :param trigger_properties: trigger_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_properties AppflowFlow#trigger_properties}
         '''
         value = AppflowFlowTriggerConfig(
             trigger_type=trigger_type, trigger_properties=trigger_properties
@@ -494,17 +494,17 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_flow_config: destination_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_flow_config AppflowFlow#destination_flow_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#name AppflowFlow#name}.
-        :param source_flow_config: source_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_flow_config AppflowFlow#source_flow_config}
-        :param task: task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task AppflowFlow#task}
-        :param trigger_config: trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_config AppflowFlow#trigger_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#description AppflowFlow#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id AppflowFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#kms_arn AppflowFlow#kms_arn}.
-        :param metadata_catalog_config: metadata_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#metadata_catalog_config AppflowFlow#metadata_catalog_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#tags AppflowFlow#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#tags_all AppflowFlow#tags_all}.
+        :param destination_flow_config: destination_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_flow_config AppflowFlow#destination_flow_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#name AppflowFlow#name}.
+        :param source_flow_config: source_flow_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_flow_config AppflowFlow#source_flow_config}
+        :param task: task block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task AppflowFlow#task}
+        :param trigger_config: trigger_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_config AppflowFlow#trigger_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#description AppflowFlow#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id AppflowFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#kms_arn AppflowFlow#kms_arn}.
+        :param metadata_catalog_config: metadata_catalog_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#metadata_catalog_config AppflowFlow#metadata_catalog_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#tags AppflowFlow#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#tags_all AppflowFlow#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -638,7 +638,7 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppflowFlowDestinationFlowConfig"]]:
         '''destination_flow_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_flow_config AppflowFlow#destination_flow_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_flow_config AppflowFlow#destination_flow_config}
         '''
         result = self._values.get("destination_flow_config")
         assert result is not None, "Required property 'destination_flow_config' is missing"
@@ -646,7 +646,7 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#name AppflowFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#name AppflowFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -655,7 +655,7 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_flow_config(self) -> "AppflowFlowSourceFlowConfig":
         '''source_flow_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_flow_config AppflowFlow#source_flow_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_flow_config AppflowFlow#source_flow_config}
         '''
         result = self._values.get("source_flow_config")
         assert result is not None, "Required property 'source_flow_config' is missing"
@@ -667,7 +667,7 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppflowFlowTask"]]:
         '''task block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task AppflowFlow#task}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task AppflowFlow#task}
         '''
         result = self._values.get("task")
         assert result is not None, "Required property 'task' is missing"
@@ -677,7 +677,7 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def trigger_config(self) -> "AppflowFlowTriggerConfig":
         '''trigger_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_config AppflowFlow#trigger_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_config AppflowFlow#trigger_config}
         '''
         result = self._values.get("trigger_config")
         assert result is not None, "Required property 'trigger_config' is missing"
@@ -685,13 +685,13 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#description AppflowFlow#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#description AppflowFlow#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id AppflowFlow#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id AppflowFlow#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -701,7 +701,7 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#kms_arn AppflowFlow#kms_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#kms_arn AppflowFlow#kms_arn}.'''
         result = self._values.get("kms_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -711,20 +711,20 @@ class AppflowFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppflowFlowMetadataCatalogConfig"]:
         '''metadata_catalog_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#metadata_catalog_config AppflowFlow#metadata_catalog_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#metadata_catalog_config AppflowFlow#metadata_catalog_config}
         '''
         result = self._values.get("metadata_catalog_config")
         return typing.cast(typing.Optional["AppflowFlowMetadataCatalogConfig"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#tags AppflowFlow#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#tags AppflowFlow#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#tags_all AppflowFlow#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#tags_all AppflowFlow#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -760,10 +760,10 @@ class AppflowFlowDestinationFlowConfig:
         connector_profile_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.
-        :param destination_connector_properties: destination_connector_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_connector_properties AppflowFlow#destination_connector_properties}
-        :param api_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.
-        :param connector_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.
+        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.
+        :param destination_connector_properties: destination_connector_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_connector_properties AppflowFlow#destination_connector_properties}
+        :param api_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.
+        :param connector_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.
         '''
         if isinstance(destination_connector_properties, dict):
             destination_connector_properties = AppflowFlowDestinationFlowConfigDestinationConnectorProperties(**destination_connector_properties)
@@ -784,7 +784,7 @@ class AppflowFlowDestinationFlowConfig:
 
     @builtins.property
     def connector_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.'''
         result = self._values.get("connector_type")
         assert result is not None, "Required property 'connector_type' is missing"
         return typing.cast(builtins.str, result)
@@ -795,7 +795,7 @@ class AppflowFlowDestinationFlowConfig:
     ) -> "AppflowFlowDestinationFlowConfigDestinationConnectorProperties":
         '''destination_connector_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_connector_properties AppflowFlow#destination_connector_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_connector_properties AppflowFlow#destination_connector_properties}
         '''
         result = self._values.get("destination_connector_properties")
         assert result is not None, "Required property 'destination_connector_properties' is missing"
@@ -803,13 +803,13 @@ class AppflowFlowDestinationFlowConfig:
 
     @builtins.property
     def api_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.'''
         result = self._values.get("api_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def connector_profile_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.'''
         result = self._values.get("connector_profile_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -863,19 +863,19 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
         zendesk: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
-        :param customer_profiles: customer_profiles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#customer_profiles AppflowFlow#customer_profiles}
-        :param event_bridge: event_bridge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#event_bridge AppflowFlow#event_bridge}
-        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#honeycode AppflowFlow#honeycode}
-        :param lookout_metrics: lookout_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#lookout_metrics AppflowFlow#lookout_metrics}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#redshift AppflowFlow#redshift}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#snowflake AppflowFlow#snowflake}
-        :param upsolver: upsolver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#upsolver AppflowFlow#upsolver}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
+        :param customer_profiles: customer_profiles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#customer_profiles AppflowFlow#customer_profiles}
+        :param event_bridge: event_bridge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#event_bridge AppflowFlow#event_bridge}
+        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#honeycode AppflowFlow#honeycode}
+        :param lookout_metrics: lookout_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#lookout_metrics AppflowFlow#lookout_metrics}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#redshift AppflowFlow#redshift}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#snowflake AppflowFlow#snowflake}
+        :param upsolver: upsolver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#upsolver AppflowFlow#upsolver}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
         '''
         if isinstance(custom_connector, dict):
             custom_connector = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnector(**custom_connector)
@@ -952,7 +952,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnector"]:
         '''custom_connector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
         '''
         result = self._values.get("custom_connector")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnector"], result)
@@ -963,7 +963,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomerProfiles"]:
         '''customer_profiles block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#customer_profiles AppflowFlow#customer_profiles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#customer_profiles AppflowFlow#customer_profiles}
         '''
         result = self._values.get("customer_profiles")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomerProfiles"], result)
@@ -974,7 +974,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridge"]:
         '''event_bridge block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#event_bridge AppflowFlow#event_bridge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#event_bridge AppflowFlow#event_bridge}
         '''
         result = self._values.get("event_bridge")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridge"], result)
@@ -985,7 +985,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycode"]:
         '''honeycode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#honeycode AppflowFlow#honeycode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#honeycode AppflowFlow#honeycode}
         '''
         result = self._values.get("honeycode")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycode"], result)
@@ -996,7 +996,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesLookoutMetrics"]:
         '''lookout_metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#lookout_metrics AppflowFlow#lookout_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#lookout_metrics AppflowFlow#lookout_metrics}
         '''
         result = self._values.get("lookout_metrics")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesLookoutMetrics"], result)
@@ -1007,7 +1007,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketo"]:
         '''marketo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
         '''
         result = self._values.get("marketo")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketo"], result)
@@ -1018,7 +1018,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshift"]:
         '''redshift block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#redshift AppflowFlow#redshift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#redshift AppflowFlow#redshift}
         '''
         result = self._values.get("redshift")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshift"], result)
@@ -1029,7 +1029,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3"], result)
@@ -1040,7 +1040,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforce"]:
         '''salesforce block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
         '''
         result = self._values.get("salesforce")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforce"], result)
@@ -1051,7 +1051,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData"]:
         '''sapo_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
         '''
         result = self._values.get("sapo_data")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData"], result)
@@ -1062,7 +1062,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflake"]:
         '''snowflake block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#snowflake AppflowFlow#snowflake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#snowflake AppflowFlow#snowflake}
         '''
         result = self._values.get("snowflake")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflake"], result)
@@ -1073,7 +1073,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver"]:
         '''upsolver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#upsolver AppflowFlow#upsolver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#upsolver AppflowFlow#upsolver}
         '''
         result = self._values.get("upsolver")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver"], result)
@@ -1084,7 +1084,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorProperties:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk"]:
         '''zendesk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
         '''
         result = self._values.get("zendesk")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk"], result)
@@ -1123,11 +1123,11 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
-        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
+        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnectorErrorHandlingConfig(**error_handling_config)
@@ -1152,7 +1152,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
 
     @builtins.property
     def entity_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.'''
         result = self._values.get("entity_name")
         assert result is not None, "Required property 'entity_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1161,7 +1161,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
     def custom_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.'''
         result = self._values.get("custom_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1171,20 +1171,20 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnectorErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnectorErrorHandlingConfig"], result)
 
     @builtins.property
     def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
         result = self._values.get("id_field_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def write_operation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
         result = self._values.get("write_operation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1218,9 +1218,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__002a6807352cf6cf096dbda89df004e19690f8d06251c6c1dce0e2658b70476a)
@@ -1237,13 +1237,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1251,7 +1251,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1404,9 +1404,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnec
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnectorErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -1550,8 +1550,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomerProf
         object_type_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#domain_name AppflowFlow#domain_name}.
-        :param object_type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_type_name AppflowFlow#object_type_name}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#domain_name AppflowFlow#domain_name}.
+        :param object_type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_type_name AppflowFlow#object_type_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fd40c27555f3b981d849934f1bb8f4041533a8c5e2571876beb17b002e87a4f)
@@ -1565,14 +1565,14 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomerProf
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#domain_name AppflowFlow#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#domain_name AppflowFlow#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def object_type_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_type_name AppflowFlow#object_type_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_type_name AppflowFlow#object_type_name}.'''
         result = self._values.get("object_type_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1677,8 +1677,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridge:
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeErrorHandlingConfig(**error_handling_config)
@@ -1694,7 +1694,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridge:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -1705,7 +1705,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridge:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeErrorHandlingConfig"], result)
@@ -1740,9 +1740,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeE
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4184c3515a58d1f5be78cbfc6e0b456a90f5d4bb566ed80e1b064ae8a449f33a)
@@ -1759,13 +1759,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeE
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1773,7 +1773,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeE
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1926,9 +1926,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeO
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -2004,8 +2004,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycode:
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErrorHandlingConfig(**error_handling_config)
@@ -2021,7 +2021,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycode:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -2032,7 +2032,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycode:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErrorHandlingConfig"], result)
@@ -2067,9 +2067,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErr
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__884504dc6d1279515b47026cf454e4648ccfbc51d5bece5fa7620e4e61e20d88)
@@ -2086,13 +2086,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErr
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2100,7 +2100,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErr
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2253,9 +2253,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeOut
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -2390,8 +2390,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketo:
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoErrorHandlingConfig(**error_handling_config)
@@ -2407,7 +2407,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketo:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -2418,7 +2418,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketo:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoErrorHandlingConfig"], result)
@@ -2453,9 +2453,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoError
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dfdce1e90419b7c1196d86468d4e01fd14afec86ad3eeb70ecd0c64cf920c3fd)
@@ -2472,13 +2472,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoError
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2486,7 +2486,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoError
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2639,9 +2639,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoOutpu
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -2735,11 +2735,11 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
-        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
+        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomConnector(
             entity_name=entity_name,
@@ -2759,8 +2759,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         object_type_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#domain_name AppflowFlow#domain_name}.
-        :param object_type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_type_name AppflowFlow#object_type_name}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#domain_name AppflowFlow#domain_name}.
+        :param object_type_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_type_name AppflowFlow#object_type_name}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesCustomerProfiles(
             domain_name=domain_name, object_type_name=object_type_name
@@ -2776,8 +2776,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         error_handling_config: typing.Optional[typing.Union[AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridgeErrorHandlingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesEventBridge(
             object=object, error_handling_config=error_handling_config
@@ -2793,8 +2793,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         error_handling_config: typing.Optional[typing.Union[AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycodeErrorHandlingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesHoneycode(
             object=object, error_handling_config=error_handling_config
@@ -2816,8 +2816,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         error_handling_config: typing.Optional[typing.Union[AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketoErrorHandlingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesMarketo(
             object=object, error_handling_config=error_handling_config
@@ -2835,10 +2835,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshift(
             intermediate_bucket_name=intermediate_bucket_name,
@@ -2858,9 +2858,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         s3_output_format_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3(
             bucket_name=bucket_name,
@@ -2880,10 +2880,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforce(
             object=object,
@@ -2905,11 +2905,11 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param success_response_handling_config: success_response_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#success_response_handling_config AppflowFlow#success_response_handling_config}
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param success_response_handling_config: success_response_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#success_response_handling_config AppflowFlow#success_response_handling_config}
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData(
             object_path=object_path,
@@ -2931,10 +2931,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflake(
             intermediate_bucket_name=intermediate_bucket_name,
@@ -2954,9 +2954,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         bucket_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver(
             bucket_name=bucket_name,
@@ -2976,10 +2976,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesOutputRefere
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk(
             object=object,
@@ -3262,10 +3262,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshift:
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErrorHandlingConfig(**error_handling_config)
@@ -3286,21 +3286,21 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshift:
 
     @builtins.property
     def intermediate_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.'''
         result = self._values.get("intermediate_bucket_name")
         assert result is not None, "Required property 'intermediate_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3310,7 +3310,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshift:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErrorHandlingConfig"], result)
@@ -3345,9 +3345,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErro
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4c7983a9f4aeb6fa8badd6ae8a422981379a724f96b916ba2f2119766f5a650)
@@ -3364,13 +3364,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErro
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3378,7 +3378,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErro
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3531,9 +3531,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftOutp
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesRedshiftErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -3652,9 +3652,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3:
         s3_output_format_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
         '''
         if isinstance(s3_output_format_config, dict):
             s3_output_format_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfig(**s3_output_format_config)
@@ -3673,14 +3673,14 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3690,7 +3690,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfig"]:
         '''s3_output_format_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
         '''
         result = self._values.get("s3_output_format_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfig"], result)
@@ -3737,10 +3737,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3OutputRefe
         preserve_source_data_typing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
-        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
-        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
-        :param preserve_source_data_typing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#preserve_source_data_typing AppflowFlow#preserve_source_data_typing}.
+        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
+        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
+        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
+        :param preserve_source_data_typing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#preserve_source_data_typing AppflowFlow#preserve_source_data_typing}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfig(
             aggregation_config=aggregation_config,
@@ -3845,10 +3845,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
         preserve_source_data_typing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
-        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
-        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
-        :param preserve_source_data_typing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#preserve_source_data_typing AppflowFlow#preserve_source_data_typing}.
+        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
+        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
+        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
+        :param preserve_source_data_typing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#preserve_source_data_typing AppflowFlow#preserve_source_data_typing}.
         '''
         if isinstance(aggregation_config, dict):
             aggregation_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigAggregationConfig(**aggregation_config)
@@ -3876,14 +3876,14 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigAggregationConfig"]:
         '''aggregation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
         '''
         result = self._values.get("aggregation_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigAggregationConfig"], result)
 
     @builtins.property
     def file_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.'''
         result = self._values.get("file_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3893,7 +3893,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigPrefixConfig"]:
         '''prefix_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
         '''
         result = self._values.get("prefix_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigPrefixConfig"], result)
@@ -3902,7 +3902,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
     def preserve_source_data_typing(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#preserve_source_data_typing AppflowFlow#preserve_source_data_typing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#preserve_source_data_typing AppflowFlow#preserve_source_data_typing}.'''
         result = self._values.get("preserve_source_data_typing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3934,8 +3934,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
         target_file_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
-        :param target_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#target_file_size AppflowFlow#target_file_size}.
+        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
+        :param target_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#target_file_size AppflowFlow#target_file_size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__584ecfe1fdfc18f2e99a94fd3203e8d593da524a9cc8326b34d890ccd45ff55c)
@@ -3949,13 +3949,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
 
     @builtins.property
     def aggregation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.'''
         result = self._values.get("aggregation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_file_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#target_file_size AppflowFlow#target_file_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#target_file_size AppflowFlow#target_file_size}.'''
         result = self._values.get("target_file_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4079,8 +4079,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
         target_file_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
-        :param target_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#target_file_size AppflowFlow#target_file_size}.
+        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
+        :param target_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#target_file_size AppflowFlow#target_file_size}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigAggregationConfig(
             aggregation_type=aggregation_type, target_file_size=target_file_size
@@ -4097,9 +4097,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
         prefix_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
-        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
-        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
+        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
+        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
+        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFormatConfigPrefixConfig(
             prefix_format=prefix_format,
@@ -4230,9 +4230,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
         prefix_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
-        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
-        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
+        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
+        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
+        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7d04afd9f0724df621192a3203519fb6fce4f3a6cbbd4d9cef1f48e49c13043)
@@ -4249,19 +4249,19 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesS3S3OutputFo
 
     @builtins.property
     def prefix_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.'''
         result = self._values.get("prefix_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix_hierarchy(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.'''
         result = self._values.get("prefix_hierarchy")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def prefix_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.'''
         result = self._values.get("prefix_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4398,10 +4398,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforce:
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceErrorHandlingConfig(**error_handling_config)
@@ -4423,7 +4423,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforce:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -4434,20 +4434,20 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforce:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceErrorHandlingConfig"], result)
 
     @builtins.property
     def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
         result = self._values.get("id_field_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def write_operation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
         result = self._values.get("write_operation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4481,9 +4481,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceEr
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a66e4879c08d751a122672d38a83a381c7c0011cbd68a14c7e7583f9eac20d8f)
@@ -4500,13 +4500,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceEr
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4514,7 +4514,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceEr
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4667,9 +4667,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceOu
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSalesforceErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -4796,11 +4796,11 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData:
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param success_response_handling_config: success_response_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#success_response_handling_config AppflowFlow#success_response_handling_config}
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param success_response_handling_config: success_response_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#success_response_handling_config AppflowFlow#success_response_handling_config}
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErrorHandlingConfig(**error_handling_config)
@@ -4827,7 +4827,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData:
 
     @builtins.property
     def object_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.'''
         result = self._values.get("object_path")
         assert result is not None, "Required property 'object_path' is missing"
         return typing.cast(builtins.str, result)
@@ -4838,14 +4838,14 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErrorHandlingConfig"], result)
 
     @builtins.property
     def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
         result = self._values.get("id_field_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4855,14 +4855,14 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoData:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataSuccessResponseHandlingConfig"]:
         '''success_response_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#success_response_handling_config AppflowFlow#success_response_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#success_response_handling_config AppflowFlow#success_response_handling_config}
         '''
         result = self._values.get("success_response_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataSuccessResponseHandlingConfig"], result)
 
     @builtins.property
     def write_operation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
         result = self._values.get("write_operation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4896,9 +4896,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErro
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ba250468ec5e5637d5adfd26b974a1ee3c5545f6072704398a9d2cd59841fe7)
@@ -4915,13 +4915,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErro
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4929,7 +4929,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErro
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5082,9 +5082,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataOutp
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -5102,8 +5102,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataOutp
         bucket_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataSuccessResponseHandlingConfig(
             bucket_name=bucket_name, bucket_prefix=bucket_prefix
@@ -5237,8 +5237,8 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataSucc
         bucket_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bfcb15d6979b5e5531fe10d2b05282c9899beb501006fe1ca0d5edab3761b02)
@@ -5252,13 +5252,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSapoDataSucc
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5374,10 +5374,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflake:
         error_handling_config: typing.Optional[typing.Union["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErrorHandlingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param intermediate_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErrorHandlingConfig(**error_handling_config)
@@ -5398,21 +5398,21 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflake:
 
     @builtins.property
     def intermediate_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#intermediate_bucket_name AppflowFlow#intermediate_bucket_name}.'''
         result = self._values.get("intermediate_bucket_name")
         assert result is not None, "Required property 'intermediate_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5422,7 +5422,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflake:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErrorHandlingConfig"], result)
@@ -5457,9 +5457,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErr
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9a5e8cabe13fd56ffb3b34d041068b85652af1f7a494335885ee767812e61cc)
@@ -5476,13 +5476,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErr
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5490,7 +5490,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErr
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5643,9 +5643,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeOut
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesSnowflakeErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -5764,9 +5764,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver:
         bucket_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param s3_output_format_config: s3_output_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
         '''
         if isinstance(s3_output_format_config, dict):
             s3_output_format_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfig(**s3_output_format_config)
@@ -5784,7 +5784,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
@@ -5795,7 +5795,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver:
     ) -> "AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfig":
         '''s3_output_format_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_output_format_config AppflowFlow#s3_output_format_config}
         '''
         result = self._values.get("s3_output_format_config")
         assert result is not None, "Required property 's3_output_format_config' is missing"
@@ -5803,7 +5803,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolver:
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5848,9 +5848,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverOutp
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
-        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
-        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
+        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
+        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
+        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfig(
             prefix_config=prefix_config,
@@ -5948,9 +5948,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
         file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
-        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
-        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
+        :param prefix_config: prefix_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
+        :param aggregation_config: aggregation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
+        :param file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.
         '''
         if isinstance(prefix_config, dict):
             prefix_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfigPrefixConfig(**prefix_config)
@@ -5975,7 +5975,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
     ) -> "AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfigPrefixConfig":
         '''prefix_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_config AppflowFlow#prefix_config}
         '''
         result = self._values.get("prefix_config")
         assert result is not None, "Required property 'prefix_config' is missing"
@@ -5987,14 +5987,14 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfigAggregationConfig"]:
         '''aggregation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_config AppflowFlow#aggregation_config}
         '''
         result = self._values.get("aggregation_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfigAggregationConfig"], result)
 
     @builtins.property
     def file_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#file_type AppflowFlow#file_type}.'''
         result = self._values.get("file_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6022,7 +6022,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
         aggregation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
+        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fab819b17d7d798618d456f980572d2937f88b2d86e91c25357391849f3fe611)
@@ -6033,7 +6033,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
 
     @builtins.property
     def aggregation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.'''
         result = self._values.get("aggregation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6135,7 +6135,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
         aggregation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
+        :param aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#aggregation_type AppflowFlow#aggregation_type}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfigAggregationConfig(
             aggregation_type=aggregation_type
@@ -6152,9 +6152,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
         prefix_hierarchy: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
-        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
-        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
+        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
+        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
+        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3OutputFormatConfigPrefixConfig(
             prefix_type=prefix_type,
@@ -6253,9 +6253,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
         prefix_hierarchy: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
-        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
-        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
+        :param prefix_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.
+        :param prefix_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.
+        :param prefix_hierarchy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e6be9f160622b52a2d10bb8d7ee7f70b33551dd8187cbd4648bbd84ed201505)
@@ -6272,20 +6272,20 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesUpsolverS3Ou
 
     @builtins.property
     def prefix_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_type AppflowFlow#prefix_type}.'''
         result = self._values.get("prefix_type")
         assert result is not None, "Required property 'prefix_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def prefix_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_format AppflowFlow#prefix_format}.'''
         result = self._values.get("prefix_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix_hierarchy(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#prefix_hierarchy AppflowFlow#prefix_hierarchy}.'''
         result = self._values.get("prefix_hierarchy")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6418,10 +6418,10 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk:
         write_operation_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
-        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
-        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param error_handling_config: error_handling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        :param id_field_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.
+        :param write_operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.
         '''
         if isinstance(error_handling_config, dict):
             error_handling_config = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskErrorHandlingConfig(**error_handling_config)
@@ -6443,7 +6443,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -6454,20 +6454,20 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk:
     ) -> typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskErrorHandlingConfig"]:
         '''error_handling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#error_handling_config AppflowFlow#error_handling_config}
         '''
         result = self._values.get("error_handling_config")
         return typing.cast(typing.Optional["AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskErrorHandlingConfig"], result)
 
     @builtins.property
     def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#id_field_names AppflowFlow#id_field_names}.'''
         result = self._values.get("id_field_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def write_operation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#write_operation_type AppflowFlow#write_operation_type}.'''
         result = self._values.get("write_operation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6501,9 +6501,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskError
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__261e8dedeb625de4a7f8c9edbd03040b5b82717862a2d504dd0e52c789300c55)
@@ -6520,13 +6520,13 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskError
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6534,7 +6534,7 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskError
     def fail_on_first_destination_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.'''
         result = self._values.get("fail_on_first_destination_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6687,9 +6687,9 @@ class AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskOutpu
         fail_on_first_destination_error: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param fail_on_first_destination_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#fail_on_first_destination_error AppflowFlow#fail_on_first_destination_error}.
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendeskErrorHandlingConfig(
             bucket_name=bucket_name,
@@ -6932,19 +6932,19 @@ class AppflowFlowDestinationFlowConfigOutputReference(
         zendesk: typing.Optional[typing.Union[AppflowFlowDestinationFlowConfigDestinationConnectorPropertiesZendesk, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
-        :param customer_profiles: customer_profiles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#customer_profiles AppflowFlow#customer_profiles}
-        :param event_bridge: event_bridge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#event_bridge AppflowFlow#event_bridge}
-        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#honeycode AppflowFlow#honeycode}
-        :param lookout_metrics: lookout_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#lookout_metrics AppflowFlow#lookout_metrics}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#redshift AppflowFlow#redshift}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#snowflake AppflowFlow#snowflake}
-        :param upsolver: upsolver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#upsolver AppflowFlow#upsolver}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
+        :param customer_profiles: customer_profiles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#customer_profiles AppflowFlow#customer_profiles}
+        :param event_bridge: event_bridge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#event_bridge AppflowFlow#event_bridge}
+        :param honeycode: honeycode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#honeycode AppflowFlow#honeycode}
+        :param lookout_metrics: lookout_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#lookout_metrics AppflowFlow#lookout_metrics}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#redshift AppflowFlow#redshift}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#snowflake AppflowFlow#snowflake}
+        :param upsolver: upsolver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#upsolver AppflowFlow#upsolver}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
         '''
         value = AppflowFlowDestinationFlowConfigDestinationConnectorProperties(
             custom_connector=custom_connector,
@@ -7067,7 +7067,7 @@ class AppflowFlowMetadataCatalogConfig:
         glue_data_catalog: typing.Optional[typing.Union["AppflowFlowMetadataCatalogConfigGlueDataCatalog", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param glue_data_catalog: glue_data_catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#glue_data_catalog AppflowFlow#glue_data_catalog}
+        :param glue_data_catalog: glue_data_catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#glue_data_catalog AppflowFlow#glue_data_catalog}
         '''
         if isinstance(glue_data_catalog, dict):
             glue_data_catalog = AppflowFlowMetadataCatalogConfigGlueDataCatalog(**glue_data_catalog)
@@ -7084,7 +7084,7 @@ class AppflowFlowMetadataCatalogConfig:
     ) -> typing.Optional["AppflowFlowMetadataCatalogConfigGlueDataCatalog"]:
         '''glue_data_catalog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#glue_data_catalog AppflowFlow#glue_data_catalog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#glue_data_catalog AppflowFlow#glue_data_catalog}
         '''
         result = self._values.get("glue_data_catalog")
         return typing.cast(typing.Optional["AppflowFlowMetadataCatalogConfigGlueDataCatalog"], result)
@@ -7119,9 +7119,9 @@ class AppflowFlowMetadataCatalogConfigGlueDataCatalog:
         table_prefix: builtins.str,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#database_name AppflowFlow#database_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#role_arn AppflowFlow#role_arn}.
-        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#table_prefix AppflowFlow#table_prefix}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#database_name AppflowFlow#database_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#role_arn AppflowFlow#role_arn}.
+        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#table_prefix AppflowFlow#table_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c9977c4cee39bcbfb4daee0d6720652e133c7969de3d8d4efbcb9873e70a5b1)
@@ -7136,21 +7136,21 @@ class AppflowFlowMetadataCatalogConfigGlueDataCatalog:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#database_name AppflowFlow#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#database_name AppflowFlow#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#role_arn AppflowFlow#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#role_arn AppflowFlow#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#table_prefix AppflowFlow#table_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#table_prefix AppflowFlow#table_prefix}.'''
         result = self._values.get("table_prefix")
         assert result is not None, "Required property 'table_prefix' is missing"
         return typing.cast(builtins.str, result)
@@ -7285,9 +7285,9 @@ class AppflowFlowMetadataCatalogConfigOutputReference(
         table_prefix: builtins.str,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#database_name AppflowFlow#database_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#role_arn AppflowFlow#role_arn}.
-        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#table_prefix AppflowFlow#table_prefix}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#database_name AppflowFlow#database_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#role_arn AppflowFlow#role_arn}.
+        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#table_prefix AppflowFlow#table_prefix}.
         '''
         value = AppflowFlowMetadataCatalogConfigGlueDataCatalog(
             database_name=database_name, role_arn=role_arn, table_prefix=table_prefix
@@ -7351,11 +7351,11 @@ class AppflowFlowSourceFlowConfig:
         incremental_pull_config: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigIncrementalPullConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.
-        :param source_connector_properties: source_connector_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_connector_properties AppflowFlow#source_connector_properties}
-        :param api_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.
-        :param connector_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.
-        :param incremental_pull_config: incremental_pull_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#incremental_pull_config AppflowFlow#incremental_pull_config}
+        :param connector_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.
+        :param source_connector_properties: source_connector_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_connector_properties AppflowFlow#source_connector_properties}
+        :param api_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.
+        :param connector_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.
+        :param incremental_pull_config: incremental_pull_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#incremental_pull_config AppflowFlow#incremental_pull_config}
         '''
         if isinstance(source_connector_properties, dict):
             source_connector_properties = AppflowFlowSourceFlowConfigSourceConnectorProperties(**source_connector_properties)
@@ -7381,7 +7381,7 @@ class AppflowFlowSourceFlowConfig:
 
     @builtins.property
     def connector_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_type AppflowFlow#connector_type}.'''
         result = self._values.get("connector_type")
         assert result is not None, "Required property 'connector_type' is missing"
         return typing.cast(builtins.str, result)
@@ -7392,7 +7392,7 @@ class AppflowFlowSourceFlowConfig:
     ) -> "AppflowFlowSourceFlowConfigSourceConnectorProperties":
         '''source_connector_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_connector_properties AppflowFlow#source_connector_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_connector_properties AppflowFlow#source_connector_properties}
         '''
         result = self._values.get("source_connector_properties")
         assert result is not None, "Required property 'source_connector_properties' is missing"
@@ -7400,13 +7400,13 @@ class AppflowFlowSourceFlowConfig:
 
     @builtins.property
     def api_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#api_version AppflowFlow#api_version}.'''
         result = self._values.get("api_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def connector_profile_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_profile_name AppflowFlow#connector_profile_name}.'''
         result = self._values.get("connector_profile_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7416,7 +7416,7 @@ class AppflowFlowSourceFlowConfig:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigIncrementalPullConfig"]:
         '''incremental_pull_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#incremental_pull_config AppflowFlow#incremental_pull_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#incremental_pull_config AppflowFlow#incremental_pull_config}
         '''
         result = self._values.get("incremental_pull_config")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigIncrementalPullConfig"], result)
@@ -7445,7 +7445,7 @@ class AppflowFlowSourceFlowConfigIncrementalPullConfig:
         datetime_type_field_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param datetime_type_field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datetime_type_field_name AppflowFlow#datetime_type_field_name}.
+        :param datetime_type_field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datetime_type_field_name AppflowFlow#datetime_type_field_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__847cdfe0511582182fcf539c1ed0e0ab8751c6905b71679599bbd9b545466727)
@@ -7456,7 +7456,7 @@ class AppflowFlowSourceFlowConfigIncrementalPullConfig:
 
     @builtins.property
     def datetime_type_field_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datetime_type_field_name AppflowFlow#datetime_type_field_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datetime_type_field_name AppflowFlow#datetime_type_field_name}.'''
         result = self._values.get("datetime_type_field_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7558,7 +7558,7 @@ class AppflowFlowSourceFlowConfigOutputReference(
         datetime_type_field_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param datetime_type_field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datetime_type_field_name AppflowFlow#datetime_type_field_name}.
+        :param datetime_type_field_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datetime_type_field_name AppflowFlow#datetime_type_field_name}.
         '''
         value = AppflowFlowSourceFlowConfigIncrementalPullConfig(
             datetime_type_field_name=datetime_type_field_name
@@ -7588,22 +7588,22 @@ class AppflowFlowSourceFlowConfigOutputReference(
         zendesk: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
-        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}
-        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}
-        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}
-        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}
-        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#singular AppflowFlow#singular}
-        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#slack AppflowFlow#slack}
-        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}
-        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
+        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
+        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}
+        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}
+        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}
+        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}
+        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#singular AppflowFlow#singular}
+        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#slack AppflowFlow#slack}
+        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}
+        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorProperties(
             amplitude=amplitude,
@@ -7777,22 +7777,22 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
         zendesk: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}
-        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
-        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}
-        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}
-        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}
-        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}
-        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
-        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
-        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}
-        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#singular AppflowFlow#singular}
-        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#slack AppflowFlow#slack}
-        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}
-        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}
-        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
+        :param amplitude: amplitude block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}
+        :param custom_connector: custom_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
+        :param datadog: datadog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}
+        :param dynatrace: dynatrace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}
+        :param google_analytics: google_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}
+        :param infor_nexus: infor_nexus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}
+        :param marketo: marketo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
+        :param salesforce: salesforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
+        :param sapo_data: sapo_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}
+        :param singular: singular block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#singular AppflowFlow#singular}
+        :param slack: slack block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#slack AppflowFlow#slack}
+        :param trendmicro: trendmicro block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}
+        :param veeva: veeva block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}
+        :param zendesk: zendesk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
         '''
         if isinstance(amplitude, dict):
             amplitude = AppflowFlowSourceFlowConfigSourceConnectorPropertiesAmplitude(**amplitude)
@@ -7884,7 +7884,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesAmplitude"]:
         '''amplitude block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}
         '''
         result = self._values.get("amplitude")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesAmplitude"], result)
@@ -7895,7 +7895,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnector"]:
         '''custom_connector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}
         '''
         result = self._values.get("custom_connector")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnector"], result)
@@ -7906,7 +7906,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesDatadog"]:
         '''datadog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}
         '''
         result = self._values.get("datadog")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesDatadog"], result)
@@ -7917,7 +7917,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesDynatrace"]:
         '''dynatrace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}
         '''
         result = self._values.get("dynatrace")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesDynatrace"], result)
@@ -7928,7 +7928,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesGoogleAnalytics"]:
         '''google_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}
         '''
         result = self._values.get("google_analytics")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesGoogleAnalytics"], result)
@@ -7939,7 +7939,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesInforNexus"]:
         '''infor_nexus block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}
         '''
         result = self._values.get("infor_nexus")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesInforNexus"], result)
@@ -7950,7 +7950,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesMarketo"]:
         '''marketo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}
         '''
         result = self._values.get("marketo")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesMarketo"], result)
@@ -7961,7 +7961,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3"], result)
@@ -7972,7 +7972,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce"]:
         '''salesforce block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}
         '''
         result = self._values.get("salesforce")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce"], result)
@@ -7983,7 +7983,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData"]:
         '''sapo_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}
         '''
         result = self._values.get("sapo_data")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData"], result)
@@ -7994,7 +7994,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesServiceNow"]:
         '''service_now block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}
         '''
         result = self._values.get("service_now")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesServiceNow"], result)
@@ -8005,7 +8005,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSingular"]:
         '''singular block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#singular AppflowFlow#singular}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#singular AppflowFlow#singular}
         '''
         result = self._values.get("singular")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSingular"], result)
@@ -8016,7 +8016,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSlack"]:
         '''slack block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#slack AppflowFlow#slack}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#slack AppflowFlow#slack}
         '''
         result = self._values.get("slack")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSlack"], result)
@@ -8027,7 +8027,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesTrendmicro"]:
         '''trendmicro block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}
         '''
         result = self._values.get("trendmicro")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesTrendmicro"], result)
@@ -8038,7 +8038,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva"]:
         '''veeva block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}
         '''
         result = self._values.get("veeva")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva"], result)
@@ -8049,7 +8049,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk"]:
         '''zendesk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}
         '''
         result = self._values.get("zendesk")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk"], result)
@@ -8074,7 +8074,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorProperties:
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesAmplitude:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f3ac80550cdaef3a884598d7fb6051065936a9cb60bef1469b88bcd30b15eeb)
@@ -8085,7 +8085,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesAmplitude:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -8173,8 +8173,8 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnector:
         custom_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
-        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
+        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
+        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35506281b6e355855f9b5edb7efc9ccc9bde03d4e99512a6ae5d20bed840e8dd)
@@ -8188,7 +8188,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnector:
 
     @builtins.property
     def entity_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.'''
         result = self._values.get("entity_name")
         assert result is not None, "Required property 'entity_name' is missing"
         return typing.cast(builtins.str, result)
@@ -8197,7 +8197,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnector:
     def custom_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.'''
         result = self._values.get("custom_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -8302,7 +8302,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnectorOutputR
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesDatadog:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c182fa6b0a84310cd0ff83fe4cb8dc061e9fe3c5597f7fe2a06d09f051f0e86)
@@ -8313,7 +8313,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesDatadog:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -8393,7 +8393,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesDatadogOutputReference
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesDynatrace:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b715ca4a794fb5ea5434f04f8aa5043a493b724e49012668067bed0abb2fe68)
@@ -8404,7 +8404,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesDynatrace:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -8484,7 +8484,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesDynatraceOutputReferen
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesGoogleAnalytics:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e74e857b7b44cf9797ef1afea43d6262634471fd9512ec7d99a57381dda71453)
@@ -8495,7 +8495,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesGoogleAnalytics:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -8575,7 +8575,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesGoogleAnalyticsOutputR
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesInforNexus:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dd1f64603fce6964321e4c2fa3ef508be2afef22daf31def9ad51c6bcf87aa5)
@@ -8586,7 +8586,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesInforNexus:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -8666,7 +8666,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesInforNexusOutputRefere
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesMarketo:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58e15841d46e41243d71c2144b715dd9712adbe3bd64117cfa29a113041d2a69)
@@ -8677,7 +8677,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesMarketo:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -8772,7 +8772,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putAmplitude")
     def put_amplitude(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesAmplitude(
             object=object
@@ -8788,8 +8788,8 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
         custom_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
-        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
+        :param entity_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#entity_name AppflowFlow#entity_name}.
+        :param custom_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_properties AppflowFlow#custom_properties}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesCustomConnector(
             entity_name=entity_name, custom_properties=custom_properties
@@ -8800,7 +8800,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putDatadog")
     def put_datadog(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesDatadog(
             object=object
@@ -8811,7 +8811,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putDynatrace")
     def put_dynatrace(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesDynatrace(
             object=object
@@ -8822,7 +8822,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putGoogleAnalytics")
     def put_google_analytics(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesGoogleAnalytics(
             object=object
@@ -8833,7 +8833,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putInforNexus")
     def put_infor_nexus(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesInforNexus(
             object=object
@@ -8844,7 +8844,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putMarketo")
     def put_marketo(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesMarketo(
             object=object
@@ -8861,9 +8861,9 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
         s3_input_format_config: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param s3_input_format_config: s3_input_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_input_format_config AppflowFlow#s3_input_format_config}
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param s3_input_format_config: s3_input_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_input_format_config AppflowFlow#s3_input_format_config}
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3(
             bucket_name=bucket_name,
@@ -8883,10 +8883,10 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
         include_deleted_records: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param data_transfer_api: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#data_transfer_api AppflowFlow#data_transfer_api}.
-        :param enable_dynamic_field_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#enable_dynamic_field_update AppflowFlow#enable_dynamic_field_update}.
-        :param include_deleted_records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_deleted_records AppflowFlow#include_deleted_records}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param data_transfer_api: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#data_transfer_api AppflowFlow#data_transfer_api}.
+        :param enable_dynamic_field_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#enable_dynamic_field_update AppflowFlow#enable_dynamic_field_update}.
+        :param include_deleted_records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_deleted_records AppflowFlow#include_deleted_records}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce(
             object=object,
@@ -8906,9 +8906,9 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
         parallelism_config: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
-        :param pagination_config: pagination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#pagination_config AppflowFlow#pagination_config}
-        :param parallelism_config: parallelism_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#parallelism_config AppflowFlow#parallelism_config}
+        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
+        :param pagination_config: pagination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#pagination_config AppflowFlow#pagination_config}
+        :param parallelism_config: parallelism_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#parallelism_config AppflowFlow#parallelism_config}
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData(
             object_path=object_path,
@@ -8921,7 +8921,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putServiceNow")
     def put_service_now(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesServiceNow(
             object=object
@@ -8932,7 +8932,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putSingular")
     def put_singular(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSingular(
             object=object
@@ -8943,7 +8943,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putSlack")
     def put_slack(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSlack(
             object=object
@@ -8954,7 +8954,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putTrendmicro")
     def put_trendmicro(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesTrendmicro(
             object=object
@@ -8973,11 +8973,11 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
         include_source_files: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param document_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#document_type AppflowFlow#document_type}.
-        :param include_all_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_all_versions AppflowFlow#include_all_versions}.
-        :param include_renditions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_renditions AppflowFlow#include_renditions}.
-        :param include_source_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_source_files AppflowFlow#include_source_files}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param document_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#document_type AppflowFlow#document_type}.
+        :param include_all_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_all_versions AppflowFlow#include_all_versions}.
+        :param include_renditions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_renditions AppflowFlow#include_renditions}.
+        :param include_source_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_source_files AppflowFlow#include_source_files}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva(
             object=object,
@@ -8992,7 +8992,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesOutputReference(
     @jsii.member(jsii_name="putZendesk")
     def put_zendesk(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk(
             object=object
@@ -9324,9 +9324,9 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3:
         s3_input_format_config: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
-        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
-        :param s3_input_format_config: s3_input_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_input_format_config AppflowFlow#s3_input_format_config}
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.
+        :param bucket_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.
+        :param s3_input_format_config: s3_input_format_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_input_format_config AppflowFlow#s3_input_format_config}
         '''
         if isinstance(s3_input_format_config, dict):
             s3_input_format_config = AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig(**s3_input_format_config)
@@ -9344,14 +9344,14 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_name AppflowFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#bucket_prefix AppflowFlow#bucket_prefix}.'''
         result = self._values.get("bucket_prefix")
         assert result is not None, "Required property 'bucket_prefix' is missing"
         return typing.cast(builtins.str, result)
@@ -9362,7 +9362,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig"]:
         '''s3_input_format_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_input_format_config AppflowFlow#s3_input_format_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_input_format_config AppflowFlow#s3_input_format_config}
         '''
         result = self._values.get("s3_input_format_config")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig"], result)
@@ -9406,7 +9406,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3OutputReference(
         s3_input_file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_input_file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_input_file_type AppflowFlow#s3_input_file_type}.
+        :param s3_input_file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_input_file_type AppflowFlow#s3_input_file_type}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig(
             s3_input_file_type=s3_input_file_type
@@ -9496,7 +9496,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig:
         s3_input_file_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_input_file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_input_file_type AppflowFlow#s3_input_file_type}.
+        :param s3_input_file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_input_file_type AppflowFlow#s3_input_file_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a4b125128ce4c1396e1c7b1995ab13916fcd9b008753752a5579f9d0e2e0d3c)
@@ -9507,7 +9507,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesS3S3InputFormatConfig:
 
     @builtins.property
     def s3_input_file_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3_input_file_type AppflowFlow#s3_input_file_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3_input_file_type AppflowFlow#s3_input_file_type}.'''
         result = self._values.get("s3_input_file_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9602,10 +9602,10 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce:
         include_deleted_records: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param data_transfer_api: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#data_transfer_api AppflowFlow#data_transfer_api}.
-        :param enable_dynamic_field_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#enable_dynamic_field_update AppflowFlow#enable_dynamic_field_update}.
-        :param include_deleted_records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_deleted_records AppflowFlow#include_deleted_records}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param data_transfer_api: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#data_transfer_api AppflowFlow#data_transfer_api}.
+        :param enable_dynamic_field_update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#enable_dynamic_field_update AppflowFlow#enable_dynamic_field_update}.
+        :param include_deleted_records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_deleted_records AppflowFlow#include_deleted_records}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3af5da59677baec1b66bc364d4ec3887aa003330e421225eb55795d7c76d6b9)
@@ -9625,14 +9625,14 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_transfer_api(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#data_transfer_api AppflowFlow#data_transfer_api}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#data_transfer_api AppflowFlow#data_transfer_api}.'''
         result = self._values.get("data_transfer_api")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9640,7 +9640,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce:
     def enable_dynamic_field_update(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#enable_dynamic_field_update AppflowFlow#enable_dynamic_field_update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#enable_dynamic_field_update AppflowFlow#enable_dynamic_field_update}.'''
         result = self._values.get("enable_dynamic_field_update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -9648,7 +9648,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSalesforce:
     def include_deleted_records(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_deleted_records AppflowFlow#include_deleted_records}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_deleted_records AppflowFlow#include_deleted_records}.'''
         result = self._values.get("include_deleted_records")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -9814,9 +9814,9 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData:
         parallelism_config: typing.Optional[typing.Union["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
-        :param pagination_config: pagination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#pagination_config AppflowFlow#pagination_config}
-        :param parallelism_config: parallelism_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#parallelism_config AppflowFlow#parallelism_config}
+        :param object_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.
+        :param pagination_config: pagination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#pagination_config AppflowFlow#pagination_config}
+        :param parallelism_config: parallelism_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#parallelism_config AppflowFlow#parallelism_config}
         '''
         if isinstance(pagination_config, dict):
             pagination_config = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConfig(**pagination_config)
@@ -9837,7 +9837,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData:
 
     @builtins.property
     def object_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object_path AppflowFlow#object_path}.'''
         result = self._values.get("object_path")
         assert result is not None, "Required property 'object_path' is missing"
         return typing.cast(builtins.str, result)
@@ -9848,7 +9848,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConfig"]:
         '''pagination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#pagination_config AppflowFlow#pagination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#pagination_config AppflowFlow#pagination_config}
         '''
         result = self._values.get("pagination_config")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConfig"], result)
@@ -9859,7 +9859,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoData:
     ) -> typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismConfig"]:
         '''parallelism_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#parallelism_config AppflowFlow#parallelism_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#parallelism_config AppflowFlow#parallelism_config}
         '''
         result = self._values.get("parallelism_config")
         return typing.cast(typing.Optional["AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismConfig"], result)
@@ -9899,7 +9899,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataOutputReferenc
     @jsii.member(jsii_name="putPaginationConfig")
     def put_pagination_config(self, *, max_page_size: jsii.Number) -> None:
         '''
-        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
+        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConfig(
             max_page_size=max_page_size
@@ -9910,7 +9910,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataOutputReferenc
     @jsii.member(jsii_name="putParallelismConfig")
     def put_parallelism_config(self, *, max_page_size: jsii.Number) -> None:
         '''
-        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
+        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
         '''
         value = AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismConfig(
             max_page_size=max_page_size
@@ -9997,7 +9997,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataOutputReferenc
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConfig:
     def __init__(self, *, max_page_size: jsii.Number) -> None:
         '''
-        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
+        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c8f54d0a959bc5efd5a0f7aa88cef358b4c8a6baa297af23dcab36c33a1875c)
@@ -10008,7 +10008,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConf
 
     @builtins.property
     def max_page_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.'''
         result = self._values.get("max_page_size")
         assert result is not None, "Required property 'max_page_size' is missing"
         return typing.cast(jsii.Number, result)
@@ -10088,7 +10088,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataPaginationConf
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismConfig:
     def __init__(self, *, max_page_size: jsii.Number) -> None:
         '''
-        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
+        :param max_page_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__520a721409d6c1d62a67728a763d0dabc4ff533f2fe27d09885219bb7f737322)
@@ -10099,7 +10099,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismCon
 
     @builtins.property
     def max_page_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#max_page_size AppflowFlow#max_page_size}.'''
         result = self._values.get("max_page_size")
         assert result is not None, "Required property 'max_page_size' is missing"
         return typing.cast(jsii.Number, result)
@@ -10179,7 +10179,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSapoDataParallelismCon
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesServiceNow:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54c59dabc229d2d9f7a92d6ba538f24c68f2b902ef131480f0ed09a41f488230)
@@ -10190,7 +10190,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesServiceNow:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -10270,7 +10270,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesServiceNowOutputRefere
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSingular:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd26348b3548506ec1f29ecf149b91aa8fa53bc9160213a748dc6a05bc17d796)
@@ -10281,7 +10281,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSingular:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -10361,7 +10361,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSingularOutputReferenc
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSlack:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11389da639b58d72225b21093edb5e2549d426d59b8bac51d5676fadbc19827c)
@@ -10372,7 +10372,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSlack:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -10452,7 +10452,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesSlackOutputReference(
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesTrendmicro:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__640b1aab906fbd87b7c5131a22e9d8dc4f96832fccef6f5678718b26d718b254)
@@ -10463,7 +10463,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesTrendmicro:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -10557,11 +10557,11 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva:
         include_source_files: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
-        :param document_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#document_type AppflowFlow#document_type}.
-        :param include_all_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_all_versions AppflowFlow#include_all_versions}.
-        :param include_renditions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_renditions AppflowFlow#include_renditions}.
-        :param include_source_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_source_files AppflowFlow#include_source_files}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param document_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#document_type AppflowFlow#document_type}.
+        :param include_all_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_all_versions AppflowFlow#include_all_versions}.
+        :param include_renditions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_renditions AppflowFlow#include_renditions}.
+        :param include_source_files: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_source_files AppflowFlow#include_source_files}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f290a87dc94b9e789dfb64d3018514fa5527cc5e5bcb21ddc02feed930806d2)
@@ -10584,14 +10584,14 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def document_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#document_type AppflowFlow#document_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#document_type AppflowFlow#document_type}.'''
         result = self._values.get("document_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10599,7 +10599,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva:
     def include_all_versions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_all_versions AppflowFlow#include_all_versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_all_versions AppflowFlow#include_all_versions}.'''
         result = self._values.get("include_all_versions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10607,7 +10607,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva:
     def include_renditions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_renditions AppflowFlow#include_renditions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_renditions AppflowFlow#include_renditions}.'''
         result = self._values.get("include_renditions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10615,7 +10615,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeeva:
     def include_source_files(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#include_source_files AppflowFlow#include_source_files}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#include_source_files AppflowFlow#include_source_files}.'''
         result = self._values.get("include_source_files")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10799,7 +10799,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesVeevaOutputReference(
 class AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk:
     def __init__(self, *, object: builtins.str) -> None:
         '''
-        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.
+        :param object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5108e53872e2405281c5631623930b81b6b2436e909c5e0a9315f8ec004f8e7)
@@ -10810,7 +10810,7 @@ class AppflowFlowSourceFlowConfigSourceConnectorPropertiesZendesk:
 
     @builtins.property
     def object(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#object AppflowFlow#object}.'''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
         return typing.cast(builtins.str, result)
@@ -10904,11 +10904,11 @@ class AppflowFlowTask:
         task_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param task_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task_type AppflowFlow#task_type}.
-        :param connector_operator: connector_operator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_operator AppflowFlow#connector_operator}
-        :param destination_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_field AppflowFlow#destination_field}.
-        :param source_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_fields AppflowFlow#source_fields}.
-        :param task_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task_properties AppflowFlow#task_properties}.
+        :param task_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task_type AppflowFlow#task_type}.
+        :param connector_operator: connector_operator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_operator AppflowFlow#connector_operator}
+        :param destination_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_field AppflowFlow#destination_field}.
+        :param source_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_fields AppflowFlow#source_fields}.
+        :param task_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task_properties AppflowFlow#task_properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cac785ffe16f428e8bae58cf17f09e15e658f24662be2fa36c7d9ecbbe7a77bf)
@@ -10931,7 +10931,7 @@ class AppflowFlowTask:
 
     @builtins.property
     def task_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task_type AppflowFlow#task_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task_type AppflowFlow#task_type}.'''
         result = self._values.get("task_type")
         assert result is not None, "Required property 'task_type' is missing"
         return typing.cast(builtins.str, result)
@@ -10942,20 +10942,20 @@ class AppflowFlowTask:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppflowFlowTaskConnectorOperator"]]]:
         '''connector_operator block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#connector_operator AppflowFlow#connector_operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#connector_operator AppflowFlow#connector_operator}
         '''
         result = self._values.get("connector_operator")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppflowFlowTaskConnectorOperator"]]], result)
 
     @builtins.property
     def destination_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#destination_field AppflowFlow#destination_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#destination_field AppflowFlow#destination_field}.'''
         result = self._values.get("destination_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#source_fields AppflowFlow#source_fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#source_fields AppflowFlow#source_fields}.'''
         result = self._values.get("source_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -10963,7 +10963,7 @@ class AppflowFlowTask:
     def task_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#task_properties AppflowFlow#task_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#task_properties AppflowFlow#task_properties}.'''
         result = self._values.get("task_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -11023,22 +11023,22 @@ class AppflowFlowTaskConnectorOperator:
         zendesk: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param amplitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}.
-        :param custom_connector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}.
-        :param datadog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}.
-        :param dynatrace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}.
-        :param google_analytics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}.
-        :param infor_nexus: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}.
-        :param marketo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}.
-        :param s3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}.
-        :param salesforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}.
-        :param sapo_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}.
-        :param service_now: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}.
-        :param singular: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#singular AppflowFlow#singular}.
-        :param slack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#slack AppflowFlow#slack}.
-        :param trendmicro: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}.
-        :param veeva: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}.
-        :param zendesk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}.
+        :param amplitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}.
+        :param custom_connector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}.
+        :param datadog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}.
+        :param dynatrace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}.
+        :param google_analytics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}.
+        :param infor_nexus: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}.
+        :param marketo: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}.
+        :param s3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}.
+        :param salesforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}.
+        :param sapo_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}.
+        :param service_now: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}.
+        :param singular: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#singular AppflowFlow#singular}.
+        :param slack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#slack AppflowFlow#slack}.
+        :param trendmicro: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}.
+        :param veeva: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}.
+        :param zendesk: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdec0a5501b36e42b0ae642737c41cc4c3541208b85192ef7aa094376cc2e5bc)
@@ -11094,97 +11094,97 @@ class AppflowFlowTaskConnectorOperator:
 
     @builtins.property
     def amplitude(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#amplitude AppflowFlow#amplitude}.'''
         result = self._values.get("amplitude")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def custom_connector(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#custom_connector AppflowFlow#custom_connector}.'''
         result = self._values.get("custom_connector")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def datadog(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#datadog AppflowFlow#datadog}.'''
         result = self._values.get("datadog")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dynatrace(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#dynatrace AppflowFlow#dynatrace}.'''
         result = self._values.get("dynatrace")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def google_analytics(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#google_analytics AppflowFlow#google_analytics}.'''
         result = self._values.get("google_analytics")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def infor_nexus(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#infor_nexus AppflowFlow#infor_nexus}.'''
         result = self._values.get("infor_nexus")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def marketo(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#marketo AppflowFlow#marketo}.'''
         result = self._values.get("marketo")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#s3 AppflowFlow#s3}.'''
         result = self._values.get("s3")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def salesforce(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#salesforce AppflowFlow#salesforce}.'''
         result = self._values.get("salesforce")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sapo_data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#sapo_data AppflowFlow#sapo_data}.'''
         result = self._values.get("sapo_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_now(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#service_now AppflowFlow#service_now}.'''
         result = self._values.get("service_now")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def singular(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#singular AppflowFlow#singular}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#singular AppflowFlow#singular}.'''
         result = self._values.get("singular")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def slack(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#slack AppflowFlow#slack}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#slack AppflowFlow#slack}.'''
         result = self._values.get("slack")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def trendmicro(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trendmicro AppflowFlow#trendmicro}.'''
         result = self._values.get("trendmicro")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def veeva(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#veeva AppflowFlow#veeva}.'''
         result = self._values.get("veeva")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zendesk(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#zendesk AppflowFlow#zendesk}.'''
         result = self._values.get("zendesk")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11937,8 +11937,8 @@ class AppflowFlowTriggerConfig:
         trigger_properties: typing.Optional[typing.Union["AppflowFlowTriggerConfigTriggerProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trigger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_type AppflowFlow#trigger_type}.
-        :param trigger_properties: trigger_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_properties AppflowFlow#trigger_properties}
+        :param trigger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_type AppflowFlow#trigger_type}.
+        :param trigger_properties: trigger_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_properties AppflowFlow#trigger_properties}
         '''
         if isinstance(trigger_properties, dict):
             trigger_properties = AppflowFlowTriggerConfigTriggerProperties(**trigger_properties)
@@ -11954,7 +11954,7 @@ class AppflowFlowTriggerConfig:
 
     @builtins.property
     def trigger_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_type AppflowFlow#trigger_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_type AppflowFlow#trigger_type}.'''
         result = self._values.get("trigger_type")
         assert result is not None, "Required property 'trigger_type' is missing"
         return typing.cast(builtins.str, result)
@@ -11965,7 +11965,7 @@ class AppflowFlowTriggerConfig:
     ) -> typing.Optional["AppflowFlowTriggerConfigTriggerProperties"]:
         '''trigger_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#trigger_properties AppflowFlow#trigger_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#trigger_properties AppflowFlow#trigger_properties}
         '''
         result = self._values.get("trigger_properties")
         return typing.cast(typing.Optional["AppflowFlowTriggerConfigTriggerProperties"], result)
@@ -12009,7 +12009,7 @@ class AppflowFlowTriggerConfigOutputReference(
         scheduled: typing.Optional[typing.Union["AppflowFlowTriggerConfigTriggerPropertiesScheduled", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param scheduled: scheduled block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#scheduled AppflowFlow#scheduled}
+        :param scheduled: scheduled block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#scheduled AppflowFlow#scheduled}
         '''
         value = AppflowFlowTriggerConfigTriggerProperties(scheduled=scheduled)
 
@@ -12075,7 +12075,7 @@ class AppflowFlowTriggerConfigTriggerProperties:
         scheduled: typing.Optional[typing.Union["AppflowFlowTriggerConfigTriggerPropertiesScheduled", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param scheduled: scheduled block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#scheduled AppflowFlow#scheduled}
+        :param scheduled: scheduled block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#scheduled AppflowFlow#scheduled}
         '''
         if isinstance(scheduled, dict):
             scheduled = AppflowFlowTriggerConfigTriggerPropertiesScheduled(**scheduled)
@@ -12092,7 +12092,7 @@ class AppflowFlowTriggerConfigTriggerProperties:
     ) -> typing.Optional["AppflowFlowTriggerConfigTriggerPropertiesScheduled"]:
         '''scheduled block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#scheduled AppflowFlow#scheduled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#scheduled AppflowFlow#scheduled}
         '''
         result = self._values.get("scheduled")
         return typing.cast(typing.Optional["AppflowFlowTriggerConfigTriggerPropertiesScheduled"], result)
@@ -12142,13 +12142,13 @@ class AppflowFlowTriggerConfigTriggerPropertiesOutputReference(
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_expression AppflowFlow#schedule_expression}.
-        :param data_pull_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#data_pull_mode AppflowFlow#data_pull_mode}.
-        :param first_execution_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#first_execution_from AppflowFlow#first_execution_from}.
-        :param schedule_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_end_time AppflowFlow#schedule_end_time}.
-        :param schedule_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_offset AppflowFlow#schedule_offset}.
-        :param schedule_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_start_time AppflowFlow#schedule_start_time}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#timezone AppflowFlow#timezone}.
+        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_expression AppflowFlow#schedule_expression}.
+        :param data_pull_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#data_pull_mode AppflowFlow#data_pull_mode}.
+        :param first_execution_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#first_execution_from AppflowFlow#first_execution_from}.
+        :param schedule_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_end_time AppflowFlow#schedule_end_time}.
+        :param schedule_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_offset AppflowFlow#schedule_offset}.
+        :param schedule_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_start_time AppflowFlow#schedule_start_time}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#timezone AppflowFlow#timezone}.
         '''
         value = AppflowFlowTriggerConfigTriggerPropertiesScheduled(
             schedule_expression=schedule_expression,
@@ -12224,13 +12224,13 @@ class AppflowFlowTriggerConfigTriggerPropertiesScheduled:
         timezone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_expression AppflowFlow#schedule_expression}.
-        :param data_pull_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#data_pull_mode AppflowFlow#data_pull_mode}.
-        :param first_execution_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#first_execution_from AppflowFlow#first_execution_from}.
-        :param schedule_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_end_time AppflowFlow#schedule_end_time}.
-        :param schedule_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_offset AppflowFlow#schedule_offset}.
-        :param schedule_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_start_time AppflowFlow#schedule_start_time}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#timezone AppflowFlow#timezone}.
+        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_expression AppflowFlow#schedule_expression}.
+        :param data_pull_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#data_pull_mode AppflowFlow#data_pull_mode}.
+        :param first_execution_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#first_execution_from AppflowFlow#first_execution_from}.
+        :param schedule_end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_end_time AppflowFlow#schedule_end_time}.
+        :param schedule_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_offset AppflowFlow#schedule_offset}.
+        :param schedule_start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_start_time AppflowFlow#schedule_start_time}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#timezone AppflowFlow#timezone}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21fc03d1d6f52547e9f24aa67a74c6ae40b1902a1d6fb73ad51b82c88a85acc8)
@@ -12259,44 +12259,44 @@ class AppflowFlowTriggerConfigTriggerPropertiesScheduled:
 
     @builtins.property
     def schedule_expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_expression AppflowFlow#schedule_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_expression AppflowFlow#schedule_expression}.'''
         result = self._values.get("schedule_expression")
         assert result is not None, "Required property 'schedule_expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_pull_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#data_pull_mode AppflowFlow#data_pull_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#data_pull_mode AppflowFlow#data_pull_mode}.'''
         result = self._values.get("data_pull_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_execution_from(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#first_execution_from AppflowFlow#first_execution_from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#first_execution_from AppflowFlow#first_execution_from}.'''
         result = self._values.get("first_execution_from")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule_end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_end_time AppflowFlow#schedule_end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_end_time AppflowFlow#schedule_end_time}.'''
         result = self._values.get("schedule_end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule_offset(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_offset AppflowFlow#schedule_offset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_offset AppflowFlow#schedule_offset}.'''
         result = self._values.get("schedule_offset")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def schedule_start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#schedule_start_time AppflowFlow#schedule_start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#schedule_start_time AppflowFlow#schedule_start_time}.'''
         result = self._values.get("schedule_start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appflow_flow#timezone AppflowFlow#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appflow_flow#timezone AppflowFlow#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 

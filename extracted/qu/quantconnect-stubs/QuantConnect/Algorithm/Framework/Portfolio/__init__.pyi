@@ -1818,6 +1818,15 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
         """
         ...
 
+    def __contains__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determines whether the specified symbol exists as a key in this collection
+        
+        :param symbol: The symbol key
+        :returns: True if the symbol exists in this collection, false otherwise.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget:
         """
         Gets or sets the portfolio target for the specified symbol
@@ -1828,6 +1837,9 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> None:

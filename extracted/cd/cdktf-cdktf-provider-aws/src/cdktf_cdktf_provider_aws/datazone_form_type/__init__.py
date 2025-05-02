@@ -1,7 +1,7 @@
 r'''
 # `aws_datazone_form_type`
 
-Refer to the Terraform Registry for docs: [`aws_datazone_form_type`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type).
+Refer to the Terraform Registry for docs: [`aws_datazone_form_type`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatazoneFormType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datazoneFormType.DatazoneFormType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type aws_datazone_form_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type aws_datazone_form_type}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DatazoneFormType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type aws_datazone_form_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type aws_datazone_form_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#domain_identifier DatazoneFormType#domain_identifier}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#name DatazoneFormType#name}.
-        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#owning_project_identifier DatazoneFormType#owning_project_identifier}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#description DatazoneFormType#description}.
-        :param model: model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#model DatazoneFormType#model}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#status DatazoneFormType#status}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#timeouts DatazoneFormType#timeouts}
+        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#domain_identifier DatazoneFormType#domain_identifier}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#name DatazoneFormType#name}.
+        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#owning_project_identifier DatazoneFormType#owning_project_identifier}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#description DatazoneFormType#description}.
+        :param model: model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#model DatazoneFormType#model}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#status DatazoneFormType#status}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#timeouts DatazoneFormType#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DatazoneFormType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatazoneFormType to import.
-        :param import_from_id: The id of the existing DatazoneFormType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatazoneFormType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatazoneFormType to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class DatazoneFormType(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#create DatazoneFormType#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#create DatazoneFormType#create}
         '''
         value = DatazoneFormTypeTimeouts(create=create)
 
@@ -370,13 +370,13 @@ class DatazoneFormTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#domain_identifier DatazoneFormType#domain_identifier}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#name DatazoneFormType#name}.
-        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#owning_project_identifier DatazoneFormType#owning_project_identifier}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#description DatazoneFormType#description}.
-        :param model: model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#model DatazoneFormType#model}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#status DatazoneFormType#status}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#timeouts DatazoneFormType#timeouts}
+        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#domain_identifier DatazoneFormType#domain_identifier}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#name DatazoneFormType#name}.
+        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#owning_project_identifier DatazoneFormType#owning_project_identifier}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#description DatazoneFormType#description}.
+        :param model: model block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#model DatazoneFormType#model}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#status DatazoneFormType#status}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#timeouts DatazoneFormType#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -492,28 +492,28 @@ class DatazoneFormTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#domain_identifier DatazoneFormType#domain_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#domain_identifier DatazoneFormType#domain_identifier}.'''
         result = self._values.get("domain_identifier")
         assert result is not None, "Required property 'domain_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#name DatazoneFormType#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#name DatazoneFormType#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owning_project_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#owning_project_identifier DatazoneFormType#owning_project_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#owning_project_identifier DatazoneFormType#owning_project_identifier}.'''
         result = self._values.get("owning_project_identifier")
         assert result is not None, "Required property 'owning_project_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#description DatazoneFormType#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#description DatazoneFormType#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -523,14 +523,14 @@ class DatazoneFormTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatazoneFormTypeModel"]]]:
         '''model block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#model DatazoneFormType#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#model DatazoneFormType#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatazoneFormTypeModel"]]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#status DatazoneFormType#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#status DatazoneFormType#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -538,7 +538,7 @@ class DatazoneFormTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatazoneFormTypeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#timeouts DatazoneFormType#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#timeouts DatazoneFormType#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatazoneFormTypeTimeouts"], result)
@@ -706,7 +706,7 @@ class DatazoneFormTypeImportsOutputReference(
 class DatazoneFormTypeModel:
     def __init__(self, *, smithy: builtins.str) -> None:
         '''
-        :param smithy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#smithy DatazoneFormType#smithy}.
+        :param smithy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#smithy DatazoneFormType#smithy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9e6a2dfe0ca1a3c53f83369260146303002118085ec27f1a0503f74cc7d3527)
@@ -717,7 +717,7 @@ class DatazoneFormTypeModel:
 
     @builtins.property
     def smithy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#smithy DatazoneFormType#smithy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#smithy DatazoneFormType#smithy}.'''
         result = self._values.get("smithy")
         assert result is not None, "Required property 'smithy' is missing"
         return typing.cast(builtins.str, result)
@@ -893,7 +893,7 @@ class DatazoneFormTypeModelOutputReference(
 class DatazoneFormTypeTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#create DatazoneFormType#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#create DatazoneFormType#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f57fc21a0620cdf5fb8c794f47e1b39f6d838cc637140ad72f6af3ff92e7ad4e)
@@ -906,7 +906,7 @@ class DatazoneFormTypeTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_form_type#create DatazoneFormType#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_form_type#create DatazoneFormType#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

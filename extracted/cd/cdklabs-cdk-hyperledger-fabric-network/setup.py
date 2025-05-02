@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdklabs.cdk-hyperledger-fabric-network",
-    "version": "0.8.860",
+    "version": "0.8.861",
     "description": "CDK construct to deploy a Hyperledger Fabric network running on Amazon Managed Blockchain",
     "license": "MIT-0",
     "url": "https://github.com/cdklabs/cdk-hyperledger-fabric-network.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdklabs.cdk_hyperledger_fabric_network._jsii": [
-            "cdk-hyperledger-fabric-network@0.8.860.jsii.tgz"
+            "cdk-hyperledger-fabric-network@0.8.861.jsii.tgz"
         ],
         "cdklabs.cdk_hyperledger_fabric_network": [
             "py.typed"

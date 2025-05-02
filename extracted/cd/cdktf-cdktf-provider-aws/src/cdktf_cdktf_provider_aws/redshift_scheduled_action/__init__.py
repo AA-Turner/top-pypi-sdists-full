@@ -1,7 +1,7 @@
 r'''
 # `aws_redshift_scheduled_action`
 
-Refer to the Terraform Registry for docs: [`aws_redshift_scheduled_action`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action).
+Refer to the Terraform Registry for docs: [`aws_redshift_scheduled_action`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedshiftScheduledAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.redshiftScheduledAction.RedshiftScheduledAction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action aws_redshift_scheduled_action}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action aws_redshift_scheduled_action}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class RedshiftScheduledAction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action aws_redshift_scheduled_action} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action aws_redshift_scheduled_action} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#iam_role RedshiftScheduledAction#iam_role}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#name RedshiftScheduledAction#name}.
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#schedule RedshiftScheduledAction#schedule}.
-        :param target_action: target_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#target_action RedshiftScheduledAction#target_action}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#description RedshiftScheduledAction#description}.
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#enable RedshiftScheduledAction#enable}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#end_time RedshiftScheduledAction#end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#id RedshiftScheduledAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#start_time RedshiftScheduledAction#start_time}.
+        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#iam_role RedshiftScheduledAction#iam_role}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#name RedshiftScheduledAction#name}.
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#schedule RedshiftScheduledAction#schedule}.
+        :param target_action: target_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#target_action RedshiftScheduledAction#target_action}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#description RedshiftScheduledAction#description}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#enable RedshiftScheduledAction#enable}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#end_time RedshiftScheduledAction#end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#id RedshiftScheduledAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#start_time RedshiftScheduledAction#start_time}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class RedshiftScheduledAction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedshiftScheduledAction to import.
-        :param import_from_id: The id of the existing RedshiftScheduledAction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedshiftScheduledAction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedshiftScheduledAction to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class RedshiftScheduledAction(
         resume_cluster: typing.Optional[typing.Union["RedshiftScheduledActionTargetActionResumeCluster", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param pause_cluster: pause_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#pause_cluster RedshiftScheduledAction#pause_cluster}
-        :param resize_cluster: resize_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#resize_cluster RedshiftScheduledAction#resize_cluster}
-        :param resume_cluster: resume_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#resume_cluster RedshiftScheduledAction#resume_cluster}
+        :param pause_cluster: pause_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#pause_cluster RedshiftScheduledAction#pause_cluster}
+        :param resize_cluster: resize_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#resize_cluster RedshiftScheduledAction#resize_cluster}
+        :param resume_cluster: resume_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#resume_cluster RedshiftScheduledAction#resume_cluster}
         '''
         value = RedshiftScheduledActionTargetAction(
             pause_cluster=pause_cluster,
@@ -397,15 +397,15 @@ class RedshiftScheduledActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#iam_role RedshiftScheduledAction#iam_role}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#name RedshiftScheduledAction#name}.
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#schedule RedshiftScheduledAction#schedule}.
-        :param target_action: target_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#target_action RedshiftScheduledAction#target_action}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#description RedshiftScheduledAction#description}.
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#enable RedshiftScheduledAction#enable}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#end_time RedshiftScheduledAction#end_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#id RedshiftScheduledAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#start_time RedshiftScheduledAction#start_time}.
+        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#iam_role RedshiftScheduledAction#iam_role}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#name RedshiftScheduledAction#name}.
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#schedule RedshiftScheduledAction#schedule}.
+        :param target_action: target_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#target_action RedshiftScheduledAction#target_action}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#description RedshiftScheduledAction#description}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#enable RedshiftScheduledAction#enable}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#end_time RedshiftScheduledAction#end_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#id RedshiftScheduledAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#start_time RedshiftScheduledAction#start_time}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -526,21 +526,21 @@ class RedshiftScheduledActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def iam_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#iam_role RedshiftScheduledAction#iam_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#iam_role RedshiftScheduledAction#iam_role}.'''
         result = self._values.get("iam_role")
         assert result is not None, "Required property 'iam_role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#name RedshiftScheduledAction#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#name RedshiftScheduledAction#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def schedule(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#schedule RedshiftScheduledAction#schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#schedule RedshiftScheduledAction#schedule}.'''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
         return typing.cast(builtins.str, result)
@@ -549,7 +549,7 @@ class RedshiftScheduledActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_action(self) -> "RedshiftScheduledActionTargetAction":
         '''target_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#target_action RedshiftScheduledAction#target_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#target_action RedshiftScheduledAction#target_action}
         '''
         result = self._values.get("target_action")
         assert result is not None, "Required property 'target_action' is missing"
@@ -557,7 +557,7 @@ class RedshiftScheduledActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#description RedshiftScheduledAction#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#description RedshiftScheduledAction#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -565,19 +565,19 @@ class RedshiftScheduledActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#enable RedshiftScheduledAction#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#enable RedshiftScheduledAction#enable}.'''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#end_time RedshiftScheduledAction#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#end_time RedshiftScheduledAction#end_time}.'''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#id RedshiftScheduledAction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#id RedshiftScheduledAction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -587,7 +587,7 @@ class RedshiftScheduledActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#start_time RedshiftScheduledAction#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#start_time RedshiftScheduledAction#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -621,9 +621,9 @@ class RedshiftScheduledActionTargetAction:
         resume_cluster: typing.Optional[typing.Union["RedshiftScheduledActionTargetActionResumeCluster", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param pause_cluster: pause_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#pause_cluster RedshiftScheduledAction#pause_cluster}
-        :param resize_cluster: resize_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#resize_cluster RedshiftScheduledAction#resize_cluster}
-        :param resume_cluster: resume_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#resume_cluster RedshiftScheduledAction#resume_cluster}
+        :param pause_cluster: pause_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#pause_cluster RedshiftScheduledAction#pause_cluster}
+        :param resize_cluster: resize_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#resize_cluster RedshiftScheduledAction#resize_cluster}
+        :param resume_cluster: resume_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#resume_cluster RedshiftScheduledAction#resume_cluster}
         '''
         if isinstance(pause_cluster, dict):
             pause_cluster = RedshiftScheduledActionTargetActionPauseCluster(**pause_cluster)
@@ -650,7 +650,7 @@ class RedshiftScheduledActionTargetAction:
     ) -> typing.Optional["RedshiftScheduledActionTargetActionPauseCluster"]:
         '''pause_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#pause_cluster RedshiftScheduledAction#pause_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#pause_cluster RedshiftScheduledAction#pause_cluster}
         '''
         result = self._values.get("pause_cluster")
         return typing.cast(typing.Optional["RedshiftScheduledActionTargetActionPauseCluster"], result)
@@ -661,7 +661,7 @@ class RedshiftScheduledActionTargetAction:
     ) -> typing.Optional["RedshiftScheduledActionTargetActionResizeCluster"]:
         '''resize_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#resize_cluster RedshiftScheduledAction#resize_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#resize_cluster RedshiftScheduledAction#resize_cluster}
         '''
         result = self._values.get("resize_cluster")
         return typing.cast(typing.Optional["RedshiftScheduledActionTargetActionResizeCluster"], result)
@@ -672,7 +672,7 @@ class RedshiftScheduledActionTargetAction:
     ) -> typing.Optional["RedshiftScheduledActionTargetActionResumeCluster"]:
         '''resume_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#resume_cluster RedshiftScheduledAction#resume_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#resume_cluster RedshiftScheduledAction#resume_cluster}
         '''
         result = self._values.get("resume_cluster")
         return typing.cast(typing.Optional["RedshiftScheduledActionTargetActionResumeCluster"], result)
@@ -712,7 +712,7 @@ class RedshiftScheduledActionTargetActionOutputReference(
     @jsii.member(jsii_name="putPauseCluster")
     def put_pause_cluster(self, *, cluster_identifier: builtins.str) -> None:
         '''
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
         '''
         value = RedshiftScheduledActionTargetActionPauseCluster(
             cluster_identifier=cluster_identifier
@@ -731,11 +731,11 @@ class RedshiftScheduledActionTargetActionOutputReference(
         number_of_nodes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
-        :param classic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#classic RedshiftScheduledAction#classic}.
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_type RedshiftScheduledAction#cluster_type}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#node_type RedshiftScheduledAction#node_type}.
-        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#number_of_nodes RedshiftScheduledAction#number_of_nodes}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
+        :param classic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#classic RedshiftScheduledAction#classic}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_type RedshiftScheduledAction#cluster_type}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#node_type RedshiftScheduledAction#node_type}.
+        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#number_of_nodes RedshiftScheduledAction#number_of_nodes}.
         '''
         value = RedshiftScheduledActionTargetActionResizeCluster(
             cluster_identifier=cluster_identifier,
@@ -750,7 +750,7 @@ class RedshiftScheduledActionTargetActionOutputReference(
     @jsii.member(jsii_name="putResumeCluster")
     def put_resume_cluster(self, *, cluster_identifier: builtins.str) -> None:
         '''
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
         '''
         value = RedshiftScheduledActionTargetActionResumeCluster(
             cluster_identifier=cluster_identifier
@@ -836,7 +836,7 @@ class RedshiftScheduledActionTargetActionOutputReference(
 class RedshiftScheduledActionTargetActionPauseCluster:
     def __init__(self, *, cluster_identifier: builtins.str) -> None:
         '''
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ef1dcbe29a97bf6980a7bd308cebfd883993253bb45a2dd29f3e07c35cf5b3e)
@@ -847,7 +847,7 @@ class RedshiftScheduledActionTargetActionPauseCluster:
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
@@ -941,11 +941,11 @@ class RedshiftScheduledActionTargetActionResizeCluster:
         number_of_nodes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
-        :param classic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#classic RedshiftScheduledAction#classic}.
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_type RedshiftScheduledAction#cluster_type}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#node_type RedshiftScheduledAction#node_type}.
-        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#number_of_nodes RedshiftScheduledAction#number_of_nodes}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
+        :param classic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#classic RedshiftScheduledAction#classic}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_type RedshiftScheduledAction#cluster_type}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#node_type RedshiftScheduledAction#node_type}.
+        :param number_of_nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#number_of_nodes RedshiftScheduledAction#number_of_nodes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__094410f1a6d4b54bc7fa77d1148e9fa59000d8b9092f938093aae869c7258728)
@@ -968,7 +968,7 @@ class RedshiftScheduledActionTargetActionResizeCluster:
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)
@@ -977,25 +977,25 @@ class RedshiftScheduledActionTargetActionResizeCluster:
     def classic(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#classic RedshiftScheduledAction#classic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#classic RedshiftScheduledAction#classic}.'''
         result = self._values.get("classic")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def cluster_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_type RedshiftScheduledAction#cluster_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_type RedshiftScheduledAction#cluster_type}.'''
         result = self._values.get("cluster_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def node_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#node_type RedshiftScheduledAction#node_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#node_type RedshiftScheduledAction#node_type}.'''
         result = self._values.get("node_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def number_of_nodes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#number_of_nodes RedshiftScheduledAction#number_of_nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#number_of_nodes RedshiftScheduledAction#number_of_nodes}.'''
         result = self._values.get("number_of_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1163,7 +1163,7 @@ class RedshiftScheduledActionTargetActionResizeClusterOutputReference(
 class RedshiftScheduledActionTargetActionResumeCluster:
     def __init__(self, *, cluster_identifier: builtins.str) -> None:
         '''
-        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
+        :param cluster_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__731b58495e82b032a3967005f5b845b01b2c1ed834f4ab852b748a48c83b30c2)
@@ -1174,7 +1174,7 @@ class RedshiftScheduledActionTargetActionResumeCluster:
 
     @builtins.property
     def cluster_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/redshift_scheduled_action#cluster_identifier RedshiftScheduledAction#cluster_identifier}.'''
         result = self._values.get("cluster_identifier")
         assert result is not None, "Required property 'cluster_identifier' is missing"
         return typing.cast(builtins.str, result)

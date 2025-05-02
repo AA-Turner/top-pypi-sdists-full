@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "enumb"
+version = "0.1.5"
+description = "Concise, Pythonic Enums"
+authors = ["Tom Bulled <26026015+tombulled@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+cassidy = "^0.1.2"
+expo = "^0.1.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

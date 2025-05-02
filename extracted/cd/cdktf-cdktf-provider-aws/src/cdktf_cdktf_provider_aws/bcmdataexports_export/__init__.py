@@ -1,7 +1,7 @@
 r'''
 # `aws_bcmdataexports_export`
 
-Refer to the Terraform Registry for docs: [`aws_bcmdataexports_export`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export).
+Refer to the Terraform Registry for docs: [`aws_bcmdataexports_export`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BcmdataexportsExport(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.bcmdataexportsExport.BcmdataexportsExport",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export aws_bcmdataexports_export}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export aws_bcmdataexports_export}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class BcmdataexportsExport(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export aws_bcmdataexports_export} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export aws_bcmdataexports_export} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param export: export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#export BcmdataexportsExport#export}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#tags BcmdataexportsExport#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#timeouts BcmdataexportsExport#timeouts}
+        :param export: export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#export BcmdataexportsExport#export}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#tags BcmdataexportsExport#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#timeouts BcmdataexportsExport#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class BcmdataexportsExport(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BcmdataexportsExport to import.
-        :param import_from_id: The id of the existing BcmdataexportsExport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BcmdataexportsExport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BcmdataexportsExport to import is found.
         '''
         if __debug__:
@@ -141,8 +141,8 @@ class BcmdataexportsExport(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#create BcmdataexportsExport#create}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#update BcmdataexportsExport#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#create BcmdataexportsExport#create}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#update BcmdataexportsExport#update}
         '''
         value = BcmdataexportsExportTimeouts(create=create, update=update)
 
@@ -264,9 +264,9 @@ class BcmdataexportsExportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param export: export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#export BcmdataexportsExport#export}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#tags BcmdataexportsExport#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#timeouts BcmdataexportsExport#timeouts}
+        :param export: export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#export BcmdataexportsExport#export}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#tags BcmdataexportsExport#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#timeouts BcmdataexportsExport#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -376,14 +376,14 @@ class BcmdataexportsExportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExport"]]]:
         '''export block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#export BcmdataexportsExport#export}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#export BcmdataexportsExport#export}
         '''
         result = self._values.get("export")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExport"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#tags BcmdataexportsExport#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#tags BcmdataexportsExport#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -391,7 +391,7 @@ class BcmdataexportsExportConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BcmdataexportsExportTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#timeouts BcmdataexportsExport#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#timeouts BcmdataexportsExport#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BcmdataexportsExportTimeouts"], result)
@@ -430,11 +430,11 @@ class BcmdataexportsExportExport:
         refresh_cadence: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BcmdataexportsExportExportRefreshCadence", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#name BcmdataexportsExport#name}.
-        :param data_query: data_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#data_query BcmdataexportsExport#data_query}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#description BcmdataexportsExport#description}.
-        :param destination_configurations: destination_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#destination_configurations BcmdataexportsExport#destination_configurations}
-        :param refresh_cadence: refresh_cadence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#refresh_cadence BcmdataexportsExport#refresh_cadence}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#name BcmdataexportsExport#name}.
+        :param data_query: data_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#data_query BcmdataexportsExport#data_query}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#description BcmdataexportsExport#description}.
+        :param destination_configurations: destination_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#destination_configurations BcmdataexportsExport#destination_configurations}
+        :param refresh_cadence: refresh_cadence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#refresh_cadence BcmdataexportsExport#refresh_cadence}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba82a271af17b3ebbf4f4ee83c3e62a740284ca8293beaaeb2cd35d06d703716)
@@ -457,7 +457,7 @@ class BcmdataexportsExportExport:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#name BcmdataexportsExport#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#name BcmdataexportsExport#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -468,14 +468,14 @@ class BcmdataexportsExportExport:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDataQuery"]]]:
         '''data_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#data_query BcmdataexportsExport#data_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#data_query BcmdataexportsExport#data_query}
         '''
         result = self._values.get("data_query")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDataQuery"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#description BcmdataexportsExport#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#description BcmdataexportsExport#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -485,7 +485,7 @@ class BcmdataexportsExportExport:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDestinationConfigurations"]]]:
         '''destination_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#destination_configurations BcmdataexportsExport#destination_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#destination_configurations BcmdataexportsExport#destination_configurations}
         '''
         result = self._values.get("destination_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDestinationConfigurations"]]], result)
@@ -496,7 +496,7 @@ class BcmdataexportsExportExport:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportRefreshCadence"]]]:
         '''refresh_cadence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#refresh_cadence BcmdataexportsExport#refresh_cadence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#refresh_cadence BcmdataexportsExport#refresh_cadence}
         '''
         result = self._values.get("refresh_cadence")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportRefreshCadence"]]], result)
@@ -529,8 +529,8 @@ class BcmdataexportsExportExportDataQuery:
         table_configurations: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]]] = None,
     ) -> None:
         '''
-        :param query_statement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#query_statement BcmdataexportsExport#query_statement}.
-        :param table_configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#table_configurations BcmdataexportsExport#table_configurations}.
+        :param query_statement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#query_statement BcmdataexportsExport#query_statement}.
+        :param table_configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#table_configurations BcmdataexportsExport#table_configurations}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6417b844403f18fefe01750deeca17b464c092062696d8af824971168bb5648a)
@@ -544,7 +544,7 @@ class BcmdataexportsExportExportDataQuery:
 
     @builtins.property
     def query_statement(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#query_statement BcmdataexportsExport#query_statement}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#query_statement BcmdataexportsExport#query_statement}.'''
         result = self._values.get("query_statement")
         assert result is not None, "Required property 'query_statement' is missing"
         return typing.cast(builtins.str, result)
@@ -553,7 +553,7 @@ class BcmdataexportsExportExportDataQuery:
     def table_configurations(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#table_configurations BcmdataexportsExport#table_configurations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#table_configurations BcmdataexportsExport#table_configurations}.'''
         result = self._values.get("table_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]]], result)
 
@@ -763,7 +763,7 @@ class BcmdataexportsExportExportDestinationConfigurations:
         s3_destination: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BcmdataexportsExportExportDestinationConfigurationsS3Destination", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_destination BcmdataexportsExport#s3_destination}
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_destination BcmdataexportsExport#s3_destination}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a008097d7b902523981f36575d6d7815aa8e0cee1be70f502265bb5aea6dd3ab)
@@ -778,7 +778,7 @@ class BcmdataexportsExportExportDestinationConfigurations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDestinationConfigurationsS3Destination"]]]:
         '''s3_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_destination BcmdataexportsExport#s3_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_destination BcmdataexportsExport#s3_destination}
         '''
         result = self._values.get("s3_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDestinationConfigurationsS3Destination"]]], result)
@@ -983,10 +983,10 @@ class BcmdataexportsExportExportDestinationConfigurationsS3Destination:
         s3_output_configurations: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BcmdataexportsExportExportDestinationConfigurationsS3DestinationS3OutputConfigurations", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_bucket BcmdataexportsExport#s3_bucket}.
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_prefix BcmdataexportsExport#s3_prefix}.
-        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_region BcmdataexportsExport#s3_region}.
-        :param s3_output_configurations: s3_output_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_output_configurations BcmdataexportsExport#s3_output_configurations}
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_bucket BcmdataexportsExport#s3_bucket}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_prefix BcmdataexportsExport#s3_prefix}.
+        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_region BcmdataexportsExport#s3_region}.
+        :param s3_output_configurations: s3_output_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_output_configurations BcmdataexportsExport#s3_output_configurations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04ad98de0438578aa423abc722d1e0a99cc489b8f7433e96caa126bef74225e8)
@@ -1004,21 +1004,21 @@ class BcmdataexportsExportExportDestinationConfigurationsS3Destination:
 
     @builtins.property
     def s3_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_bucket BcmdataexportsExport#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_bucket BcmdataexportsExport#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_prefix BcmdataexportsExport#s3_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_prefix BcmdataexportsExport#s3_prefix}.'''
         result = self._values.get("s3_prefix")
         assert result is not None, "Required property 's3_prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_region BcmdataexportsExport#s3_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_region BcmdataexportsExport#s3_region}.'''
         result = self._values.get("s3_region")
         assert result is not None, "Required property 's3_region' is missing"
         return typing.cast(builtins.str, result)
@@ -1029,7 +1029,7 @@ class BcmdataexportsExportExportDestinationConfigurationsS3Destination:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDestinationConfigurationsS3DestinationS3OutputConfigurations"]]]:
         '''s3_output_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#s3_output_configurations BcmdataexportsExport#s3_output_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#s3_output_configurations BcmdataexportsExport#s3_output_configurations}
         '''
         result = self._values.get("s3_output_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BcmdataexportsExportExportDestinationConfigurationsS3DestinationS3OutputConfigurations"]]], result)
@@ -1285,10 +1285,10 @@ class BcmdataexportsExportExportDestinationConfigurationsS3DestinationS3OutputCo
         overwrite: builtins.str,
     ) -> None:
         '''
-        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#compression BcmdataexportsExport#compression}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#format BcmdataexportsExport#format}.
-        :param output_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#output_type BcmdataexportsExport#output_type}.
-        :param overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#overwrite BcmdataexportsExport#overwrite}.
+        :param compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#compression BcmdataexportsExport#compression}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#format BcmdataexportsExport#format}.
+        :param output_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#output_type BcmdataexportsExport#output_type}.
+        :param overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#overwrite BcmdataexportsExport#overwrite}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7458f26d430fd15df0da787441e2bbc7321ad4d9a91287b1bbc9195b98dbf1c)
@@ -1305,28 +1305,28 @@ class BcmdataexportsExportExportDestinationConfigurationsS3DestinationS3OutputCo
 
     @builtins.property
     def compression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#compression BcmdataexportsExport#compression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#compression BcmdataexportsExport#compression}.'''
         result = self._values.get("compression")
         assert result is not None, "Required property 'compression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#format BcmdataexportsExport#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#format BcmdataexportsExport#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def output_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#output_type BcmdataexportsExport#output_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#output_type BcmdataexportsExport#output_type}.'''
         result = self._values.get("output_type")
         assert result is not None, "Required property 'output_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def overwrite(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#overwrite BcmdataexportsExport#overwrite}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#overwrite BcmdataexportsExport#overwrite}.'''
         result = self._values.get("overwrite")
         assert result is not None, "Required property 'overwrite' is missing"
         return typing.cast(builtins.str, result)
@@ -1822,7 +1822,7 @@ class BcmdataexportsExportExportOutputReference(
 class BcmdataexportsExportExportRefreshCadence:
     def __init__(self, *, frequency: builtins.str) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#frequency BcmdataexportsExport#frequency}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#frequency BcmdataexportsExport#frequency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19745844954bd00ae1d5dd396af640c431385cc13cbc9983f5c7fd45d51beeb3)
@@ -1833,7 +1833,7 @@ class BcmdataexportsExportExportRefreshCadence:
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#frequency BcmdataexportsExport#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#frequency BcmdataexportsExport#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
@@ -2017,8 +2017,8 @@ class BcmdataexportsExportTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#create BcmdataexportsExport#create}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#update BcmdataexportsExport#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#create BcmdataexportsExport#create}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#update BcmdataexportsExport#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8ffa3f6e7416d718a17cc1db3f3db9d2d2758df7ca544acf0b3a6b51ba34487)
@@ -2034,7 +2034,7 @@ class BcmdataexportsExportTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#create BcmdataexportsExport#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#create BcmdataexportsExport#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2043,7 +2043,7 @@ class BcmdataexportsExportTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bcmdataexports_export#update BcmdataexportsExport#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bcmdataexports_export#update BcmdataexportsExport#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

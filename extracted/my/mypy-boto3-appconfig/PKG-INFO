@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-appconfig
-Version: 1.38.0
-Summary: Type annotations for boto3 AppConfig 1.38.0 service generated with mypy-boto3-builder 8.10.1
+Version: 1.38.7
+Summary: Type annotations for boto3 AppConfig 1.38.7 service generated with mypy-boto3-builder 8.10.1
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 AppConfig 1.38.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 AppConfig 1.38.7](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -93,6 +93,7 @@ See how it helps you find and fix potential bugs:
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
     - [Paginators annotations](#paginators-annotations)
+    - [Waiters annotations](#waiters-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -118,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.7' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `AppConfig` service.
 4. Use provided commands to install generated packages.
@@ -381,6 +382,31 @@ list_extension_associations_paginator: ListExtensionAssociationsPaginator = clie
 list_extensions_paginator: ListExtensionsPaginator = client.get_paginator("list_extensions")
 list_hosted_configuration_versions_paginator: ListHostedConfigurationVersionsPaginator = (
     client.get_paginator("list_hosted_configuration_versions")
+)
+```
+
+<a id="waiters-annotations"></a>
+
+### Waiters annotations
+
+`mypy_boto3_appconfig.waiter` module contains type annotations for all waiters.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_appconfig import AppConfigClient
+from mypy_boto3_appconfig.waiter import (
+    DeploymentCompleteWaiter,
+    EnvironmentReadyForDeploymentWaiter,
+)
+
+client: AppConfigClient = Session().client("appconfig")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+deployment_complete_waiter: DeploymentCompleteWaiter = client.get_waiter("deployment_complete")
+environment_ready_for_deployment_waiter: EnvironmentReadyForDeploymentWaiter = client.get_waiter(
+    "environment_ready_for_deployment"
 )
 ```
 

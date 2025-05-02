@@ -1,7 +1,7 @@
 r'''
 # `aws_cleanrooms_membership`
 
-Refer to the Terraform Registry for docs: [`aws_cleanrooms_membership`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership).
+Refer to the Terraform Registry for docs: [`aws_cleanrooms_membership`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CleanroomsMembership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cleanroomsMembership.CleanroomsMembership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership aws_cleanrooms_membership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership aws_cleanrooms_membership}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class CleanroomsMembership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership aws_cleanrooms_membership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership aws_cleanrooms_membership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collaboration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#collaboration_id CleanroomsMembership#collaboration_id}.
-        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#query_log_status CleanroomsMembership#query_log_status}.
-        :param default_result_configuration: default_result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#default_result_configuration CleanroomsMembership#default_result_configuration}
-        :param payment_configuration: payment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#payment_configuration CleanroomsMembership#payment_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#tags CleanroomsMembership#tags}.
+        :param collaboration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#collaboration_id CleanroomsMembership#collaboration_id}.
+        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#query_log_status CleanroomsMembership#query_log_status}.
+        :param default_result_configuration: default_result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#default_result_configuration CleanroomsMembership#default_result_configuration}
+        :param payment_configuration: payment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#payment_configuration CleanroomsMembership#payment_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#tags CleanroomsMembership#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class CleanroomsMembership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CleanroomsMembership to import.
-        :param import_from_id: The id of the existing CleanroomsMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CleanroomsMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CleanroomsMembership to import is found.
         '''
         if __debug__:
@@ -353,11 +353,11 @@ class CleanroomsMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collaboration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#collaboration_id CleanroomsMembership#collaboration_id}.
-        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#query_log_status CleanroomsMembership#query_log_status}.
-        :param default_result_configuration: default_result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#default_result_configuration CleanroomsMembership#default_result_configuration}
-        :param payment_configuration: payment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#payment_configuration CleanroomsMembership#payment_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#tags CleanroomsMembership#tags}.
+        :param collaboration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#collaboration_id CleanroomsMembership#collaboration_id}.
+        :param query_log_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#query_log_status CleanroomsMembership#query_log_status}.
+        :param default_result_configuration: default_result_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#default_result_configuration CleanroomsMembership#default_result_configuration}
+        :param payment_configuration: payment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#payment_configuration CleanroomsMembership#payment_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#tags CleanroomsMembership#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -466,14 +466,14 @@ class CleanroomsMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def collaboration_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#collaboration_id CleanroomsMembership#collaboration_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#collaboration_id CleanroomsMembership#collaboration_id}.'''
         result = self._values.get("collaboration_id")
         assert result is not None, "Required property 'collaboration_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def query_log_status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#query_log_status CleanroomsMembership#query_log_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#query_log_status CleanroomsMembership#query_log_status}.'''
         result = self._values.get("query_log_status")
         assert result is not None, "Required property 'query_log_status' is missing"
         return typing.cast(builtins.str, result)
@@ -484,7 +484,7 @@ class CleanroomsMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipDefaultResultConfiguration"]]]:
         '''default_result_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#default_result_configuration CleanroomsMembership#default_result_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#default_result_configuration CleanroomsMembership#default_result_configuration}
         '''
         result = self._values.get("default_result_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipDefaultResultConfiguration"]]], result)
@@ -495,14 +495,14 @@ class CleanroomsMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipPaymentConfiguration"]]]:
         '''payment_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#payment_configuration CleanroomsMembership#payment_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#payment_configuration CleanroomsMembership#payment_configuration}
         '''
         result = self._values.get("payment_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipPaymentConfiguration"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#tags CleanroomsMembership#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#tags CleanroomsMembership#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -534,8 +534,8 @@ class CleanroomsMembershipDefaultResultConfiguration:
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param output_configuration: output_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#output_configuration CleanroomsMembership#output_configuration}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#role_arn CleanroomsMembership#role_arn}.
+        :param output_configuration: output_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#output_configuration CleanroomsMembership#output_configuration}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#role_arn CleanroomsMembership#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e730fe2b92bcd61a43e1b388810dc2ed70cae0e20707d6b10b9c4d52ad3c3e0)
@@ -553,14 +553,14 @@ class CleanroomsMembershipDefaultResultConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipDefaultResultConfigurationOutputConfiguration"]]]:
         '''output_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#output_configuration CleanroomsMembership#output_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#output_configuration CleanroomsMembership#output_configuration}
         '''
         result = self._values.get("output_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipDefaultResultConfigurationOutputConfiguration"]]], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#role_arn CleanroomsMembership#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#role_arn CleanroomsMembership#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -681,7 +681,7 @@ class CleanroomsMembershipDefaultResultConfigurationOutputConfiguration:
         s3: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CleanroomsMembershipDefaultResultConfigurationOutputConfigurationS3", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#s3 CleanroomsMembership#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#s3 CleanroomsMembership#s3}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3ee54f19dd286436d1d3e08d5aa1a255653e5673a06e06bfc672b260bb54c19)
@@ -696,7 +696,7 @@ class CleanroomsMembershipDefaultResultConfigurationOutputConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipDefaultResultConfigurationOutputConfigurationS3"]]]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#s3 CleanroomsMembership#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#s3 CleanroomsMembership#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipDefaultResultConfigurationOutputConfigurationS3"]]], result)
@@ -899,9 +899,9 @@ class CleanroomsMembershipDefaultResultConfigurationOutputConfigurationS3:
         key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#bucket CleanroomsMembership#bucket}.
-        :param result_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#result_format CleanroomsMembership#result_format}.
-        :param key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#key_prefix CleanroomsMembership#key_prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#bucket CleanroomsMembership#bucket}.
+        :param result_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#result_format CleanroomsMembership#result_format}.
+        :param key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#key_prefix CleanroomsMembership#key_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf0259b3d6779139d37447b0ae44f4f8ce82499ed708ddadf6820bc3a924c071)
@@ -917,21 +917,21 @@ class CleanroomsMembershipDefaultResultConfigurationOutputConfigurationS3:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#bucket CleanroomsMembership#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#bucket CleanroomsMembership#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def result_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#result_format CleanroomsMembership#result_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#result_format CleanroomsMembership#result_format}.'''
         result = self._values.get("result_format")
         assert result is not None, "Required property 'result_format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#key_prefix CleanroomsMembership#key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#key_prefix CleanroomsMembership#key_prefix}.'''
         result = self._values.get("key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1247,7 +1247,7 @@ class CleanroomsMembershipPaymentConfiguration:
         query_compute: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CleanroomsMembershipPaymentConfigurationQueryCompute", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param query_compute: query_compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#query_compute CleanroomsMembership#query_compute}
+        :param query_compute: query_compute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#query_compute CleanroomsMembership#query_compute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ac5d067cf28499b448b6e9ebce1a33d6aa9701d264779ced3bde4358b75f0be)
@@ -1262,7 +1262,7 @@ class CleanroomsMembershipPaymentConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipPaymentConfigurationQueryCompute"]]]:
         '''query_compute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#query_compute CleanroomsMembership#query_compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#query_compute CleanroomsMembership#query_compute}
         '''
         result = self._values.get("query_compute")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CleanroomsMembershipPaymentConfigurationQueryCompute"]]], result)
@@ -1459,7 +1459,7 @@ class CleanroomsMembershipPaymentConfigurationQueryCompute:
         is_responsible: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param is_responsible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#is_responsible CleanroomsMembership#is_responsible}.
+        :param is_responsible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#is_responsible CleanroomsMembership#is_responsible}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee413238506de541d0cff159dfc639319304eaa2acee910010dc8dacb74faedb)
@@ -1472,7 +1472,7 @@ class CleanroomsMembershipPaymentConfigurationQueryCompute:
     def is_responsible(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cleanrooms_membership#is_responsible CleanroomsMembership#is_responsible}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cleanrooms_membership#is_responsible CleanroomsMembership#is_responsible}.'''
         result = self._values.get("is_responsible")
         assert result is not None, "Required property 'is_responsible' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)

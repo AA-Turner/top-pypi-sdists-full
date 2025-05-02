@@ -4347,6 +4347,381 @@ class CfnCloudFrontOriginAccessIdentityProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnConnectionGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnConnectionGroup",
+):
+    '''Resource Type definition for AWS::CloudFront::ConnectionGroup.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html
+    :cloudformationResource: AWS::CloudFront::ConnectionGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudfront as cloudfront
+        
+        cfn_connection_group = cloudfront.CfnConnectionGroup(self, "MyCfnConnectionGroup",
+            name="name",
+        
+            # the properties below are optional
+            anycast_ip_list_id="anycastIpListId",
+            enabled=False,
+            ipv6_enabled=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        anycast_ip_list_id: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ipv6_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: 
+        :param anycast_ip_list_id: The ID of the Anycast static IP list.
+        :param enabled: 
+        :param ipv6_enabled: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7fbc949dbac76664bfea111378c9ea57cd63caa1212fdbe30d64584bd8f53de)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConnectionGroupProps(
+            name=name,
+            anycast_ip_list_id=anycast_ip_list_id,
+            enabled=enabled,
+            ipv6_enabled=ipv6_enabled,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dad045911121964ba7e6a7c8d166ac2aaace23640d9bee11f9fbbbb1b78e3236)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4834ec5a54af69a2e3413ff8a46f3539a6607f6b49adaabe420e5490ae353ea)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrETag")
+    def attr_e_tag(self) -> builtins.str:
+        '''A complex type that contains ``Tag`` key and ``Tag`` value.
+
+        :cloudformationAttribute: ETag
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrETag"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsDefault")
+    def attr_is_default(self) -> _IResolvable_da3f097b:
+        '''
+        :cloudformationAttribute: IsDefault
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsDefault"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRoutingEndpoint")
+    def attr_routing_endpoint(self) -> builtins.str:
+        '''Contains information about the Amazon Kinesis data stream where you are sending real-time log data in a real-time log configuration.
+
+        :cloudformationAttribute: RoutingEndpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRoutingEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46cb5b39bb34a52a464d8364089e47d3ba47e4a293aaa3f92857d624e7902898)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="anycastIpListId")
+    def anycast_ip_list_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Anycast static IP list.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "anycastIpListId"))
+
+    @anycast_ip_list_id.setter
+    def anycast_ip_list_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2633385b8f4da7c2341c3b54e4d30ea9345b38862ced8c6f1d893c36ec7c669d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "anycastIpListId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41addbff9b29ce6c4465d1d973785d727f6742a1723e79dcdce59a1087df694f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipv6Enabled")
+    def ipv6_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "ipv6Enabled"))
+
+    @ipv6_enabled.setter
+    def ipv6_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2678e60f75fc9c3a75819708e1b8cda159dd49a5c52a78d805d37bb94bd0efa5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipv6Enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A complex type that contains zero or more ``Tag`` elements.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9f02fbda8fa97b38f114c9910b9d9cef69228aa69dfe80217e98e1707226ce0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnConnectionGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "anycast_ip_list_id": "anycastIpListId",
+        "enabled": "enabled",
+        "ipv6_enabled": "ipv6Enabled",
+        "tags": "tags",
+    },
+)
+class CfnConnectionGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        anycast_ip_list_id: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ipv6_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnectionGroup``.
+
+        :param name: 
+        :param anycast_ip_list_id: The ID of the Anycast static IP list.
+        :param enabled: 
+        :param ipv6_enabled: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudfront as cloudfront
+            
+            cfn_connection_group_props = cloudfront.CfnConnectionGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                anycast_ip_list_id="anycastIpListId",
+                enabled=False,
+                ipv6_enabled=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9f88b4b65d8b9e48fd57e5bde8f7d6681cdcbb9e46fe34c223e63914ee033f4)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument anycast_ip_list_id", value=anycast_ip_list_id, expected_type=type_hints["anycast_ip_list_id"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument ipv6_enabled", value=ipv6_enabled, expected_type=type_hints["ipv6_enabled"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if anycast_ip_list_id is not None:
+            self._values["anycast_ip_list_id"] = anycast_ip_list_id
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if ipv6_enabled is not None:
+            self._values["ipv6_enabled"] = ipv6_enabled
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def anycast_ip_list_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Anycast static IP list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-anycastiplistid
+        '''
+        result = self._values.get("anycast_ip_list_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def ipv6_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-ipv6enabled
+        '''
+        result = self._values.get("ipv6_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A complex type that contains zero or more ``Tag`` elements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectionGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556)
 class CfnContinuousDeploymentPolicy(
     _CfnResource_9df397a6,
@@ -6826,6 +7201,67 @@ class CfnDistribution(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.DefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"string_schema": "stringSchema"},
+    )
+    class DefinitionProperty:
+        def __init__(
+            self,
+            *,
+            string_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.StringSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param string_schema: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-definition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                definition_property = cloudfront.CfnDistribution.DefinitionProperty(
+                    string_schema=cloudfront.CfnDistribution.StringSchemaProperty(
+                        required=False,
+                
+                        # the properties below are optional
+                        comment="comment",
+                        default_value="defaultValue"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6373c35cb5b68c4917ddc72054f5c42da1b689748928adaa28575e2f9058bcf1)
+                check_type(argname="argument string_schema", value=string_schema, expected_type=type_hints["string_schema"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if string_schema is not None:
+                self._values["string_schema"] = string_schema
+
+        @builtins.property
+        def string_schema(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistribution.StringSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-definition.html#cfn-cloudfront-distribution-definition-stringschema
+            '''
+            result = self._values.get("string_schema")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistribution.StringSchemaProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.DistributionConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -6836,6 +7272,7 @@ class CfnDistribution(
             "cache_behaviors": "cacheBehaviors",
             "cnam_es": "cnamEs",
             "comment": "comment",
+            "connection_mode": "connectionMode",
             "continuous_deployment_policy_id": "continuousDeploymentPolicyId",
             "custom_error_responses": "customErrorResponses",
             "custom_origin": "customOrigin",
@@ -6849,6 +7286,7 @@ class CfnDistribution(
             "restrictions": "restrictions",
             "s3_origin": "s3Origin",
             "staging": "staging",
+            "tenant_config": "tenantConfig",
             "viewer_certificate": "viewerCertificate",
             "web_acl_id": "webAclId",
         },
@@ -6864,6 +7302,7 @@ class CfnDistribution(
             cache_behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.CacheBehaviorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             cnam_es: typing.Optional[typing.Sequence[builtins.str]] = None,
             comment: typing.Optional[builtins.str] = None,
+            connection_mode: typing.Optional[builtins.str] = None,
             continuous_deployment_policy_id: typing.Optional[builtins.str] = None,
             custom_error_responses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.CustomErrorResponseProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             custom_origin: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.LegacyCustomOriginProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6877,6 +7316,7 @@ class CfnDistribution(
             restrictions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.RestrictionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_origin: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.LegacyS3OriginProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             staging: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            tenant_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.TenantConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             viewer_certificate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.ViewerCertificateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             web_acl_id: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -6889,6 +7329,7 @@ class CfnDistribution(
             :param cache_behaviors: A complex type that contains zero or more ``CacheBehavior`` elements.
             :param cnam_es: An alias for the CloudFront distribution's domain name. .. epigraph:: This property is legacy. We recommend that you use `Aliases <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-aliases>`_ instead.
             :param comment: A comment to describe the distribution. The comment cannot be longer than 128 characters. Default: - ""
+            :param connection_mode: 
             :param continuous_deployment_policy_id: The identifier of a continuous deployment policy. For more information, see ``CreateContinuousDeploymentPolicy`` .
             :param custom_error_responses: A complex type that controls the following:. - Whether CloudFront replaces HTTP status codes in the 4xx and 5xx range with custom error messages before returning the response to the viewer. - How long CloudFront caches HTTP status codes in the 4xx and 5xx range. For more information about custom error pages, see `Customizing Error Responses <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/custom-error-pages.html>`_ in the *Amazon CloudFront Developer Guide* .
             :param custom_origin: The user-defined HTTP server that serves as the origin for content that CloudFront distributes. .. epigraph:: This property is legacy. We recommend that you use `Origin <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html>`_ instead.
@@ -6902,6 +7343,7 @@ class CfnDistribution(
             :param restrictions: A complex type that identifies ways in which you want to restrict distribution of your content.
             :param s3_origin: The origin as an Amazon S3 bucket. .. epigraph:: This property is legacy. We recommend that you use `Origin <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html>`_ instead.
             :param staging: A Boolean that indicates whether this is a staging distribution. When this value is ``true`` , this is a staging distribution. When this value is ``false`` , this is not a staging distribution.
+            :param tenant_config: 
             :param viewer_certificate: A complex type that determines the distribution's SSL/TLS configuration for communicating with viewers.
             :param web_acl_id: A unique identifier that specifies the AWS WAF web ACL, if any, to associate with this distribution. To specify a web ACL created using the latest version of AWS WAF , use the ACL ARN, for example ``arn:aws:wafv2:us-east-1:123456789012:global/webacl/ExampleWebACL/a1b2c3d4-5678-90ab-cdef-EXAMPLE11111`` . To specify a web ACL created using AWS WAF Classic, use the ACL ID, for example ``a1b2c3d4-5678-90ab-cdef-EXAMPLE11111`` . AWS WAF is a web application firewall that lets you monitor the HTTP and HTTPS requests that are forwarded to CloudFront, and lets you control access to your content. Based on conditions that you specify, such as the IP addresses that requests originate from or the values of query strings, CloudFront responds to requests either with the requested content or with an HTTP 403 status code (Forbidden). You can also configure CloudFront to return a custom error page when a request is blocked. For more information about AWS WAF , see the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/what-is-aws-waf.html>`_ . Default: - ""
 
@@ -7013,6 +7455,7 @@ class CfnDistribution(
                     )],
                     cnam_es=["cnamEs"],
                     comment="comment",
+                    connection_mode="connectionMode",
                     continuous_deployment_policy_id="continuousDeploymentPolicyId",
                     custom_error_responses=[cloudfront.CfnDistribution.CustomErrorResponseProperty(
                         error_code=123,
@@ -7116,6 +7559,20 @@ class CfnDistribution(
                         origin_access_identity="originAccessIdentity"
                     ),
                     staging=False,
+                    tenant_config=cloudfront.CfnDistribution.TenantConfigProperty(
+                        parameter_definitions=[cloudfront.CfnDistribution.ParameterDefinitionProperty(
+                            definition=cloudfront.CfnDistribution.DefinitionProperty(
+                                string_schema=cloudfront.CfnDistribution.StringSchemaProperty(
+                                    required=False,
+                
+                                    # the properties below are optional
+                                    comment="comment",
+                                    default_value="defaultValue"
+                                )
+                            ),
+                            name="name"
+                        )]
+                    ),
                     viewer_certificate=cloudfront.CfnDistribution.ViewerCertificateProperty(
                         acm_certificate_arn="acmCertificateArn",
                         cloud_front_default_certificate=False,
@@ -7135,6 +7592,7 @@ class CfnDistribution(
                 check_type(argname="argument cache_behaviors", value=cache_behaviors, expected_type=type_hints["cache_behaviors"])
                 check_type(argname="argument cnam_es", value=cnam_es, expected_type=type_hints["cnam_es"])
                 check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+                check_type(argname="argument connection_mode", value=connection_mode, expected_type=type_hints["connection_mode"])
                 check_type(argname="argument continuous_deployment_policy_id", value=continuous_deployment_policy_id, expected_type=type_hints["continuous_deployment_policy_id"])
                 check_type(argname="argument custom_error_responses", value=custom_error_responses, expected_type=type_hints["custom_error_responses"])
                 check_type(argname="argument custom_origin", value=custom_origin, expected_type=type_hints["custom_origin"])
@@ -7148,6 +7606,7 @@ class CfnDistribution(
                 check_type(argname="argument restrictions", value=restrictions, expected_type=type_hints["restrictions"])
                 check_type(argname="argument s3_origin", value=s3_origin, expected_type=type_hints["s3_origin"])
                 check_type(argname="argument staging", value=staging, expected_type=type_hints["staging"])
+                check_type(argname="argument tenant_config", value=tenant_config, expected_type=type_hints["tenant_config"])
                 check_type(argname="argument viewer_certificate", value=viewer_certificate, expected_type=type_hints["viewer_certificate"])
                 check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7164,6 +7623,8 @@ class CfnDistribution(
                 self._values["cnam_es"] = cnam_es
             if comment is not None:
                 self._values["comment"] = comment
+            if connection_mode is not None:
+                self._values["connection_mode"] = connection_mode
             if continuous_deployment_policy_id is not None:
                 self._values["continuous_deployment_policy_id"] = continuous_deployment_policy_id
             if custom_error_responses is not None:
@@ -7190,6 +7651,8 @@ class CfnDistribution(
                 self._values["s3_origin"] = s3_origin
             if staging is not None:
                 self._values["staging"] = staging
+            if tenant_config is not None:
+                self._values["tenant_config"] = tenant_config
             if viewer_certificate is not None:
                 self._values["viewer_certificate"] = viewer_certificate
             if web_acl_id is not None:
@@ -7272,6 +7735,14 @@ class CfnDistribution(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-comment
             '''
             result = self._values.get("comment")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def connection_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-connectionmode
+            '''
+            result = self._values.get("connection_mode")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -7474,6 +7945,16 @@ class CfnDistribution(
             '''
             result = self._values.get("staging")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def tenant_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistribution.TenantConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-tenantconfig
+            '''
+            result = self._values.get("tenant_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistribution.TenantConfigProperty"]], result)
 
         @builtins.property
         def viewer_certificate(
@@ -9184,6 +9665,84 @@ class CfnDistribution(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.ParameterDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"definition": "definition", "name": "name"},
+    )
+    class ParameterDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            name: builtins.str,
+        ) -> None:
+            '''
+            :param definition: 
+            :param name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-parameterdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                parameter_definition_property = cloudfront.CfnDistribution.ParameterDefinitionProperty(
+                    definition=cloudfront.CfnDistribution.DefinitionProperty(
+                        string_schema=cloudfront.CfnDistribution.StringSchemaProperty(
+                            required=False,
+                
+                            # the properties below are optional
+                            comment="comment",
+                            default_value="defaultValue"
+                        )
+                    ),
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d3077fc2475a570e548a4c766c77d7d863c9b4298e77dbf52c861eb303170cbd)
+                check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "definition": definition,
+                "name": name,
+            }
+
+        @builtins.property
+        def definition(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnDistribution.DefinitionProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-parameterdefinition.html#cfn-cloudfront-distribution-parameterdefinition-definition
+            '''
+            result = self._values.get("definition")
+            assert result is not None, "Required property 'definition' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDistribution.DefinitionProperty"], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-parameterdefinition.html#cfn-cloudfront-distribution-parameterdefinition-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParameterDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.RestrictionsProperty",
         jsii_struct_bases=[],
         name_mapping={"geo_restriction": "geoRestriction"},
@@ -9395,6 +9954,160 @@ class CfnDistribution(
 
         def __repr__(self) -> str:
             return "StatusCodesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.StringSchemaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "required": "required",
+            "comment": "comment",
+            "default_value": "defaultValue",
+        },
+    )
+    class StringSchemaProperty:
+        def __init__(
+            self,
+            *,
+            required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            comment: typing.Optional[builtins.str] = None,
+            default_value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param required: 
+            :param comment: 
+            :param default_value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-stringschema.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                string_schema_property = cloudfront.CfnDistribution.StringSchemaProperty(
+                    required=False,
+                
+                    # the properties below are optional
+                    comment="comment",
+                    default_value="defaultValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__063da7cd247f9f65fbf71edf06b732e35e339a5952e2f2bf8ccd5eee1c5611d8)
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+                check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "required": required,
+            }
+            if comment is not None:
+                self._values["comment"] = comment
+            if default_value is not None:
+                self._values["default_value"] = default_value
+
+        @builtins.property
+        def required(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-stringschema.html#cfn-cloudfront-distribution-stringschema-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def comment(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-stringschema.html#cfn-cloudfront-distribution-stringschema-comment
+            '''
+            result = self._values.get("comment")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def default_value(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-stringschema.html#cfn-cloudfront-distribution-stringschema-defaultvalue
+            '''
+            result = self._values.get("default_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StringSchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.TenantConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"parameter_definitions": "parameterDefinitions"},
+    )
+    class TenantConfigProperty:
+        def __init__(
+            self,
+            *,
+            parameter_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.ParameterDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param parameter_definitions: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-tenantconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                tenant_config_property = cloudfront.CfnDistribution.TenantConfigProperty(
+                    parameter_definitions=[cloudfront.CfnDistribution.ParameterDefinitionProperty(
+                        definition=cloudfront.CfnDistribution.DefinitionProperty(
+                            string_schema=cloudfront.CfnDistribution.StringSchemaProperty(
+                                required=False,
+                
+                                # the properties below are optional
+                                comment="comment",
+                                default_value="defaultValue"
+                            )
+                        ),
+                        name="name"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d2edbb1e96d7cdd1ba9da9c2eb778117b7b4726ec0bcf6cf55c64bbbdba19541)
+                check_type(argname="argument parameter_definitions", value=parameter_definitions, expected_type=type_hints["parameter_definitions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if parameter_definitions is not None:
+                self._values["parameter_definitions"] = parameter_definitions
+
+        @builtins.property
+        def parameter_definitions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistribution.ParameterDefinitionProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-tenantconfig.html#cfn-cloudfront-distribution-tenantconfig-parameterdefinitions
+            '''
+            result = self._values.get("parameter_definitions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistribution.ParameterDefinitionProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TenantConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9810,6 +10523,7 @@ class CfnDistributionProps:
                     )],
                     cnam_es=["cnamEs"],
                     comment="comment",
+                    connection_mode="connectionMode",
                     continuous_deployment_policy_id="continuousDeploymentPolicyId",
                     custom_error_responses=[cloudfront.CfnDistribution.CustomErrorResponseProperty(
                         error_code=123,
@@ -9913,6 +10627,20 @@ class CfnDistributionProps:
                         origin_access_identity="originAccessIdentity"
                     ),
                     staging=False,
+                    tenant_config=cloudfront.CfnDistribution.TenantConfigProperty(
+                        parameter_definitions=[cloudfront.CfnDistribution.ParameterDefinitionProperty(
+                            definition=cloudfront.CfnDistribution.DefinitionProperty(
+                                string_schema=cloudfront.CfnDistribution.StringSchemaProperty(
+                                    required=False,
+            
+                                    # the properties below are optional
+                                    comment="comment",
+                                    default_value="defaultValue"
+                                )
+                            ),
+                            name="name"
+                        )]
+                    ),
                     viewer_certificate=cloudfront.CfnDistribution.ViewerCertificateProperty(
                         acm_certificate_arn="acmCertificateArn",
                         cloud_front_default_certificate=False,
@@ -9969,6 +10697,1067 @@ class CfnDistributionProps:
 
     def __repr__(self) -> str:
         return "CfnDistributionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnDistributionTenant(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant",
+):
+    '''Resource Type definition for AWS::CloudFront::DistributionTenant.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html
+    :cloudformationResource: AWS::CloudFront::DistributionTenant
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudfront as cloudfront
+        
+        cfn_distribution_tenant = cloudfront.CfnDistributionTenant(self, "MyCfnDistributionTenant",
+            distribution_id="distributionId",
+            domains=["domains"],
+            name="name",
+        
+            # the properties below are optional
+            connection_group_id="connectionGroupId",
+            customizations=cloudfront.CfnDistributionTenant.CustomizationsProperty(
+                certificate=cloudfront.CfnDistributionTenant.CertificateProperty(
+                    arn="arn"
+                ),
+                geo_restrictions=cloudfront.CfnDistributionTenant.GeoRestrictionCustomizationProperty(
+                    locations=["locations"],
+                    restriction_type="restrictionType"
+                ),
+                web_acl=cloudfront.CfnDistributionTenant.WebAclCustomizationProperty(
+                    action="action",
+                    arn="arn"
+                )
+            ),
+            enabled=False,
+            managed_certificate_request=cloudfront.CfnDistributionTenant.ManagedCertificateRequestProperty(
+                certificate_transparency_logging_preference="certificateTransparencyLoggingPreference",
+                primary_domain_name="primaryDomainName",
+                validation_token_host="validationTokenHost"
+            ),
+            parameters=[cloudfront.CfnDistributionTenant.ParameterProperty(
+                name="name",
+                value="value"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        distribution_id: builtins.str,
+        domains: typing.Sequence[builtins.str],
+        name: builtins.str,
+        connection_group_id: typing.Optional[builtins.str] = None,
+        customizations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.CustomizationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        managed_certificate_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.ManagedCertificateRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param distribution_id: The distribution's identifier. For example: ``E1U5RQF7T870K0`` .
+        :param domains: 
+        :param name: 
+        :param connection_group_id: 
+        :param customizations: 
+        :param enabled: 
+        :param managed_certificate_request: 
+        :param parameters: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b31d7c64540327014853973d80c83a2f4a5686901e7f7ac7b0ace4f059413572)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDistributionTenantProps(
+            distribution_id=distribution_id,
+            domains=domains,
+            name=name,
+            connection_group_id=connection_group_id,
+            customizations=customizations,
+            enabled=enabled,
+            managed_certificate_request=managed_certificate_request,
+            parameters=parameters,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57520040a3293830d92c5db58279dc6ba57c2835396f254ab1cf1fc8a732ea40)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e01bfefdb980893d11ecf908e131b3da5b94143ee485dce5ed8d1d657843e21)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainResults")
+    def attr_domain_results(self) -> _IResolvable_da3f097b:
+        '''
+        :cloudformationAttribute: DomainResults
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrDomainResults"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrETag")
+    def attr_e_tag(self) -> builtins.str:
+        '''A complex type that contains ``Tag`` key and ``Tag`` value.
+
+        :cloudformationAttribute: ETag
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrETag"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="distributionId")
+    def distribution_id(self) -> builtins.str:
+        '''The distribution's identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "distributionId"))
+
+    @distribution_id.setter
+    def distribution_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01b4d19a34e50ac410f9509edd30a04265cf1cbbd17b788ad5aa7507c63f00f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "distributionId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domains")
+    def domains(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "domains"))
+
+    @domains.setter
+    def domains(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e4ea73186e7ded8d4be1abca7ad4ad20e62ac773ff4030551f69552bebf4111)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domains", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21d549f43b17cc6909f030b9a70862b4d3cc9f8321d3c0808f5a34ad3a82bdac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionGroupId")
+    def connection_group_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectionGroupId"))
+
+    @connection_group_id.setter
+    def connection_group_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__260bd4d44d34feabb54c786083ced4eca1f6825ffa23ac7256d4a56686f6f06e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionGroupId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customizations")
+    def customizations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CustomizationsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CustomizationsProperty"]], jsii.get(self, "customizations"))
+
+    @customizations.setter
+    def customizations(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CustomizationsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ecc1c2d6ca5ed07f9220424e298d73ccc2d9ff84388993cacf60c02fc6431d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customizations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4faa42cfcdbcfaf7031a5ad328e3b92614cc4b898e43367bd53e66b4edb53dd8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedCertificateRequest")
+    def managed_certificate_request(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ManagedCertificateRequestProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ManagedCertificateRequestProperty"]], jsii.get(self, "managedCertificateRequest"))
+
+    @managed_certificate_request.setter
+    def managed_certificate_request(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ManagedCertificateRequestProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5137481a2aef0ac0e79363b8e827531e762d17f59cfa3b092f770cb0813fedc0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedCertificateRequest", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ParameterProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ParameterProperty"]]]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ParameterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5ac60c7274f522196384c452007fc5b615ae79ffad1520970925978b4606156)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A complex type that contains zero or more ``Tag`` elements.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2cea18d7ff4ed5a97170964e15f6e2d6e58a5f394ede6d8f1dd4c80f19f719e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.CertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"arn": "arn"},
+    )
+    class CertificateProperty:
+        def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-certificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                certificate_property = cloudfront.CfnDistributionTenant.CertificateProperty(
+                    arn="arn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ff0d269846a4a9f6793265a71266235fd771204d2a0ad4f09ad78055533b5c48)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if arn is not None:
+                self._values["arn"] = arn
+
+        @builtins.property
+        def arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-certificate.html#cfn-cloudfront-distributiontenant-certificate-arn
+            '''
+            result = self._values.get("arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.CustomizationsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "certificate": "certificate",
+            "geo_restrictions": "geoRestrictions",
+            "web_acl": "webAcl",
+        },
+    )
+    class CustomizationsProperty:
+        def __init__(
+            self,
+            *,
+            certificate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            geo_restrictions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.GeoRestrictionCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            web_acl: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.WebAclCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param certificate: 
+            :param geo_restrictions: 
+            :param web_acl: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                customizations_property = cloudfront.CfnDistributionTenant.CustomizationsProperty(
+                    certificate=cloudfront.CfnDistributionTenant.CertificateProperty(
+                        arn="arn"
+                    ),
+                    geo_restrictions=cloudfront.CfnDistributionTenant.GeoRestrictionCustomizationProperty(
+                        locations=["locations"],
+                        restriction_type="restrictionType"
+                    ),
+                    web_acl=cloudfront.CfnDistributionTenant.WebAclCustomizationProperty(
+                        action="action",
+                        arn="arn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0491da142c813dc4673791039712e33ce224f81450f91a62e3bae808ffa535c1)
+                check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+                check_type(argname="argument geo_restrictions", value=geo_restrictions, expected_type=type_hints["geo_restrictions"])
+                check_type(argname="argument web_acl", value=web_acl, expected_type=type_hints["web_acl"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate is not None:
+                self._values["certificate"] = certificate
+            if geo_restrictions is not None:
+                self._values["geo_restrictions"] = geo_restrictions
+            if web_acl is not None:
+                self._values["web_acl"] = web_acl
+
+        @builtins.property
+        def certificate(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CertificateProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html#cfn-cloudfront-distributiontenant-customizations-certificate
+            '''
+            result = self._values.get("certificate")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CertificateProperty"]], result)
+
+        @builtins.property
+        def geo_restrictions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.GeoRestrictionCustomizationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html#cfn-cloudfront-distributiontenant-customizations-georestrictions
+            '''
+            result = self._values.get("geo_restrictions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.GeoRestrictionCustomizationProperty"]], result)
+
+        @builtins.property
+        def web_acl(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.WebAclCustomizationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html#cfn-cloudfront-distributiontenant-customizations-webacl
+            '''
+            result = self._values.get("web_acl")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.WebAclCustomizationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomizationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.DomainResultProperty",
+        jsii_struct_bases=[],
+        name_mapping={"domain": "domain", "reason": "reason", "status": "status"},
+    )
+    class DomainResultProperty:
+        def __init__(
+            self,
+            *,
+            domain: typing.Optional[builtins.str] = None,
+            reason: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param domain: 
+            :param reason: 
+            :param status: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                domain_result_property = cloudfront.CfnDistributionTenant.DomainResultProperty(
+                    domain="domain",
+                    reason="reason",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d24d49d6e44d4deb653a24465ec61e7862ea07d5a5cdc7f3cfa829da2181be64)
+                check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+                check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain is not None:
+                self._values["domain"] = domain
+            if reason is not None:
+                self._values["reason"] = reason
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def domain(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html#cfn-cloudfront-distributiontenant-domainresult-domain
+            '''
+            result = self._values.get("domain")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def reason(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html#cfn-cloudfront-distributiontenant-domainresult-reason
+            '''
+            result = self._values.get("reason")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html#cfn-cloudfront-distributiontenant-domainresult-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainResultProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.GeoRestrictionCustomizationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"locations": "locations", "restriction_type": "restrictionType"},
+    )
+    class GeoRestrictionCustomizationProperty:
+        def __init__(
+            self,
+            *,
+            locations: typing.Optional[typing.Sequence[builtins.str]] = None,
+            restriction_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param locations: 
+            :param restriction_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-georestrictioncustomization.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                geo_restriction_customization_property = cloudfront.CfnDistributionTenant.GeoRestrictionCustomizationProperty(
+                    locations=["locations"],
+                    restriction_type="restrictionType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b12cc1d8db14a6223b67c5f9254d5e808563dc8b6065256b09f01459db825b10)
+                check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
+                check_type(argname="argument restriction_type", value=restriction_type, expected_type=type_hints["restriction_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if locations is not None:
+                self._values["locations"] = locations
+            if restriction_type is not None:
+                self._values["restriction_type"] = restriction_type
+
+        @builtins.property
+        def locations(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-georestrictioncustomization.html#cfn-cloudfront-distributiontenant-georestrictioncustomization-locations
+            '''
+            result = self._values.get("locations")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def restriction_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-georestrictioncustomization.html#cfn-cloudfront-distributiontenant-georestrictioncustomization-restrictiontype
+            '''
+            result = self._values.get("restriction_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GeoRestrictionCustomizationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.ManagedCertificateRequestProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "certificate_transparency_logging_preference": "certificateTransparencyLoggingPreference",
+            "primary_domain_name": "primaryDomainName",
+            "validation_token_host": "validationTokenHost",
+        },
+    )
+    class ManagedCertificateRequestProperty:
+        def __init__(
+            self,
+            *,
+            certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
+            primary_domain_name: typing.Optional[builtins.str] = None,
+            validation_token_host: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param certificate_transparency_logging_preference: 
+            :param primary_domain_name: 
+            :param validation_token_host: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                managed_certificate_request_property = cloudfront.CfnDistributionTenant.ManagedCertificateRequestProperty(
+                    certificate_transparency_logging_preference="certificateTransparencyLoggingPreference",
+                    primary_domain_name="primaryDomainName",
+                    validation_token_host="validationTokenHost"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bd3055b78628b26ba1bcd38e78722682f53f911f50dd7e46fce1153242ca9358)
+                check_type(argname="argument certificate_transparency_logging_preference", value=certificate_transparency_logging_preference, expected_type=type_hints["certificate_transparency_logging_preference"])
+                check_type(argname="argument primary_domain_name", value=primary_domain_name, expected_type=type_hints["primary_domain_name"])
+                check_type(argname="argument validation_token_host", value=validation_token_host, expected_type=type_hints["validation_token_host"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_transparency_logging_preference is not None:
+                self._values["certificate_transparency_logging_preference"] = certificate_transparency_logging_preference
+            if primary_domain_name is not None:
+                self._values["primary_domain_name"] = primary_domain_name
+            if validation_token_host is not None:
+                self._values["validation_token_host"] = validation_token_host
+
+        @builtins.property
+        def certificate_transparency_logging_preference(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html#cfn-cloudfront-distributiontenant-managedcertificaterequest-certificatetransparencyloggingpreference
+            '''
+            result = self._values.get("certificate_transparency_logging_preference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def primary_domain_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html#cfn-cloudfront-distributiontenant-managedcertificaterequest-primarydomainname
+            '''
+            result = self._values.get("primary_domain_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def validation_token_host(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html#cfn-cloudfront-distributiontenant-managedcertificaterequest-validationtokenhost
+            '''
+            result = self._values.get("validation_token_host")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedCertificateRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.ParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class ParameterProperty:
+        def __init__(
+            self,
+            *,
+            name: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param name: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-parameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                parameter_property = cloudfront.CfnDistributionTenant.ParameterProperty(
+                    name="name",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__153cd98fd3544f143cb0059bfc0c01069aa936e548aae6596f575cebfb894add)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if name is not None:
+                self._values["name"] = name
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-parameter.html#cfn-cloudfront-distributiontenant-parameter-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-parameter.html#cfn-cloudfront-distributiontenant-parameter-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.WebAclCustomizationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"action": "action", "arn": "arn"},
+    )
+    class WebAclCustomizationProperty:
+        def __init__(
+            self,
+            *,
+            action: typing.Optional[builtins.str] = None,
+            arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param action: 
+            :param arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-webaclcustomization.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                web_acl_customization_property = cloudfront.CfnDistributionTenant.WebAclCustomizationProperty(
+                    action="action",
+                    arn="arn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1146c72709bb4672e62f556fac241f6dc79c09223c1e3a1863d70512f623c799)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if action is not None:
+                self._values["action"] = action
+            if arn is not None:
+                self._values["arn"] = arn
+
+        @builtins.property
+        def action(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-webaclcustomization.html#cfn-cloudfront-distributiontenant-webaclcustomization-action
+            '''
+            result = self._values.get("action")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-webaclcustomization.html#cfn-cloudfront-distributiontenant-webaclcustomization-arn
+            '''
+            result = self._values.get("arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WebAclCustomizationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "distribution_id": "distributionId",
+        "domains": "domains",
+        "name": "name",
+        "connection_group_id": "connectionGroupId",
+        "customizations": "customizations",
+        "enabled": "enabled",
+        "managed_certificate_request": "managedCertificateRequest",
+        "parameters": "parameters",
+        "tags": "tags",
+    },
+)
+class CfnDistributionTenantProps:
+    def __init__(
+        self,
+        *,
+        distribution_id: builtins.str,
+        domains: typing.Sequence[builtins.str],
+        name: builtins.str,
+        connection_group_id: typing.Optional[builtins.str] = None,
+        customizations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.CustomizationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        managed_certificate_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.ManagedCertificateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDistributionTenant``.
+
+        :param distribution_id: The distribution's identifier. For example: ``E1U5RQF7T870K0`` .
+        :param domains: 
+        :param name: 
+        :param connection_group_id: 
+        :param customizations: 
+        :param enabled: 
+        :param managed_certificate_request: 
+        :param parameters: 
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudfront as cloudfront
+            
+            cfn_distribution_tenant_props = cloudfront.CfnDistributionTenantProps(
+                distribution_id="distributionId",
+                domains=["domains"],
+                name="name",
+            
+                # the properties below are optional
+                connection_group_id="connectionGroupId",
+                customizations=cloudfront.CfnDistributionTenant.CustomizationsProperty(
+                    certificate=cloudfront.CfnDistributionTenant.CertificateProperty(
+                        arn="arn"
+                    ),
+                    geo_restrictions=cloudfront.CfnDistributionTenant.GeoRestrictionCustomizationProperty(
+                        locations=["locations"],
+                        restriction_type="restrictionType"
+                    ),
+                    web_acl=cloudfront.CfnDistributionTenant.WebAclCustomizationProperty(
+                        action="action",
+                        arn="arn"
+                    )
+                ),
+                enabled=False,
+                managed_certificate_request=cloudfront.CfnDistributionTenant.ManagedCertificateRequestProperty(
+                    certificate_transparency_logging_preference="certificateTransparencyLoggingPreference",
+                    primary_domain_name="primaryDomainName",
+                    validation_token_host="validationTokenHost"
+                ),
+                parameters=[cloudfront.CfnDistributionTenant.ParameterProperty(
+                    name="name",
+                    value="value"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7e7108347c4dbf8d509df9b928e7c2257744baad28d87264b196951988c668c)
+            check_type(argname="argument distribution_id", value=distribution_id, expected_type=type_hints["distribution_id"])
+            check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument connection_group_id", value=connection_group_id, expected_type=type_hints["connection_group_id"])
+            check_type(argname="argument customizations", value=customizations, expected_type=type_hints["customizations"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument managed_certificate_request", value=managed_certificate_request, expected_type=type_hints["managed_certificate_request"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "distribution_id": distribution_id,
+            "domains": domains,
+            "name": name,
+        }
+        if connection_group_id is not None:
+            self._values["connection_group_id"] = connection_group_id
+        if customizations is not None:
+            self._values["customizations"] = customizations
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if managed_certificate_request is not None:
+            self._values["managed_certificate_request"] = managed_certificate_request
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def distribution_id(self) -> builtins.str:
+        '''The distribution's identifier.
+
+        For example: ``E1U5RQF7T870K0`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-distributionid
+        '''
+        result = self._values.get("distribution_id")
+        assert result is not None, "Required property 'distribution_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domains(self) -> typing.List[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-domains
+        '''
+        result = self._values.get("domains")
+        assert result is not None, "Required property 'domains' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connection_group_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-connectiongroupid
+        '''
+        result = self._values.get("connection_group_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def customizations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.CustomizationsProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-customizations
+        '''
+        result = self._values.get("customizations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.CustomizationsProperty]], result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def managed_certificate_request(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ManagedCertificateRequestProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-managedcertificaterequest
+        '''
+        result = self._values.get("managed_certificate_request")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ManagedCertificateRequestProperty]], result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ParameterProperty]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ParameterProperty]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A complex type that contains zero or more ``Tag`` elements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDistributionTenantProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -26978,10 +28767,14 @@ __all__ = [
     "CfnCachePolicyProps",
     "CfnCloudFrontOriginAccessIdentity",
     "CfnCloudFrontOriginAccessIdentityProps",
+    "CfnConnectionGroup",
+    "CfnConnectionGroupProps",
     "CfnContinuousDeploymentPolicy",
     "CfnContinuousDeploymentPolicyProps",
     "CfnDistribution",
     "CfnDistributionProps",
+    "CfnDistributionTenant",
+    "CfnDistributionTenantProps",
     "CfnFunction",
     "CfnFunctionProps",
     "CfnKeyGroup",
@@ -27411,6 +29204,72 @@ def _typecheckingstub__ac17d18e4ddb1cb8a79015a96667059270fe5083273f938cf851deeb4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a7fbc949dbac76664bfea111378c9ea57cd63caa1212fdbe30d64584bd8f53de(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    anycast_ip_list_id: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ipv6_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dad045911121964ba7e6a7c8d166ac2aaace23640d9bee11f9fbbbb1b78e3236(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4834ec5a54af69a2e3413ff8a46f3539a6607f6b49adaabe420e5490ae353ea(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46cb5b39bb34a52a464d8364089e47d3ba47e4a293aaa3f92857d624e7902898(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2633385b8f4da7c2341c3b54e4d30ea9345b38862ced8c6f1d893c36ec7c669d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41addbff9b29ce6c4465d1d973785d727f6742a1723e79dcdce59a1087df694f(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2678e60f75fc9c3a75819708e1b8cda159dd49a5c52a78d805d37bb94bd0efa5(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9f02fbda8fa97b38f114c9910b9d9cef69228aa69dfe80217e98e1707226ce0(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9f88b4b65d8b9e48fd57e5bde8f7d6681cdcbb9e46fe34c223e63914ee033f4(
+    *,
+    name: builtins.str,
+    anycast_ip_list_id: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ipv6_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b57269fe6faf53d2e30ff31a58c5711db8b8cc3b38dc9ac79efdb585dc8f324b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -27623,6 +29482,13 @@ def _typecheckingstub__acf9839d8791146628088e2f7ab6072f3232af301427572733ecdb1c5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6373c35cb5b68c4917ddc72054f5c42da1b689748928adaa28575e2f9058bcf1(
+    *,
+    string_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.StringSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__924aa31797d5562075c15043a82632c8afbc217d476fdf805d7efea103da3360(
     *,
     default_cache_behavior: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.DefaultCacheBehaviorProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -27632,6 +29498,7 @@ def _typecheckingstub__924aa31797d5562075c15043a82632c8afbc217d476fdf805d7efea10
     cache_behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.CacheBehaviorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     cnam_es: typing.Optional[typing.Sequence[builtins.str]] = None,
     comment: typing.Optional[builtins.str] = None,
+    connection_mode: typing.Optional[builtins.str] = None,
     continuous_deployment_policy_id: typing.Optional[builtins.str] = None,
     custom_error_responses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.CustomErrorResponseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_origin: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.LegacyCustomOriginProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -27645,6 +29512,7 @@ def _typecheckingstub__924aa31797d5562075c15043a82632c8afbc217d476fdf805d7efea10
     restrictions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.RestrictionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_origin: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.LegacyS3OriginProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     staging: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tenant_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.TenantConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     viewer_certificate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.ViewerCertificateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_acl_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -27794,6 +29662,14 @@ def _typecheckingstub__d2a25e92d5905a4c19d3636ff8b631afa34a538497a13fa9d29e56ca4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d3077fc2475a570e548a4c766c77d7d863c9b4298e77dbf52c861eb303170cbd(
+    *,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4deb0a9215bd7c703383e0e2be801747efa09772f2b073423550aa9638220c0d(
     *,
     geo_restriction: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.GeoRestrictionProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -27812,6 +29688,22 @@ def _typecheckingstub__7b8b62ce6bf1ec6151566719caf2d665f3f7fea596e402fba7354f19f
     *,
     items: typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b],
     quantity: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__063da7cd247f9f65fbf71edf06b732e35e339a5952e2f2bf8ccd5eee1c5611d8(
+    *,
+    required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    comment: typing.Optional[builtins.str] = None,
+    default_value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2edbb1e96d7cdd1ba9da9c2eb778117b7b4726ec0bcf6cf55c64bbbdba19541(
+    *,
+    parameter_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.ParameterDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27839,6 +29731,162 @@ def _typecheckingstub__f7a2beaed61436754427d5794c11e2b8b3ecac452591d86453fc6b432
 def _typecheckingstub__f7553d47847912fd83a61da98a84c9c8cb5fdb95cf08048d70723db17c73053a(
     *,
     distribution_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.DistributionConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b31d7c64540327014853973d80c83a2f4a5686901e7f7ac7b0ace4f059413572(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    distribution_id: builtins.str,
+    domains: typing.Sequence[builtins.str],
+    name: builtins.str,
+    connection_group_id: typing.Optional[builtins.str] = None,
+    customizations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.CustomizationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    managed_certificate_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.ManagedCertificateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57520040a3293830d92c5db58279dc6ba57c2835396f254ab1cf1fc8a732ea40(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e01bfefdb980893d11ecf908e131b3da5b94143ee485dce5ed8d1d657843e21(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01b4d19a34e50ac410f9509edd30a04265cf1cbbd17b788ad5aa7507c63f00f8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e4ea73186e7ded8d4be1abca7ad4ad20e62ac773ff4030551f69552bebf4111(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21d549f43b17cc6909f030b9a70862b4d3cc9f8321d3c0808f5a34ad3a82bdac(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__260bd4d44d34feabb54c786083ced4eca1f6825ffa23ac7256d4a56686f6f06e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ecc1c2d6ca5ed07f9220424e298d73ccc2d9ff84388993cacf60c02fc6431d2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.CustomizationsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4faa42cfcdbcfaf7031a5ad328e3b92614cc4b898e43367bd53e66b4edb53dd8(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5137481a2aef0ac0e79363b8e827531e762d17f59cfa3b092f770cb0813fedc0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ManagedCertificateRequestProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5ac60c7274f522196384c452007fc5b615ae79ffad1520970925978b4606156(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ParameterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cea18d7ff4ed5a97170964e15f6e2d6e58a5f394ede6d8f1dd4c80f19f719e2(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff0d269846a4a9f6793265a71266235fd771204d2a0ad4f09ad78055533b5c48(
+    *,
+    arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0491da142c813dc4673791039712e33ce224f81450f91a62e3bae808ffa535c1(
+    *,
+    certificate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    geo_restrictions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.GeoRestrictionCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_acl: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.WebAclCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d24d49d6e44d4deb653a24465ec61e7862ea07d5a5cdc7f3cfa829da2181be64(
+    *,
+    domain: typing.Optional[builtins.str] = None,
+    reason: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b12cc1d8db14a6223b67c5f9254d5e808563dc8b6065256b09f01459db825b10(
+    *,
+    locations: typing.Optional[typing.Sequence[builtins.str]] = None,
+    restriction_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd3055b78628b26ba1bcd38e78722682f53f911f50dd7e46fce1153242ca9358(
+    *,
+    certificate_transparency_logging_preference: typing.Optional[builtins.str] = None,
+    primary_domain_name: typing.Optional[builtins.str] = None,
+    validation_token_host: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__153cd98fd3544f143cb0059bfc0c01069aa936e548aae6596f575cebfb894add(
+    *,
+    name: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1146c72709bb4672e62f556fac241f6dc79c09223c1e3a1863d70512f623c799(
+    *,
+    action: typing.Optional[builtins.str] = None,
+    arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7e7108347c4dbf8d509df9b928e7c2257744baad28d87264b196951988c668c(
+    *,
+    distribution_id: builtins.str,
+    domains: typing.Sequence[builtins.str],
+    name: builtins.str,
+    connection_group_id: typing.Optional[builtins.str] = None,
+    customizations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.CustomizationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    managed_certificate_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.ManagedCertificateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionTenant.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

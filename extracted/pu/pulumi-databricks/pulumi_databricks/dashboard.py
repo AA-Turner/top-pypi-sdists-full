@@ -415,6 +415,9 @@ class _DashboardState:
 
 
 class Dashboard(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/dashboard:Dashboard"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -436,6 +439,8 @@ class Dashboard(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage Databricks [Dashboards](https://docs.databricks.com/en/dashboards/index.html). To manage [Dashboards](https://docs.databricks.com/en/dashboards/index.html) you must have a warehouse access on your databricks workspace.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -483,6 +488,8 @@ class Dashboard(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage Databricks [Dashboards](https://docs.databricks.com/en/dashboards/index.html). To manage [Dashboards](https://docs.databricks.com/en/dashboards/index.html) you must have a warehouse access on your databricks workspace.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

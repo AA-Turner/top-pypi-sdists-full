@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_user_defined_function`
 
-Refer to the Terraform Registry for docs: [`aws_glue_user_defined_function`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function).
+Refer to the Terraform Registry for docs: [`aws_glue_user_defined_function`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueUserDefinedFunction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueUserDefinedFunction.GlueUserDefinedFunction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function aws_glue_user_defined_function}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function aws_glue_user_defined_function}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GlueUserDefinedFunction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function aws_glue_user_defined_function} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function aws_glue_user_defined_function} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param class_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#class_name GlueUserDefinedFunction#class_name}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#database_name GlueUserDefinedFunction#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#name GlueUserDefinedFunction#name}.
-        :param owner_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#owner_name GlueUserDefinedFunction#owner_name}.
-        :param owner_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#owner_type GlueUserDefinedFunction#owner_type}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#catalog_id GlueUserDefinedFunction#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#id GlueUserDefinedFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param resource_uris: resource_uris block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#resource_uris GlueUserDefinedFunction#resource_uris}
+        :param class_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#class_name GlueUserDefinedFunction#class_name}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#database_name GlueUserDefinedFunction#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#name GlueUserDefinedFunction#name}.
+        :param owner_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#owner_name GlueUserDefinedFunction#owner_name}.
+        :param owner_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#owner_type GlueUserDefinedFunction#owner_type}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#catalog_id GlueUserDefinedFunction#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#id GlueUserDefinedFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param resource_uris: resource_uris block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#resource_uris GlueUserDefinedFunction#resource_uris}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GlueUserDefinedFunction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueUserDefinedFunction to import.
-        :param import_from_id: The id of the existing GlueUserDefinedFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueUserDefinedFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueUserDefinedFunction to import is found.
         '''
         if __debug__:
@@ -364,14 +364,14 @@ class GlueUserDefinedFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param class_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#class_name GlueUserDefinedFunction#class_name}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#database_name GlueUserDefinedFunction#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#name GlueUserDefinedFunction#name}.
-        :param owner_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#owner_name GlueUserDefinedFunction#owner_name}.
-        :param owner_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#owner_type GlueUserDefinedFunction#owner_type}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#catalog_id GlueUserDefinedFunction#catalog_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#id GlueUserDefinedFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param resource_uris: resource_uris block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#resource_uris GlueUserDefinedFunction#resource_uris}
+        :param class_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#class_name GlueUserDefinedFunction#class_name}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#database_name GlueUserDefinedFunction#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#name GlueUserDefinedFunction#name}.
+        :param owner_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#owner_name GlueUserDefinedFunction#owner_name}.
+        :param owner_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#owner_type GlueUserDefinedFunction#owner_type}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#catalog_id GlueUserDefinedFunction#catalog_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#id GlueUserDefinedFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param resource_uris: resource_uris block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#resource_uris GlueUserDefinedFunction#resource_uris}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -486,48 +486,48 @@ class GlueUserDefinedFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def class_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#class_name GlueUserDefinedFunction#class_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#class_name GlueUserDefinedFunction#class_name}.'''
         result = self._values.get("class_name")
         assert result is not None, "Required property 'class_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#database_name GlueUserDefinedFunction#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#database_name GlueUserDefinedFunction#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#name GlueUserDefinedFunction#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#name GlueUserDefinedFunction#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owner_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#owner_name GlueUserDefinedFunction#owner_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#owner_name GlueUserDefinedFunction#owner_name}.'''
         result = self._values.get("owner_name")
         assert result is not None, "Required property 'owner_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owner_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#owner_type GlueUserDefinedFunction#owner_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#owner_type GlueUserDefinedFunction#owner_type}.'''
         result = self._values.get("owner_type")
         assert result is not None, "Required property 'owner_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#catalog_id GlueUserDefinedFunction#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#catalog_id GlueUserDefinedFunction#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#id GlueUserDefinedFunction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#id GlueUserDefinedFunction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -541,7 +541,7 @@ class GlueUserDefinedFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueUserDefinedFunctionResourceUris"]]]:
         '''resource_uris block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#resource_uris GlueUserDefinedFunction#resource_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#resource_uris GlueUserDefinedFunction#resource_uris}
         '''
         result = self._values.get("resource_uris")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueUserDefinedFunctionResourceUris"]]], result)
@@ -566,8 +566,8 @@ class GlueUserDefinedFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GlueUserDefinedFunctionResourceUris:
     def __init__(self, *, resource_type: builtins.str, uri: builtins.str) -> None:
         '''
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#resource_type GlueUserDefinedFunction#resource_type}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#uri GlueUserDefinedFunction#uri}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#resource_type GlueUserDefinedFunction#resource_type}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#uri GlueUserDefinedFunction#uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ad518866b9631a3146a73344cb9bdfe1dc7d8e0f64811fbce0eeafda18bf89e)
@@ -580,14 +580,14 @@ class GlueUserDefinedFunctionResourceUris:
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#resource_type GlueUserDefinedFunction#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#resource_type GlueUserDefinedFunction#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_user_defined_function#uri GlueUserDefinedFunction#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_user_defined_function#uri GlueUserDefinedFunction#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)

@@ -158,6 +158,8 @@ class AgentService:
                 "auth_url": kwargs["auth_url"],
                 "username": kwargs["username"],
                 "password": kwargs["password"],
+                "client_id": kwargs["client_id"],
+                "client_secret": kwargs["client_secret"],
             }
             agent_request["credentials"] = json.dumps(creds)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_datasync_location_smb`
 
-Refer to the Terraform Registry for docs: [`aws_datasync_location_smb`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb).
+Refer to the Terraform Registry for docs: [`aws_datasync_location_smb`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatasyncLocationSmb(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datasyncLocationSmb.DatasyncLocationSmb",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb aws_datasync_location_smb}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb aws_datasync_location_smb}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class DatasyncLocationSmb(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb aws_datasync_location_smb} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb aws_datasync_location_smb} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#agent_arns DatasyncLocationSmb#agent_arns}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#password DatasyncLocationSmb#password}.
-        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#server_hostname DatasyncLocationSmb#server_hostname}.
-        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#subdirectory DatasyncLocationSmb#subdirectory}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#user DatasyncLocationSmb#user}.
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#domain DatasyncLocationSmb#domain}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#id DatasyncLocationSmb#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#mount_options DatasyncLocationSmb#mount_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#tags DatasyncLocationSmb#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#tags_all DatasyncLocationSmb#tags_all}.
+        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#agent_arns DatasyncLocationSmb#agent_arns}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#password DatasyncLocationSmb#password}.
+        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#server_hostname DatasyncLocationSmb#server_hostname}.
+        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#subdirectory DatasyncLocationSmb#subdirectory}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#user DatasyncLocationSmb#user}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#domain DatasyncLocationSmb#domain}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#id DatasyncLocationSmb#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#mount_options DatasyncLocationSmb#mount_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#tags DatasyncLocationSmb#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#tags_all DatasyncLocationSmb#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class DatasyncLocationSmb(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatasyncLocationSmb to import.
-        :param import_from_id: The id of the existing DatasyncLocationSmb that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatasyncLocationSmb that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatasyncLocationSmb to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class DatasyncLocationSmb(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#version DatasyncLocationSmb#version}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#version DatasyncLocationSmb#version}.
         '''
         value = DatasyncLocationSmbMountOptions(version=version)
 
@@ -416,16 +416,16 @@ class DatasyncLocationSmbConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#agent_arns DatasyncLocationSmb#agent_arns}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#password DatasyncLocationSmb#password}.
-        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#server_hostname DatasyncLocationSmb#server_hostname}.
-        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#subdirectory DatasyncLocationSmb#subdirectory}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#user DatasyncLocationSmb#user}.
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#domain DatasyncLocationSmb#domain}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#id DatasyncLocationSmb#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#mount_options DatasyncLocationSmb#mount_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#tags DatasyncLocationSmb#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#tags_all DatasyncLocationSmb#tags_all}.
+        :param agent_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#agent_arns DatasyncLocationSmb#agent_arns}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#password DatasyncLocationSmb#password}.
+        :param server_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#server_hostname DatasyncLocationSmb#server_hostname}.
+        :param subdirectory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#subdirectory DatasyncLocationSmb#subdirectory}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#user DatasyncLocationSmb#user}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#domain DatasyncLocationSmb#domain}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#id DatasyncLocationSmb#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mount_options: mount_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#mount_options DatasyncLocationSmb#mount_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#tags DatasyncLocationSmb#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#tags_all DatasyncLocationSmb#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -548,48 +548,48 @@ class DatasyncLocationSmbConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def agent_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#agent_arns DatasyncLocationSmb#agent_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#agent_arns DatasyncLocationSmb#agent_arns}.'''
         result = self._values.get("agent_arns")
         assert result is not None, "Required property 'agent_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#password DatasyncLocationSmb#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#password DatasyncLocationSmb#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_hostname(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#server_hostname DatasyncLocationSmb#server_hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#server_hostname DatasyncLocationSmb#server_hostname}.'''
         result = self._values.get("server_hostname")
         assert result is not None, "Required property 'server_hostname' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subdirectory(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#subdirectory DatasyncLocationSmb#subdirectory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#subdirectory DatasyncLocationSmb#subdirectory}.'''
         result = self._values.get("subdirectory")
         assert result is not None, "Required property 'subdirectory' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#user DatasyncLocationSmb#user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#user DatasyncLocationSmb#user}.'''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#domain DatasyncLocationSmb#domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#domain DatasyncLocationSmb#domain}.'''
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#id DatasyncLocationSmb#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#id DatasyncLocationSmb#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -601,20 +601,20 @@ class DatasyncLocationSmbConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mount_options(self) -> typing.Optional["DatasyncLocationSmbMountOptions"]:
         '''mount_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#mount_options DatasyncLocationSmb#mount_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#mount_options DatasyncLocationSmb#mount_options}
         '''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional["DatasyncLocationSmbMountOptions"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#tags DatasyncLocationSmb#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#tags DatasyncLocationSmb#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#tags_all DatasyncLocationSmb#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#tags_all DatasyncLocationSmb#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -638,7 +638,7 @@ class DatasyncLocationSmbConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DatasyncLocationSmbMountOptions:
     def __init__(self, *, version: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#version DatasyncLocationSmb#version}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#version DatasyncLocationSmb#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2d8030fcf5f570a9f56938200b87a22fd0150db98bb548a1ac502e5b7652f29)
@@ -649,7 +649,7 @@ class DatasyncLocationSmbMountOptions:
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datasync_location_smb#version DatasyncLocationSmb#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datasync_location_smb#version DatasyncLocationSmb#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 

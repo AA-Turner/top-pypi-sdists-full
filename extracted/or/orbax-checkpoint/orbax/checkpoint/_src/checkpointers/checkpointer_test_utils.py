@@ -51,8 +51,6 @@ from orbax.checkpoint._src.serialization import serialization
 from orbax.checkpoint._src.serialization import type_handlers
 from orbax.checkpoint._src.testing import test_tree_utils
 
-from .pyglib import gfile
-
 
 PyTreeCheckpointHandler = pytree_checkpoint_handler.PyTreeCheckpointHandler
 AsyncCheckpointHandler = async_checkpoint_handler.AsyncCheckpointHandler
@@ -61,6 +59,7 @@ ArrayRestoreArgs = pytree_checkpoint_handler.ArrayRestoreArgs
 TrainState = train_state.TrainState
 Mesh = jax.sharding.Mesh
 PyTree = Any
+PLACEHOLDER = type_handlers.PLACEHOLDER
 
 
 class CheckpointerTestBase:
@@ -104,12 +103,6 @@ class CheckpointerTestBase:
     def wait_if_async(self, checkpointer):
       if isinstance(checkpointer, AsyncCheckpointer):
         checkpointer.wait_until_finished()
-
-    def is_world_readable(self, path):
-      if not gfile.Exists(path):
-        return False
-      mode = gfile.Stat(path, stat_proto=True).mode
-      return (mode & step.NON_WORLD_READABLE_MODE) != mode
 
     def test_save_restore(self):
       """Basic save and restore test."""
@@ -163,7 +156,6 @@ class CheckpointerTestBase:
         )
         expected = self.pytree
         test_utils.assert_tree_equal(self, expected, restored)
-        self.assertFalse(self.is_world_readable(self.directory))
 
     def test_overwrite_existing(self):
       """Test overwrite existing path."""
@@ -177,7 +169,6 @@ class CheckpointerTestBase:
         )
         expected = self.doubled_pytree
         test_utils.assert_tree_equal(self, expected, restored)
-        self.assertFalse(self.is_world_readable(self.directory))
 
     def test_flax_train_state(self):
       """Test using flax model."""
@@ -587,3 +578,71 @@ class CheckpointerTestBase:
         ):
           array_metadata_validator.maybe_raise_error()
       self.assertIsNotNone(await array_metadata_store.read(self.directory))
+
+    def test_partial_restore_with_placeholder(self):
+      """Basic save and restore test."""
+      with self.checkpointer(PyTreeCheckpointHandler()) as save_checkpointer:
+        directory = self.directory / 'partial_restore'
+        save_checkpointer.save(
+            directory,
+            args.PyTreeSave(self.pytree),
+        )
+
+      with self.subTest('success'):
+        reference_item = self.empty_pytree.copy()
+        reference_item['b'] = PLACEHOLDER
+        reference_item['c']['e'] = PLACEHOLDER
+
+        expected = self.pytree.copy()
+        expected['b'] = PLACEHOLDER
+        expected['c']['e'] = PLACEHOLDER
+
+        with self.checkpointer(
+            PyTreeCheckpointHandler()
+        ) as restore_checkpointer:
+          restored = restore_checkpointer.restore(
+              directory,
+              args=pytree_checkpoint_handler.PyTreeRestoreArgs(
+                  item=reference_item,
+                  restore_args=self.pytree_restore_args,
+              ),
+          )
+          test_utils.assert_tree_equal(self, expected, restored)
+
+      with self.subTest('missing_leaf'):
+        reference_item = self.empty_pytree.copy()
+        reference_item['b'] = PLACEHOLDER
+        reference_item['c']['e'] = PLACEHOLDER
+        del reference_item['c']['a']
+
+        with self.checkpointer(
+            PyTreeCheckpointHandler()
+        ) as restore_checkpointer:
+          with self.assertRaisesRegex(
+              ValueError, 'User-provided restore item and on-disk value'
+          ):
+            restore_checkpointer.restore(
+                directory,
+                args=pytree_checkpoint_handler.PyTreeRestoreArgs(
+                    item=reference_item,
+                    restore_args=self.pytree_restore_args,
+                ),
+            )
+
+      with self.subTest('non_leaf_placeholder'):
+        reference_item = self.empty_pytree.copy()
+        reference_item['c'] = PLACEHOLDER
+
+        with self.checkpointer(
+            PyTreeCheckpointHandler()
+        ) as restore_checkpointer:
+          with self.assertRaisesRegex(
+              ValueError, 'User-provided restore item and on-disk value'
+          ):
+            restore_checkpointer.restore(
+                directory,
+                args=pytree_checkpoint_handler.PyTreeRestoreArgs(
+                    item=reference_item,
+                    restore_args=self.pytree_restore_args,
+                ),
+            )

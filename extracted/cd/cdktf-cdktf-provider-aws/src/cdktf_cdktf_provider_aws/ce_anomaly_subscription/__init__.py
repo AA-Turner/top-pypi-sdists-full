@@ -1,7 +1,7 @@
 r'''
 # `aws_ce_anomaly_subscription`
 
-Refer to the Terraform Registry for docs: [`aws_ce_anomaly_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription).
+Refer to the Terraform Registry for docs: [`aws_ce_anomaly_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CeAnomalySubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ceAnomalySubscription.CeAnomalySubscription",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription aws_ce_anomaly_subscription}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription aws_ce_anomaly_subscription}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class CeAnomalySubscription(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription aws_ce_anomaly_subscription} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription aws_ce_anomaly_subscription} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#frequency CeAnomalySubscription#frequency}.
-        :param monitor_arn_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#monitor_arn_list CeAnomalySubscription#monitor_arn_list}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#name CeAnomalySubscription#name}.
-        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#subscriber CeAnomalySubscription#subscriber}
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#account_id CeAnomalySubscription#account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#id CeAnomalySubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags_all CeAnomalySubscription#tags_all}.
-        :param threshold_expression: threshold_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#threshold_expression CeAnomalySubscription#threshold_expression}
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#frequency CeAnomalySubscription#frequency}.
+        :param monitor_arn_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#monitor_arn_list CeAnomalySubscription#monitor_arn_list}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#name CeAnomalySubscription#name}.
+        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#subscriber CeAnomalySubscription#subscriber}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#account_id CeAnomalySubscription#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#id CeAnomalySubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags_all CeAnomalySubscription#tags_all}.
+        :param threshold_expression: threshold_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#threshold_expression CeAnomalySubscription#threshold_expression}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class CeAnomalySubscription(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CeAnomalySubscription to import.
-        :param import_from_id: The id of the existing CeAnomalySubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CeAnomalySubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CeAnomalySubscription to import is found.
         '''
         if __debug__:
@@ -163,12 +163,12 @@ class CeAnomalySubscription(
         tags: typing.Optional[typing.Union["CeAnomalySubscriptionThresholdExpressionTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#and CeAnomalySubscription#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#not CeAnomalySubscription#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#or CeAnomalySubscription#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#and CeAnomalySubscription#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#not CeAnomalySubscription#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#or CeAnomalySubscription#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         value = CeAnomalySubscriptionThresholdExpression(
             and_=and_,
@@ -418,15 +418,15 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#frequency CeAnomalySubscription#frequency}.
-        :param monitor_arn_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#monitor_arn_list CeAnomalySubscription#monitor_arn_list}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#name CeAnomalySubscription#name}.
-        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#subscriber CeAnomalySubscription#subscriber}
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#account_id CeAnomalySubscription#account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#id CeAnomalySubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags_all CeAnomalySubscription#tags_all}.
-        :param threshold_expression: threshold_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#threshold_expression CeAnomalySubscription#threshold_expression}
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#frequency CeAnomalySubscription#frequency}.
+        :param monitor_arn_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#monitor_arn_list CeAnomalySubscription#monitor_arn_list}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#name CeAnomalySubscription#name}.
+        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#subscriber CeAnomalySubscription#subscriber}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#account_id CeAnomalySubscription#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#id CeAnomalySubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags_all CeAnomalySubscription#tags_all}.
+        :param threshold_expression: threshold_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#threshold_expression CeAnomalySubscription#threshold_expression}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -547,21 +547,21 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#frequency CeAnomalySubscription#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#frequency CeAnomalySubscription#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def monitor_arn_list(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#monitor_arn_list CeAnomalySubscription#monitor_arn_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#monitor_arn_list CeAnomalySubscription#monitor_arn_list}.'''
         result = self._values.get("monitor_arn_list")
         assert result is not None, "Required property 'monitor_arn_list' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#name CeAnomalySubscription#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#name CeAnomalySubscription#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -572,7 +572,7 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeAnomalySubscriptionSubscriber"]]:
         '''subscriber block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#subscriber CeAnomalySubscription#subscriber}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#subscriber CeAnomalySubscription#subscriber}
         '''
         result = self._values.get("subscriber")
         assert result is not None, "Required property 'subscriber' is missing"
@@ -580,13 +580,13 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#account_id CeAnomalySubscription#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#account_id CeAnomalySubscription#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#id CeAnomalySubscription#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#id CeAnomalySubscription#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -596,13 +596,13 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags_all CeAnomalySubscription#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags_all CeAnomalySubscription#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -612,7 +612,7 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpression"]:
         '''threshold_expression block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#threshold_expression CeAnomalySubscription#threshold_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#threshold_expression CeAnomalySubscription#threshold_expression}
         '''
         result = self._values.get("threshold_expression")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpression"], result)
@@ -637,8 +637,8 @@ class CeAnomalySubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CeAnomalySubscriptionSubscriber:
     def __init__(self, *, address: builtins.str, type: builtins.str) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#address CeAnomalySubscription#address}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#type CeAnomalySubscription#type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#address CeAnomalySubscription#address}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#type CeAnomalySubscription#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf41d5021ccbfd1ebc71e1fd0545ac6e70e8e80b463291ef2a362ca8ff2a8b01)
@@ -651,14 +651,14 @@ class CeAnomalySubscriptionSubscriber:
 
     @builtins.property
     def address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#address CeAnomalySubscription#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#address CeAnomalySubscription#address}.'''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#type CeAnomalySubscription#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#type CeAnomalySubscription#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -870,12 +870,12 @@ class CeAnomalySubscriptionThresholdExpression:
         tags: typing.Optional[typing.Union["CeAnomalySubscriptionThresholdExpressionTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#and CeAnomalySubscription#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#not CeAnomalySubscription#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#or CeAnomalySubscription#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#and CeAnomalySubscription#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#not CeAnomalySubscription#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#or CeAnomalySubscription#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeAnomalySubscriptionThresholdExpressionCostCategory(**cost_category)
@@ -913,7 +913,7 @@ class CeAnomalySubscriptionThresholdExpression:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeAnomalySubscriptionThresholdExpressionAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#and CeAnomalySubscription#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#and CeAnomalySubscription#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeAnomalySubscriptionThresholdExpressionAnd"]]], result)
@@ -924,7 +924,7 @@ class CeAnomalySubscriptionThresholdExpression:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionCostCategory"], result)
@@ -935,7 +935,7 @@ class CeAnomalySubscriptionThresholdExpression:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionDimension"], result)
@@ -944,7 +944,7 @@ class CeAnomalySubscriptionThresholdExpression:
     def not_(self) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionNot"]:
         '''not block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#not CeAnomalySubscription#not}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#not CeAnomalySubscription#not}
         '''
         result = self._values.get("not_")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionNot"], result)
@@ -955,7 +955,7 @@ class CeAnomalySubscriptionThresholdExpression:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeAnomalySubscriptionThresholdExpressionOr"]]]:
         '''or block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#or CeAnomalySubscription#or}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#or CeAnomalySubscription#or}
         '''
         result = self._values.get("or_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeAnomalySubscriptionThresholdExpressionOr"]]], result)
@@ -964,7 +964,7 @@ class CeAnomalySubscriptionThresholdExpression:
     def tags(self) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionTags"], result)
@@ -999,9 +999,9 @@ class CeAnomalySubscriptionThresholdExpressionAnd:
         tags: typing.Optional[typing.Union["CeAnomalySubscriptionThresholdExpressionAndTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeAnomalySubscriptionThresholdExpressionAndCostCategory(**cost_category)
@@ -1028,7 +1028,7 @@ class CeAnomalySubscriptionThresholdExpressionAnd:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionAndCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionAndCostCategory"], result)
@@ -1039,7 +1039,7 @@ class CeAnomalySubscriptionThresholdExpressionAnd:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionAndDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionAndDimension"], result)
@@ -1050,7 +1050,7 @@ class CeAnomalySubscriptionThresholdExpressionAnd:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionAndTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionAndTags"], result)
@@ -1081,9 +1081,9 @@ class CeAnomalySubscriptionThresholdExpressionAndCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b2d55cd4e708dac8ed3c1c0bcef6fdeab90cfeed47a0e496f75b0c3fe3d5719)
@@ -1100,19 +1100,19 @@ class CeAnomalySubscriptionThresholdExpressionAndCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1243,9 +1243,9 @@ class CeAnomalySubscriptionThresholdExpressionAndDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b37f62dae11dcdcbaed97608264bcd6d8e3ee0e2a8d23c8b69c4bb2c218b7d2)
@@ -1262,19 +1262,19 @@ class CeAnomalySubscriptionThresholdExpressionAndDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1519,9 +1519,9 @@ class CeAnomalySubscriptionThresholdExpressionAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionAndCostCategory(
             key=key, match_options=match_options, values=values
@@ -1538,9 +1538,9 @@ class CeAnomalySubscriptionThresholdExpressionAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionAndDimension(
             key=key, match_options=match_options, values=values
@@ -1557,9 +1557,9 @@ class CeAnomalySubscriptionThresholdExpressionAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionAndTags(
             key=key, match_options=match_options, values=values
@@ -1651,9 +1651,9 @@ class CeAnomalySubscriptionThresholdExpressionAndTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad573dbc5823b54ff70bb2c8e9d5901dfd83269ee0a5fc13df4903cef9c61fae)
@@ -1670,19 +1670,19 @@ class CeAnomalySubscriptionThresholdExpressionAndTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1813,9 +1813,9 @@ class CeAnomalySubscriptionThresholdExpressionCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__385417ef436099a0be98213cc0e00a17921479107e6adca9c928eb9bfc2e606d)
@@ -1832,19 +1832,19 @@ class CeAnomalySubscriptionThresholdExpressionCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1975,9 +1975,9 @@ class CeAnomalySubscriptionThresholdExpressionDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44492261e46f0c0b38045898555bcfaa0e4422632de2b5d5b741c1e0707d665e)
@@ -1994,19 +1994,19 @@ class CeAnomalySubscriptionThresholdExpressionDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2141,9 +2141,9 @@ class CeAnomalySubscriptionThresholdExpressionNot:
         tags: typing.Optional[typing.Union["CeAnomalySubscriptionThresholdExpressionNotTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeAnomalySubscriptionThresholdExpressionNotCostCategory(**cost_category)
@@ -2170,7 +2170,7 @@ class CeAnomalySubscriptionThresholdExpressionNot:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionNotCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionNotCostCategory"], result)
@@ -2181,7 +2181,7 @@ class CeAnomalySubscriptionThresholdExpressionNot:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionNotDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionNotDimension"], result)
@@ -2192,7 +2192,7 @@ class CeAnomalySubscriptionThresholdExpressionNot:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionNotTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionNotTags"], result)
@@ -2223,9 +2223,9 @@ class CeAnomalySubscriptionThresholdExpressionNotCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6dd63351a35c080cbe7a0257205710fe61a77384953ec0c2658a8ffb356bf4f)
@@ -2242,19 +2242,19 @@ class CeAnomalySubscriptionThresholdExpressionNotCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2385,9 +2385,9 @@ class CeAnomalySubscriptionThresholdExpressionNotDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e63c00ac9622a6e7f12641d9b74aa074bf951caf70a2fda6860f9f907b759526)
@@ -2404,19 +2404,19 @@ class CeAnomalySubscriptionThresholdExpressionNotDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2562,9 +2562,9 @@ class CeAnomalySubscriptionThresholdExpressionNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionNotCostCategory(
             key=key, match_options=match_options, values=values
@@ -2581,9 +2581,9 @@ class CeAnomalySubscriptionThresholdExpressionNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionNotDimension(
             key=key, match_options=match_options, values=values
@@ -2600,9 +2600,9 @@ class CeAnomalySubscriptionThresholdExpressionNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionNotTags(
             key=key, match_options=match_options, values=values
@@ -2694,9 +2694,9 @@ class CeAnomalySubscriptionThresholdExpressionNotTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__753aa3b6e98992576193ab1dbf54d2b4122bad2271e35ad6d81a4b5c2baacf31)
@@ -2713,19 +2713,19 @@ class CeAnomalySubscriptionThresholdExpressionNotTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2860,9 +2860,9 @@ class CeAnomalySubscriptionThresholdExpressionOr:
         tags: typing.Optional[typing.Union["CeAnomalySubscriptionThresholdExpressionOrTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeAnomalySubscriptionThresholdExpressionOrCostCategory(**cost_category)
@@ -2889,7 +2889,7 @@ class CeAnomalySubscriptionThresholdExpressionOr:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionOrCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionOrCostCategory"], result)
@@ -2900,7 +2900,7 @@ class CeAnomalySubscriptionThresholdExpressionOr:
     ) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionOrDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionOrDimension"], result)
@@ -2909,7 +2909,7 @@ class CeAnomalySubscriptionThresholdExpressionOr:
     def tags(self) -> typing.Optional["CeAnomalySubscriptionThresholdExpressionOrTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeAnomalySubscriptionThresholdExpressionOrTags"], result)
@@ -2940,9 +2940,9 @@ class CeAnomalySubscriptionThresholdExpressionOrCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__180107914d44d95eef60bd1618634153680d2bfb68062751bd504627c94dc8ac)
@@ -2959,19 +2959,19 @@ class CeAnomalySubscriptionThresholdExpressionOrCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3102,9 +3102,9 @@ class CeAnomalySubscriptionThresholdExpressionOrDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e9acf102b7b9c3953390ca9e2c9625fcbe4f85bbec7d18c458693b76975f799)
@@ -3121,19 +3121,19 @@ class CeAnomalySubscriptionThresholdExpressionOrDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3378,9 +3378,9 @@ class CeAnomalySubscriptionThresholdExpressionOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionOrCostCategory(
             key=key, match_options=match_options, values=values
@@ -3397,9 +3397,9 @@ class CeAnomalySubscriptionThresholdExpressionOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionOrDimension(
             key=key, match_options=match_options, values=values
@@ -3416,9 +3416,9 @@ class CeAnomalySubscriptionThresholdExpressionOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionOrTags(
             key=key, match_options=match_options, values=values
@@ -3510,9 +3510,9 @@ class CeAnomalySubscriptionThresholdExpressionOrTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e1c78bdb1ef0217ae7cd9b4cfde4e513f7bf7067a324ad714dc2c9322140f3a)
@@ -3529,19 +3529,19 @@ class CeAnomalySubscriptionThresholdExpressionOrTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3700,9 +3700,9 @@ class CeAnomalySubscriptionThresholdExpressionOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionCostCategory(
             key=key, match_options=match_options, values=values
@@ -3719,9 +3719,9 @@ class CeAnomalySubscriptionThresholdExpressionOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionDimension(
             key=key, match_options=match_options, values=values
@@ -3738,9 +3738,9 @@ class CeAnomalySubscriptionThresholdExpressionOutputReference(
         tags: typing.Optional[typing.Union[CeAnomalySubscriptionThresholdExpressionNotTags, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#cost_category CeAnomalySubscription#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#dimension CeAnomalySubscription#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#tags CeAnomalySubscription#tags}
         '''
         value = CeAnomalySubscriptionThresholdExpressionNot(
             cost_category=cost_category, dimension=dimension, tags=tags
@@ -3770,9 +3770,9 @@ class CeAnomalySubscriptionThresholdExpressionOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         value = CeAnomalySubscriptionThresholdExpressionTags(
             key=key, match_options=match_options, values=values
@@ -3910,9 +3910,9 @@ class CeAnomalySubscriptionThresholdExpressionTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07c1a10e208c33be535ac5d07d2177a11b99db7d40fab2581819c4851dc01f4a)
@@ -3929,19 +3929,19 @@ class CeAnomalySubscriptionThresholdExpressionTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#key CeAnomalySubscription#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#match_options CeAnomalySubscription#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_anomaly_subscription#values CeAnomalySubscription#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

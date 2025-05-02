@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: xmlsig
+Version: 1.0.1
+Summary: Python based XML signature
+Home-page: http://github.com/etobella/python-xmlsig
+Author: Enric Tobella Alomar
+Author-email: etobella@creublanca.es
+License: LGPL-3
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Provides-Extra: test
+License-File: LICENSE
+
+XML Signature created with cryptography and lxml

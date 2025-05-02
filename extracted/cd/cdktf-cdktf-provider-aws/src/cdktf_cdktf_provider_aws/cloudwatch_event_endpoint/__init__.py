@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudwatch_event_endpoint`
 
-Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_endpoint`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint).
+Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_endpoint`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudwatchEventEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudwatchEventEndpoint.CloudwatchEventEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint aws_cloudwatch_event_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint aws_cloudwatch_event_endpoint}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class CloudwatchEventEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint aws_cloudwatch_event_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint aws_cloudwatch_event_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event_bus: event_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#event_bus CloudwatchEventEndpoint#event_bus}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#name CloudwatchEventEndpoint#name}.
-        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#routing_config CloudwatchEventEndpoint#routing_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#description CloudwatchEventEndpoint#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#id CloudwatchEventEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param replication_config: replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#replication_config CloudwatchEventEndpoint#replication_config}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#role_arn CloudwatchEventEndpoint#role_arn}.
+        :param event_bus: event_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#event_bus CloudwatchEventEndpoint#event_bus}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#name CloudwatchEventEndpoint#name}.
+        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#routing_config CloudwatchEventEndpoint#routing_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#description CloudwatchEventEndpoint#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#id CloudwatchEventEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param replication_config: replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#replication_config CloudwatchEventEndpoint#replication_config}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#role_arn CloudwatchEventEndpoint#role_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class CloudwatchEventEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudwatchEventEndpoint to import.
-        :param import_from_id: The id of the existing CloudwatchEventEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudwatchEventEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudwatchEventEndpoint to import is found.
         '''
         if __debug__:
@@ -152,7 +152,7 @@ class CloudwatchEventEndpoint(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#state CloudwatchEventEndpoint#state}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#state CloudwatchEventEndpoint#state}.
         '''
         value = CloudwatchEventEndpointReplicationConfig(state=state)
 
@@ -165,7 +165,7 @@ class CloudwatchEventEndpoint(
         failover_config: typing.Union["CloudwatchEventEndpointRoutingConfigFailoverConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param failover_config: failover_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#failover_config CloudwatchEventEndpoint#failover_config}
+        :param failover_config: failover_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#failover_config CloudwatchEventEndpoint#failover_config}
         '''
         value = CloudwatchEventEndpointRoutingConfig(failover_config=failover_config)
 
@@ -364,13 +364,13 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event_bus: event_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#event_bus CloudwatchEventEndpoint#event_bus}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#name CloudwatchEventEndpoint#name}.
-        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#routing_config CloudwatchEventEndpoint#routing_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#description CloudwatchEventEndpoint#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#id CloudwatchEventEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param replication_config: replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#replication_config CloudwatchEventEndpoint#replication_config}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#role_arn CloudwatchEventEndpoint#role_arn}.
+        :param event_bus: event_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#event_bus CloudwatchEventEndpoint#event_bus}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#name CloudwatchEventEndpoint#name}.
+        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#routing_config CloudwatchEventEndpoint#routing_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#description CloudwatchEventEndpoint#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#id CloudwatchEventEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param replication_config: replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#replication_config CloudwatchEventEndpoint#replication_config}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#role_arn CloudwatchEventEndpoint#role_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -492,7 +492,7 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventEndpointEventBus"]]:
         '''event_bus block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#event_bus CloudwatchEventEndpoint#event_bus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#event_bus CloudwatchEventEndpoint#event_bus}
         '''
         result = self._values.get("event_bus")
         assert result is not None, "Required property 'event_bus' is missing"
@@ -500,7 +500,7 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#name CloudwatchEventEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#name CloudwatchEventEndpoint#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -509,7 +509,7 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def routing_config(self) -> "CloudwatchEventEndpointRoutingConfig":
         '''routing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#routing_config CloudwatchEventEndpoint#routing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#routing_config CloudwatchEventEndpoint#routing_config}
         '''
         result = self._values.get("routing_config")
         assert result is not None, "Required property 'routing_config' is missing"
@@ -517,13 +517,13 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#description CloudwatchEventEndpoint#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#description CloudwatchEventEndpoint#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#id CloudwatchEventEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#id CloudwatchEventEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -537,14 +537,14 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudwatchEventEndpointReplicationConfig"]:
         '''replication_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#replication_config CloudwatchEventEndpoint#replication_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#replication_config CloudwatchEventEndpoint#replication_config}
         '''
         result = self._values.get("replication_config")
         return typing.cast(typing.Optional["CloudwatchEventEndpointReplicationConfig"], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#role_arn CloudwatchEventEndpoint#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#role_arn CloudwatchEventEndpoint#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -568,7 +568,7 @@ class CloudwatchEventEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class CloudwatchEventEndpointEventBus:
     def __init__(self, *, event_bus_arn: builtins.str) -> None:
         '''
-        :param event_bus_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#event_bus_arn CloudwatchEventEndpoint#event_bus_arn}.
+        :param event_bus_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#event_bus_arn CloudwatchEventEndpoint#event_bus_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc5c31673893ccc05aed5931c6f81b424398d0c70e3e40069049ca32454a8740)
@@ -579,7 +579,7 @@ class CloudwatchEventEndpointEventBus:
 
     @builtins.property
     def event_bus_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#event_bus_arn CloudwatchEventEndpoint#event_bus_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#event_bus_arn CloudwatchEventEndpoint#event_bus_arn}.'''
         result = self._values.get("event_bus_arn")
         assert result is not None, "Required property 'event_bus_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -758,7 +758,7 @@ class CloudwatchEventEndpointEventBusOutputReference(
 class CloudwatchEventEndpointReplicationConfig:
     def __init__(self, *, state: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#state CloudwatchEventEndpoint#state}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#state CloudwatchEventEndpoint#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db3c640727cb4077c80bec3dbfa1beefc66bbb1c580cc235e1f9c43e1f28b4fa)
@@ -769,7 +769,7 @@ class CloudwatchEventEndpointReplicationConfig:
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#state CloudwatchEventEndpoint#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#state CloudwatchEventEndpoint#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -856,7 +856,7 @@ class CloudwatchEventEndpointRoutingConfig:
         failover_config: typing.Union["CloudwatchEventEndpointRoutingConfigFailoverConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param failover_config: failover_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#failover_config CloudwatchEventEndpoint#failover_config}
+        :param failover_config: failover_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#failover_config CloudwatchEventEndpoint#failover_config}
         '''
         if isinstance(failover_config, dict):
             failover_config = CloudwatchEventEndpointRoutingConfigFailoverConfig(**failover_config)
@@ -871,7 +871,7 @@ class CloudwatchEventEndpointRoutingConfig:
     def failover_config(self) -> "CloudwatchEventEndpointRoutingConfigFailoverConfig":
         '''failover_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#failover_config CloudwatchEventEndpoint#failover_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#failover_config CloudwatchEventEndpoint#failover_config}
         '''
         result = self._values.get("failover_config")
         assert result is not None, "Required property 'failover_config' is missing"
@@ -902,8 +902,8 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfig:
         secondary: typing.Union["CloudwatchEventEndpointRoutingConfigFailoverConfigSecondary", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#primary CloudwatchEventEndpoint#primary}
-        :param secondary: secondary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#secondary CloudwatchEventEndpoint#secondary}
+        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#primary CloudwatchEventEndpoint#primary}
+        :param secondary: secondary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#secondary CloudwatchEventEndpoint#secondary}
         '''
         if isinstance(primary, dict):
             primary = CloudwatchEventEndpointRoutingConfigFailoverConfigPrimary(**primary)
@@ -922,7 +922,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfig:
     def primary(self) -> "CloudwatchEventEndpointRoutingConfigFailoverConfigPrimary":
         '''primary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#primary CloudwatchEventEndpoint#primary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#primary CloudwatchEventEndpoint#primary}
         '''
         result = self._values.get("primary")
         assert result is not None, "Required property 'primary' is missing"
@@ -934,7 +934,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfig:
     ) -> "CloudwatchEventEndpointRoutingConfigFailoverConfigSecondary":
         '''secondary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#secondary CloudwatchEventEndpoint#secondary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#secondary CloudwatchEventEndpoint#secondary}
         '''
         result = self._values.get("secondary")
         assert result is not None, "Required property 'secondary' is missing"
@@ -979,7 +979,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfigOutputReference(
         health_check: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#health_check CloudwatchEventEndpoint#health_check}.
+        :param health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#health_check CloudwatchEventEndpoint#health_check}.
         '''
         value = CloudwatchEventEndpointRoutingConfigFailoverConfigPrimary(
             health_check=health_check
@@ -990,7 +990,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfigOutputReference(
     @jsii.member(jsii_name="putSecondary")
     def put_secondary(self, *, route: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#route CloudwatchEventEndpoint#route}.
+        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#route CloudwatchEventEndpoint#route}.
         '''
         value = CloudwatchEventEndpointRoutingConfigFailoverConfigSecondary(
             route=route
@@ -1052,7 +1052,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfigOutputReference(
 class CloudwatchEventEndpointRoutingConfigFailoverConfigPrimary:
     def __init__(self, *, health_check: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#health_check CloudwatchEventEndpoint#health_check}.
+        :param health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#health_check CloudwatchEventEndpoint#health_check}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe6eaf18630b68564e6c251e1ec2d57f044abc98bf440a3771fcd96f73b4ab9a)
@@ -1063,7 +1063,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfigPrimary:
 
     @builtins.property
     def health_check(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#health_check CloudwatchEventEndpoint#health_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#health_check CloudwatchEventEndpoint#health_check}.'''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1146,7 +1146,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfigPrimaryOutputReference(
 class CloudwatchEventEndpointRoutingConfigFailoverConfigSecondary:
     def __init__(self, *, route: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#route CloudwatchEventEndpoint#route}.
+        :param route: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#route CloudwatchEventEndpoint#route}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7854ef080bc8067e3b96a2be82b573b6b6eb0ab9a625a2ffe84c009ef50bf4a5)
@@ -1157,7 +1157,7 @@ class CloudwatchEventEndpointRoutingConfigFailoverConfigSecondary:
 
     @builtins.property
     def route(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#route CloudwatchEventEndpoint#route}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#route CloudwatchEventEndpoint#route}.'''
         result = self._values.get("route")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1260,8 +1260,8 @@ class CloudwatchEventEndpointRoutingConfigOutputReference(
         secondary: typing.Union[CloudwatchEventEndpointRoutingConfigFailoverConfigSecondary, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#primary CloudwatchEventEndpoint#primary}
-        :param secondary: secondary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_endpoint#secondary CloudwatchEventEndpoint#secondary}
+        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#primary CloudwatchEventEndpoint#primary}
+        :param secondary: secondary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_endpoint#secondary CloudwatchEventEndpoint#secondary}
         '''
         value = CloudwatchEventEndpointRoutingConfigFailoverConfig(
             primary=primary, secondary=secondary

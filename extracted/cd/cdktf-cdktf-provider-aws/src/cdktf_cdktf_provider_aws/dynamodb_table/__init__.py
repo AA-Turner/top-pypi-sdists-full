@@ -1,7 +1,7 @@
 r'''
 # `aws_dynamodb_table`
 
-Refer to the Terraform Registry for docs: [`aws_dynamodb_table`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table).
+Refer to the Terraform Registry for docs: [`aws_dynamodb_table`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DynamodbTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dynamodbTable.DynamodbTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table aws_dynamodb_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table aws_dynamodb_table}.'''
 
     def __init__(
         self,
@@ -86,37 +86,37 @@ class DynamodbTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table aws_dynamodb_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table aws_dynamodb_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
-        :param attribute: attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#attribute DynamodbTable#attribute}
-        :param billing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#billing_mode DynamodbTable#billing_mode}.
-        :param deletion_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#deletion_protection_enabled DynamodbTable#deletion_protection_enabled}.
-        :param global_secondary_index: global_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#global_secondary_index DynamodbTable#global_secondary_index}
-        :param hash_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#id DynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_table: import_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#import_table DynamodbTable#import_table}
-        :param local_secondary_index: local_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#local_secondary_index DynamodbTable#local_secondary_index}
-        :param on_demand_throughput: on_demand_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
-        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}
-        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
-        :param read_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.
-        :param replica: replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#replica DynamodbTable#replica}
-        :param restore_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_date_time DynamodbTable#restore_date_time}.
-        :param restore_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_source_name DynamodbTable#restore_source_name}.
-        :param restore_source_table_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_source_table_arn DynamodbTable#restore_source_table_arn}.
-        :param restore_to_latest_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_to_latest_time DynamodbTable#restore_to_latest_time}.
-        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#server_side_encryption DynamodbTable#server_side_encryption}
-        :param stream_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#stream_enabled DynamodbTable#stream_enabled}.
-        :param stream_view_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#stream_view_type DynamodbTable#stream_view_type}.
-        :param table_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#table_class DynamodbTable#table_class}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#tags DynamodbTable#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#tags_all DynamodbTable#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#timeouts DynamodbTable#timeouts}
-        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#ttl DynamodbTable#ttl}
-        :param write_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
+        :param attribute: attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#attribute DynamodbTable#attribute}
+        :param billing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#billing_mode DynamodbTable#billing_mode}.
+        :param deletion_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#deletion_protection_enabled DynamodbTable#deletion_protection_enabled}.
+        :param global_secondary_index: global_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#global_secondary_index DynamodbTable#global_secondary_index}
+        :param hash_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#id DynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_table: import_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#import_table DynamodbTable#import_table}
+        :param local_secondary_index: local_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#local_secondary_index DynamodbTable#local_secondary_index}
+        :param on_demand_throughput: on_demand_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
+        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}
+        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
+        :param read_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.
+        :param replica: replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#replica DynamodbTable#replica}
+        :param restore_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_date_time DynamodbTable#restore_date_time}.
+        :param restore_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_source_name DynamodbTable#restore_source_name}.
+        :param restore_source_table_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_source_table_arn DynamodbTable#restore_source_table_arn}.
+        :param restore_to_latest_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_to_latest_time DynamodbTable#restore_to_latest_time}.
+        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#server_side_encryption DynamodbTable#server_side_encryption}
+        :param stream_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#stream_enabled DynamodbTable#stream_enabled}.
+        :param stream_view_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#stream_view_type DynamodbTable#stream_view_type}.
+        :param table_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#table_class DynamodbTable#table_class}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#tags DynamodbTable#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#tags_all DynamodbTable#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#timeouts DynamodbTable#timeouts}
+        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#ttl DynamodbTable#ttl}
+        :param write_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -181,7 +181,7 @@ class DynamodbTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DynamodbTable to import.
-        :param import_from_id: The id of the existing DynamodbTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DynamodbTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DynamodbTable to import is found.
         '''
         if __debug__:
@@ -228,10 +228,10 @@ class DynamodbTable(
         input_format_options: typing.Optional[typing.Union["DynamodbTableImportTableInputFormatOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_format DynamodbTable#input_format}.
-        :param s3_bucket_source: s3_bucket_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#s3_bucket_source DynamodbTable#s3_bucket_source}
-        :param input_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_compression_type DynamodbTable#input_compression_type}.
-        :param input_format_options: input_format_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_format_options DynamodbTable#input_format_options}
+        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_format DynamodbTable#input_format}.
+        :param s3_bucket_source: s3_bucket_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#s3_bucket_source DynamodbTable#s3_bucket_source}
+        :param input_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_compression_type DynamodbTable#input_compression_type}.
+        :param input_format_options: input_format_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_format_options DynamodbTable#input_format_options}
         '''
         value = DynamodbTableImportTable(
             input_format=input_format,
@@ -263,8 +263,8 @@ class DynamodbTable(
         max_write_request_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
-        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
+        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
+        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
         '''
         value = DynamodbTableOnDemandThroughput(
             max_read_request_units=max_read_request_units,
@@ -280,7 +280,7 @@ class DynamodbTable(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
         '''
         value = DynamodbTablePointInTimeRecovery(enabled=enabled)
 
@@ -307,8 +307,8 @@ class DynamodbTable(
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.
         '''
         value = DynamodbTableServerSideEncryption(
             enabled=enabled, kms_key_arn=kms_key_arn
@@ -325,9 +325,9 @@ class DynamodbTable(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#create DynamodbTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#delete DynamodbTable#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#update DynamodbTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#create DynamodbTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#delete DynamodbTable#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#update DynamodbTable#update}.
         '''
         value = DynamodbTableTimeouts(create=create, delete=delete, update=update)
 
@@ -341,8 +341,8 @@ class DynamodbTable(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#attribute_name DynamodbTable#attribute_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
+        :param attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#attribute_name DynamodbTable#attribute_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
         '''
         value = DynamodbTableTtl(attribute_name=attribute_name, enabled=enabled)
 
@@ -921,8 +921,8 @@ class DynamodbTable(
 class DynamodbTableAttribute:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#type DynamodbTable#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#type DynamodbTable#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__356c9d5e509da6ea0bdb0b33b04d19c819036ea2e492d0bfcd5f22b25a727c40)
@@ -935,14 +935,14 @@ class DynamodbTableAttribute:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#type DynamodbTable#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#type DynamodbTable#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1214,33 +1214,33 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
-        :param attribute: attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#attribute DynamodbTable#attribute}
-        :param billing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#billing_mode DynamodbTable#billing_mode}.
-        :param deletion_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#deletion_protection_enabled DynamodbTable#deletion_protection_enabled}.
-        :param global_secondary_index: global_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#global_secondary_index DynamodbTable#global_secondary_index}
-        :param hash_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#id DynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param import_table: import_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#import_table DynamodbTable#import_table}
-        :param local_secondary_index: local_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#local_secondary_index DynamodbTable#local_secondary_index}
-        :param on_demand_throughput: on_demand_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
-        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}
-        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
-        :param read_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.
-        :param replica: replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#replica DynamodbTable#replica}
-        :param restore_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_date_time DynamodbTable#restore_date_time}.
-        :param restore_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_source_name DynamodbTable#restore_source_name}.
-        :param restore_source_table_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_source_table_arn DynamodbTable#restore_source_table_arn}.
-        :param restore_to_latest_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_to_latest_time DynamodbTable#restore_to_latest_time}.
-        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#server_side_encryption DynamodbTable#server_side_encryption}
-        :param stream_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#stream_enabled DynamodbTable#stream_enabled}.
-        :param stream_view_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#stream_view_type DynamodbTable#stream_view_type}.
-        :param table_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#table_class DynamodbTable#table_class}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#tags DynamodbTable#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#tags_all DynamodbTable#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#timeouts DynamodbTable#timeouts}
-        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#ttl DynamodbTable#ttl}
-        :param write_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
+        :param attribute: attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#attribute DynamodbTable#attribute}
+        :param billing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#billing_mode DynamodbTable#billing_mode}.
+        :param deletion_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#deletion_protection_enabled DynamodbTable#deletion_protection_enabled}.
+        :param global_secondary_index: global_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#global_secondary_index DynamodbTable#global_secondary_index}
+        :param hash_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#id DynamodbTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param import_table: import_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#import_table DynamodbTable#import_table}
+        :param local_secondary_index: local_secondary_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#local_secondary_index DynamodbTable#local_secondary_index}
+        :param on_demand_throughput: on_demand_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
+        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}
+        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
+        :param read_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.
+        :param replica: replica block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#replica DynamodbTable#replica}
+        :param restore_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_date_time DynamodbTable#restore_date_time}.
+        :param restore_source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_source_name DynamodbTable#restore_source_name}.
+        :param restore_source_table_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_source_table_arn DynamodbTable#restore_source_table_arn}.
+        :param restore_to_latest_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_to_latest_time DynamodbTable#restore_to_latest_time}.
+        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#server_side_encryption DynamodbTable#server_side_encryption}
+        :param stream_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#stream_enabled DynamodbTable#stream_enabled}.
+        :param stream_view_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#stream_view_type DynamodbTable#stream_view_type}.
+        :param table_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#table_class DynamodbTable#table_class}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#tags DynamodbTable#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#tags_all DynamodbTable#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#timeouts DynamodbTable#timeouts}
+        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#ttl DynamodbTable#ttl}
+        :param write_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1428,7 +1428,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1439,14 +1439,14 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DynamodbTableAttribute]]]:
         '''attribute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#attribute DynamodbTable#attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#attribute DynamodbTable#attribute}
         '''
         result = self._values.get("attribute")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DynamodbTableAttribute]]], result)
 
     @builtins.property
     def billing_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#billing_mode DynamodbTable#billing_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#billing_mode DynamodbTable#billing_mode}.'''
         result = self._values.get("billing_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1454,7 +1454,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deletion_protection_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#deletion_protection_enabled DynamodbTable#deletion_protection_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#deletion_protection_enabled DynamodbTable#deletion_protection_enabled}.'''
         result = self._values.get("deletion_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1464,20 +1464,20 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynamodbTableGlobalSecondaryIndex"]]]:
         '''global_secondary_index block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#global_secondary_index DynamodbTable#global_secondary_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#global_secondary_index DynamodbTable#global_secondary_index}
         '''
         result = self._values.get("global_secondary_index")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynamodbTableGlobalSecondaryIndex"]]], result)
 
     @builtins.property
     def hash_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.'''
         result = self._values.get("hash_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#id DynamodbTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#id DynamodbTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1489,7 +1489,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def import_table(self) -> typing.Optional["DynamodbTableImportTable"]:
         '''import_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#import_table DynamodbTable#import_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#import_table DynamodbTable#import_table}
         '''
         result = self._values.get("import_table")
         return typing.cast(typing.Optional["DynamodbTableImportTable"], result)
@@ -1500,7 +1500,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynamodbTableLocalSecondaryIndex"]]]:
         '''local_secondary_index block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#local_secondary_index DynamodbTable#local_secondary_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#local_secondary_index DynamodbTable#local_secondary_index}
         '''
         result = self._values.get("local_secondary_index")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynamodbTableLocalSecondaryIndex"]]], result)
@@ -1511,7 +1511,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DynamodbTableOnDemandThroughput"]:
         '''on_demand_throughput block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
         '''
         result = self._values.get("on_demand_throughput")
         return typing.cast(typing.Optional["DynamodbTableOnDemandThroughput"], result)
@@ -1522,20 +1522,20 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DynamodbTablePointInTimeRecovery"]:
         '''point_in_time_recovery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}
         '''
         result = self._values.get("point_in_time_recovery")
         return typing.cast(typing.Optional["DynamodbTablePointInTimeRecovery"], result)
 
     @builtins.property
     def range_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.'''
         result = self._values.get("range_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.'''
         result = self._values.get("read_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1545,26 +1545,26 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynamodbTableReplica"]]]:
         '''replica block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#replica DynamodbTable#replica}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#replica DynamodbTable#replica}
         '''
         result = self._values.get("replica")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DynamodbTableReplica"]]], result)
 
     @builtins.property
     def restore_date_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_date_time DynamodbTable#restore_date_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_date_time DynamodbTable#restore_date_time}.'''
         result = self._values.get("restore_date_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_source_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_source_name DynamodbTable#restore_source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_source_name DynamodbTable#restore_source_name}.'''
         result = self._values.get("restore_source_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_source_table_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_source_table_arn DynamodbTable#restore_source_table_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_source_table_arn DynamodbTable#restore_source_table_arn}.'''
         result = self._values.get("restore_source_table_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1572,7 +1572,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restore_to_latest_time(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#restore_to_latest_time DynamodbTable#restore_to_latest_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#restore_to_latest_time DynamodbTable#restore_to_latest_time}.'''
         result = self._values.get("restore_to_latest_time")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1582,7 +1582,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DynamodbTableServerSideEncryption"]:
         '''server_side_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#server_side_encryption DynamodbTable#server_side_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#server_side_encryption DynamodbTable#server_side_encryption}
         '''
         result = self._values.get("server_side_encryption")
         return typing.cast(typing.Optional["DynamodbTableServerSideEncryption"], result)
@@ -1591,31 +1591,31 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def stream_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#stream_enabled DynamodbTable#stream_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#stream_enabled DynamodbTable#stream_enabled}.'''
         result = self._values.get("stream_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def stream_view_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#stream_view_type DynamodbTable#stream_view_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#stream_view_type DynamodbTable#stream_view_type}.'''
         result = self._values.get("stream_view_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def table_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#table_class DynamodbTable#table_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#table_class DynamodbTable#table_class}.'''
         result = self._values.get("table_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#tags DynamodbTable#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#tags DynamodbTable#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#tags_all DynamodbTable#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#tags_all DynamodbTable#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1623,7 +1623,7 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DynamodbTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#timeouts DynamodbTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#timeouts DynamodbTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DynamodbTableTimeouts"], result)
@@ -1632,14 +1632,14 @@ class DynamodbTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ttl(self) -> typing.Optional["DynamodbTableTtl"]:
         '''ttl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#ttl DynamodbTable#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#ttl DynamodbTable#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional["DynamodbTableTtl"], result)
 
     @builtins.property
     def write_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.'''
         result = self._values.get("write_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1683,14 +1683,14 @@ class DynamodbTableGlobalSecondaryIndex:
         write_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hash_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
-        :param projection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.
-        :param non_key_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.
-        :param on_demand_throughput: on_demand_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
-        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
-        :param read_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.
-        :param write_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.
+        :param hash_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
+        :param projection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.
+        :param non_key_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.
+        :param on_demand_throughput: on_demand_throughput block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
+        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
+        :param read_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.
+        :param write_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.
         '''
         if isinstance(on_demand_throughput, dict):
             on_demand_throughput = DynamodbTableGlobalSecondaryIndexOnDemandThroughput(**on_demand_throughput)
@@ -1722,28 +1722,28 @@ class DynamodbTableGlobalSecondaryIndex:
 
     @builtins.property
     def hash_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#hash_key DynamodbTable#hash_key}.'''
         result = self._values.get("hash_key")
         assert result is not None, "Required property 'hash_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def projection_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.'''
         result = self._values.get("projection_type")
         assert result is not None, "Required property 'projection_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def non_key_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.'''
         result = self._values.get("non_key_attributes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1753,26 +1753,26 @@ class DynamodbTableGlobalSecondaryIndex:
     ) -> typing.Optional["DynamodbTableGlobalSecondaryIndexOnDemandThroughput"]:
         '''on_demand_throughput block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#on_demand_throughput DynamodbTable#on_demand_throughput}
         '''
         result = self._values.get("on_demand_throughput")
         return typing.cast(typing.Optional["DynamodbTableGlobalSecondaryIndexOnDemandThroughput"], result)
 
     @builtins.property
     def range_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.'''
         result = self._values.get("range_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#read_capacity DynamodbTable#read_capacity}.'''
         result = self._values.get("read_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def write_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#write_capacity DynamodbTable#write_capacity}.'''
         result = self._values.get("write_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1897,8 +1897,8 @@ class DynamodbTableGlobalSecondaryIndexOnDemandThroughput:
         max_write_request_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
-        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
+        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
+        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ed87d6a8be9f4fecdd9f9ad584524d339210dbffb0fb6e700a4f5f85045416d)
@@ -1912,13 +1912,13 @@ class DynamodbTableGlobalSecondaryIndexOnDemandThroughput:
 
     @builtins.property
     def max_read_request_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.'''
         result = self._values.get("max_read_request_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_write_request_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.'''
         result = self._values.get("max_write_request_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2048,8 +2048,8 @@ class DynamodbTableGlobalSecondaryIndexOutputReference(
         max_write_request_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
-        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
+        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
+        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
         '''
         value = DynamodbTableGlobalSecondaryIndexOnDemandThroughput(
             max_read_request_units=max_read_request_units,
@@ -2249,10 +2249,10 @@ class DynamodbTableImportTable:
         input_format_options: typing.Optional[typing.Union["DynamodbTableImportTableInputFormatOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_format DynamodbTable#input_format}.
-        :param s3_bucket_source: s3_bucket_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#s3_bucket_source DynamodbTable#s3_bucket_source}
-        :param input_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_compression_type DynamodbTable#input_compression_type}.
-        :param input_format_options: input_format_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_format_options DynamodbTable#input_format_options}
+        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_format DynamodbTable#input_format}.
+        :param s3_bucket_source: s3_bucket_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#s3_bucket_source DynamodbTable#s3_bucket_source}
+        :param input_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_compression_type DynamodbTable#input_compression_type}.
+        :param input_format_options: input_format_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_format_options DynamodbTable#input_format_options}
         '''
         if isinstance(s3_bucket_source, dict):
             s3_bucket_source = DynamodbTableImportTableS3BucketSource(**s3_bucket_source)
@@ -2275,7 +2275,7 @@ class DynamodbTableImportTable:
 
     @builtins.property
     def input_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_format DynamodbTable#input_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_format DynamodbTable#input_format}.'''
         result = self._values.get("input_format")
         assert result is not None, "Required property 'input_format' is missing"
         return typing.cast(builtins.str, result)
@@ -2284,7 +2284,7 @@ class DynamodbTableImportTable:
     def s3_bucket_source(self) -> "DynamodbTableImportTableS3BucketSource":
         '''s3_bucket_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#s3_bucket_source DynamodbTable#s3_bucket_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#s3_bucket_source DynamodbTable#s3_bucket_source}
         '''
         result = self._values.get("s3_bucket_source")
         assert result is not None, "Required property 's3_bucket_source' is missing"
@@ -2292,7 +2292,7 @@ class DynamodbTableImportTable:
 
     @builtins.property
     def input_compression_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_compression_type DynamodbTable#input_compression_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_compression_type DynamodbTable#input_compression_type}.'''
         result = self._values.get("input_compression_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2302,7 +2302,7 @@ class DynamodbTableImportTable:
     ) -> typing.Optional["DynamodbTableImportTableInputFormatOptions"]:
         '''input_format_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#input_format_options DynamodbTable#input_format_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#input_format_options DynamodbTable#input_format_options}
         '''
         result = self._values.get("input_format_options")
         return typing.cast(typing.Optional["DynamodbTableImportTableInputFormatOptions"], result)
@@ -2331,7 +2331,7 @@ class DynamodbTableImportTableInputFormatOptions:
         csv: typing.Optional[typing.Union["DynamodbTableImportTableInputFormatOptionsCsv", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#csv DynamodbTable#csv}
+        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#csv DynamodbTable#csv}
         '''
         if isinstance(csv, dict):
             csv = DynamodbTableImportTableInputFormatOptionsCsv(**csv)
@@ -2346,7 +2346,7 @@ class DynamodbTableImportTableInputFormatOptions:
     def csv(self) -> typing.Optional["DynamodbTableImportTableInputFormatOptionsCsv"]:
         '''csv block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#csv DynamodbTable#csv}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#csv DynamodbTable#csv}
         '''
         result = self._values.get("csv")
         return typing.cast(typing.Optional["DynamodbTableImportTableInputFormatOptionsCsv"], result)
@@ -2376,8 +2376,8 @@ class DynamodbTableImportTableInputFormatOptionsCsv:
         header_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#delimiter DynamodbTable#delimiter}.
-        :param header_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#header_list DynamodbTable#header_list}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#delimiter DynamodbTable#delimiter}.
+        :param header_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#header_list DynamodbTable#header_list}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5fd1eeaea560eadfdae080a1953a5c4d240ba4a124d8e4a5d2c8c3e46ea2775a)
@@ -2391,13 +2391,13 @@ class DynamodbTableImportTableInputFormatOptionsCsv:
 
     @builtins.property
     def delimiter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#delimiter DynamodbTable#delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#delimiter DynamodbTable#delimiter}.'''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def header_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#header_list DynamodbTable#header_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#header_list DynamodbTable#header_list}.'''
         result = self._values.get("header_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2521,8 +2521,8 @@ class DynamodbTableImportTableInputFormatOptionsOutputReference(
         header_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#delimiter DynamodbTable#delimiter}.
-        :param header_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#header_list DynamodbTable#header_list}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#delimiter DynamodbTable#delimiter}.
+        :param header_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#header_list DynamodbTable#header_list}.
         '''
         value = DynamodbTableImportTableInputFormatOptionsCsv(
             delimiter=delimiter, header_list=header_list
@@ -2591,7 +2591,7 @@ class DynamodbTableImportTableOutputReference(
         csv: typing.Optional[typing.Union[DynamodbTableImportTableInputFormatOptionsCsv, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#csv DynamodbTable#csv}
+        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#csv DynamodbTable#csv}
         '''
         value = DynamodbTableImportTableInputFormatOptions(csv=csv)
 
@@ -2606,9 +2606,9 @@ class DynamodbTableImportTableOutputReference(
         key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#bucket DynamodbTable#bucket}.
-        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#bucket_owner DynamodbTable#bucket_owner}.
-        :param key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#key_prefix DynamodbTable#key_prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#bucket DynamodbTable#bucket}.
+        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#bucket_owner DynamodbTable#bucket_owner}.
+        :param key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#key_prefix DynamodbTable#key_prefix}.
         '''
         value = DynamodbTableImportTableS3BucketSource(
             bucket=bucket, bucket_owner=bucket_owner, key_prefix=key_prefix
@@ -2717,9 +2717,9 @@ class DynamodbTableImportTableS3BucketSource:
         key_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#bucket DynamodbTable#bucket}.
-        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#bucket_owner DynamodbTable#bucket_owner}.
-        :param key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#key_prefix DynamodbTable#key_prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#bucket DynamodbTable#bucket}.
+        :param bucket_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#bucket_owner DynamodbTable#bucket_owner}.
+        :param key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#key_prefix DynamodbTable#key_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50dd07a183bd57f841e923e14a0df1385b4f5f7394ff953134ff6323319a5467)
@@ -2736,20 +2736,20 @@ class DynamodbTableImportTableS3BucketSource:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#bucket DynamodbTable#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#bucket DynamodbTable#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#bucket_owner DynamodbTable#bucket_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#bucket_owner DynamodbTable#bucket_owner}.'''
         result = self._values.get("bucket_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#key_prefix DynamodbTable#key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#key_prefix DynamodbTable#key_prefix}.'''
         result = self._values.get("key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2880,10 +2880,10 @@ class DynamodbTableLocalSecondaryIndex:
         non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
-        :param projection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.
-        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
-        :param non_key_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.
+        :param projection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.
+        :param range_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.
+        :param non_key_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e1bc725ecab35b7f5a4801db9cd0dbe7cec06fc55efb0691992c58226723f1e)
@@ -2901,28 +2901,28 @@ class DynamodbTableLocalSecondaryIndex:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#name DynamodbTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def projection_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#projection_type DynamodbTable#projection_type}.'''
         result = self._values.get("projection_type")
         assert result is not None, "Required property 'projection_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def range_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#range_key DynamodbTable#range_key}.'''
         result = self._values.get("range_key")
         assert result is not None, "Required property 'range_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def non_key_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#non_key_attributes DynamodbTable#non_key_attributes}.'''
         result = self._values.get("non_key_attributes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3163,8 +3163,8 @@ class DynamodbTableOnDemandThroughput:
         max_write_request_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
-        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
+        :param max_read_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.
+        :param max_write_request_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__114e838988be0130b614ec179d58cf22919094fefd516b3612f7c4d7eb565e96)
@@ -3178,13 +3178,13 @@ class DynamodbTableOnDemandThroughput:
 
     @builtins.property
     def max_read_request_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_read_request_units DynamodbTable#max_read_request_units}.'''
         result = self._values.get("max_read_request_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_write_request_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#max_write_request_units DynamodbTable#max_write_request_units}.'''
         result = self._values.get("max_write_request_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3290,7 +3290,7 @@ class DynamodbTablePointInTimeRecovery:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5204bef78e35469da4f3a1c59a6783818966a493145845512ba7142665e82f5)
@@ -3301,7 +3301,7 @@ class DynamodbTablePointInTimeRecovery:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -3396,10 +3396,10 @@ class DynamodbTableReplica:
         propagate_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param region_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#region_name DynamodbTable#region_name}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.
-        :param point_in_time_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#propagate_tags DynamodbTable#propagate_tags}.
+        :param region_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#region_name DynamodbTable#region_name}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.
+        :param point_in_time_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#propagate_tags DynamodbTable#propagate_tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa7d53e86495ed09dc942a584987f31910041b9260b9b53ce316e5463f2af102)
@@ -3419,14 +3419,14 @@ class DynamodbTableReplica:
 
     @builtins.property
     def region_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#region_name DynamodbTable#region_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#region_name DynamodbTable#region_name}.'''
         result = self._values.get("region_name")
         assert result is not None, "Required property 'region_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3434,7 +3434,7 @@ class DynamodbTableReplica:
     def point_in_time_recovery(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#point_in_time_recovery DynamodbTable#point_in_time_recovery}.'''
         result = self._values.get("point_in_time_recovery")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3442,7 +3442,7 @@ class DynamodbTableReplica:
     def propagate_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#propagate_tags DynamodbTable#propagate_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#propagate_tags DynamodbTable#propagate_tags}.'''
         result = self._values.get("propagate_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3714,8 +3714,8 @@ class DynamodbTableServerSideEncryption:
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56d3eba487abe61832b9f64357e936eafc72b7c3e824778134322b7ddcc47d07)
@@ -3729,14 +3729,14 @@ class DynamodbTableServerSideEncryption:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#kms_key_arn DynamodbTable#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3845,9 +3845,9 @@ class DynamodbTableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#create DynamodbTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#delete DynamodbTable#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#update DynamodbTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#create DynamodbTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#delete DynamodbTable#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#update DynamodbTable#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5dc5bf40239ac5caca97e0e0eef4bea96cb1fce81639dd121b1521352001cc34)
@@ -3864,19 +3864,19 @@ class DynamodbTableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#create DynamodbTable#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#create DynamodbTable#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#delete DynamodbTable#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#delete DynamodbTable#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#update DynamodbTable#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#update DynamodbTable#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4006,8 +4006,8 @@ class DynamodbTableTtl:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#attribute_name DynamodbTable#attribute_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
+        :param attribute_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#attribute_name DynamodbTable#attribute_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83abe35bf0176a8556badca820681d3360a2f478b436d84ea64bfccac5461a53)
@@ -4021,7 +4021,7 @@ class DynamodbTableTtl:
 
     @builtins.property
     def attribute_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#attribute_name DynamodbTable#attribute_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#attribute_name DynamodbTable#attribute_name}.'''
         result = self._values.get("attribute_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4029,7 +4029,7 @@ class DynamodbTableTtl:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/dynamodb_table#enabled DynamodbTable#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

@@ -5,7 +5,12 @@ from functools import lru_cache
 
 import orjson
 
-from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE, MOUNT_PREFIX
+from langgraph_api.config import (
+    HTTP_CONFIG,
+    LANGGRAPH_AUTH,
+    LANGGRAPH_AUTH_TYPE,
+    MOUNT_PREFIX,
+)
 from langgraph_api.graph import GRAPHS
 from langgraph_api.validation import openapi
 
@@ -17,6 +22,119 @@ CUSTOM_OPENAPI_SPEC = None
 def set_custom_spec(spec: dict):
     global CUSTOM_OPENAPI_SPEC
     CUSTOM_OPENAPI_SPEC = spec
+
+
+def get_mcp_openapi_paths() -> dict:
+    """Returns the OpenAPI path definitions for the /mcp/ endpoint."""
+    return {
+        "/mcp/": {
+            "get": {
+                "operationId": "get_mcp",
+                "summary": "MCP Get",
+                "description": (
+                    "Implemented according to the Streamable HTTP Transport "
+                    "specification."
+                ),
+                "responses": {
+                    "405": {
+                        "description": "GET method not allowed; streaming not "
+                        "supported.",
+                    }
+                },
+                "tags": ["MCP"],
+            },
+            "post": {
+                "operationId": "post_mcp",
+                "summary": "MCP Post",
+                "description": (
+                    "Implemented according to the Streamable HTTP Transport "
+                    "specification.\n"
+                    "Sends a JSON-RPC 2.0 message to the server.\n\n"
+                    "- **Request**: Provide an object with `jsonrpc`, `id`, `method`, "
+                    "and optional `params`.\n"
+                    "- **Response**: Returns a JSON-RPC response or acknowledgment.\n\n"
+                    "**Notes:**\n"
+                    "- Stateless: Sessions are not persisted across requests.\n"
+                ),
+                "parameters": [
+                    {
+                        "name": "Accept",
+                        "in": "header",
+                        "required": True,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "application/json, text/event-stream",
+                            ],
+                        },
+                        "description": (
+                            "Accept header must include both "
+                            "'application/json' and 'text/event-stream' "
+                            "media types."
+                        ),
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {"type": "object"},
+                            "description": "A JSON-RPC 2.0 request, notification, "
+                            "or response object.",
+                            "example": {
+                                "jsonrpc": "2.0",
+                                "id": "1",
+                                "method": "initialize",
+                                "params": {
+                                    "clientInfo": {
+                                        "name": "test_client",
+                                        "version": "1.0.0",
+                                    },
+                                    "protocolVersion": "2024-11-05",
+                                    "capabilities": {},
+                                },
+                            },
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful JSON-RPC response.",
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "202": {
+                        "description": "Notification or response accepted; no content "
+                        "body.",
+                    },
+                    "400": {
+                        "description": "Bad request: invalid JSON or message format, "
+                        "or unacceptable Accept header.",
+                    },
+                    "405": {
+                        "description": "HTTP method not allowed.",
+                    },
+                    "500": {
+                        "description": "Internal server error or unexpected failure.",
+                    },
+                },
+                "tags": ["MCP"],
+            },
+            "delete": {
+                "operationId": "delete_mcp",
+                "summary": "Terminate Session",
+                "description": (
+                    "Implemented according to the Streamable HTTP Transport "
+                    "specification.\n"
+                    "Terminate an MCP session. The server implementation is stateless, "
+                    "so this is a no-op.\n\n"
+                ),
+                "responses": {
+                    "404": {},
+                },
+                "tags": ["MCP"],
+            },
+        }
+    }
 
 
 @lru_cache(maxsize=1)
@@ -80,6 +198,14 @@ def get_openapi_spec() -> str:
         final = merge_openapi_specs(openapi, CUSTOM_OPENAPI_SPEC)
     if MOUNT_PREFIX:
         final["servers"] = [{"url": MOUNT_PREFIX}]
+
+    MCP_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_mcp")
+
+    if MCP_ENABLED:
+        # Add the MCP paths to the OpenAPI spec
+        mcp_path = get_mcp_openapi_paths()
+        final["paths"]["/mcp/"] = mcp_path["/mcp/"]
+
     return orjson.dumps(final)
 
 

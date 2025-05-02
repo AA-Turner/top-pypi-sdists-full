@@ -12,9 +12,9 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for aiobotocore ECS 2.21.1\n"
-        "Version:         2.21.1\n"
-        "Builder version: 8.10.0\n"
+        "Type annotations for aiobotocore ECS 2.22.0\n"
+        "Version:         2.22.0\n"
+        "Builder version: 8.10.1\n"
         "Docs:            https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecs//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs.html#ecs\n"
         "Other services:  https://pypi.org/project/boto3-stubs/\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("2.21.1\n")
+    sys.stdout.write("2.22.0\n")
 
 
 def main() -> None:

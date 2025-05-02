@@ -1,0 +1,204 @@
+Metadata-Version: 2.4
+Name: tox-gh
+Version: 1.5.0
+Summary: Seamless integration of tox into GitHub Actions.
+Project-URL: Documentation, https://github.com/tox-dev/tox-gh#tox-gh
+Project-URL: Homepage, https://github.com/tox-dev/tox-gh
+Project-URL: Source, https://github.com/tox-dev/tox-gh
+Project-URL: Tracker, https://github.com/tox-dev/tox-gh/issues
+Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: environments,isolated,testing,virtual
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System
+Requires-Python: >=3.9
+Requires-Dist: tox>=4.18.1
+Provides-Extra: testing
+Requires-Dist: covdefaults>=2.3; extra == 'testing'
+Requires-Dist: devpi-process>=1; extra == 'testing'
+Requires-Dist: diff-cover>=9.2; extra == 'testing'
+Requires-Dist: pytest-cov>=5; extra == 'testing'
+Requires-Dist: pytest-mock>=3.14; extra == 'testing'
+Requires-Dist: pytest>=8.3.2; extra == 'testing'
+Description-Content-Type: text/markdown
+
+# tox-gh
+
+[![PyPI version](https://badge.fury.io/py/tox-gh.svg)](https://badge.fury.io/py/tox-gh)
+[![PyPI Supported Python Versions](https://img.shields.io/pypi/pyversions/tox-gh.svg)](https://pypi.python.org/pypi/tox-gh/)
+[![check](https://github.com/tox-dev/tox-gh/actions/workflows/check.yaml/badge.svg)](https://github.com/tox-dev/tox-gh/actions/workflows/check.yaml)
+[![Downloads](https://static.pepy.tech/badge/tox-gh/month)](https://pepy.tech/project/tox-gh)
+
+**tox-gh** is a tox plugin, which helps run tox on GitHub Actions with multiple different Python versions on multiple
+workers in parallel.
+
+## Features
+
+When running tox on GitHub Actions, tox-gh:
+
+- detects, which environment to run based on configurations (or bypass detection and set it explicitly via the
+  `TOX_GH_MAJOR_MINOR` environment variable),
+- provides utilities such as
+  [grouping log lines](https://github.com/actions/toolkit/blob/main/docs/commands.md#group-and-ungroup-log-lines).
+
+## Usage
+
+1. Add configurations under `[gh]` section along with your tox configuration.
+2. Install `tox-gh` package in the GitHub Actions workflow before running `tox` command.
+
+## Examples
+
+### Basic Example
+
+Add `[gh]` section to the same file as tox configuration.
+
+If you're using `tox.ini`:
+
+```ini
+[gh]
+python =
+    3.13 = 3.13, type, dev, pkg_meta
+    3.12 = 3.12
+    3.11 = 3.11
+```
+
+For `tox.toml`:
+
+```toml
+[gh.python]
+"3.13" = ["3.13", "type", "pkg_meta"]
+"3.12" = ["3.12"]
+"3.11" = ["3.11"]
+```
+
+For `pyproject.toml`:
+
+```toml
+[tool.tox.gh.python]
+"3.13" = ["3.13", "type", "pkg_meta"]
+"3.12" = ["3.12"]
+"3.11" = ["3.11"]
+```
+
+This will run a different set of tox environments on different python versions set up via GitHub `setup-python` action:
+
+- on Python 3.13 job, tox runs `3.13`, `type` and `pkg_meta` environment,
+- on Python 3.12 job, tox runs `3.12` environment,
+- on Python 3.11 job, tox runs `3.11` environment.
+
+#### Workflow Configuration
+
+A bare-bones example would be `.github/workflows/check.yaml`:
+
+```yaml
+jobs:
+  test:
+    name: test with ${{ matrix.env }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - "3.13"
+          - "3.12"
+        os:
+          - ubuntu-latest
+          - macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install tox
+        run: uv tool install --python-preference only-managed --python 3.13 tox --with tox-uv --with tox-gh
+      - name: Install Python
+        if: matrix.env != '3.13'
+        run: uv python install --python-preference only-managed ${{ matrix.env }}
+      - name: Setup test suite
+        run: tox run -vv --notest --skip-missing-interpreters false
+        env:
+          TOX_GH_MAJOR_MINOR: ${{ matrix.env }}
+      - name: Run test suite
+        run: tox run --skip-pkg-install
+        env:
+          TOX_GH_MAJOR_MINOR: ${{ matrix.env }}
+```
+
+A more exhaustive example would be `.github/workflows/check.yaml`:
+
+```yaml
+name: check
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    tags-ignore: ["**"]
+  pull_request:
+  schedule:
+    - cron: "0 8 * * *"
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test with ${{ matrix.env }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - "3.13"
+          - "3.12"
+          - "3.11"
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add .local/bin to Windows PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "$USERPROFILE/.local/bin" >> $GITHUB_PATH
+      - name: Install tox
+        run: uv tool install --python-preference only-managed --python 3.13 tox --with tox-uv --with tox-gh
+      - name: Install Python
+        if: matrix.env != '3.13'
+        run: uv python install --python-preference only-managed ${{ matrix.env }}
+      - name: Setup test suite
+        run: tox run -vv --notest --skip-missing-interpreters false
+        env:
+          TOX_GH_MAJOR_MINOR: ${{ matrix.env }}
+      - name: Run test suite
+        run: tox run --skip-pkg-install
+        env:
+          TOX_GH_MAJOR_MINOR: ${{ matrix.env }}
+```
+
+## FAQ
+
+- When a list of environments to run is specified explicitly via `-e` option or `TOXENV` environment variable `tox-gh`
+  respects the given environments and simply runs the given environments without enforcing its configuration.
+- The plugin only activates if the environment variable `GITHUB_ACTIONS` is `true`.

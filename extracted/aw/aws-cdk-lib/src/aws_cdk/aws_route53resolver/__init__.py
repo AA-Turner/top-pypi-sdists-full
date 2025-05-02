@@ -3480,6 +3480,7 @@ class CfnResolverRule(
             rule_type="ruleType",
         
             # the properties below are optional
+            delegation_record="delegationRecord",
             domain_name="domainName",
             name="name",
             resolver_endpoint_id="resolverEndpointId",
@@ -3503,6 +3504,7 @@ class CfnResolverRule(
         id: builtins.str,
         *,
         rule_type: builtins.str,
+        delegation_record: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         resolver_endpoint_id: typing.Optional[builtins.str] = None,
@@ -3513,6 +3515,7 @@ class CfnResolverRule(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` . When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param delegation_record: The name server domain for queries to be delegated to if a query matches the delegation record.
         :param domain_name: DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` . If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
         :param name: The name for the Resolver rule, which you specified when you created the Resolver rule.
         :param resolver_endpoint_id: The ID of the endpoint that the rule is associated with.
@@ -3525,6 +3528,7 @@ class CfnResolverRule(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResolverRuleProps(
             rule_type=rule_type,
+            delegation_record=delegation_record,
             domain_name=domain_name,
             name=name,
             resolver_endpoint_id=resolver_endpoint_id,
@@ -3647,6 +3651,19 @@ class CfnResolverRule(
             type_hints = typing.get_type_hints(_typecheckingstub__13530a5c4f7ce175ae03b85dc7d4550ae7a3cb68cb2be12c89a167e8db1a5822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="delegationRecord")
+    def delegation_record(self) -> typing.Optional[builtins.str]:
+        '''The name server domain for queries to be delegated to if a query matches the delegation record.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "delegationRecord"))
+
+    @delegation_record.setter
+    def delegation_record(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1126d07ce449d0d6220e3fbf183f2d786e81574a4f131914dfe0914a55bb851)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "delegationRecord", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -4106,6 +4123,7 @@ class CfnResolverRuleAssociationProps:
     jsii_struct_bases=[],
     name_mapping={
         "rule_type": "ruleType",
+        "delegation_record": "delegationRecord",
         "domain_name": "domainName",
         "name": "name",
         "resolver_endpoint_id": "resolverEndpointId",
@@ -4118,6 +4136,7 @@ class CfnResolverRuleProps:
         self,
         *,
         rule_type: builtins.str,
+        delegation_record: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         resolver_endpoint_id: typing.Optional[builtins.str] = None,
@@ -4127,6 +4146,7 @@ class CfnResolverRuleProps:
         '''Properties for defining a ``CfnResolverRule``.
 
         :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` . When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param delegation_record: The name server domain for queries to be delegated to if a query matches the delegation record.
         :param domain_name: DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` . If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
         :param name: The name for the Resolver rule, which you specified when you created the Resolver rule.
         :param resolver_endpoint_id: The ID of the endpoint that the rule is associated with.
@@ -4146,6 +4166,7 @@ class CfnResolverRuleProps:
                 rule_type="ruleType",
             
                 # the properties below are optional
+                delegation_record="delegationRecord",
                 domain_name="domainName",
                 name="name",
                 resolver_endpoint_id="resolverEndpointId",
@@ -4165,6 +4186,7 @@ class CfnResolverRuleProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec)
             check_type(argname="argument rule_type", value=rule_type, expected_type=type_hints["rule_type"])
+            check_type(argname="argument delegation_record", value=delegation_record, expected_type=type_hints["delegation_record"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resolver_endpoint_id", value=resolver_endpoint_id, expected_type=type_hints["resolver_endpoint_id"])
@@ -4173,6 +4195,8 @@ class CfnResolverRuleProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_type": rule_type,
         }
+        if delegation_record is not None:
+            self._values["delegation_record"] = delegation_record
         if domain_name is not None:
             self._values["domain_name"] = domain_name
         if name is not None:
@@ -4199,6 +4223,15 @@ class CfnResolverRuleProps:
         result = self._values.get("rule_type")
         assert result is not None, "Required property 'rule_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def delegation_record(self) -> typing.Optional[builtins.str]:
+        '''The name server domain for queries to be delegated to if a query matches the delegation record.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-delegationrecord
+        '''
+        result = self._values.get("delegation_record")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
@@ -4838,6 +4871,7 @@ def _typecheckingstub__7253810e416357d129df95b3c7aa9aa0f08e68de7d465658e598912cf
     id: builtins.str,
     *,
     rule_type: builtins.str,
+    delegation_record: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     resolver_endpoint_id: typing.Optional[builtins.str] = None,
@@ -4861,6 +4895,12 @@ def _typecheckingstub__678a826ad1212e0a47c15e7671251c43f8125d6006b97d932cbc2bda6
 
 def _typecheckingstub__13530a5c4f7ce175ae03b85dc7d4550ae7a3cb68cb2be12c89a167e8db1a5822(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1126d07ce449d0d6220e3fbf183f2d786e81574a4f131914dfe0914a55bb851(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4959,6 +4999,7 @@ def _typecheckingstub__3b7cd1048ae30851b3480dc04a365c7bd487212f9328f80bc61e1bae1
 def _typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec(
     *,
     rule_type: builtins.str,
+    delegation_record: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     resolver_endpoint_id: typing.Optional[builtins.str] = None,

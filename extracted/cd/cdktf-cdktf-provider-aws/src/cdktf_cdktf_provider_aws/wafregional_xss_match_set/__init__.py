@@ -1,7 +1,7 @@
 r'''
 # `aws_wafregional_xss_match_set`
 
-Refer to the Terraform Registry for docs: [`aws_wafregional_xss_match_set`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set).
+Refer to the Terraform Registry for docs: [`aws_wafregional_xss_match_set`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WafregionalXssMatchSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafregionalXssMatchSet.WafregionalXssMatchSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set aws_wafregional_xss_match_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set aws_wafregional_xss_match_set}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class WafregionalXssMatchSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set aws_wafregional_xss_match_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set aws_wafregional_xss_match_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#name WafregionalXssMatchSet#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#id WafregionalXssMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param xss_match_tuple: xss_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#xss_match_tuple WafregionalXssMatchSet#xss_match_tuple}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#name WafregionalXssMatchSet#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#id WafregionalXssMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param xss_match_tuple: xss_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#xss_match_tuple WafregionalXssMatchSet#xss_match_tuple}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class WafregionalXssMatchSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WafregionalXssMatchSet to import.
-        :param import_from_id: The id of the existing WafregionalXssMatchSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WafregionalXssMatchSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WafregionalXssMatchSet to import is found.
         '''
         if __debug__:
@@ -240,9 +240,9 @@ class WafregionalXssMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#name WafregionalXssMatchSet#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#id WafregionalXssMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param xss_match_tuple: xss_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#xss_match_tuple WafregionalXssMatchSet#xss_match_tuple}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#name WafregionalXssMatchSet#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#id WafregionalXssMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param xss_match_tuple: xss_match_tuple block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#xss_match_tuple WafregionalXssMatchSet#xss_match_tuple}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -346,14 +346,14 @@ class WafregionalXssMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#name WafregionalXssMatchSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#name WafregionalXssMatchSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#id WafregionalXssMatchSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#id WafregionalXssMatchSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -367,7 +367,7 @@ class WafregionalXssMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafregionalXssMatchSetXssMatchTuple"]]]:
         '''xss_match_tuple block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#xss_match_tuple WafregionalXssMatchSet#xss_match_tuple}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#xss_match_tuple WafregionalXssMatchSet#xss_match_tuple}
         '''
         result = self._values.get("xss_match_tuple")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafregionalXssMatchSetXssMatchTuple"]]], result)
@@ -400,8 +400,8 @@ class WafregionalXssMatchSetXssMatchTuple:
         text_transformation: builtins.str,
     ) -> None:
         '''
-        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#field_to_match WafregionalXssMatchSet#field_to_match}
-        :param text_transformation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#text_transformation WafregionalXssMatchSet#text_transformation}.
+        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#field_to_match WafregionalXssMatchSet#field_to_match}
+        :param text_transformation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#text_transformation WafregionalXssMatchSet#text_transformation}.
         '''
         if isinstance(field_to_match, dict):
             field_to_match = WafregionalXssMatchSetXssMatchTupleFieldToMatch(**field_to_match)
@@ -418,7 +418,7 @@ class WafregionalXssMatchSetXssMatchTuple:
     def field_to_match(self) -> "WafregionalXssMatchSetXssMatchTupleFieldToMatch":
         '''field_to_match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#field_to_match WafregionalXssMatchSet#field_to_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#field_to_match WafregionalXssMatchSet#field_to_match}
         '''
         result = self._values.get("field_to_match")
         assert result is not None, "Required property 'field_to_match' is missing"
@@ -426,7 +426,7 @@ class WafregionalXssMatchSetXssMatchTuple:
 
     @builtins.property
     def text_transformation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#text_transformation WafregionalXssMatchSet#text_transformation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#text_transformation WafregionalXssMatchSet#text_transformation}.'''
         result = self._values.get("text_transformation")
         assert result is not None, "Required property 'text_transformation' is missing"
         return typing.cast(builtins.str, result)
@@ -456,8 +456,8 @@ class WafregionalXssMatchSetXssMatchTupleFieldToMatch:
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#type WafregionalXssMatchSet#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#data WafregionalXssMatchSet#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#type WafregionalXssMatchSet#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#data WafregionalXssMatchSet#data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32876f78d67e790516b84d7ee86fcf9d7944e17dabdf0338e97d89eb78837123)
@@ -471,14 +471,14 @@ class WafregionalXssMatchSetXssMatchTupleFieldToMatch:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#type WafregionalXssMatchSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#type WafregionalXssMatchSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#data WafregionalXssMatchSet#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#data WafregionalXssMatchSet#data}.'''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -697,8 +697,8 @@ class WafregionalXssMatchSetXssMatchTupleOutputReference(
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#type WafregionalXssMatchSet#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/wafregional_xss_match_set#data WafregionalXssMatchSet#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#type WafregionalXssMatchSet#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/wafregional_xss_match_set#data WafregionalXssMatchSet#data}.
         '''
         value = WafregionalXssMatchSetXssMatchTupleFieldToMatch(type=type, data=data)
 

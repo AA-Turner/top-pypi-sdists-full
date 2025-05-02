@@ -145,18 +145,26 @@ class _DefaultCheckpointableHandlerRegistry(CheckpointableHandlerRegistry):
       The registry itself.
 
     Raises:
-      AlreadyExistsError: If an entry for the given checkpointable name already
-        exists in the registry.
+      AlreadyExistsError: If an entry for the given checkpointable name or
+        handler type already exists in the registry.
       ValueError: If the handler is not default-constructible.
     """
     if not isinstance(handler_type, type):
       raise ValueError(
           f'The `handler_type` must be a type, but got {handler_type}.'
       )
-    if checkpointable and self.has(checkpointable):
+    registered_handler_types = [
+        handler_type for handler_type, _ in self.get_all_entries()
+    ]
+    if checkpointable:
+      if self.has(checkpointable):
+        raise AlreadyExistsError(
+            f'Entry for checkpointable={checkpointable} already'
+            ' exists in the registry.'
+        )
+    elif handler_type in registered_handler_types:
       raise AlreadyExistsError(
-          f'Entry for checkpointable={checkpointable} already'
-          ' exists in the registry.'
+          f'Handler type {handler_type} already exists in the registry.'
       )
     self._registry.append((handler_type, checkpointable))
     return self
@@ -295,6 +303,10 @@ def register_handler(
 ) -> CheckpointableHandlerType:
   """Registers a `CheckpointableHandler` globally.
 
+  The order in which handlers are registered matters. If multiple handlers
+  could potentially be used to save or load, the one added most recently will be
+  used.
+
   Usage::
 
     @ocp.handlers.register_handler
@@ -311,7 +323,6 @@ def register_handler(
   Returns:
     The handler class.
   """
-  logging.info('CheckpointableHandler: %s registered globally.', cls)
   _GLOBAL_REGISTRY.add(cls)
   return cls
 
@@ -340,13 +351,13 @@ def _get_possible_handlers(
     name: str,
 ) -> Sequence[CheckpointableHandler]:
   """Raises a NoEntryError if no possible handlers are found."""
-  registry_entries = (
+  registry_entries = [
       (
           _construct_handler_instance(checkpointable_name, handler),
           checkpointable_name,
       )
       for handler, checkpointable_name in registry.get_all_entries()
-  )
+  ]
   if checkpointable is None:
     # All handlers are potentially usable if checkpointable is not provided.
     possible_handlers = [
@@ -362,15 +373,17 @@ def _get_possible_handlers(
         and is_handleable_fn(handler, checkpointable)
     ]
   if not possible_handlers:
-    available_handlers = [type(handler) for handler, _ in registry_entries]
+    available_handlers = [
+        handler_type for handler_type, _ in registry.get_all_entries()
+    ]
     error_msg = (
-        f'Could not identify a valid handler for the checkpointable: {name} and'
-        f' checkpointable type={type(checkpointable)}. Make sure to register a'
-        ' `CheckpointableHandler` for the object using `register_handler`, or'
-        ' by specifying a local registry (`CheckpointableOptions`). If a'
-        ' handler is already registered, ensure that `is_handleable` correctly'
-        ' identifies the object as handleable. The available handlers are:'
-        f' {available_handlers}'
+        f'Could not identify a valid handler for the checkpointable: "{name}"'
+        f' and checkpointable type={type(checkpointable)}. Make sure to'
+        ' register a `CheckpointableHandler` for the object using'
+        ' `register_handler`, or by specifying a local registry'
+        ' (`CheckpointablesOptions`). If a handler is already registered,'
+        ' ensure that `is_handleable` correctly identifies the object as'
+        f' handleable. The available handlers are: {available_handlers}'
     )
     raise NoEntryError(error_msg)
   return possible_handlers
@@ -388,7 +401,8 @@ def resolve_handler_for_save(
        registered, return the corresponding handler.
     2. Resolve based on the `checkpointable` (using
       `CheckpointableHandler.is_handleable`).
-    3. If multiple handlers are usable, return the first usable handler.
+    3. If multiple handlers are usable, return the *last* usable handler. This
+       allows us to resolve the most recently-registered handler.
 
   Args:
     registry: The CheckpointableHandlerRegistry to search.
@@ -416,7 +430,7 @@ def resolve_handler_for_save(
   )
 
   # Prefer the first handler in the absence of any other information.
-  return possible_handlers[0]
+  return possible_handlers[-1]
 
 
 def resolve_handler_for_load(
@@ -436,7 +450,8 @@ def resolve_handler_for_load(
     4. If multiple handlers are usable, return the handler with the matching
       typestr. If no matching typestr is found, then the handler used for saving
       may not be available now.
-    4. Return the first usable handler.
+    4. Return the *last* usable handler. This allows us to resolve the most
+       recently-registered handler.
 
   Raises:
     NoEntryError: If no compatible `CheckpointableHandler` can be found.
@@ -454,7 +469,9 @@ def resolve_handler_for_load(
   if registry.has(name):
     return _construct_handler_instance(name, registry.get(name))
 
-  def is_handleable_fn(handler: CheckpointableHandler, ckpt: Any) -> bool:
+  def is_handleable_fn(
+      handler: CheckpointableHandler, ckpt: Any
+  ) -> bool | None:
     return handler.is_abstract_handleable(ckpt)
 
   possible_handlers = _get_possible_handlers(
@@ -475,4 +492,4 @@ def resolve_handler_for_load(
     )
 
   # Prefer the first handler in the absence of any other information.
-  return possible_handlers[0]
+  return possible_handlers[-1]

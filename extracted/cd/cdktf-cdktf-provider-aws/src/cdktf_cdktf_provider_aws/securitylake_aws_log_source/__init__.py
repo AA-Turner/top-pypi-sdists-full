@@ -1,7 +1,7 @@
 r'''
 # `aws_securitylake_aws_log_source`
 
-Refer to the Terraform Registry for docs: [`aws_securitylake_aws_log_source`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source).
+Refer to the Terraform Registry for docs: [`aws_securitylake_aws_log_source`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecuritylakeAwsLogSource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securitylakeAwsLogSource.SecuritylakeAwsLogSource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source aws_securitylake_aws_log_source}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source aws_securitylake_aws_log_source}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class SecuritylakeAwsLogSource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source aws_securitylake_aws_log_source} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source aws_securitylake_aws_log_source} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source SecuritylakeAwsLogSource#source}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source SecuritylakeAwsLogSource#source}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class SecuritylakeAwsLogSource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecuritylakeAwsLogSource to import.
-        :param import_from_id: The id of the existing SecuritylakeAwsLogSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecuritylakeAwsLogSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecuritylakeAwsLogSource to import is found.
         '''
         if __debug__:
@@ -197,7 +197,7 @@ class SecuritylakeAwsLogSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source SecuritylakeAwsLogSource#source}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source SecuritylakeAwsLogSource#source}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -299,7 +299,7 @@ class SecuritylakeAwsLogSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeAwsLogSourceSource"]]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source SecuritylakeAwsLogSource#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source SecuritylakeAwsLogSource#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeAwsLogSourceSource"]]], result)
@@ -336,10 +336,10 @@ class SecuritylakeAwsLogSourceSource:
         source_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#regions SecuritylakeAwsLogSource#regions}.
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source_name SecuritylakeAwsLogSource#source_name}.
-        :param accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#accounts SecuritylakeAwsLogSource#accounts}.
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source_version SecuritylakeAwsLogSource#source_version}.
+        :param regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#regions SecuritylakeAwsLogSource#regions}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source_name SecuritylakeAwsLogSource#source_name}.
+        :param accounts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#accounts SecuritylakeAwsLogSource#accounts}.
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source_version SecuritylakeAwsLogSource#source_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9aa8e8154adc661d77bfd246ee362fdfb3ae1418049c56fca0344d2f9e85e48f)
@@ -358,27 +358,27 @@ class SecuritylakeAwsLogSourceSource:
 
     @builtins.property
     def regions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#regions SecuritylakeAwsLogSource#regions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#regions SecuritylakeAwsLogSource#regions}.'''
         result = self._values.get("regions")
         assert result is not None, "Required property 'regions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source_name SecuritylakeAwsLogSource#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source_name SecuritylakeAwsLogSource#source_name}.'''
         result = self._values.get("source_name")
         assert result is not None, "Required property 'source_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def accounts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#accounts SecuritylakeAwsLogSource#accounts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#accounts SecuritylakeAwsLogSource#accounts}.'''
         result = self._values.get("accounts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def source_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_aws_log_source#source_version SecuritylakeAwsLogSource#source_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_aws_log_source#source_version SecuritylakeAwsLogSource#source_version}.'''
         result = self._values.get("source_version")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_guardduty_detector`
 
-Refer to the Terraform Registry for docs: [`aws_guardduty_detector`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector).
+Refer to the Terraform Registry for docs: [`aws_guardduty_detector`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GuarddutyDetector(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.guarddutyDetector.GuarddutyDetector",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector aws_guardduty_detector}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector aws_guardduty_detector}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GuarddutyDetector(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector aws_guardduty_detector} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector aws_guardduty_detector} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param datasources: datasources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#datasources GuarddutyDetector#datasources}
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
-        :param finding_publishing_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#finding_publishing_frequency GuarddutyDetector#finding_publishing_frequency}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#id GuarddutyDetector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#tags GuarddutyDetector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#tags_all GuarddutyDetector#tags_all}.
+        :param datasources: datasources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#datasources GuarddutyDetector#datasources}
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param finding_publishing_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#finding_publishing_frequency GuarddutyDetector#finding_publishing_frequency}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#id GuarddutyDetector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#tags GuarddutyDetector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#tags_all GuarddutyDetector#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GuarddutyDetector(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GuarddutyDetector to import.
-        :param import_from_id: The id of the existing GuarddutyDetector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GuarddutyDetector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GuarddutyDetector to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GuarddutyDetector(
         s3_logs: typing.Optional[typing.Union["GuarddutyDetectorDatasourcesS3Logs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#kubernetes GuarddutyDetector#kubernetes}
-        :param malware_protection: malware_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#malware_protection GuarddutyDetector#malware_protection}
-        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#s3_logs GuarddutyDetector#s3_logs}
+        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#kubernetes GuarddutyDetector#kubernetes}
+        :param malware_protection: malware_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#malware_protection GuarddutyDetector#malware_protection}
+        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#s3_logs GuarddutyDetector#s3_logs}
         '''
         value = GuarddutyDetectorDatasources(
             kubernetes=kubernetes,
@@ -345,12 +345,12 @@ class GuarddutyDetectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param datasources: datasources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#datasources GuarddutyDetector#datasources}
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
-        :param finding_publishing_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#finding_publishing_frequency GuarddutyDetector#finding_publishing_frequency}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#id GuarddutyDetector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#tags GuarddutyDetector#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#tags_all GuarddutyDetector#tags_all}.
+        :param datasources: datasources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#datasources GuarddutyDetector#datasources}
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param finding_publishing_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#finding_publishing_frequency GuarddutyDetector#finding_publishing_frequency}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#id GuarddutyDetector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#tags GuarddutyDetector#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#tags_all GuarddutyDetector#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -467,7 +467,7 @@ class GuarddutyDetectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def datasources(self) -> typing.Optional["GuarddutyDetectorDatasources"]:
         '''datasources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#datasources GuarddutyDetector#datasources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#datasources GuarddutyDetector#datasources}
         '''
         result = self._values.get("datasources")
         return typing.cast(typing.Optional["GuarddutyDetectorDatasources"], result)
@@ -476,19 +476,19 @@ class GuarddutyDetectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def finding_publishing_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#finding_publishing_frequency GuarddutyDetector#finding_publishing_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#finding_publishing_frequency GuarddutyDetector#finding_publishing_frequency}.'''
         result = self._values.get("finding_publishing_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#id GuarddutyDetector#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#id GuarddutyDetector#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -498,13 +498,13 @@ class GuarddutyDetectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#tags GuarddutyDetector#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#tags GuarddutyDetector#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#tags_all GuarddutyDetector#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#tags_all GuarddutyDetector#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -538,9 +538,9 @@ class GuarddutyDetectorDatasources:
         s3_logs: typing.Optional[typing.Union["GuarddutyDetectorDatasourcesS3Logs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#kubernetes GuarddutyDetector#kubernetes}
-        :param malware_protection: malware_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#malware_protection GuarddutyDetector#malware_protection}
-        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#s3_logs GuarddutyDetector#s3_logs}
+        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#kubernetes GuarddutyDetector#kubernetes}
+        :param malware_protection: malware_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#malware_protection GuarddutyDetector#malware_protection}
+        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#s3_logs GuarddutyDetector#s3_logs}
         '''
         if isinstance(kubernetes, dict):
             kubernetes = GuarddutyDetectorDatasourcesKubernetes(**kubernetes)
@@ -565,7 +565,7 @@ class GuarddutyDetectorDatasources:
     def kubernetes(self) -> typing.Optional["GuarddutyDetectorDatasourcesKubernetes"]:
         '''kubernetes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#kubernetes GuarddutyDetector#kubernetes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#kubernetes GuarddutyDetector#kubernetes}
         '''
         result = self._values.get("kubernetes")
         return typing.cast(typing.Optional["GuarddutyDetectorDatasourcesKubernetes"], result)
@@ -576,7 +576,7 @@ class GuarddutyDetectorDatasources:
     ) -> typing.Optional["GuarddutyDetectorDatasourcesMalwareProtection"]:
         '''malware_protection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#malware_protection GuarddutyDetector#malware_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#malware_protection GuarddutyDetector#malware_protection}
         '''
         result = self._values.get("malware_protection")
         return typing.cast(typing.Optional["GuarddutyDetectorDatasourcesMalwareProtection"], result)
@@ -585,7 +585,7 @@ class GuarddutyDetectorDatasources:
     def s3_logs(self) -> typing.Optional["GuarddutyDetectorDatasourcesS3Logs"]:
         '''s3_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#s3_logs GuarddutyDetector#s3_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#s3_logs GuarddutyDetector#s3_logs}
         '''
         result = self._values.get("s3_logs")
         return typing.cast(typing.Optional["GuarddutyDetectorDatasourcesS3Logs"], result)
@@ -614,7 +614,7 @@ class GuarddutyDetectorDatasourcesKubernetes:
         audit_logs: typing.Union["GuarddutyDetectorDatasourcesKubernetesAuditLogs", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param audit_logs: audit_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#audit_logs GuarddutyDetector#audit_logs}
+        :param audit_logs: audit_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#audit_logs GuarddutyDetector#audit_logs}
         '''
         if isinstance(audit_logs, dict):
             audit_logs = GuarddutyDetectorDatasourcesKubernetesAuditLogs(**audit_logs)
@@ -629,7 +629,7 @@ class GuarddutyDetectorDatasourcesKubernetes:
     def audit_logs(self) -> "GuarddutyDetectorDatasourcesKubernetesAuditLogs":
         '''audit_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#audit_logs GuarddutyDetector#audit_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#audit_logs GuarddutyDetector#audit_logs}
         '''
         result = self._values.get("audit_logs")
         assert result is not None, "Required property 'audit_logs' is missing"
@@ -659,7 +659,7 @@ class GuarddutyDetectorDatasourcesKubernetesAuditLogs:
         enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb5a1c4f6a4813fa8085adfcb47787b9b4ff9704e6108d950320aac1316d4228)
@@ -670,7 +670,7 @@ class GuarddutyDetectorDatasourcesKubernetesAuditLogs:
 
     @builtins.property
     def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
         result = self._values.get("enable")
         assert result is not None, "Required property 'enable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -774,7 +774,7 @@ class GuarddutyDetectorDatasourcesKubernetesOutputReference(
         enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
         '''
         value = GuarddutyDetectorDatasourcesKubernetesAuditLogs(enable=enable)
 
@@ -822,7 +822,7 @@ class GuarddutyDetectorDatasourcesMalwareProtection:
         scan_ec2_instance_with_findings: typing.Union["GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param scan_ec2_instance_with_findings: scan_ec2_instance_with_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#scan_ec2_instance_with_findings GuarddutyDetector#scan_ec2_instance_with_findings}
+        :param scan_ec2_instance_with_findings: scan_ec2_instance_with_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#scan_ec2_instance_with_findings GuarddutyDetector#scan_ec2_instance_with_findings}
         '''
         if isinstance(scan_ec2_instance_with_findings, dict):
             scan_ec2_instance_with_findings = GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings(**scan_ec2_instance_with_findings)
@@ -839,7 +839,7 @@ class GuarddutyDetectorDatasourcesMalwareProtection:
     ) -> "GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings":
         '''scan_ec2_instance_with_findings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#scan_ec2_instance_with_findings GuarddutyDetector#scan_ec2_instance_with_findings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#scan_ec2_instance_with_findings GuarddutyDetector#scan_ec2_instance_with_findings}
         '''
         result = self._values.get("scan_ec2_instance_with_findings")
         assert result is not None, "Required property 'scan_ec2_instance_with_findings' is missing"
@@ -884,7 +884,7 @@ class GuarddutyDetectorDatasourcesMalwareProtectionOutputReference(
         ebs_volumes: typing.Union["GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEbsVolumes", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param ebs_volumes: ebs_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#ebs_volumes GuarddutyDetector#ebs_volumes}
+        :param ebs_volumes: ebs_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#ebs_volumes GuarddutyDetector#ebs_volumes}
         '''
         value = GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings(
             ebs_volumes=ebs_volumes
@@ -936,7 +936,7 @@ class GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings:
         ebs_volumes: typing.Union["GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEbsVolumes", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param ebs_volumes: ebs_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#ebs_volumes GuarddutyDetector#ebs_volumes}
+        :param ebs_volumes: ebs_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#ebs_volumes GuarddutyDetector#ebs_volumes}
         '''
         if isinstance(ebs_volumes, dict):
             ebs_volumes = GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEbsVolumes(**ebs_volumes)
@@ -953,7 +953,7 @@ class GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings:
     ) -> "GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEbsVolumes":
         '''ebs_volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#ebs_volumes GuarddutyDetector#ebs_volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#ebs_volumes GuarddutyDetector#ebs_volumes}
         '''
         result = self._values.get("ebs_volumes")
         assert result is not None, "Required property 'ebs_volumes' is missing"
@@ -983,7 +983,7 @@ class GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEb
         enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dca6edae945d00e8f635742ddf200e42671eec5495b4a260b778983ea6a518fa)
@@ -994,7 +994,7 @@ class GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEb
 
     @builtins.property
     def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
         result = self._values.get("enable")
         assert result is not None, "Required property 'enable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1098,7 +1098,7 @@ class GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsOu
         enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
         '''
         value = GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindingsEbsVolumes(
             enable=enable
@@ -1165,7 +1165,7 @@ class GuarddutyDetectorDatasourcesOutputReference(
         audit_logs: typing.Union[GuarddutyDetectorDatasourcesKubernetesAuditLogs, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param audit_logs: audit_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#audit_logs GuarddutyDetector#audit_logs}
+        :param audit_logs: audit_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#audit_logs GuarddutyDetector#audit_logs}
         '''
         value = GuarddutyDetectorDatasourcesKubernetes(audit_logs=audit_logs)
 
@@ -1178,7 +1178,7 @@ class GuarddutyDetectorDatasourcesOutputReference(
         scan_ec2_instance_with_findings: typing.Union[GuarddutyDetectorDatasourcesMalwareProtectionScanEc2InstanceWithFindings, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param scan_ec2_instance_with_findings: scan_ec2_instance_with_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#scan_ec2_instance_with_findings GuarddutyDetector#scan_ec2_instance_with_findings}
+        :param scan_ec2_instance_with_findings: scan_ec2_instance_with_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#scan_ec2_instance_with_findings GuarddutyDetector#scan_ec2_instance_with_findings}
         '''
         value = GuarddutyDetectorDatasourcesMalwareProtection(
             scan_ec2_instance_with_findings=scan_ec2_instance_with_findings
@@ -1193,7 +1193,7 @@ class GuarddutyDetectorDatasourcesOutputReference(
         enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
         '''
         value = GuarddutyDetectorDatasourcesS3Logs(enable=enable)
 
@@ -1275,7 +1275,7 @@ class GuarddutyDetectorDatasourcesS3Logs:
         enable: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d1cbe81cac7a1e1092c6f29a3b63bb3f487d0bf953011379c23050b9064f275)
@@ -1286,7 +1286,7 @@ class GuarddutyDetectorDatasourcesS3Logs:
 
     @builtins.property
     def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/guardduty_detector#enable GuarddutyDetector#enable}.'''
         result = self._values.get("enable")
         assert result is not None, "Required property 'enable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)

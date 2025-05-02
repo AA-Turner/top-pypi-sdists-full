@@ -1,7 +1,7 @@
 r'''
 # `aws_route53_records_exclusive`
 
-Refer to the Terraform Registry for docs: [`aws_route53_records_exclusive`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive).
+Refer to the Terraform Registry for docs: [`aws_route53_records_exclusive`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Route53RecordsExclusive(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.route53RecordsExclusive.Route53RecordsExclusive",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive aws_route53_records_exclusive}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive aws_route53_records_exclusive}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Route53RecordsExclusive(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive aws_route53_records_exclusive} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive aws_route53_records_exclusive} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#zone_id Route53RecordsExclusive#zone_id}.
-        :param resource_record_set: resource_record_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#resource_record_set Route53RecordsExclusive#resource_record_set}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#timeouts Route53RecordsExclusive#timeouts}
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#zone_id Route53RecordsExclusive#zone_id}.
+        :param resource_record_set: resource_record_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#resource_record_set Route53RecordsExclusive#resource_record_set}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#timeouts Route53RecordsExclusive#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Route53RecordsExclusive(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Route53RecordsExclusive to import.
-        :param import_from_id: The id of the existing Route53RecordsExclusive that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Route53RecordsExclusive that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Route53RecordsExclusive to import is found.
         '''
         if __debug__:
@@ -141,8 +141,8 @@ class Route53RecordsExclusive(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#create Route53RecordsExclusive#create}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#update Route53RecordsExclusive#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#create Route53RecordsExclusive#create}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#update Route53RecordsExclusive#update}
         '''
         value = Route53RecordsExclusiveTimeouts(create=create, update=update)
 
@@ -250,9 +250,9 @@ class Route53RecordsExclusiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#zone_id Route53RecordsExclusive#zone_id}.
-        :param resource_record_set: resource_record_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#resource_record_set Route53RecordsExclusive#resource_record_set}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#timeouts Route53RecordsExclusive#timeouts}
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#zone_id Route53RecordsExclusive#zone_id}.
+        :param resource_record_set: resource_record_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#resource_record_set Route53RecordsExclusive#resource_record_set}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#timeouts Route53RecordsExclusive#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,7 +358,7 @@ class Route53RecordsExclusiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#zone_id Route53RecordsExclusive#zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#zone_id Route53RecordsExclusive#zone_id}.'''
         result = self._values.get("zone_id")
         assert result is not None, "Required property 'zone_id' is missing"
         return typing.cast(builtins.str, result)
@@ -369,7 +369,7 @@ class Route53RecordsExclusiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSet"]]]:
         '''resource_record_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#resource_record_set Route53RecordsExclusive#resource_record_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#resource_record_set Route53RecordsExclusive#resource_record_set}
         '''
         result = self._values.get("resource_record_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSet"]]], result)
@@ -378,7 +378,7 @@ class Route53RecordsExclusiveConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Route53RecordsExclusiveTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#timeouts Route53RecordsExclusive#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#timeouts Route53RecordsExclusive#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Route53RecordsExclusiveTimeouts"], result)
@@ -437,21 +437,21 @@ class Route53RecordsExclusiveResourceRecordSet:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#name Route53RecordsExclusive#name}.
-        :param alias_target: alias_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#alias_target Route53RecordsExclusive#alias_target}
-        :param cidr_routing_config: cidr_routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#cidr_routing_config Route53RecordsExclusive#cidr_routing_config}
-        :param failover: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#failover Route53RecordsExclusive#failover}.
-        :param geolocation: geolocation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#geolocation Route53RecordsExclusive#geolocation}
-        :param geoproximity_location: geoproximity_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#geoproximity_location Route53RecordsExclusive#geoproximity_location}
-        :param health_check_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#health_check_id Route53RecordsExclusive#health_check_id}.
-        :param multi_value_answer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#multi_value_answer Route53RecordsExclusive#multi_value_answer}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#region Route53RecordsExclusive#region}.
-        :param resource_records: resource_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#resource_records Route53RecordsExclusive#resource_records}
-        :param set_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#set_identifier Route53RecordsExclusive#set_identifier}.
-        :param traffic_policy_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#traffic_policy_instance_id Route53RecordsExclusive#traffic_policy_instance_id}.
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#ttl Route53RecordsExclusive#ttl}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#type Route53RecordsExclusive#type}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#weight Route53RecordsExclusive#weight}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#name Route53RecordsExclusive#name}.
+        :param alias_target: alias_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#alias_target Route53RecordsExclusive#alias_target}
+        :param cidr_routing_config: cidr_routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#cidr_routing_config Route53RecordsExclusive#cidr_routing_config}
+        :param failover: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#failover Route53RecordsExclusive#failover}.
+        :param geolocation: geolocation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#geolocation Route53RecordsExclusive#geolocation}
+        :param geoproximity_location: geoproximity_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#geoproximity_location Route53RecordsExclusive#geoproximity_location}
+        :param health_check_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#health_check_id Route53RecordsExclusive#health_check_id}.
+        :param multi_value_answer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#multi_value_answer Route53RecordsExclusive#multi_value_answer}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#region Route53RecordsExclusive#region}.
+        :param resource_records: resource_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#resource_records Route53RecordsExclusive#resource_records}
+        :param set_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#set_identifier Route53RecordsExclusive#set_identifier}.
+        :param traffic_policy_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#traffic_policy_instance_id Route53RecordsExclusive#traffic_policy_instance_id}.
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#ttl Route53RecordsExclusive#ttl}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#type Route53RecordsExclusive#type}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#weight Route53RecordsExclusive#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__099543baa2336d64b1cea1c13a94ca91e34048a501a1d2c75b01d6b49f059698)
@@ -504,7 +504,7 @@ class Route53RecordsExclusiveResourceRecordSet:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#name Route53RecordsExclusive#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#name Route53RecordsExclusive#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -515,7 +515,7 @@ class Route53RecordsExclusiveResourceRecordSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetAliasTarget"]]]:
         '''alias_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#alias_target Route53RecordsExclusive#alias_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#alias_target Route53RecordsExclusive#alias_target}
         '''
         result = self._values.get("alias_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetAliasTarget"]]], result)
@@ -526,14 +526,14 @@ class Route53RecordsExclusiveResourceRecordSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetCidrRoutingConfig"]]]:
         '''cidr_routing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#cidr_routing_config Route53RecordsExclusive#cidr_routing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#cidr_routing_config Route53RecordsExclusive#cidr_routing_config}
         '''
         result = self._values.get("cidr_routing_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetCidrRoutingConfig"]]], result)
 
     @builtins.property
     def failover(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#failover Route53RecordsExclusive#failover}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#failover Route53RecordsExclusive#failover}.'''
         result = self._values.get("failover")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -543,7 +543,7 @@ class Route53RecordsExclusiveResourceRecordSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetGeolocation"]]]:
         '''geolocation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#geolocation Route53RecordsExclusive#geolocation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#geolocation Route53RecordsExclusive#geolocation}
         '''
         result = self._values.get("geolocation")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetGeolocation"]]], result)
@@ -554,14 +554,14 @@ class Route53RecordsExclusiveResourceRecordSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetGeoproximityLocation"]]]:
         '''geoproximity_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#geoproximity_location Route53RecordsExclusive#geoproximity_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#geoproximity_location Route53RecordsExclusive#geoproximity_location}
         '''
         result = self._values.get("geoproximity_location")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetGeoproximityLocation"]]], result)
 
     @builtins.property
     def health_check_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#health_check_id Route53RecordsExclusive#health_check_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#health_check_id Route53RecordsExclusive#health_check_id}.'''
         result = self._values.get("health_check_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -569,13 +569,13 @@ class Route53RecordsExclusiveResourceRecordSet:
     def multi_value_answer(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#multi_value_answer Route53RecordsExclusive#multi_value_answer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#multi_value_answer Route53RecordsExclusive#multi_value_answer}.'''
         result = self._values.get("multi_value_answer")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#region Route53RecordsExclusive#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#region Route53RecordsExclusive#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -585,38 +585,38 @@ class Route53RecordsExclusiveResourceRecordSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetResourceRecords"]]]:
         '''resource_records block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#resource_records Route53RecordsExclusive#resource_records}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#resource_records Route53RecordsExclusive#resource_records}
         '''
         result = self._values.get("resource_records")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetResourceRecords"]]], result)
 
     @builtins.property
     def set_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#set_identifier Route53RecordsExclusive#set_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#set_identifier Route53RecordsExclusive#set_identifier}.'''
         result = self._values.get("set_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def traffic_policy_instance_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#traffic_policy_instance_id Route53RecordsExclusive#traffic_policy_instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#traffic_policy_instance_id Route53RecordsExclusive#traffic_policy_instance_id}.'''
         result = self._values.get("traffic_policy_instance_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#ttl Route53RecordsExclusive#ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#ttl Route53RecordsExclusive#ttl}.'''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#type Route53RecordsExclusive#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#type Route53RecordsExclusive#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#weight Route53RecordsExclusive#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#weight Route53RecordsExclusive#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -650,9 +650,9 @@ class Route53RecordsExclusiveResourceRecordSetAliasTarget:
         hosted_zone_id: builtins.str,
     ) -> None:
         '''
-        :param dns_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#dns_name Route53RecordsExclusive#dns_name}.
-        :param evaluate_target_health: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#evaluate_target_health Route53RecordsExclusive#evaluate_target_health}.
-        :param hosted_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#hosted_zone_id Route53RecordsExclusive#hosted_zone_id}.
+        :param dns_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#dns_name Route53RecordsExclusive#dns_name}.
+        :param evaluate_target_health: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#evaluate_target_health Route53RecordsExclusive#evaluate_target_health}.
+        :param hosted_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#hosted_zone_id Route53RecordsExclusive#hosted_zone_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__975317bd436d5cb13338b1364df7105ff0a7c856db055d265b0c62426b0fbada)
@@ -667,7 +667,7 @@ class Route53RecordsExclusiveResourceRecordSetAliasTarget:
 
     @builtins.property
     def dns_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#dns_name Route53RecordsExclusive#dns_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#dns_name Route53RecordsExclusive#dns_name}.'''
         result = self._values.get("dns_name")
         assert result is not None, "Required property 'dns_name' is missing"
         return typing.cast(builtins.str, result)
@@ -676,14 +676,14 @@ class Route53RecordsExclusiveResourceRecordSetAliasTarget:
     def evaluate_target_health(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#evaluate_target_health Route53RecordsExclusive#evaluate_target_health}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#evaluate_target_health Route53RecordsExclusive#evaluate_target_health}.'''
         result = self._values.get("evaluate_target_health")
         assert result is not None, "Required property 'evaluate_target_health' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def hosted_zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#hosted_zone_id Route53RecordsExclusive#hosted_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#hosted_zone_id Route53RecordsExclusive#hosted_zone_id}.'''
         result = self._values.get("hosted_zone_id")
         assert result is not None, "Required property 'hosted_zone_id' is missing"
         return typing.cast(builtins.str, result)
@@ -908,8 +908,8 @@ class Route53RecordsExclusiveResourceRecordSetCidrRoutingConfig:
         location_name: builtins.str,
     ) -> None:
         '''
-        :param collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#collection_id Route53RecordsExclusive#collection_id}.
-        :param location_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#location_name Route53RecordsExclusive#location_name}.
+        :param collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#collection_id Route53RecordsExclusive#collection_id}.
+        :param location_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#location_name Route53RecordsExclusive#location_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cd82de0cc5282353ed27d828c0e63dd74bc69d1e81754f4acf695304181cedf)
@@ -922,14 +922,14 @@ class Route53RecordsExclusiveResourceRecordSetCidrRoutingConfig:
 
     @builtins.property
     def collection_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#collection_id Route53RecordsExclusive#collection_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#collection_id Route53RecordsExclusive#collection_id}.'''
         result = self._values.get("collection_id")
         assert result is not None, "Required property 'collection_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#location_name Route53RecordsExclusive#location_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#location_name Route53RecordsExclusive#location_name}.'''
         result = self._values.get("location_name")
         assert result is not None, "Required property 'location_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1135,9 +1135,9 @@ class Route53RecordsExclusiveResourceRecordSetGeolocation:
         subdivision_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param continent_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#continent_code Route53RecordsExclusive#continent_code}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#country_code Route53RecordsExclusive#country_code}.
-        :param subdivision_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#subdivision_code Route53RecordsExclusive#subdivision_code}.
+        :param continent_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#continent_code Route53RecordsExclusive#continent_code}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#country_code Route53RecordsExclusive#country_code}.
+        :param subdivision_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#subdivision_code Route53RecordsExclusive#subdivision_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30103df82f2c47900be30a4a0b3167eadf4366ecf7fb852a215aac2de8ea9844)
@@ -1154,19 +1154,19 @@ class Route53RecordsExclusiveResourceRecordSetGeolocation:
 
     @builtins.property
     def continent_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#continent_code Route53RecordsExclusive#continent_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#continent_code Route53RecordsExclusive#continent_code}.'''
         result = self._values.get("continent_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#country_code Route53RecordsExclusive#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#country_code Route53RecordsExclusive#country_code}.'''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subdivision_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#subdivision_code Route53RecordsExclusive#subdivision_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#subdivision_code Route53RecordsExclusive#subdivision_code}.'''
         result = self._values.get("subdivision_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1402,10 +1402,10 @@ class Route53RecordsExclusiveResourceRecordSetGeoproximityLocation:
         local_zone_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#aws_region Route53RecordsExclusive#aws_region}.
-        :param bias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#bias Route53RecordsExclusive#bias}.
-        :param coordinates: coordinates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#coordinates Route53RecordsExclusive#coordinates}
-        :param local_zone_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#local_zone_group Route53RecordsExclusive#local_zone_group}.
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#aws_region Route53RecordsExclusive#aws_region}.
+        :param bias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#bias Route53RecordsExclusive#bias}.
+        :param coordinates: coordinates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#coordinates Route53RecordsExclusive#coordinates}
+        :param local_zone_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#local_zone_group Route53RecordsExclusive#local_zone_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__999df2d53a20e78c4239e79cd6ec38dc3e9e0888764f3d624e112ada95dc1382)
@@ -1425,13 +1425,13 @@ class Route53RecordsExclusiveResourceRecordSetGeoproximityLocation:
 
     @builtins.property
     def aws_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#aws_region Route53RecordsExclusive#aws_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#aws_region Route53RecordsExclusive#aws_region}.'''
         result = self._values.get("aws_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bias(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#bias Route53RecordsExclusive#bias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#bias Route53RecordsExclusive#bias}.'''
         result = self._values.get("bias")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1441,14 +1441,14 @@ class Route53RecordsExclusiveResourceRecordSetGeoproximityLocation:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetGeoproximityLocationCoordinates"]]]:
         '''coordinates block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#coordinates Route53RecordsExclusive#coordinates}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#coordinates Route53RecordsExclusive#coordinates}
         '''
         result = self._values.get("coordinates")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordsExclusiveResourceRecordSetGeoproximityLocationCoordinates"]]], result)
 
     @builtins.property
     def local_zone_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#local_zone_group Route53RecordsExclusive#local_zone_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#local_zone_group Route53RecordsExclusive#local_zone_group}.'''
         result = self._values.get("local_zone_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1472,8 +1472,8 @@ class Route53RecordsExclusiveResourceRecordSetGeoproximityLocation:
 class Route53RecordsExclusiveResourceRecordSetGeoproximityLocationCoordinates:
     def __init__(self, *, latitude: builtins.str, longitude: builtins.str) -> None:
         '''
-        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#latitude Route53RecordsExclusive#latitude}.
-        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#longitude Route53RecordsExclusive#longitude}.
+        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#latitude Route53RecordsExclusive#latitude}.
+        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#longitude Route53RecordsExclusive#longitude}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ccdf316eead4c65d4f37dc18348f801f6eb17d31f1440deeeb742f7a5c53e664)
@@ -1486,14 +1486,14 @@ class Route53RecordsExclusiveResourceRecordSetGeoproximityLocationCoordinates:
 
     @builtins.property
     def latitude(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#latitude Route53RecordsExclusive#latitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#latitude Route53RecordsExclusive#latitude}.'''
         result = self._values.get("latitude")
         assert result is not None, "Required property 'latitude' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def longitude(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#longitude Route53RecordsExclusive#longitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#longitude Route53RecordsExclusive#longitude}.'''
         result = self._values.get("longitude")
         assert result is not None, "Required property 'longitude' is missing"
         return typing.cast(builtins.str, result)
@@ -2421,7 +2421,7 @@ class Route53RecordsExclusiveResourceRecordSetOutputReference(
 class Route53RecordsExclusiveResourceRecordSetResourceRecords:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#value Route53RecordsExclusive#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#value Route53RecordsExclusive#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__866328d98a08df7d9619a0631a67089d5b06525f428e15eb4da1f841b892def1)
@@ -2432,7 +2432,7 @@ class Route53RecordsExclusiveResourceRecordSetResourceRecords:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#value Route53RecordsExclusive#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#value Route53RecordsExclusive#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2616,8 +2616,8 @@ class Route53RecordsExclusiveTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#create Route53RecordsExclusive#create}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#update Route53RecordsExclusive#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#create Route53RecordsExclusive#create}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#update Route53RecordsExclusive#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c757f224957ee0a199b31d4852e944fb89e08fd63b945c5c9312f445b058674)
@@ -2633,7 +2633,7 @@ class Route53RecordsExclusiveTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#create Route53RecordsExclusive#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#create Route53RecordsExclusive#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2642,7 +2642,7 @@ class Route53RecordsExclusiveTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_records_exclusive#update Route53RecordsExclusive#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_records_exclusive#update Route53RecordsExclusive#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

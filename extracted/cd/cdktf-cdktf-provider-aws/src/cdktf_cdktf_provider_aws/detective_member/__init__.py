@@ -1,7 +1,7 @@
 r'''
 # `aws_detective_member`
 
-Refer to the Terraform Registry for docs: [`aws_detective_member`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member).
+Refer to the Terraform Registry for docs: [`aws_detective_member`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DetectiveMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.detectiveMember.DetectiveMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member aws_detective_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member aws_detective_member}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DetectiveMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member aws_detective_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member aws_detective_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#account_id DetectiveMember#account_id}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#email_address DetectiveMember#email_address}.
-        :param graph_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#graph_arn DetectiveMember#graph_arn}.
-        :param disable_email_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#disable_email_notification DetectiveMember#disable_email_notification}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#id DetectiveMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#message DetectiveMember#message}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#account_id DetectiveMember#account_id}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#email_address DetectiveMember#email_address}.
+        :param graph_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#graph_arn DetectiveMember#graph_arn}.
+        :param disable_email_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#disable_email_notification DetectiveMember#disable_email_notification}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#id DetectiveMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#message DetectiveMember#message}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DetectiveMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DetectiveMember to import.
-        :param import_from_id: The id of the existing DetectiveMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DetectiveMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DetectiveMember to import is found.
         '''
         if __debug__:
@@ -339,12 +339,12 @@ class DetectiveMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#account_id DetectiveMember#account_id}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#email_address DetectiveMember#email_address}.
-        :param graph_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#graph_arn DetectiveMember#graph_arn}.
-        :param disable_email_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#disable_email_notification DetectiveMember#disable_email_notification}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#id DetectiveMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#message DetectiveMember#message}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#account_id DetectiveMember#account_id}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#email_address DetectiveMember#email_address}.
+        :param graph_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#graph_arn DetectiveMember#graph_arn}.
+        :param disable_email_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#disable_email_notification DetectiveMember#disable_email_notification}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#id DetectiveMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#message DetectiveMember#message}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -455,21 +455,21 @@ class DetectiveMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#account_id DetectiveMember#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#account_id DetectiveMember#account_id}.'''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def email_address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#email_address DetectiveMember#email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#email_address DetectiveMember#email_address}.'''
         result = self._values.get("email_address")
         assert result is not None, "Required property 'email_address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def graph_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#graph_arn DetectiveMember#graph_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#graph_arn DetectiveMember#graph_arn}.'''
         result = self._values.get("graph_arn")
         assert result is not None, "Required property 'graph_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -478,13 +478,13 @@ class DetectiveMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_email_notification(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#disable_email_notification DetectiveMember#disable_email_notification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#disable_email_notification DetectiveMember#disable_email_notification}.'''
         result = self._values.get("disable_email_notification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#id DetectiveMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#id DetectiveMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -494,7 +494,7 @@ class DetectiveMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/detective_member#message DetectiveMember#message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/detective_member#message DetectiveMember#message}.'''
         result = self._values.get("message")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1279,7 +1279,8 @@ class CfnOriginEndpoint(
                     # the properties below are optional
                     precise=False
                 ),
-                url="url"
+                url="url",
+                url_encode_child_manifest=False
             )],
             low_latency_hls_manifests=[mediapackagev2.CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty(
                 manifest_name="manifestName",
@@ -1304,7 +1305,8 @@ class CfnOriginEndpoint(
                     # the properties below are optional
                     precise=False
                 ),
-                url="url"
+                url="url",
+                url_encode_child_manifest=False
             )],
             segment=mediapackagev2.CfnOriginEndpoint.SegmentProperty(
                 encryption=mediapackagev2.CfnOriginEndpoint.EncryptionProperty(
@@ -2474,6 +2476,7 @@ class CfnOriginEndpoint(
             "scte_hls": "scteHls",
             "start_tag": "startTag",
             "url": "url",
+            "url_encode_child_manifest": "urlEncodeChildManifest",
         },
     )
     class HlsManifestConfigurationProperty:
@@ -2488,6 +2491,7 @@ class CfnOriginEndpoint(
             scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             url: typing.Optional[builtins.str] = None,
+            url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
             '''The HLS manfiest configuration associated with the origin endpoint.
 
@@ -2499,6 +2503,7 @@ class CfnOriginEndpoint(
             :param scte_hls: THE SCTE-35 HLS configuration associated with the HLS manifest configuration.
             :param start_tag:  When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
             :param url: The URL of the HLS manifest configuration.
+            :param url_encode_child_manifest:  For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2532,7 +2537,8 @@ class CfnOriginEndpoint(
                         # the properties below are optional
                         precise=False
                     ),
-                    url="url"
+                    url="url",
+                    url_encode_child_manifest=False
                 )
             '''
             if __debug__:
@@ -2545,6 +2551,7 @@ class CfnOriginEndpoint(
                 check_type(argname="argument scte_hls", value=scte_hls, expected_type=type_hints["scte_hls"])
                 check_type(argname="argument start_tag", value=start_tag, expected_type=type_hints["start_tag"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument url_encode_child_manifest", value=url_encode_child_manifest, expected_type=type_hints["url_encode_child_manifest"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "manifest_name": manifest_name,
             }
@@ -2562,6 +2569,8 @@ class CfnOriginEndpoint(
                 self._values["start_tag"] = start_tag
             if url is not None:
                 self._values["url"] = url
+            if url_encode_child_manifest is not None:
+                self._values["url_encode_child_manifest"] = url_encode_child_manifest
 
         @builtins.property
         def manifest_name(self) -> builtins.str:
@@ -2643,6 +2652,18 @@ class CfnOriginEndpoint(
             result = self._values.get("url")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def url_encode_child_manifest(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''
+            For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-urlencodechildmanifest
+            '''
+            result = self._values.get("url_encode_child_manifest")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2666,6 +2687,7 @@ class CfnOriginEndpoint(
             "scte_hls": "scteHls",
             "start_tag": "startTag",
             "url": "url",
+            "url_encode_child_manifest": "urlEncodeChildManifest",
         },
     )
     class LowLatencyHlsManifestConfigurationProperty:
@@ -2680,6 +2702,7 @@ class CfnOriginEndpoint(
             scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             url: typing.Optional[builtins.str] = None,
+            url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
             '''Specify a low-latency HTTP live streaming (LL-HLS) manifest configuration.
 
@@ -2691,6 +2714,7 @@ class CfnOriginEndpoint(
             :param scte_hls: The SCTE-35 HLS configuration associated with the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
             :param start_tag:  When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
             :param url: The URL of the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
+            :param url_encode_child_manifest:  For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2724,7 +2748,8 @@ class CfnOriginEndpoint(
                         # the properties below are optional
                         precise=False
                     ),
-                    url="url"
+                    url="url",
+                    url_encode_child_manifest=False
                 )
             '''
             if __debug__:
@@ -2737,6 +2762,7 @@ class CfnOriginEndpoint(
                 check_type(argname="argument scte_hls", value=scte_hls, expected_type=type_hints["scte_hls"])
                 check_type(argname="argument start_tag", value=start_tag, expected_type=type_hints["start_tag"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument url_encode_child_manifest", value=url_encode_child_manifest, expected_type=type_hints["url_encode_child_manifest"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "manifest_name": manifest_name,
             }
@@ -2754,6 +2780,8 @@ class CfnOriginEndpoint(
                 self._values["start_tag"] = start_tag
             if url is not None:
                 self._values["url"] = url
+            if url_encode_child_manifest is not None:
+                self._values["url_encode_child_manifest"] = url_encode_child_manifest
 
         @builtins.property
         def manifest_name(self) -> builtins.str:
@@ -2840,6 +2868,18 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("url")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def url_encode_child_manifest(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''
+            For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-urlencodechildmanifest
+            '''
+            result = self._values.get("url_encode_child_manifest")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3800,7 +3840,8 @@ class CfnOriginEndpointProps:
                         # the properties below are optional
                         precise=False
                     ),
-                    url="url"
+                    url="url",
+                    url_encode_child_manifest=False
                 )],
                 low_latency_hls_manifests=[mediapackagev2.CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty(
                     manifest_name="manifestName",
@@ -3825,7 +3866,8 @@ class CfnOriginEndpointProps:
                         # the properties below are optional
                         precise=False
                     ),
-                    url="url"
+                    url="url",
+                    url_encode_child_manifest=False
                 )],
                 segment=mediapackagev2.CfnOriginEndpoint.SegmentProperty(
                     encryption=mediapackagev2.CfnOriginEndpoint.EncryptionProperty(
@@ -4439,6 +4481,7 @@ def _typecheckingstub__b59520e6fbce62f410265deeb9cc043e1cf408c2c3cc498907eb73fcc
     scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     url: typing.Optional[builtins.str] = None,
+    url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4453,6 +4496,7 @@ def _typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b3
     scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     url: typing.Optional[builtins.str] = None,
+    url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

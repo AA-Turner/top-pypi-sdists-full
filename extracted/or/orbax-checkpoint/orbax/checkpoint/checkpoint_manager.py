@@ -35,6 +35,7 @@ from orbax.checkpoint import checkpoint_args
 from orbax.checkpoint import options as options_lib
 from orbax.checkpoint import utils
 from orbax.checkpoint._src import threading as threading_lib
+from orbax.checkpoint._src.checkpoint_managers import policy_checkpoint_info
 from orbax.checkpoint._src.checkpoint_managers import save_decision_policy as save_decision_policy_lib
 from orbax.checkpoint._src.checkpointers import abstract_checkpointer
 from orbax.checkpoint._src.checkpointers import async_checkpointer
@@ -92,10 +93,9 @@ MultiprocessingOptions = options_lib.MultiprocessingOptions
 FileOptions = options_lib.FileOptions
 
 DEFAULT_ITEM_NAME = 'default'
-DESCRIPTOR_ITEM_NAME = 'descriptor'
 METRIC_ITEM_NAME = 'metrics'
 METADATA_ITEM_NAME = 'metadata'
-RESERVED_ITEM_NAMES = [DESCRIPTOR_ITEM_NAME, METRIC_ITEM_NAME]
+RESERVED_ITEM_NAMES = []
 
 _INIT_TIME = datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -168,8 +168,8 @@ class _ShouldSaveFnPolicy(save_decision_policy_lib.SaveDecisionPolicy):
 
   def should_save(
       self,
-      step: checkpoint_info.CheckpointInfo,
-      previous_steps: Sequence[checkpoint_info.CheckpointInfo],
+      step: policy_checkpoint_info.PolicyCheckpointInfo,
+      previous_steps: Sequence[policy_checkpoint_info.PolicyCheckpointInfo],
       *,
       context: save_decision_policy_lib.DecisionContext,
   ) -> bool:
@@ -319,6 +319,7 @@ class CheckpointManagerOptions:
     is the sole means of determining when a checkpoint should be saved. If not
     provided, these other options are used instead. Prefer to use this option
     over others.
+  prevent_write_metrics: False by default. If True, metrics will not be written.
   """
 
   save_interval_steps: int = 1
@@ -351,6 +352,7 @@ class CheckpointManagerOptions:
   save_decision_policy: Optional[
       save_decision_policy_lib.SaveDecisionPolicy
   ] = None
+  prevent_write_metrics: bool = False
 
   def __post_init__(self):
     step_name_format_single_host_load_and_broadcast = (
@@ -910,7 +912,6 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
           f'Invalid type for `checkpointers`. Found {checkpointers}.'
       )
 
-    # if options.best_fn:
     item_handlers[METRIC_ITEM_NAME] = self._metrics_handler
     if options.async_options is None:
       options.async_options = (
@@ -1151,12 +1152,17 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
 
     Args:
       step: The step to delete.
+
+    Raises:
+      FileNotFoundError: If the step does not exist.
     """
     if self._options.read_only:
       logging.warning('%s is read only, delete will be skipped', self.directory)
       return
     if step not in self.all_steps():
-      raise ValueError(f'Requested deleting a non-existent step: {step}.')
+      raise FileNotFoundError(
+          f'Requested deleting a non-existent step: {step}.'
+      )
     self._checkpoint_deleter.delete(step)
     multihost.sync_global_processes(
         multihost.unique_barrier_key(
@@ -1361,8 +1367,10 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
           'Some provided items have prohibited reserved names:'
           f' {args_dict.keys()}. Reserved names: {RESERVED_ITEM_NAMES}.'
       )
-    if metrics is not None and self._track_best:
-      args_dict['metrics'] = args_lib.JsonSave(metrics)
+    if (
+        metrics is not None and self._track_best
+    ) and not self._options.prevent_write_metrics:
+      args_dict[METRIC_ITEM_NAME] = args_lib.JsonSave(metrics)
     args = args_lib.Composite(**args_dict)
 
     save_directory = self._get_write_step_directory(step, self.directory)
@@ -1633,20 +1641,18 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
 
   # TODO(b/370812224): Deprecate in favor of StepMetadata.metrics
   def metrics(self, step: int) -> Optional[PyTree]:
-    if self._track_best:
-      try:
-        # Use handler directly, since this happens in a background thread and
-        # barriers cannot be used. This usage pattern is not
-        # recommended in other contexts.
-        return self._metrics_handler.restore(
-            self._get_read_step_directory(step, self.directory)
-            / METRIC_ITEM_NAME
-        )
-      except FileNotFoundError as e:
-        logging.warning('Missing metrics for step %d', step)
-        logging.error(e)
-        return None
-    else:
+    try:
+      # Use handler directly, since this happens in a background thread and
+      # barriers cannot be used. This usage pattern is not
+      # recommended in other contexts.
+      metrics = self._metrics_handler.restore(
+          self._get_read_step_directory(step, self.directory)
+          / METRIC_ITEM_NAME
+      )
+      return metrics
+    except FileNotFoundError as e:
+      logging.warning('Missing metrics for step %d', step)
+      logging.error(e)
       return None
 
   @property

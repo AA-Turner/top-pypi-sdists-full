@@ -1,7 +1,7 @@
 r'''
 # `aws_acm_certificate_validation`
 
-Refer to the Terraform Registry for docs: [`aws_acm_certificate_validation`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation).
+Refer to the Terraform Registry for docs: [`aws_acm_certificate_validation`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AcmCertificateValidation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.acmCertificateValidation.AcmCertificateValidation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation aws_acm_certificate_validation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation aws_acm_certificate_validation}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class AcmCertificateValidation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation aws_acm_certificate_validation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation aws_acm_certificate_validation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#certificate_arn AcmCertificateValidation#certificate_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#id AcmCertificateValidation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#timeouts AcmCertificateValidation#timeouts}
-        :param validation_record_fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#validation_record_fqdns AcmCertificateValidation#validation_record_fqdns}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#certificate_arn AcmCertificateValidation#certificate_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#id AcmCertificateValidation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#timeouts AcmCertificateValidation#timeouts}
+        :param validation_record_fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#validation_record_fqdns AcmCertificateValidation#validation_record_fqdns}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class AcmCertificateValidation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AcmCertificateValidation to import.
-        :param import_from_id: The id of the existing AcmCertificateValidation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AcmCertificateValidation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AcmCertificateValidation to import is found.
         '''
         if __debug__:
@@ -126,7 +126,7 @@ class AcmCertificateValidation(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#create AcmCertificateValidation#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#create AcmCertificateValidation#create}.
         '''
         value = AcmCertificateValidationTimeouts(create=create)
 
@@ -264,10 +264,10 @@ class AcmCertificateValidationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#certificate_arn AcmCertificateValidation#certificate_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#id AcmCertificateValidation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#timeouts AcmCertificateValidation#timeouts}
-        :param validation_record_fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#validation_record_fqdns AcmCertificateValidation#validation_record_fqdns}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#certificate_arn AcmCertificateValidation#certificate_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#id AcmCertificateValidation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#timeouts AcmCertificateValidation#timeouts}
+        :param validation_record_fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#validation_record_fqdns AcmCertificateValidation#validation_record_fqdns}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -376,14 +376,14 @@ class AcmCertificateValidationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def certificate_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#certificate_arn AcmCertificateValidation#certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#certificate_arn AcmCertificateValidation#certificate_arn}.'''
         result = self._values.get("certificate_arn")
         assert result is not None, "Required property 'certificate_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#id AcmCertificateValidation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#id AcmCertificateValidation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -395,14 +395,14 @@ class AcmCertificateValidationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AcmCertificateValidationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#timeouts AcmCertificateValidation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#timeouts AcmCertificateValidation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AcmCertificateValidationTimeouts"], result)
 
     @builtins.property
     def validation_record_fqdns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#validation_record_fqdns AcmCertificateValidation#validation_record_fqdns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#validation_record_fqdns AcmCertificateValidation#validation_record_fqdns}.'''
         result = self._values.get("validation_record_fqdns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -426,7 +426,7 @@ class AcmCertificateValidationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class AcmCertificateValidationTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#create AcmCertificateValidation#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#create AcmCertificateValidation#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f219f9056fddabdb67161233ecd53ef38a38659cf793ae65b534d23e425d24c0)
@@ -437,7 +437,7 @@ class AcmCertificateValidationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/acm_certificate_validation#create AcmCertificateValidation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/acm_certificate_validation#create AcmCertificateValidation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

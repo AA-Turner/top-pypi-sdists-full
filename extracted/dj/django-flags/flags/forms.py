@@ -13,8 +13,7 @@ class FlagStateForm(forms.ModelForm):
         label="Required",
         required=False,
         help_text=(
-            'All conditions marked "required" must be met to enable '
-            "the flag"
+            'All conditions marked "required" must be met to enable the flag'
         ),
     )
 
@@ -38,8 +37,8 @@ class FlagStateForm(forms.ModelForm):
         if validator is not None:
             try:
                 validator(value)
-            except Exception as e:
-                raise forms.ValidationError(e)
+            except Exception as err:
+                raise forms.ValidationError(err) from err
 
         return value
 

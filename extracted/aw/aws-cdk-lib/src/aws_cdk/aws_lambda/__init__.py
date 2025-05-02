@@ -7634,7 +7634,7 @@ class CfnFunction(
     )
     class DeadLetterConfigProperty:
         def __init__(self, *, target_arn: typing.Optional[builtins.str] = None) -> None:
-            '''The `dead-letter queue <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#dlq>`_ for failed asynchronous invocations.
+            '''The `dead-letter queue <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-dlq>`_ for failed asynchronous invocations.
 
             :param target_arn: The Amazon Resource Name (ARN) of an Amazon SQS queue or Amazon SNS topic.
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_iot_topic_rule`
 
-Refer to the Terraform Registry for docs: [`aws_iot_topic_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule).
+Refer to the Terraform Registry for docs: [`aws_iot_topic_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IotTopicRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.iotTopicRule.IotTopicRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule aws_iot_topic_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule aws_iot_topic_rule}.'''
 
     def __init__(
         self,
@@ -87,38 +87,38 @@ class IotTopicRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule aws_iot_topic_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule aws_iot_topic_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#enabled IotTopicRule#enabled}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
-        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sql IotTopicRule#sql}.
-        :param sql_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sql_version IotTopicRule#sql_version}.
-        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
-        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#description IotTopicRule#description}.
-        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
-        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
-        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
-        :param error_action: error_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#error_action IotTopicRule#error_action}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
-        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
-        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
-        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
-        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
-        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
-        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
-        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#tags IotTopicRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#tags_all IotTopicRule#tags_all}.
-        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#enabled IotTopicRule#enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
+        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sql IotTopicRule#sql}.
+        :param sql_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sql_version IotTopicRule#sql_version}.
+        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
+        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#description IotTopicRule#description}.
+        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
+        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
+        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
+        :param error_action: error_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#error_action IotTopicRule#error_action}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
+        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
+        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
+        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
+        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
+        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
+        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
+        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#tags IotTopicRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#tags_all IotTopicRule#tags_all}.
+        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -184,7 +184,7 @@ class IotTopicRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IotTopicRule to import.
-        :param import_from_id: The id of the existing IotTopicRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IotTopicRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IotTopicRule to import is found.
         '''
         if __debug__:
@@ -298,25 +298,25 @@ class IotTopicRule(
         timestream: typing.Optional[typing.Union["IotTopicRuleErrorActionTimestream", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
-        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
-        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
-        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
-        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
-        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
-        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
-        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
-        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
-        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
-        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
-        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
-        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
-        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
+        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
+        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
+        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
+        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
+        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
+        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
+        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
+        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
+        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
+        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
+        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
+        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
+        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
+        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
         '''
         value = IotTopicRuleErrorAction(
             cloudwatch_alarm=cloudwatch_alarm,
@@ -1027,10 +1027,10 @@ class IotTopicRuleCloudwatchAlarm:
         state_value: builtins.str,
     ) -> None:
         '''
-        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param state_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.
-        :param state_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.
+        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param state_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.
+        :param state_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f80cad964ea1794363a30c075aa9b7d54844d7e9b326843217e380085924d3ab)
@@ -1047,28 +1047,28 @@ class IotTopicRuleCloudwatchAlarm:
 
     @builtins.property
     def alarm_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.'''
         result = self._values.get("alarm_name")
         assert result is not None, "Required property 'alarm_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state_reason(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.'''
         result = self._values.get("state_reason")
         assert result is not None, "Required property 'state_reason' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.'''
         result = self._values.get("state_value")
         assert result is not None, "Required property 'state_value' is missing"
         return typing.cast(builtins.str, result)
@@ -1305,9 +1305,9 @@ class IotTopicRuleCloudwatchLogs:
         batch_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76561102d918397c1716ad8540000c6bf0c0165120ead2b5716d0c53bbfe9070)
@@ -1323,14 +1323,14 @@ class IotTopicRuleCloudwatchLogs:
 
     @builtins.property
     def log_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.'''
         result = self._values.get("log_group_name")
         assert result is not None, "Required property 'log_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1339,7 +1339,7 @@ class IotTopicRuleCloudwatchLogs:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1573,12 +1573,12 @@ class IotTopicRuleCloudwatchMetric:
         metric_timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.
-        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.
-        :param metric_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.
-        :param metric_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param metric_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.
+        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.
+        :param metric_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.
+        :param metric_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param metric_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19931c16274872697d258287b0c631350ebe4a7b1c054f46b62c5c43a6ba0fab)
@@ -1600,42 +1600,42 @@ class IotTopicRuleCloudwatchMetric:
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.'''
         result = self._values.get("metric_namespace")
         assert result is not None, "Required property 'metric_namespace' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.'''
         result = self._values.get("metric_unit")
         assert result is not None, "Required property 'metric_unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.'''
         result = self._values.get("metric_value")
         assert result is not None, "Required property 'metric_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_timestamp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.'''
         result = self._values.get("metric_timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1980,34 +1980,34 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#enabled IotTopicRule#enabled}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
-        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sql IotTopicRule#sql}.
-        :param sql_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sql_version IotTopicRule#sql_version}.
-        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
-        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#description IotTopicRule#description}.
-        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
-        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
-        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
-        :param error_action: error_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#error_action IotTopicRule#error_action}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
-        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
-        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
-        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
-        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
-        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
-        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
-        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#tags IotTopicRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#tags_all IotTopicRule#tags_all}.
-        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#enabled IotTopicRule#enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
+        :param sql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sql IotTopicRule#sql}.
+        :param sql_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sql_version IotTopicRule#sql_version}.
+        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
+        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#description IotTopicRule#description}.
+        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
+        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
+        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
+        :param error_action: error_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#error_action IotTopicRule#error_action}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
+        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
+        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
+        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
+        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
+        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
+        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
+        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#tags IotTopicRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#tags_all IotTopicRule#tags_all}.
+        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2185,28 +2185,28 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#enabled IotTopicRule#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#enabled IotTopicRule#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sql(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sql IotTopicRule#sql}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sql IotTopicRule#sql}.'''
         result = self._values.get("sql")
         assert result is not None, "Required property 'sql' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sql_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sql_version IotTopicRule#sql_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sql_version IotTopicRule#sql_version}.'''
         result = self._values.get("sql_version")
         assert result is not None, "Required property 'sql_version' is missing"
         return typing.cast(builtins.str, result)
@@ -2217,7 +2217,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IotTopicRuleCloudwatchAlarm]]]:
         '''cloudwatch_alarm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
         '''
         result = self._values.get("cloudwatch_alarm")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IotTopicRuleCloudwatchAlarm]]], result)
@@ -2228,7 +2228,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IotTopicRuleCloudwatchLogs]]]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IotTopicRuleCloudwatchLogs]]], result)
@@ -2239,14 +2239,14 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IotTopicRuleCloudwatchMetric]]]:
         '''cloudwatch_metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
         '''
         result = self._values.get("cloudwatch_metric")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IotTopicRuleCloudwatchMetric]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#description IotTopicRule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#description IotTopicRule#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2256,7 +2256,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleDynamodb"]]]:
         '''dynamodb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
         '''
         result = self._values.get("dynamodb")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleDynamodb"]]], result)
@@ -2267,7 +2267,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleDynamodbv2"]]]:
         '''dynamodbv2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
         '''
         result = self._values.get("dynamodbv2")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleDynamodbv2"]]], result)
@@ -2278,7 +2278,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleElasticsearch"]]]:
         '''elasticsearch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
         '''
         result = self._values.get("elasticsearch")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleElasticsearch"]]], result)
@@ -2287,7 +2287,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def error_action(self) -> typing.Optional["IotTopicRuleErrorAction"]:
         '''error_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#error_action IotTopicRule#error_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#error_action IotTopicRule#error_action}
         '''
         result = self._values.get("error_action")
         return typing.cast(typing.Optional["IotTopicRuleErrorAction"], result)
@@ -2298,7 +2298,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleFirehose"]]]:
         '''firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
         '''
         result = self._values.get("firehose")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleFirehose"]]], result)
@@ -2309,14 +2309,14 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleHttp"]]]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleHttp"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2330,7 +2330,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleIotAnalytics"]]]:
         '''iot_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
         '''
         result = self._values.get("iot_analytics")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleIotAnalytics"]]], result)
@@ -2341,7 +2341,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleIotEvents"]]]:
         '''iot_events block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
         '''
         result = self._values.get("iot_events")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleIotEvents"]]], result)
@@ -2352,7 +2352,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleKafka"]]]:
         '''kafka block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
         '''
         result = self._values.get("kafka")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleKafka"]]], result)
@@ -2363,7 +2363,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleKinesis"]]]:
         '''kinesis block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
         '''
         result = self._values.get("kinesis")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleKinesis"]]], result)
@@ -2374,7 +2374,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleLambda"]]]:
         '''lambda block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
         '''
         result = self._values.get("lambda_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleLambda"]]], result)
@@ -2385,7 +2385,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleRepublish"]]]:
         '''republish block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
         '''
         result = self._values.get("republish")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleRepublish"]]], result)
@@ -2396,7 +2396,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleS3"]]]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleS3"]]], result)
@@ -2407,7 +2407,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleSns"]]]:
         '''sns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
         '''
         result = self._values.get("sns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleSns"]]], result)
@@ -2418,7 +2418,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleSqs"]]]:
         '''sqs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
         '''
         result = self._values.get("sqs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleSqs"]]], result)
@@ -2429,20 +2429,20 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleStepFunctions"]]]:
         '''step_functions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
         '''
         result = self._values.get("step_functions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleStepFunctions"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#tags IotTopicRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#tags IotTopicRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#tags_all IotTopicRule#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#tags_all IotTopicRule#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2452,7 +2452,7 @@ class IotTopicRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleTimestream"]]]:
         '''timestream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
         '''
         result = self._values.get("timestream")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleTimestream"]]], result)
@@ -2501,16 +2501,16 @@ class IotTopicRuleDynamodb:
         range_key_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hash_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.
-        :param hash_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
-        :param hash_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.
-        :param payload_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.
-        :param range_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.
-        :param range_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.
-        :param range_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.
+        :param hash_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.
+        :param hash_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param hash_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.
+        :param payload_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.
+        :param range_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.
+        :param range_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.
+        :param range_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22c3100b34d960b81cc420672a70182be62148af182e9f3a4a7a978dfefd7772)
@@ -2545,65 +2545,65 @@ class IotTopicRuleDynamodb:
 
     @builtins.property
     def hash_key_field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.'''
         result = self._values.get("hash_key_field")
         assert result is not None, "Required property 'hash_key_field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hash_key_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.'''
         result = self._values.get("hash_key_value")
         assert result is not None, "Required property 'hash_key_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hash_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.'''
         result = self._values.get("hash_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def operation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.'''
         result = self._values.get("operation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def payload_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.'''
         result = self._values.get("payload_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def range_key_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.'''
         result = self._values.get("range_key_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def range_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.'''
         result = self._values.get("range_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def range_key_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.'''
         result = self._values.get("range_key_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2960,8 +2960,8 @@ class IotTopicRuleDynamodbv2:
         put_item: typing.Optional[typing.Union["IotTopicRuleDynamodbv2PutItem", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param put_item: put_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param put_item: put_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
         '''
         if isinstance(put_item, dict):
             put_item = IotTopicRuleDynamodbv2PutItem(**put_item)
@@ -2977,7 +2977,7 @@ class IotTopicRuleDynamodbv2:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2986,7 +2986,7 @@ class IotTopicRuleDynamodbv2:
     def put_item(self) -> typing.Optional["IotTopicRuleDynamodbv2PutItem"]:
         '''put_item block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
         '''
         result = self._values.get("put_item")
         return typing.cast(typing.Optional["IotTopicRuleDynamodbv2PutItem"], result)
@@ -3122,7 +3122,7 @@ class IotTopicRuleDynamodbv2OutputReference(
     @jsii.member(jsii_name="putPutItem")
     def put_put_item(self, *, table_name: builtins.str) -> None:
         '''
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
         '''
         value = IotTopicRuleDynamodbv2PutItem(table_name=table_name)
 
@@ -3185,7 +3185,7 @@ class IotTopicRuleDynamodbv2OutputReference(
 class IotTopicRuleDynamodbv2PutItem:
     def __init__(self, *, table_name: builtins.str) -> None:
         '''
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77bc4ab141d48c3bc032a5cb5b76a3b175fd3f5ee3655d84df475862cb45ff58)
@@ -3196,7 +3196,7 @@ class IotTopicRuleDynamodbv2PutItem:
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3288,11 +3288,11 @@ class IotTopicRuleElasticsearch:
         type: builtins.str,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85248bb147339c0a761a11368cc36850e675754c092614956f29c191ce83453a)
@@ -3311,14 +3311,14 @@ class IotTopicRuleElasticsearch:
 
     @builtins.property
     def endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.'''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3329,21 +3329,21 @@ class IotTopicRuleElasticsearch:
 
     @builtins.property
     def index(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.'''
         result = self._values.get("index")
         assert result is not None, "Required property 'index' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -3629,25 +3629,25 @@ class IotTopicRuleErrorAction:
         timestream: typing.Optional[typing.Union["IotTopicRuleErrorActionTimestream", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
-        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
-        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
-        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
-        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
-        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
-        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
-        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
-        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
-        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
-        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
-        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
-        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
-        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
-        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
+        :param cloudwatch_alarm: cloudwatch_alarm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
+        :param cloudwatch_metric: cloudwatch_metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
+        :param dynamodb: dynamodb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
+        :param dynamodbv2: dynamodbv2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
+        :param elasticsearch: elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
+        :param firehose: firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
+        :param iot_analytics: iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
+        :param iot_events: iot_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
+        :param kafka: kafka block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
+        :param kinesis: kinesis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
+        :param republish: republish block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
+        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
+        :param sqs: sqs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
+        :param step_functions: step_functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
+        :param timestream: timestream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
         '''
         if isinstance(cloudwatch_alarm, dict):
             cloudwatch_alarm = IotTopicRuleErrorActionCloudwatchAlarm(**cloudwatch_alarm)
@@ -3754,7 +3754,7 @@ class IotTopicRuleErrorAction:
     ) -> typing.Optional["IotTopicRuleErrorActionCloudwatchAlarm"]:
         '''cloudwatch_alarm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_alarm IotTopicRule#cloudwatch_alarm}
         '''
         result = self._values.get("cloudwatch_alarm")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionCloudwatchAlarm"], result)
@@ -3765,7 +3765,7 @@ class IotTopicRuleErrorAction:
     ) -> typing.Optional["IotTopicRuleErrorActionCloudwatchLogs"]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_logs IotTopicRule#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionCloudwatchLogs"], result)
@@ -3776,7 +3776,7 @@ class IotTopicRuleErrorAction:
     ) -> typing.Optional["IotTopicRuleErrorActionCloudwatchMetric"]:
         '''cloudwatch_metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#cloudwatch_metric IotTopicRule#cloudwatch_metric}
         '''
         result = self._values.get("cloudwatch_metric")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionCloudwatchMetric"], result)
@@ -3785,7 +3785,7 @@ class IotTopicRuleErrorAction:
     def dynamodb(self) -> typing.Optional["IotTopicRuleErrorActionDynamodb"]:
         '''dynamodb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodb IotTopicRule#dynamodb}
         '''
         result = self._values.get("dynamodb")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionDynamodb"], result)
@@ -3794,7 +3794,7 @@ class IotTopicRuleErrorAction:
     def dynamodbv2(self) -> typing.Optional["IotTopicRuleErrorActionDynamodbv2"]:
         '''dynamodbv2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dynamodbv2 IotTopicRule#dynamodbv2}
         '''
         result = self._values.get("dynamodbv2")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionDynamodbv2"], result)
@@ -3803,7 +3803,7 @@ class IotTopicRuleErrorAction:
     def elasticsearch(self) -> typing.Optional["IotTopicRuleErrorActionElasticsearch"]:
         '''elasticsearch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#elasticsearch IotTopicRule#elasticsearch}
         '''
         result = self._values.get("elasticsearch")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionElasticsearch"], result)
@@ -3812,7 +3812,7 @@ class IotTopicRuleErrorAction:
     def firehose(self) -> typing.Optional["IotTopicRuleErrorActionFirehose"]:
         '''firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#firehose IotTopicRule#firehose}
         '''
         result = self._values.get("firehose")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionFirehose"], result)
@@ -3821,7 +3821,7 @@ class IotTopicRuleErrorAction:
     def http(self) -> typing.Optional["IotTopicRuleErrorActionHttp"]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http IotTopicRule#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionHttp"], result)
@@ -3830,7 +3830,7 @@ class IotTopicRuleErrorAction:
     def iot_analytics(self) -> typing.Optional["IotTopicRuleErrorActionIotAnalytics"]:
         '''iot_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_analytics IotTopicRule#iot_analytics}
         '''
         result = self._values.get("iot_analytics")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionIotAnalytics"], result)
@@ -3839,7 +3839,7 @@ class IotTopicRuleErrorAction:
     def iot_events(self) -> typing.Optional["IotTopicRuleErrorActionIotEvents"]:
         '''iot_events block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#iot_events IotTopicRule#iot_events}
         '''
         result = self._values.get("iot_events")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionIotEvents"], result)
@@ -3848,7 +3848,7 @@ class IotTopicRuleErrorAction:
     def kafka(self) -> typing.Optional["IotTopicRuleErrorActionKafka"]:
         '''kafka block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kafka IotTopicRule#kafka}
         '''
         result = self._values.get("kafka")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionKafka"], result)
@@ -3857,7 +3857,7 @@ class IotTopicRuleErrorAction:
     def kinesis(self) -> typing.Optional["IotTopicRuleErrorActionKinesis"]:
         '''kinesis block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#kinesis IotTopicRule#kinesis}
         '''
         result = self._values.get("kinesis")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionKinesis"], result)
@@ -3866,7 +3866,7 @@ class IotTopicRuleErrorAction:
     def lambda_(self) -> typing.Optional["IotTopicRuleErrorActionLambda"]:
         '''lambda block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#lambda IotTopicRule#lambda}
         '''
         result = self._values.get("lambda_")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionLambda"], result)
@@ -3875,7 +3875,7 @@ class IotTopicRuleErrorAction:
     def republish(self) -> typing.Optional["IotTopicRuleErrorActionRepublish"]:
         '''republish block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#republish IotTopicRule#republish}
         '''
         result = self._values.get("republish")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionRepublish"], result)
@@ -3884,7 +3884,7 @@ class IotTopicRuleErrorAction:
     def s3(self) -> typing.Optional["IotTopicRuleErrorActionS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#s3 IotTopicRule#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionS3"], result)
@@ -3893,7 +3893,7 @@ class IotTopicRuleErrorAction:
     def sns(self) -> typing.Optional["IotTopicRuleErrorActionSns"]:
         '''sns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sns IotTopicRule#sns}
         '''
         result = self._values.get("sns")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionSns"], result)
@@ -3902,7 +3902,7 @@ class IotTopicRuleErrorAction:
     def sqs(self) -> typing.Optional["IotTopicRuleErrorActionSqs"]:
         '''sqs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#sqs IotTopicRule#sqs}
         '''
         result = self._values.get("sqs")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionSqs"], result)
@@ -3911,7 +3911,7 @@ class IotTopicRuleErrorAction:
     def step_functions(self) -> typing.Optional["IotTopicRuleErrorActionStepFunctions"]:
         '''step_functions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#step_functions IotTopicRule#step_functions}
         '''
         result = self._values.get("step_functions")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionStepFunctions"], result)
@@ -3920,7 +3920,7 @@ class IotTopicRuleErrorAction:
     def timestream(self) -> typing.Optional["IotTopicRuleErrorActionTimestream"]:
         '''timestream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestream IotTopicRule#timestream}
         '''
         result = self._values.get("timestream")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionTimestream"], result)
@@ -3957,10 +3957,10 @@ class IotTopicRuleErrorActionCloudwatchAlarm:
         state_value: builtins.str,
     ) -> None:
         '''
-        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param state_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.
-        :param state_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.
+        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param state_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.
+        :param state_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b83d8476ae22b1c65f01786a598701333ed2b69fb621cec167b0261f3369d4f2)
@@ -3977,28 +3977,28 @@ class IotTopicRuleErrorActionCloudwatchAlarm:
 
     @builtins.property
     def alarm_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.'''
         result = self._values.get("alarm_name")
         assert result is not None, "Required property 'alarm_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state_reason(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.'''
         result = self._values.get("state_reason")
         assert result is not None, "Required property 'state_reason' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.'''
         result = self._values.get("state_value")
         assert result is not None, "Required property 'state_value' is missing"
         return typing.cast(builtins.str, result)
@@ -4137,9 +4137,9 @@ class IotTopicRuleErrorActionCloudwatchLogs:
         batch_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9334e9260d7d7332c2116c48d7f4a6581536a7045f4ab5bb47a60828af1939f)
@@ -4155,14 +4155,14 @@ class IotTopicRuleErrorActionCloudwatchLogs:
 
     @builtins.property
     def log_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.'''
         result = self._values.get("log_group_name")
         assert result is not None, "Required property 'log_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4171,7 +4171,7 @@ class IotTopicRuleErrorActionCloudwatchLogs:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4307,12 +4307,12 @@ class IotTopicRuleErrorActionCloudwatchMetric:
         metric_timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.
-        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.
-        :param metric_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.
-        :param metric_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param metric_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.
+        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.
+        :param metric_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.
+        :param metric_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param metric_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23e4cfa1c5925f865b4f4df75c68460fcefa151d9a66c0a6d2533c4277e2d73d)
@@ -4334,42 +4334,42 @@ class IotTopicRuleErrorActionCloudwatchMetric:
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.'''
         result = self._values.get("metric_namespace")
         assert result is not None, "Required property 'metric_namespace' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.'''
         result = self._values.get("metric_unit")
         assert result is not None, "Required property 'metric_unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.'''
         result = self._values.get("metric_value")
         assert result is not None, "Required property 'metric_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metric_timestamp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.'''
         result = self._values.get("metric_timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4561,16 +4561,16 @@ class IotTopicRuleErrorActionDynamodb:
         range_key_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hash_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.
-        :param hash_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
-        :param hash_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.
-        :param payload_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.
-        :param range_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.
-        :param range_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.
-        :param range_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.
+        :param hash_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.
+        :param hash_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param hash_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.
+        :param payload_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.
+        :param range_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.
+        :param range_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.
+        :param range_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdf3d6f6173501ff4e94e9a3d604d43248e8d5f0b3ef51aa7c388e9e54b2d296)
@@ -4605,65 +4605,65 @@ class IotTopicRuleErrorActionDynamodb:
 
     @builtins.property
     def hash_key_field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.'''
         result = self._values.get("hash_key_field")
         assert result is not None, "Required property 'hash_key_field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hash_key_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.'''
         result = self._values.get("hash_key_value")
         assert result is not None, "Required property 'hash_key_value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hash_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.'''
         result = self._values.get("hash_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def operation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.'''
         result = self._values.get("operation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def payload_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.'''
         result = self._values.get("payload_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def range_key_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.'''
         result = self._values.get("range_key_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def range_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.'''
         result = self._values.get("range_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def range_key_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.'''
         result = self._values.get("range_key_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4922,8 +4922,8 @@ class IotTopicRuleErrorActionDynamodbv2:
         put_item: typing.Optional[typing.Union["IotTopicRuleErrorActionDynamodbv2PutItem", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param put_item: put_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param put_item: put_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
         '''
         if isinstance(put_item, dict):
             put_item = IotTopicRuleErrorActionDynamodbv2PutItem(**put_item)
@@ -4939,7 +4939,7 @@ class IotTopicRuleErrorActionDynamodbv2:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4948,7 +4948,7 @@ class IotTopicRuleErrorActionDynamodbv2:
     def put_item(self) -> typing.Optional["IotTopicRuleErrorActionDynamodbv2PutItem"]:
         '''put_item block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
         '''
         result = self._values.get("put_item")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionDynamodbv2PutItem"], result)
@@ -4988,7 +4988,7 @@ class IotTopicRuleErrorActionDynamodbv2OutputReference(
     @jsii.member(jsii_name="putPutItem")
     def put_put_item(self, *, table_name: builtins.str) -> None:
         '''
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
         '''
         value = IotTopicRuleErrorActionDynamodbv2PutItem(table_name=table_name)
 
@@ -5051,7 +5051,7 @@ class IotTopicRuleErrorActionDynamodbv2OutputReference(
 class IotTopicRuleErrorActionDynamodbv2PutItem:
     def __init__(self, *, table_name: builtins.str) -> None:
         '''
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5cf7b3aa537109d156f8a80480362954f4bda9e7068113c0d72dc0954fe0d393)
@@ -5062,7 +5062,7 @@ class IotTopicRuleErrorActionDynamodbv2PutItem:
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -5156,11 +5156,11 @@ class IotTopicRuleErrorActionElasticsearch:
         type: builtins.str,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__840e7c6d0056e32d130c885aefc1eb19eeaa9f3dcb701b03b74c38bbc4e5244d)
@@ -5179,14 +5179,14 @@ class IotTopicRuleErrorActionElasticsearch:
 
     @builtins.property
     def endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.'''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -5197,21 +5197,21 @@ class IotTopicRuleErrorActionElasticsearch:
 
     @builtins.property
     def index(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.'''
         result = self._values.get("index")
         assert result is not None, "Required property 'index' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -5369,10 +5369,10 @@ class IotTopicRuleErrorActionFirehose:
         separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
-        :param separator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.
+        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param separator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__330b61a74f2a390ab516ce7f6fe6e676a44f00449479e4289c91d7443e406175)
@@ -5391,14 +5391,14 @@ class IotTopicRuleErrorActionFirehose:
 
     @builtins.property
     def delivery_stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.'''
         result = self._values.get("delivery_stream_name")
         assert result is not None, "Required property 'delivery_stream_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -5407,13 +5407,13 @@ class IotTopicRuleErrorActionFirehose:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def separator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.'''
         result = self._values.get("separator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5564,9 +5564,9 @@ class IotTopicRuleErrorActionHttp:
         http_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IotTopicRuleErrorActionHttpHttpHeader", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.
-        :param confirmation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.
-        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.
+        :param confirmation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.
+        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7cf00ed0a952fc9c6bd8b7615dbb7caac01e185fdbb15e4c5d732ab62479081)
@@ -5583,14 +5583,14 @@ class IotTopicRuleErrorActionHttp:
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def confirmation_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.'''
         result = self._values.get("confirmation_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5600,7 +5600,7 @@ class IotTopicRuleErrorActionHttp:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleErrorActionHttpHttpHeader"]]]:
         '''http_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
         '''
         result = self._values.get("http_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleErrorActionHttpHttpHeader"]]], result)
@@ -5625,8 +5625,8 @@ class IotTopicRuleErrorActionHttp:
 class IotTopicRuleErrorActionHttpHttpHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44d35616c84712d38a443b1901dac1eeb179abc30116edbf10555660b974d7a0)
@@ -5639,14 +5639,14 @@ class IotTopicRuleErrorActionHttpHttpHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5955,9 +5955,9 @@ class IotTopicRuleErrorActionIotAnalytics:
         batch_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e9265a72e9cbfbfac33a1e39f761d7181a3938385cb6b7a13a7d25b098b86aa)
@@ -5973,14 +5973,14 @@ class IotTopicRuleErrorActionIotAnalytics:
 
     @builtins.property
     def channel_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.'''
         result = self._values.get("channel_name")
         assert result is not None, "Required property 'channel_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -5989,7 +5989,7 @@ class IotTopicRuleErrorActionIotAnalytics:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6121,10 +6121,10 @@ class IotTopicRuleErrorActionIotEvents:
         message_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
-        :param message_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.
+        :param input_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param message_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cfc6f618fa93430480b67fb7522d955976525d5b665f6060b985654a7b77d14)
@@ -6143,14 +6143,14 @@ class IotTopicRuleErrorActionIotEvents:
 
     @builtins.property
     def input_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.'''
         result = self._values.get("input_name")
         assert result is not None, "Required property 'input_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -6159,13 +6159,13 @@ class IotTopicRuleErrorActionIotEvents:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def message_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.'''
         result = self._values.get("message_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6322,12 +6322,12 @@ class IotTopicRuleErrorActionKafka:
         partition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.
-        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.
+        :param client_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.
+        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4d7669d7e9eaa125ac1da6332267c0f14a7804d9bd87579c95beae05aee1aea)
@@ -6351,21 +6351,21 @@ class IotTopicRuleErrorActionKafka:
 
     @builtins.property
     def client_properties(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.'''
         result = self._values.get("client_properties")
         assert result is not None, "Required property 'client_properties' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
 
     @builtins.property
     def destination_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.'''
         result = self._values.get("destination_arn")
         assert result is not None, "Required property 'destination_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def topic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
@@ -6376,20 +6376,20 @@ class IotTopicRuleErrorActionKafka:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleErrorActionKafkaHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleErrorActionKafkaHeader"]]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def partition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.'''
         result = self._values.get("partition")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6413,8 +6413,8 @@ class IotTopicRuleErrorActionKafka:
 class IotTopicRuleErrorActionKafkaHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f3e01acf4398c7e499a6ab467b595c0a4e6c58a6ab8309a69eb996b12e8888f)
@@ -6427,14 +6427,14 @@ class IotTopicRuleErrorActionKafkaHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6803,9 +6803,9 @@ class IotTopicRuleErrorActionKinesis:
         partition_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.
-        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.
+        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e21737535f3015cf1fbdfe49e3fe8fe6e99d25b8623dc1a077422ec47a67e2a)
@@ -6821,21 +6821,21 @@ class IotTopicRuleErrorActionKinesis:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.'''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partition_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.'''
         result = self._values.get("partition_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6950,7 +6950,7 @@ class IotTopicRuleErrorActionKinesisOutputReference(
 class IotTopicRuleErrorActionLambda:
     def __init__(self, *, function_arn: builtins.str) -> None:
         '''
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f385034edbfe04235c2656de1531112c05524d8c9b39bdd2bb7dcdfe47b8463a)
@@ -6961,7 +6961,7 @@ class IotTopicRuleErrorActionLambda:
 
     @builtins.property
     def function_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -7061,10 +7061,10 @@ class IotTopicRuleErrorActionOutputReference(
         state_value: builtins.str,
     ) -> None:
         '''
-        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param state_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.
-        :param state_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.
+        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#alarm_name IotTopicRule#alarm_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param state_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_reason IotTopicRule#state_reason}.
+        :param state_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_value IotTopicRule#state_value}.
         '''
         value = IotTopicRuleErrorActionCloudwatchAlarm(
             alarm_name=alarm_name,
@@ -7084,9 +7084,9 @@ class IotTopicRuleErrorActionOutputReference(
         batch_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param log_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#log_group_name IotTopicRule#log_group_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
         '''
         value = IotTopicRuleErrorActionCloudwatchLogs(
             log_group_name=log_group_name, role_arn=role_arn, batch_mode=batch_mode
@@ -7106,12 +7106,12 @@ class IotTopicRuleErrorActionOutputReference(
         metric_timestamp: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.
-        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.
-        :param metric_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.
-        :param metric_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param metric_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_name IotTopicRule#metric_name}.
+        :param metric_namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_namespace IotTopicRule#metric_namespace}.
+        :param metric_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_unit IotTopicRule#metric_unit}.
+        :param metric_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_value IotTopicRule#metric_value}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param metric_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#metric_timestamp IotTopicRule#metric_timestamp}.
         '''
         value = IotTopicRuleErrorActionCloudwatchMetric(
             metric_name=metric_name,
@@ -7140,16 +7140,16 @@ class IotTopicRuleErrorActionOutputReference(
         range_key_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hash_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.
-        :param hash_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
-        :param hash_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.
-        :param payload_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.
-        :param range_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.
-        :param range_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.
-        :param range_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.
+        :param hash_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_field IotTopicRule#hash_key_field}.
+        :param hash_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_value IotTopicRule#hash_key_value}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param hash_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#hash_key_type IotTopicRule#hash_key_type}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#operation IotTopicRule#operation}.
+        :param payload_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#payload_field IotTopicRule#payload_field}.
+        :param range_key_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_field IotTopicRule#range_key_field}.
+        :param range_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_type IotTopicRule#range_key_type}.
+        :param range_key_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#range_key_value IotTopicRule#range_key_value}.
         '''
         value = IotTopicRuleErrorActionDynamodb(
             hash_key_field=hash_key_field,
@@ -7174,8 +7174,8 @@ class IotTopicRuleErrorActionOutputReference(
         put_item: typing.Optional[typing.Union[IotTopicRuleErrorActionDynamodbv2PutItem, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param put_item: put_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param put_item: put_item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#put_item IotTopicRule#put_item}
         '''
         value = IotTopicRuleErrorActionDynamodbv2(role_arn=role_arn, put_item=put_item)
 
@@ -7192,11 +7192,11 @@ class IotTopicRuleErrorActionOutputReference(
         type: builtins.str,
     ) -> None:
         '''
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#endpoint IotTopicRule#endpoint}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#id IotTopicRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#index IotTopicRule#index}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#type IotTopicRule#type}.
         '''
         value = IotTopicRuleErrorActionElasticsearch(
             endpoint=endpoint, id=id, index=index, role_arn=role_arn, type=type
@@ -7214,10 +7214,10 @@ class IotTopicRuleErrorActionOutputReference(
         separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
-        :param separator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.
+        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param separator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.
         '''
         value = IotTopicRuleErrorActionFirehose(
             delivery_stream_name=delivery_stream_name,
@@ -7237,9 +7237,9 @@ class IotTopicRuleErrorActionOutputReference(
         http_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IotTopicRuleErrorActionHttpHttpHeader, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.
-        :param confirmation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.
-        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.
+        :param confirmation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.
+        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
         '''
         value = IotTopicRuleErrorActionHttp(
             url=url, confirmation_url=confirmation_url, http_header=http_header
@@ -7256,9 +7256,9 @@ class IotTopicRuleErrorActionOutputReference(
         batch_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
         '''
         value = IotTopicRuleErrorActionIotAnalytics(
             channel_name=channel_name, role_arn=role_arn, batch_mode=batch_mode
@@ -7276,10 +7276,10 @@ class IotTopicRuleErrorActionOutputReference(
         message_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
-        :param message_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.
+        :param input_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param message_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.
         '''
         value = IotTopicRuleErrorActionIotEvents(
             input_name=input_name,
@@ -7302,12 +7302,12 @@ class IotTopicRuleErrorActionOutputReference(
         partition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.
-        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.
+        :param client_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.
+        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.
         '''
         value = IotTopicRuleErrorActionKafka(
             client_properties=client_properties,
@@ -7329,9 +7329,9 @@ class IotTopicRuleErrorActionOutputReference(
         partition_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.
-        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.
+        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.
         '''
         value = IotTopicRuleErrorActionKinesis(
             role_arn=role_arn, stream_name=stream_name, partition_key=partition_key
@@ -7342,7 +7342,7 @@ class IotTopicRuleErrorActionOutputReference(
     @jsii.member(jsii_name="putLambda")
     def put_lambda(self, *, function_arn: builtins.str) -> None:
         '''
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.
         '''
         value = IotTopicRuleErrorActionLambda(function_arn=function_arn)
 
@@ -7357,9 +7357,9 @@ class IotTopicRuleErrorActionOutputReference(
         qos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
-        :param qos: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
+        :param qos: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.
         '''
         value = IotTopicRuleErrorActionRepublish(
             role_arn=role_arn, topic=topic, qos=qos
@@ -7377,10 +7377,10 @@ class IotTopicRuleErrorActionOutputReference(
         canned_acl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param canned_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param canned_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.
         '''
         value = IotTopicRuleErrorActionS3(
             bucket_name=bucket_name, key=key, role_arn=role_arn, canned_acl=canned_acl
@@ -7397,9 +7397,9 @@ class IotTopicRuleErrorActionOutputReference(
         message_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.
         '''
         value = IotTopicRuleErrorActionSns(
             role_arn=role_arn, target_arn=target_arn, message_format=message_format
@@ -7416,9 +7416,9 @@ class IotTopicRuleErrorActionOutputReference(
         use_base64: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param use_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.
+        :param queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param use_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.
         '''
         value = IotTopicRuleErrorActionSqs(
             queue_url=queue_url, role_arn=role_arn, use_base64=use_base64
@@ -7435,9 +7435,9 @@ class IotTopicRuleErrorActionOutputReference(
         execution_name_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param state_machine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.
-        :param execution_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param state_machine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.
+        :param execution_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.
         '''
         value = IotTopicRuleErrorActionStepFunctions(
             role_arn=role_arn,
@@ -7458,11 +7458,11 @@ class IotTopicRuleErrorActionOutputReference(
         timestamp: typing.Optional[typing.Union["IotTopicRuleErrorActionTimestreamTimestamp", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
-        :param timestamp: timestamp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param timestamp: timestamp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
         '''
         value = IotTopicRuleErrorActionTimestream(
             database_name=database_name,
@@ -7781,9 +7781,9 @@ class IotTopicRuleErrorActionRepublish:
         qos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
-        :param qos: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
+        :param qos: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6712977dc19982d34c3a5bb1c3c1349ca9d07b6e3cd96bb200cfd3d9d05c1ff)
@@ -7799,21 +7799,21 @@ class IotTopicRuleErrorActionRepublish:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def topic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def qos(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.'''
         result = self._values.get("qos")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7940,10 +7940,10 @@ class IotTopicRuleErrorActionS3:
         canned_acl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param canned_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param canned_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec28e16ed6cf830ca9d64fb3849688526c0b226b430403fcb0be648b224b4a3a)
@@ -7961,28 +7961,28 @@ class IotTopicRuleErrorActionS3:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def canned_acl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.'''
         result = self._values.get("canned_acl")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8121,9 +8121,9 @@ class IotTopicRuleErrorActionSns:
         message_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e108faee455394cfc067c91f0e679b286ff8789dc184da16b9bdbf0ab9aae60f)
@@ -8139,21 +8139,21 @@ class IotTopicRuleErrorActionSns:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.'''
         result = self._values.get("target_arn")
         assert result is not None, "Required property 'target_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def message_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.'''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8278,9 +8278,9 @@ class IotTopicRuleErrorActionSqs:
         use_base64: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param use_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.
+        :param queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param use_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50c850353ddd6e0a599b8475622d3867c868ec41f35c7e47fd698fe111f7195f)
@@ -8295,21 +8295,21 @@ class IotTopicRuleErrorActionSqs:
 
     @builtins.property
     def queue_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.'''
         result = self._values.get("queue_url")
         assert result is not None, "Required property 'queue_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def use_base64(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.'''
         result = self._values.get("use_base64")
         assert result is not None, "Required property 'use_base64' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -8436,9 +8436,9 @@ class IotTopicRuleErrorActionStepFunctions:
         execution_name_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param state_machine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.
-        :param execution_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param state_machine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.
+        :param execution_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8269367c088c29125e7c8759563a43ed35850f7dfc531be70dd654cf27b561fa)
@@ -8454,21 +8454,21 @@ class IotTopicRuleErrorActionStepFunctions:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state_machine_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.'''
         result = self._values.get("state_machine_name")
         assert result is not None, "Required property 'state_machine_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def execution_name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.'''
         result = self._values.get("execution_name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8597,11 +8597,11 @@ class IotTopicRuleErrorActionTimestream:
         timestamp: typing.Optional[typing.Union["IotTopicRuleErrorActionTimestreamTimestamp", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
-        :param timestamp: timestamp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param timestamp: timestamp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
         '''
         if isinstance(timestamp, dict):
             timestamp = IotTopicRuleErrorActionTimestreamTimestamp(**timestamp)
@@ -8623,7 +8623,7 @@ class IotTopicRuleErrorActionTimestream:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
@@ -8634,7 +8634,7 @@ class IotTopicRuleErrorActionTimestream:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleErrorActionTimestreamDimension"]]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
         '''
         result = self._values.get("dimension")
         assert result is not None, "Required property 'dimension' is missing"
@@ -8642,14 +8642,14 @@ class IotTopicRuleErrorActionTimestream:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -8660,7 +8660,7 @@ class IotTopicRuleErrorActionTimestream:
     ) -> typing.Optional["IotTopicRuleErrorActionTimestreamTimestamp"]:
         '''timestamp block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
         '''
         result = self._values.get("timestamp")
         return typing.cast(typing.Optional["IotTopicRuleErrorActionTimestreamTimestamp"], result)
@@ -8685,8 +8685,8 @@ class IotTopicRuleErrorActionTimestream:
 class IotTopicRuleErrorActionTimestreamDimension:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c70fae2411c45f757f16d6e8e6d00f841a08842d27504cf32b9f64f2809cf48d)
@@ -8699,14 +8699,14 @@ class IotTopicRuleErrorActionTimestreamDimension:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -8930,8 +8930,8 @@ class IotTopicRuleErrorActionTimestreamOutputReference(
     @jsii.member(jsii_name="putTimestamp")
     def put_timestamp(self, *, unit: builtins.str, value: builtins.str) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         value_ = IotTopicRuleErrorActionTimestreamTimestamp(unit=unit, value=value)
 
@@ -9040,8 +9040,8 @@ class IotTopicRuleErrorActionTimestreamOutputReference(
 class IotTopicRuleErrorActionTimestreamTimestamp:
     def __init__(self, *, unit: builtins.str, value: builtins.str) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60349f463024dc1254030de3655e613eb9cce4fa5c14ac21b000ff23b2d78ee0)
@@ -9054,14 +9054,14 @@ class IotTopicRuleErrorActionTimestreamTimestamp:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9170,10 +9170,10 @@ class IotTopicRuleFirehose:
         separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
-        :param separator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.
+        :param delivery_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param separator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f2407f32762933e02b48ee5c96c26b0f4208c15249e5a8522dff696849f7818)
@@ -9192,14 +9192,14 @@ class IotTopicRuleFirehose:
 
     @builtins.property
     def delivery_stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#delivery_stream_name IotTopicRule#delivery_stream_name}.'''
         result = self._values.get("delivery_stream_name")
         assert result is not None, "Required property 'delivery_stream_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -9208,13 +9208,13 @@ class IotTopicRuleFirehose:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def separator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#separator IotTopicRule#separator}.'''
         result = self._values.get("separator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9463,9 +9463,9 @@ class IotTopicRuleHttp:
         http_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IotTopicRuleHttpHttpHeader", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.
-        :param confirmation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.
-        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.
+        :param confirmation_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.
+        :param http_header: http_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b7693bff804c71775bd3d89dbf4e1621eb8ae75f3f2aea2e26e1b3cf9d5a4e8)
@@ -9482,14 +9482,14 @@ class IotTopicRuleHttp:
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#url IotTopicRule#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def confirmation_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#confirmation_url IotTopicRule#confirmation_url}.'''
         result = self._values.get("confirmation_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9499,7 +9499,7 @@ class IotTopicRuleHttp:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleHttpHttpHeader"]]]:
         '''http_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#http_header IotTopicRule#http_header}
         '''
         result = self._values.get("http_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleHttpHttpHeader"]]], result)
@@ -9524,8 +9524,8 @@ class IotTopicRuleHttp:
 class IotTopicRuleHttpHttpHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1c2689d60da128f35e7f5fe2d90c0378e06da2618deb611e8d9290e0a06acbb)
@@ -9538,14 +9538,14 @@ class IotTopicRuleHttpHttpHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9949,9 +9949,9 @@ class IotTopicRuleIotAnalytics:
         batch_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1acf89f79d408b274ae5967e6b763d40db11503039a6aebec89d8bb37930785c)
@@ -9967,14 +9967,14 @@ class IotTopicRuleIotAnalytics:
 
     @builtins.property
     def channel_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#channel_name IotTopicRule#channel_name}.'''
         result = self._values.get("channel_name")
         assert result is not None, "Required property 'channel_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -9983,7 +9983,7 @@ class IotTopicRuleIotAnalytics:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10213,10 +10213,10 @@ class IotTopicRuleIotEvents:
         message_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
-        :param message_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.
+        :param input_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param batch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.
+        :param message_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeff6e9656d7547f81022f8d1a99aa1943253ce3d900767f1fe71b16be240fe4)
@@ -10235,14 +10235,14 @@ class IotTopicRuleIotEvents:
 
     @builtins.property
     def input_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#input_name IotTopicRule#input_name}.'''
         result = self._values.get("input_name")
         assert result is not None, "Required property 'input_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -10251,13 +10251,13 @@ class IotTopicRuleIotEvents:
     def batch_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#batch_mode IotTopicRule#batch_mode}.'''
         result = self._values.get("batch_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def message_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_id IotTopicRule#message_id}.'''
         result = self._values.get("message_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10512,12 +10512,12 @@ class IotTopicRuleKafka:
         partition: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.
-        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.
+        :param client_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.
+        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param partition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a420929f6d1e25cac17b8e20ed8e24f94fdc5410ace45789faf10cf6aa96a166)
@@ -10541,21 +10541,21 @@ class IotTopicRuleKafka:
 
     @builtins.property
     def client_properties(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#client_properties IotTopicRule#client_properties}.'''
         result = self._values.get("client_properties")
         assert result is not None, "Required property 'client_properties' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
 
     @builtins.property
     def destination_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#destination_arn IotTopicRule#destination_arn}.'''
         result = self._values.get("destination_arn")
         assert result is not None, "Required property 'destination_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def topic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
@@ -10566,20 +10566,20 @@ class IotTopicRuleKafka:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleKafkaHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#header IotTopicRule#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleKafkaHeader"]]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def partition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition IotTopicRule#partition}.'''
         result = self._values.get("partition")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10603,8 +10603,8 @@ class IotTopicRuleKafka:
 class IotTopicRuleKafkaHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25d0681d690b89709549241f10e3923c2991022c3309411b2c1a69a79ae07446)
@@ -10617,14 +10617,14 @@ class IotTopicRuleKafkaHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11088,9 +11088,9 @@ class IotTopicRuleKinesis:
         partition_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.
-        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.
+        :param partition_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__062385a302701e6a2156135f177b9b337064838f46ad3cdc3f954ee38d02a482)
@@ -11106,21 +11106,21 @@ class IotTopicRuleKinesis:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#stream_name IotTopicRule#stream_name}.'''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partition_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#partition_key IotTopicRule#partition_key}.'''
         result = self._values.get("partition_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -11333,7 +11333,7 @@ class IotTopicRuleKinesisOutputReference(
 class IotTopicRuleLambda:
     def __init__(self, *, function_arn: builtins.str) -> None:
         '''
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84e7b3a0537f489d04dfd1b914e393a11a109c4d3fe34cccb51445de35d3adf3)
@@ -11344,7 +11344,7 @@ class IotTopicRuleLambda:
 
     @builtins.property
     def function_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#function_arn IotTopicRule#function_arn}.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -11526,9 +11526,9 @@ class IotTopicRuleRepublish:
         qos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
-        :param qos: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.
+        :param qos: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cb8cbb0bc8a283ba49a3854d9eb0fb622b2a8e6fcabb701df589d4b809efd56)
@@ -11544,21 +11544,21 @@ class IotTopicRuleRepublish:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def topic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#topic IotTopicRule#topic}.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def qos(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#qos IotTopicRule#qos}.'''
         result = self._values.get("qos")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -11783,10 +11783,10 @@ class IotTopicRuleS3:
         canned_acl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param canned_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param canned_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4a09c9b8cc7e35ca17f0a9286ec3f59731bcc7198e7d281eb4ab2a75d688283)
@@ -11804,28 +11804,28 @@ class IotTopicRuleS3:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#bucket_name IotTopicRule#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#key IotTopicRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def canned_acl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#canned_acl IotTopicRule#canned_acl}.'''
         result = self._values.get("canned_acl")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12065,9 +12065,9 @@ class IotTopicRuleSns:
         message_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dd8545051208d4cf8fd4be5be794c494d937a8f172a1c8d54592fdbbfa89e7c)
@@ -12083,21 +12083,21 @@ class IotTopicRuleSns:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#target_arn IotTopicRule#target_arn}.'''
         result = self._values.get("target_arn")
         assert result is not None, "Required property 'target_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def message_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#message_format IotTopicRule#message_format}.'''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12320,9 +12320,9 @@ class IotTopicRuleSqs:
         use_base64: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param use_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.
+        :param queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param use_base64: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87be092475616b2a595901ac2b1ceb45a42327fb8789d611fba9a053c686664e)
@@ -12337,21 +12337,21 @@ class IotTopicRuleSqs:
 
     @builtins.property
     def queue_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#queue_url IotTopicRule#queue_url}.'''
         result = self._values.get("queue_url")
         assert result is not None, "Required property 'queue_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def use_base64(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#use_base64 IotTopicRule#use_base64}.'''
         result = self._values.get("use_base64")
         assert result is not None, "Required property 'use_base64' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -12576,9 +12576,9 @@ class IotTopicRuleStepFunctions:
         execution_name_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param state_machine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.
-        :param execution_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param state_machine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.
+        :param execution_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a791bfa4239d12237434677830c9f9194e5bef70c35dc356b34c685b1e02a296)
@@ -12594,21 +12594,21 @@ class IotTopicRuleStepFunctions:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state_machine_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#state_machine_name IotTopicRule#state_machine_name}.'''
         result = self._values.get("state_machine_name")
         assert result is not None, "Required property 'state_machine_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def execution_name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#execution_name_prefix IotTopicRule#execution_name_prefix}.'''
         result = self._values.get("execution_name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12835,11 +12835,11 @@ class IotTopicRuleTimestream:
         timestamp: typing.Optional[typing.Union["IotTopicRuleTimestreamTimestamp", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
-        :param timestamp: timestamp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.
+        :param timestamp: timestamp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
         '''
         if isinstance(timestamp, dict):
             timestamp = IotTopicRuleTimestreamTimestamp(**timestamp)
@@ -12861,7 +12861,7 @@ class IotTopicRuleTimestream:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#database_name IotTopicRule#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
@@ -12872,7 +12872,7 @@ class IotTopicRuleTimestream:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IotTopicRuleTimestreamDimension"]]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#dimension IotTopicRule#dimension}
         '''
         result = self._values.get("dimension")
         assert result is not None, "Required property 'dimension' is missing"
@@ -12880,14 +12880,14 @@ class IotTopicRuleTimestream:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#role_arn IotTopicRule#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#table_name IotTopicRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -12896,7 +12896,7 @@ class IotTopicRuleTimestream:
     def timestamp(self) -> typing.Optional["IotTopicRuleTimestreamTimestamp"]:
         '''timestamp block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#timestamp IotTopicRule#timestamp}
         '''
         result = self._values.get("timestamp")
         return typing.cast(typing.Optional["IotTopicRuleTimestreamTimestamp"], result)
@@ -12921,8 +12921,8 @@ class IotTopicRuleTimestream:
 class IotTopicRuleTimestreamDimension:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbbf6291fb1070bb7e53cabaf8c4b8625f06aa1bfd2fed4aa9f7ed77ab5a841f)
@@ -12935,14 +12935,14 @@ class IotTopicRuleTimestreamDimension:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#name IotTopicRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13262,8 +13262,8 @@ class IotTopicRuleTimestreamOutputReference(
     @jsii.member(jsii_name="putTimestamp")
     def put_timestamp(self, *, unit: builtins.str, value: builtins.str) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         value_ = IotTopicRuleTimestreamTimestamp(unit=unit, value=value)
 
@@ -13372,8 +13372,8 @@ class IotTopicRuleTimestreamOutputReference(
 class IotTopicRuleTimestreamTimestamp:
     def __init__(self, *, unit: builtins.str, value: builtins.str) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0deb5be66a882a98babc505c71c21d4a35989a29b1d1c495ddfc07f50c138e09)
@@ -13386,14 +13386,14 @@ class IotTopicRuleTimestreamTimestamp:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#unit IotTopicRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_topic_rule#value IotTopicRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

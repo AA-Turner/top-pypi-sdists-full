@@ -1,7 +1,7 @@
 r'''
 # `aws_evidently_project`
 
-Refer to the Terraform Registry for docs: [`aws_evidently_project`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project).
+Refer to the Terraform Registry for docs: [`aws_evidently_project`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EvidentlyProject(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.evidentlyProject.EvidentlyProject",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project aws_evidently_project}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project aws_evidently_project}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class EvidentlyProject(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project aws_evidently_project} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project aws_evidently_project} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#name EvidentlyProject#name}.
-        :param data_delivery: data_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#data_delivery EvidentlyProject#data_delivery}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#description EvidentlyProject#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#id EvidentlyProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#tags EvidentlyProject#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#tags_all EvidentlyProject#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#timeouts EvidentlyProject#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#name EvidentlyProject#name}.
+        :param data_delivery: data_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#data_delivery EvidentlyProject#data_delivery}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#description EvidentlyProject#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#id EvidentlyProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#tags EvidentlyProject#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#tags_all EvidentlyProject#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#timeouts EvidentlyProject#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class EvidentlyProject(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EvidentlyProject to import.
-        :param import_from_id: The id of the existing EvidentlyProject that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EvidentlyProject that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EvidentlyProject to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class EvidentlyProject(
         s3_destination: typing.Optional[typing.Union["EvidentlyProjectDataDeliveryS3Destination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#cloudwatch_logs EvidentlyProject#cloudwatch_logs}
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#s3_destination EvidentlyProject#s3_destination}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#cloudwatch_logs EvidentlyProject#cloudwatch_logs}
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#s3_destination EvidentlyProject#s3_destination}
         '''
         value = EvidentlyProjectDataDelivery(
             cloudwatch_logs=cloudwatch_logs, s3_destination=s3_destination
@@ -158,9 +158,9 @@ class EvidentlyProject(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#create EvidentlyProject#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#delete EvidentlyProject#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#update EvidentlyProject#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#create EvidentlyProject#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#delete EvidentlyProject#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#update EvidentlyProject#update}.
         '''
         value = EvidentlyProjectTimeouts(create=create, delete=delete, update=update)
 
@@ -405,13 +405,13 @@ class EvidentlyProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#name EvidentlyProject#name}.
-        :param data_delivery: data_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#data_delivery EvidentlyProject#data_delivery}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#description EvidentlyProject#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#id EvidentlyProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#tags EvidentlyProject#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#tags_all EvidentlyProject#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#timeouts EvidentlyProject#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#name EvidentlyProject#name}.
+        :param data_delivery: data_delivery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#data_delivery EvidentlyProject#data_delivery}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#description EvidentlyProject#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#id EvidentlyProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#tags EvidentlyProject#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#tags_all EvidentlyProject#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#timeouts EvidentlyProject#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -531,7 +531,7 @@ class EvidentlyProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#name EvidentlyProject#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#name EvidentlyProject#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -540,20 +540,20 @@ class EvidentlyProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_delivery(self) -> typing.Optional["EvidentlyProjectDataDelivery"]:
         '''data_delivery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#data_delivery EvidentlyProject#data_delivery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#data_delivery EvidentlyProject#data_delivery}
         '''
         result = self._values.get("data_delivery")
         return typing.cast(typing.Optional["EvidentlyProjectDataDelivery"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#description EvidentlyProject#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#description EvidentlyProject#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#id EvidentlyProject#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#id EvidentlyProject#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -563,13 +563,13 @@ class EvidentlyProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#tags EvidentlyProject#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#tags EvidentlyProject#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#tags_all EvidentlyProject#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#tags_all EvidentlyProject#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -577,7 +577,7 @@ class EvidentlyProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EvidentlyProjectTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#timeouts EvidentlyProject#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#timeouts EvidentlyProject#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EvidentlyProjectTimeouts"], result)
@@ -610,8 +610,8 @@ class EvidentlyProjectDataDelivery:
         s3_destination: typing.Optional[typing.Union["EvidentlyProjectDataDeliveryS3Destination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#cloudwatch_logs EvidentlyProject#cloudwatch_logs}
-        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#s3_destination EvidentlyProject#s3_destination}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#cloudwatch_logs EvidentlyProject#cloudwatch_logs}
+        :param s3_destination: s3_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#s3_destination EvidentlyProject#s3_destination}
         '''
         if isinstance(cloudwatch_logs, dict):
             cloudwatch_logs = EvidentlyProjectDataDeliveryCloudwatchLogs(**cloudwatch_logs)
@@ -633,7 +633,7 @@ class EvidentlyProjectDataDelivery:
     ) -> typing.Optional["EvidentlyProjectDataDeliveryCloudwatchLogs"]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#cloudwatch_logs EvidentlyProject#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#cloudwatch_logs EvidentlyProject#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional["EvidentlyProjectDataDeliveryCloudwatchLogs"], result)
@@ -644,7 +644,7 @@ class EvidentlyProjectDataDelivery:
     ) -> typing.Optional["EvidentlyProjectDataDeliveryS3Destination"]:
         '''s3_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#s3_destination EvidentlyProject#s3_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#s3_destination EvidentlyProject#s3_destination}
         '''
         result = self._values.get("s3_destination")
         return typing.cast(typing.Optional["EvidentlyProjectDataDeliveryS3Destination"], result)
@@ -669,7 +669,7 @@ class EvidentlyProjectDataDelivery:
 class EvidentlyProjectDataDeliveryCloudwatchLogs:
     def __init__(self, *, log_group: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#log_group EvidentlyProject#log_group}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#log_group EvidentlyProject#log_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__deb166a5a2311a5f6e96358b678f229fa9e8c24ea1ce70a980ee64914b93a006)
@@ -680,7 +680,7 @@ class EvidentlyProjectDataDeliveryCloudwatchLogs:
 
     @builtins.property
     def log_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#log_group EvidentlyProject#log_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#log_group EvidentlyProject#log_group}.'''
         result = self._values.get("log_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -782,7 +782,7 @@ class EvidentlyProjectDataDeliveryOutputReference(
         log_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#log_group EvidentlyProject#log_group}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#log_group EvidentlyProject#log_group}.
         '''
         value = EvidentlyProjectDataDeliveryCloudwatchLogs(log_group=log_group)
 
@@ -796,8 +796,8 @@ class EvidentlyProjectDataDeliveryOutputReference(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#bucket EvidentlyProject#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#prefix EvidentlyProject#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#bucket EvidentlyProject#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#prefix EvidentlyProject#prefix}.
         '''
         value = EvidentlyProjectDataDeliveryS3Destination(bucket=bucket, prefix=prefix)
 
@@ -868,8 +868,8 @@ class EvidentlyProjectDataDeliveryS3Destination:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#bucket EvidentlyProject#bucket}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#prefix EvidentlyProject#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#bucket EvidentlyProject#bucket}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#prefix EvidentlyProject#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a418ed15b474edbb9d9d0bf6f6b44e597c3714a7ce25d4b9a81a97491edeced)
@@ -883,13 +883,13 @@ class EvidentlyProjectDataDeliveryS3Destination:
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#bucket EvidentlyProject#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#bucket EvidentlyProject#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#prefix EvidentlyProject#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#prefix EvidentlyProject#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -999,9 +999,9 @@ class EvidentlyProjectTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#create EvidentlyProject#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#delete EvidentlyProject#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#update EvidentlyProject#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#create EvidentlyProject#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#delete EvidentlyProject#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#update EvidentlyProject#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e3c3b628b8632ab22642142608d9f0b8b34872a0324e7dd7e28c0c74761745e)
@@ -1018,19 +1018,19 @@ class EvidentlyProjectTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#create EvidentlyProject#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#create EvidentlyProject#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#delete EvidentlyProject#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#delete EvidentlyProject#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/evidently_project#update EvidentlyProject#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/evidently_project#update EvidentlyProject#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

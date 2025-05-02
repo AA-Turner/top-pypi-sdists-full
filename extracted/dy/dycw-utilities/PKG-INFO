@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.112.9
+Version: 0.112.13
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -24,7 +24,7 @@ Provides-Extra: zzz-test-altair
 Requires-Dist: altair<5.6,>=5.5.0; extra == 'zzz-test-altair'
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-altair'
 Requires-Dist: img2pdf<0.7,>=0.6.0; extra == 'zzz-test-altair'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-altair'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-altair'
 Requires-Dist: vl-convert-python<1.8,>=1.7.0; extra == 'zzz-test-altair'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-altair'
 Provides-Extra: zzz-test-astor
@@ -48,7 +48,7 @@ Provides-Extra: zzz-test-cvxpy
 Requires-Dist: cvxpy<1.7,>=1.6.5; extra == 'zzz-test-cvxpy'
 Provides-Extra: zzz-test-dataclasses
 Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-dataclasses'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-dataclasses'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-dataclasses'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-dataclasses'
 Provides-Extra: zzz-test-datetime
 Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-datetime'
@@ -70,7 +70,7 @@ Provides-Extra: zzz-test-getpass
 Provides-Extra: zzz-test-git
 Provides-Extra: zzz-test-hashlib
 Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-hashlib'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-hashlib'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-hashlib'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-hashlib'
 Provides-Extra: zzz-test-http
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-http'
@@ -84,7 +84,7 @@ Requires-Dist: hypothesis<6.132,>=6.131.9; extra == 'zzz-test-hypothesis'
 Requires-Dist: luigi<3.7,>=3.6.0; extra == 'zzz-test-hypothesis'
 Requires-Dist: numpy<2.3,>=2.2.5; extra == 'zzz-test-hypothesis'
 Requires-Dist: pathvalidate<3.3,>=3.2.3; extra == 'zzz-test-hypothesis'
-Requires-Dist: redis<5.3,>=5.2.1; extra == 'zzz-test-hypothesis'
+Requires-Dist: redis<6.1,>=6.0.0; extra == 'zzz-test-hypothesis'
 Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-hypothesis'
 Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-hypothesis'
 Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-hypothesis'
@@ -92,12 +92,12 @@ Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-hypothesis'
 Provides-Extra: zzz-test-ipython
 Requires-Dist: ipython<9.1,>=9.0.1; extra == 'zzz-test-ipython'
 Provides-Extra: zzz-test-iterables
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-iterables'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-iterables'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-iterables'
 Provides-Extra: zzz-test-jupyter
 Requires-Dist: jupyterlab<4.3,>=4.2.0; extra == 'zzz-test-jupyter'
 Requires-Dist: pandas<2.3,>=2.2.2; extra == 'zzz-test-jupyter'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-jupyter'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-jupyter'
 Provides-Extra: zzz-test-logging
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-logging'
 Requires-Dist: coloredlogs<15.1,>=15.0.1; extra == 'zzz-test-logging'
@@ -121,13 +121,13 @@ Requires-Dist: more-itertools<10.8,>=10.7.0; extra == 'zzz-test-more-itertools'
 Provides-Extra: zzz-test-numpy
 Requires-Dist: numpy<2.3,>=2.2.5; extra == 'zzz-test-numpy'
 Provides-Extra: zzz-test-operator
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-operator'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-operator'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-operator'
 Provides-Extra: zzz-test-optuna
 Requires-Dist: optuna<4.4,>=4.3.0; extra == 'zzz-test-optuna'
 Provides-Extra: zzz-test-orjson
 Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-orjson'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-orjson'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-orjson'
 Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-orjson'
 Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-orjson'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-orjson'
@@ -138,7 +138,7 @@ Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pickle'
 Provides-Extra: zzz-test-platform
 Provides-Extra: zzz-test-polars
 Requires-Dist: dacite<1.10,>=1.9.2; extra == 'zzz-test-polars'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-polars'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-polars'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-polars'
 Provides-Extra: zzz-test-pqdm
 Requires-Dist: pqdm<0.3,>=0.2.0; extra == 'zzz-test-pqdm'
@@ -164,8 +164,8 @@ Provides-Extra: zzz-test-random
 Provides-Extra: zzz-test-re
 Provides-Extra: zzz-test-redis
 Requires-Dist: orjson<3.11,>=3.10.15; extra == 'zzz-test-redis'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-redis'
-Requires-Dist: redis<5.3,>=5.2.1; extra == 'zzz-test-redis'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-redis'
+Requires-Dist: redis<6.1,>=6.0.0; extra == 'zzz-test-redis'
 Requires-Dist: rich<14.1,>=14.0.0; extra == 'zzz-test-redis'
 Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-redis'
 Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-redis'
@@ -192,7 +192,7 @@ Requires-Dist: aiosqlite<0.22,>=0.21.0; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: asyncpg<0.31,>=0.30.0; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: greenlet<3.3,>=3.2.0; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: nest-asyncio<1.7,>=1.6.0; extra == 'zzz-test-sqlalchemy-polars'
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-sqlalchemy-polars'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: sqlalchemy<2.1,>=2.0.40; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: tenacity<9.0,>=8.5.0; extra == 'zzz-test-sqlalchemy-polars'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-sqlalchemy-polars'
@@ -217,7 +217,7 @@ Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-traceback'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-traceback'
 Provides-Extra: zzz-test-types
 Provides-Extra: zzz-test-typing
-Requires-Dist: polars-lts-cpu<1.29,>=1.28.1; extra == 'zzz-test-typing'
+Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-typing'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-typing'
 Provides-Extra: zzz-test-tzlocal
 Requires-Dist: tzlocal<5.4,>=5.3.1; extra == 'zzz-test-tzlocal'

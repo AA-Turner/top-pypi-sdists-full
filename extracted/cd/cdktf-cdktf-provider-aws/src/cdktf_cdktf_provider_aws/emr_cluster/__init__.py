@@ -1,7 +1,7 @@
 r'''
 # `aws_emr_cluster`
 
-Refer to the Terraform Registry for docs: [`aws_emr_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster).
+Refer to the Terraform Registry for docs: [`aws_emr_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EmrCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.emrCluster.EmrCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster aws_emr_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster aws_emr_cluster}.'''
 
     def __init__(
         self,
@@ -92,43 +92,43 @@ class EmrCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster aws_emr_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster aws_emr_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#release_label EmrCluster#release_label}.
-        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#service_role EmrCluster#service_role}.
-        :param additional_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_info EmrCluster#additional_info}.
-        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#applications EmrCluster#applications}.
-        :param autoscaling_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#autoscaling_role EmrCluster#autoscaling_role}.
-        :param auto_termination_policy: auto_termination_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#auto_termination_policy EmrCluster#auto_termination_policy}
-        :param bootstrap_action: bootstrap_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bootstrap_action EmrCluster#bootstrap_action}
-        :param configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}.
-        :param configurations_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations_json EmrCluster#configurations_json}.
-        :param core_instance_fleet: core_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#core_instance_fleet EmrCluster#core_instance_fleet}
-        :param core_instance_group: core_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#core_instance_group EmrCluster#core_instance_group}
-        :param custom_ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#custom_ami_id EmrCluster#custom_ami_id}.
-        :param ebs_root_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_root_volume_size EmrCluster#ebs_root_volume_size}.
-        :param ec2_attributes: ec2_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ec2_attributes EmrCluster#ec2_attributes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#id EmrCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keep_job_flow_alive_when_no_steps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#keep_job_flow_alive_when_no_steps EmrCluster#keep_job_flow_alive_when_no_steps}.
-        :param kerberos_attributes: kerberos_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#kerberos_attributes EmrCluster#kerberos_attributes}
-        :param list_steps_states: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#list_steps_states EmrCluster#list_steps_states}.
-        :param log_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#log_encryption_kms_key_id EmrCluster#log_encryption_kms_key_id}.
-        :param log_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#log_uri EmrCluster#log_uri}.
-        :param master_instance_fleet: master_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#master_instance_fleet EmrCluster#master_instance_fleet}
-        :param master_instance_group: master_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#master_instance_group EmrCluster#master_instance_group}
-        :param placement_group_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#placement_group_config EmrCluster#placement_group_config}.
-        :param scale_down_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#scale_down_behavior EmrCluster#scale_down_behavior}.
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#security_configuration EmrCluster#security_configuration}.
-        :param step: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#step EmrCluster#step}.
-        :param step_concurrency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#step_concurrency_level EmrCluster#step_concurrency_level}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#tags EmrCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#tags_all EmrCluster#tags_all}.
-        :param termination_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#termination_protection EmrCluster#termination_protection}.
-        :param unhealthy_node_replacement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#unhealthy_node_replacement EmrCluster#unhealthy_node_replacement}.
-        :param visible_to_all_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#visible_to_all_users EmrCluster#visible_to_all_users}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#release_label EmrCluster#release_label}.
+        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#service_role EmrCluster#service_role}.
+        :param additional_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_info EmrCluster#additional_info}.
+        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#applications EmrCluster#applications}.
+        :param autoscaling_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#autoscaling_role EmrCluster#autoscaling_role}.
+        :param auto_termination_policy: auto_termination_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#auto_termination_policy EmrCluster#auto_termination_policy}
+        :param bootstrap_action: bootstrap_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bootstrap_action EmrCluster#bootstrap_action}
+        :param configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}.
+        :param configurations_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations_json EmrCluster#configurations_json}.
+        :param core_instance_fleet: core_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#core_instance_fleet EmrCluster#core_instance_fleet}
+        :param core_instance_group: core_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#core_instance_group EmrCluster#core_instance_group}
+        :param custom_ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#custom_ami_id EmrCluster#custom_ami_id}.
+        :param ebs_root_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_root_volume_size EmrCluster#ebs_root_volume_size}.
+        :param ec2_attributes: ec2_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ec2_attributes EmrCluster#ec2_attributes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#id EmrCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keep_job_flow_alive_when_no_steps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#keep_job_flow_alive_when_no_steps EmrCluster#keep_job_flow_alive_when_no_steps}.
+        :param kerberos_attributes: kerberos_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#kerberos_attributes EmrCluster#kerberos_attributes}
+        :param list_steps_states: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#list_steps_states EmrCluster#list_steps_states}.
+        :param log_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#log_encryption_kms_key_id EmrCluster#log_encryption_kms_key_id}.
+        :param log_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#log_uri EmrCluster#log_uri}.
+        :param master_instance_fleet: master_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#master_instance_fleet EmrCluster#master_instance_fleet}
+        :param master_instance_group: master_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#master_instance_group EmrCluster#master_instance_group}
+        :param placement_group_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#placement_group_config EmrCluster#placement_group_config}.
+        :param scale_down_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#scale_down_behavior EmrCluster#scale_down_behavior}.
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#security_configuration EmrCluster#security_configuration}.
+        :param step: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#step EmrCluster#step}.
+        :param step_concurrency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#step_concurrency_level EmrCluster#step_concurrency_level}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#tags EmrCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#tags_all EmrCluster#tags_all}.
+        :param termination_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#termination_protection EmrCluster#termination_protection}.
+        :param unhealthy_node_replacement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#unhealthy_node_replacement EmrCluster#unhealthy_node_replacement}.
+        :param visible_to_all_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#visible_to_all_users EmrCluster#visible_to_all_users}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -199,7 +199,7 @@ class EmrCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EmrCluster to import.
-        :param import_from_id: The id of the existing EmrCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EmrCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EmrCluster to import is found.
         '''
         if __debug__:
@@ -217,7 +217,7 @@ class EmrCluster(
         idle_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#idle_timeout EmrCluster#idle_timeout}.
+        :param idle_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#idle_timeout EmrCluster#idle_timeout}.
         '''
         value = EmrClusterAutoTerminationPolicy(idle_timeout=idle_timeout)
 
@@ -247,11 +247,11 @@ class EmrCluster(
         target_spot_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
-        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
-        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
+        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
+        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
+        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
         '''
         value = EmrClusterCoreInstanceFleet(
             instance_type_configs=instance_type_configs,
@@ -275,12 +275,12 @@ class EmrCluster(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
-        :param autoscaling_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#autoscaling_policy EmrCluster#autoscaling_policy}.
-        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
-        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
+        :param autoscaling_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#autoscaling_policy EmrCluster#autoscaling_policy}.
+        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
+        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
         '''
         value = EmrClusterCoreInstanceGroup(
             instance_type=instance_type,
@@ -308,15 +308,15 @@ class EmrCluster(
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_profile EmrCluster#instance_profile}.
-        :param additional_master_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_master_security_groups EmrCluster#additional_master_security_groups}.
-        :param additional_slave_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_slave_security_groups EmrCluster#additional_slave_security_groups}.
-        :param emr_managed_master_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#emr_managed_master_security_group EmrCluster#emr_managed_master_security_group}.
-        :param emr_managed_slave_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#emr_managed_slave_security_group EmrCluster#emr_managed_slave_security_group}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#key_name EmrCluster#key_name}.
-        :param service_access_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#service_access_security_group EmrCluster#service_access_security_group}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#subnet_id EmrCluster#subnet_id}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#subnet_ids EmrCluster#subnet_ids}.
+        :param instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_profile EmrCluster#instance_profile}.
+        :param additional_master_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_master_security_groups EmrCluster#additional_master_security_groups}.
+        :param additional_slave_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_slave_security_groups EmrCluster#additional_slave_security_groups}.
+        :param emr_managed_master_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#emr_managed_master_security_group EmrCluster#emr_managed_master_security_group}.
+        :param emr_managed_slave_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#emr_managed_slave_security_group EmrCluster#emr_managed_slave_security_group}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#key_name EmrCluster#key_name}.
+        :param service_access_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#service_access_security_group EmrCluster#service_access_security_group}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#subnet_id EmrCluster#subnet_id}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#subnet_ids EmrCluster#subnet_ids}.
         '''
         value = EmrClusterEc2Attributes(
             instance_profile=instance_profile,
@@ -343,11 +343,11 @@ class EmrCluster(
         cross_realm_trust_principal_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kdc_admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#kdc_admin_password EmrCluster#kdc_admin_password}.
-        :param realm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#realm EmrCluster#realm}.
-        :param ad_domain_join_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ad_domain_join_password EmrCluster#ad_domain_join_password}.
-        :param ad_domain_join_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ad_domain_join_user EmrCluster#ad_domain_join_user}.
-        :param cross_realm_trust_principal_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#cross_realm_trust_principal_password EmrCluster#cross_realm_trust_principal_password}.
+        :param kdc_admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#kdc_admin_password EmrCluster#kdc_admin_password}.
+        :param realm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#realm EmrCluster#realm}.
+        :param ad_domain_join_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ad_domain_join_password EmrCluster#ad_domain_join_password}.
+        :param ad_domain_join_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ad_domain_join_user EmrCluster#ad_domain_join_user}.
+        :param cross_realm_trust_principal_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#cross_realm_trust_principal_password EmrCluster#cross_realm_trust_principal_password}.
         '''
         value = EmrClusterKerberosAttributes(
             kdc_admin_password=kdc_admin_password,
@@ -370,11 +370,11 @@ class EmrCluster(
         target_spot_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
-        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
-        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
+        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
+        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
+        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
         '''
         value = EmrClusterMasterInstanceFleet(
             instance_type_configs=instance_type_configs,
@@ -397,11 +397,11 @@ class EmrCluster(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
-        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
-        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
+        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
+        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
         '''
         value = EmrClusterMasterInstanceGroup(
             instance_type=instance_type,
@@ -1137,7 +1137,7 @@ class EmrCluster(
 class EmrClusterAutoTerminationPolicy:
     def __init__(self, *, idle_timeout: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param idle_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#idle_timeout EmrCluster#idle_timeout}.
+        :param idle_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#idle_timeout EmrCluster#idle_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d68e8a40c1be5fb16d766037596e9dae31de26e46c5da6d0be45b7d8af84fa6c)
@@ -1148,7 +1148,7 @@ class EmrClusterAutoTerminationPolicy:
 
     @builtins.property
     def idle_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#idle_timeout EmrCluster#idle_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#idle_timeout EmrCluster#idle_timeout}.'''
         result = self._values.get("idle_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1235,9 +1235,9 @@ class EmrClusterBootstrapAction:
         args: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#path EmrCluster#path}.
-        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#args EmrCluster#args}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#path EmrCluster#path}.
+        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#args EmrCluster#args}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed767c6614d2782478ab6958456a5e5d0b8d43bfddbfe3e581661cf822f0969b)
@@ -1253,21 +1253,21 @@ class EmrClusterBootstrapAction:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#path EmrCluster#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#path EmrCluster#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#args EmrCluster#args}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#args EmrCluster#args}.'''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1571,39 +1571,39 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#release_label EmrCluster#release_label}.
-        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#service_role EmrCluster#service_role}.
-        :param additional_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_info EmrCluster#additional_info}.
-        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#applications EmrCluster#applications}.
-        :param autoscaling_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#autoscaling_role EmrCluster#autoscaling_role}.
-        :param auto_termination_policy: auto_termination_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#auto_termination_policy EmrCluster#auto_termination_policy}
-        :param bootstrap_action: bootstrap_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bootstrap_action EmrCluster#bootstrap_action}
-        :param configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}.
-        :param configurations_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations_json EmrCluster#configurations_json}.
-        :param core_instance_fleet: core_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#core_instance_fleet EmrCluster#core_instance_fleet}
-        :param core_instance_group: core_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#core_instance_group EmrCluster#core_instance_group}
-        :param custom_ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#custom_ami_id EmrCluster#custom_ami_id}.
-        :param ebs_root_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_root_volume_size EmrCluster#ebs_root_volume_size}.
-        :param ec2_attributes: ec2_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ec2_attributes EmrCluster#ec2_attributes}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#id EmrCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keep_job_flow_alive_when_no_steps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#keep_job_flow_alive_when_no_steps EmrCluster#keep_job_flow_alive_when_no_steps}.
-        :param kerberos_attributes: kerberos_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#kerberos_attributes EmrCluster#kerberos_attributes}
-        :param list_steps_states: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#list_steps_states EmrCluster#list_steps_states}.
-        :param log_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#log_encryption_kms_key_id EmrCluster#log_encryption_kms_key_id}.
-        :param log_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#log_uri EmrCluster#log_uri}.
-        :param master_instance_fleet: master_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#master_instance_fleet EmrCluster#master_instance_fleet}
-        :param master_instance_group: master_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#master_instance_group EmrCluster#master_instance_group}
-        :param placement_group_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#placement_group_config EmrCluster#placement_group_config}.
-        :param scale_down_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#scale_down_behavior EmrCluster#scale_down_behavior}.
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#security_configuration EmrCluster#security_configuration}.
-        :param step: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#step EmrCluster#step}.
-        :param step_concurrency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#step_concurrency_level EmrCluster#step_concurrency_level}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#tags EmrCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#tags_all EmrCluster#tags_all}.
-        :param termination_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#termination_protection EmrCluster#termination_protection}.
-        :param unhealthy_node_replacement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#unhealthy_node_replacement EmrCluster#unhealthy_node_replacement}.
-        :param visible_to_all_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#visible_to_all_users EmrCluster#visible_to_all_users}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param release_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#release_label EmrCluster#release_label}.
+        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#service_role EmrCluster#service_role}.
+        :param additional_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_info EmrCluster#additional_info}.
+        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#applications EmrCluster#applications}.
+        :param autoscaling_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#autoscaling_role EmrCluster#autoscaling_role}.
+        :param auto_termination_policy: auto_termination_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#auto_termination_policy EmrCluster#auto_termination_policy}
+        :param bootstrap_action: bootstrap_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bootstrap_action EmrCluster#bootstrap_action}
+        :param configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}.
+        :param configurations_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations_json EmrCluster#configurations_json}.
+        :param core_instance_fleet: core_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#core_instance_fleet EmrCluster#core_instance_fleet}
+        :param core_instance_group: core_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#core_instance_group EmrCluster#core_instance_group}
+        :param custom_ami_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#custom_ami_id EmrCluster#custom_ami_id}.
+        :param ebs_root_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_root_volume_size EmrCluster#ebs_root_volume_size}.
+        :param ec2_attributes: ec2_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ec2_attributes EmrCluster#ec2_attributes}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#id EmrCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keep_job_flow_alive_when_no_steps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#keep_job_flow_alive_when_no_steps EmrCluster#keep_job_flow_alive_when_no_steps}.
+        :param kerberos_attributes: kerberos_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#kerberos_attributes EmrCluster#kerberos_attributes}
+        :param list_steps_states: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#list_steps_states EmrCluster#list_steps_states}.
+        :param log_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#log_encryption_kms_key_id EmrCluster#log_encryption_kms_key_id}.
+        :param log_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#log_uri EmrCluster#log_uri}.
+        :param master_instance_fleet: master_instance_fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#master_instance_fleet EmrCluster#master_instance_fleet}
+        :param master_instance_group: master_instance_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#master_instance_group EmrCluster#master_instance_group}
+        :param placement_group_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#placement_group_config EmrCluster#placement_group_config}.
+        :param scale_down_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#scale_down_behavior EmrCluster#scale_down_behavior}.
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#security_configuration EmrCluster#security_configuration}.
+        :param step: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#step EmrCluster#step}.
+        :param step_concurrency_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#step_concurrency_level EmrCluster#step_concurrency_level}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#tags EmrCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#tags_all EmrCluster#tags_all}.
+        :param termination_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#termination_protection EmrCluster#termination_protection}.
+        :param unhealthy_node_replacement: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#unhealthy_node_replacement EmrCluster#unhealthy_node_replacement}.
+        :param visible_to_all_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#visible_to_all_users EmrCluster#visible_to_all_users}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1809,40 +1809,40 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def release_label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#release_label EmrCluster#release_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#release_label EmrCluster#release_label}.'''
         result = self._values.get("release_label")
         assert result is not None, "Required property 'release_label' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#service_role EmrCluster#service_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#service_role EmrCluster#service_role}.'''
         result = self._values.get("service_role")
         assert result is not None, "Required property 'service_role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def additional_info(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_info EmrCluster#additional_info}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_info EmrCluster#additional_info}.'''
         result = self._values.get("additional_info")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def applications(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#applications EmrCluster#applications}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#applications EmrCluster#applications}.'''
         result = self._values.get("applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def autoscaling_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#autoscaling_role EmrCluster#autoscaling_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#autoscaling_role EmrCluster#autoscaling_role}.'''
         result = self._values.get("autoscaling_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1852,7 +1852,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[EmrClusterAutoTerminationPolicy]:
         '''auto_termination_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#auto_termination_policy EmrCluster#auto_termination_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#auto_termination_policy EmrCluster#auto_termination_policy}
         '''
         result = self._values.get("auto_termination_policy")
         return typing.cast(typing.Optional[EmrClusterAutoTerminationPolicy], result)
@@ -1863,20 +1863,20 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EmrClusterBootstrapAction]]]:
         '''bootstrap_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bootstrap_action EmrCluster#bootstrap_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bootstrap_action EmrCluster#bootstrap_action}
         '''
         result = self._values.get("bootstrap_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EmrClusterBootstrapAction]]], result)
 
     @builtins.property
     def configurations(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}.'''
         result = self._values.get("configurations")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def configurations_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations_json EmrCluster#configurations_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations_json EmrCluster#configurations_json}.'''
         result = self._values.get("configurations_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1884,7 +1884,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def core_instance_fleet(self) -> typing.Optional["EmrClusterCoreInstanceFleet"]:
         '''core_instance_fleet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#core_instance_fleet EmrCluster#core_instance_fleet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#core_instance_fleet EmrCluster#core_instance_fleet}
         '''
         result = self._values.get("core_instance_fleet")
         return typing.cast(typing.Optional["EmrClusterCoreInstanceFleet"], result)
@@ -1893,20 +1893,20 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def core_instance_group(self) -> typing.Optional["EmrClusterCoreInstanceGroup"]:
         '''core_instance_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#core_instance_group EmrCluster#core_instance_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#core_instance_group EmrCluster#core_instance_group}
         '''
         result = self._values.get("core_instance_group")
         return typing.cast(typing.Optional["EmrClusterCoreInstanceGroup"], result)
 
     @builtins.property
     def custom_ami_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#custom_ami_id EmrCluster#custom_ami_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#custom_ami_id EmrCluster#custom_ami_id}.'''
         result = self._values.get("custom_ami_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ebs_root_volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_root_volume_size EmrCluster#ebs_root_volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_root_volume_size EmrCluster#ebs_root_volume_size}.'''
         result = self._values.get("ebs_root_volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1914,14 +1914,14 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ec2_attributes(self) -> typing.Optional["EmrClusterEc2Attributes"]:
         '''ec2_attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ec2_attributes EmrCluster#ec2_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ec2_attributes EmrCluster#ec2_attributes}
         '''
         result = self._values.get("ec2_attributes")
         return typing.cast(typing.Optional["EmrClusterEc2Attributes"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#id EmrCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#id EmrCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1933,7 +1933,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def keep_job_flow_alive_when_no_steps(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#keep_job_flow_alive_when_no_steps EmrCluster#keep_job_flow_alive_when_no_steps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#keep_job_flow_alive_when_no_steps EmrCluster#keep_job_flow_alive_when_no_steps}.'''
         result = self._values.get("keep_job_flow_alive_when_no_steps")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1941,26 +1941,26 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kerberos_attributes(self) -> typing.Optional["EmrClusterKerberosAttributes"]:
         '''kerberos_attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#kerberos_attributes EmrCluster#kerberos_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#kerberos_attributes EmrCluster#kerberos_attributes}
         '''
         result = self._values.get("kerberos_attributes")
         return typing.cast(typing.Optional["EmrClusterKerberosAttributes"], result)
 
     @builtins.property
     def list_steps_states(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#list_steps_states EmrCluster#list_steps_states}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#list_steps_states EmrCluster#list_steps_states}.'''
         result = self._values.get("list_steps_states")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def log_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#log_encryption_kms_key_id EmrCluster#log_encryption_kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#log_encryption_kms_key_id EmrCluster#log_encryption_kms_key_id}.'''
         result = self._values.get("log_encryption_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#log_uri EmrCluster#log_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#log_uri EmrCluster#log_uri}.'''
         result = self._values.get("log_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1968,7 +1968,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def master_instance_fleet(self) -> typing.Optional["EmrClusterMasterInstanceFleet"]:
         '''master_instance_fleet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#master_instance_fleet EmrCluster#master_instance_fleet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#master_instance_fleet EmrCluster#master_instance_fleet}
         '''
         result = self._values.get("master_instance_fleet")
         return typing.cast(typing.Optional["EmrClusterMasterInstanceFleet"], result)
@@ -1977,7 +1977,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def master_instance_group(self) -> typing.Optional["EmrClusterMasterInstanceGroup"]:
         '''master_instance_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#master_instance_group EmrCluster#master_instance_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#master_instance_group EmrCluster#master_instance_group}
         '''
         result = self._values.get("master_instance_group")
         return typing.cast(typing.Optional["EmrClusterMasterInstanceGroup"], result)
@@ -1986,19 +1986,19 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def placement_group_config(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterPlacementGroupConfig"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#placement_group_config EmrCluster#placement_group_config}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#placement_group_config EmrCluster#placement_group_config}.'''
         result = self._values.get("placement_group_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterPlacementGroupConfig"]]], result)
 
     @builtins.property
     def scale_down_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#scale_down_behavior EmrCluster#scale_down_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#scale_down_behavior EmrCluster#scale_down_behavior}.'''
         result = self._values.get("scale_down_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#security_configuration EmrCluster#security_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#security_configuration EmrCluster#security_configuration}.'''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2006,25 +2006,25 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def step(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterStep"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#step EmrCluster#step}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#step EmrCluster#step}.'''
         result = self._values.get("step")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterStep"]]], result)
 
     @builtins.property
     def step_concurrency_level(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#step_concurrency_level EmrCluster#step_concurrency_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#step_concurrency_level EmrCluster#step_concurrency_level}.'''
         result = self._values.get("step_concurrency_level")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#tags EmrCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#tags EmrCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#tags_all EmrCluster#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#tags_all EmrCluster#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2032,7 +2032,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def termination_protection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#termination_protection EmrCluster#termination_protection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#termination_protection EmrCluster#termination_protection}.'''
         result = self._values.get("termination_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2040,7 +2040,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def unhealthy_node_replacement(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#unhealthy_node_replacement EmrCluster#unhealthy_node_replacement}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#unhealthy_node_replacement EmrCluster#unhealthy_node_replacement}.'''
         result = self._values.get("unhealthy_node_replacement")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2048,7 +2048,7 @@ class EmrClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def visible_to_all_users(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#visible_to_all_users EmrCluster#visible_to_all_users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#visible_to_all_users EmrCluster#visible_to_all_users}.'''
         result = self._values.get("visible_to_all_users")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2086,11 +2086,11 @@ class EmrClusterCoreInstanceFleet:
         target_spot_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
-        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
-        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
+        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
+        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
+        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
         '''
         if isinstance(launch_specifications, dict):
             launch_specifications = EmrClusterCoreInstanceFleetLaunchSpecifications(**launch_specifications)
@@ -2119,7 +2119,7 @@ class EmrClusterCoreInstanceFleet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetInstanceTypeConfigs"]]]:
         '''instance_type_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
         '''
         result = self._values.get("instance_type_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetInstanceTypeConfigs"]]], result)
@@ -2130,26 +2130,26 @@ class EmrClusterCoreInstanceFleet:
     ) -> typing.Optional["EmrClusterCoreInstanceFleetLaunchSpecifications"]:
         '''launch_specifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
         '''
         result = self._values.get("launch_specifications")
         return typing.cast(typing.Optional["EmrClusterCoreInstanceFleetLaunchSpecifications"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.'''
         result = self._values.get("target_on_demand_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def target_spot_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.'''
         result = self._values.get("target_spot_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2189,12 +2189,12 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigs:
         weighted_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
-        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
-        :param bid_price_as_percentage_of_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.
-        :param configurations: configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
-        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
-        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
+        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
+        :param bid_price_as_percentage_of_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.
+        :param configurations: configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
+        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa077d5cba124127b8871c08c1d99b960ecca66208dcc7db6d8cef56bae2f86b)
@@ -2220,14 +2220,14 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigs:
 
     @builtins.property
     def instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bid_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
         result = self._values.get("bid_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2235,7 +2235,7 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigs:
     def bid_price_as_percentage_of_on_demand_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.'''
         result = self._values.get("bid_price_as_percentage_of_on_demand_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2245,7 +2245,7 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetInstanceTypeConfigsConfigurations"]]]:
         '''configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
         '''
         result = self._values.get("configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetInstanceTypeConfigsConfigurations"]]], result)
@@ -2256,14 +2256,14 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetInstanceTypeConfigsEbsConfig"]]]:
         '''ebs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
         '''
         result = self._values.get("ebs_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetInstanceTypeConfigsEbsConfig"]]], result)
 
     @builtins.property
     def weighted_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.'''
         result = self._values.get("weighted_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2292,8 +2292,8 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigsConfigurations:
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#classification EmrCluster#classification}.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#properties EmrCluster#properties}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#classification EmrCluster#classification}.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#properties EmrCluster#properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3fb3fe7c3a54eb5a16431c4875f7ade778aba96ed87a8e9cdbe03e1d521a49ef)
@@ -2307,13 +2307,13 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigsConfigurations:
 
     @builtins.property
     def classification(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#classification EmrCluster#classification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#classification EmrCluster#classification}.'''
         result = self._values.get("classification")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#properties EmrCluster#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#properties EmrCluster#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2530,10 +2530,10 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigsEbsConfig:
         volumes_per_instance: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
-        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
+        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__045159cf7186d66feb5524195df1e7c18225f3e8b04541d048b57f5b4afba48f)
@@ -2552,27 +2552,27 @@ class EmrClusterCoreInstanceFleetInstanceTypeConfigsEbsConfig:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
         result = self._values.get("volumes_per_instance")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3096,8 +3096,8 @@ class EmrClusterCoreInstanceFleetLaunchSpecifications:
         spot_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EmrClusterCoreInstanceFleetLaunchSpecificationsSpotSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
-        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
+        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
+        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dca6518f4de539dcf5e300f1e79ad75d2b6d271a52a27ab6c112e63db3ff43c2)
@@ -3115,7 +3115,7 @@ class EmrClusterCoreInstanceFleetLaunchSpecifications:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetLaunchSpecificationsOnDemandSpecification"]]]:
         '''on_demand_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
         '''
         result = self._values.get("on_demand_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetLaunchSpecificationsOnDemandSpecification"]]], result)
@@ -3126,7 +3126,7 @@ class EmrClusterCoreInstanceFleetLaunchSpecifications:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetLaunchSpecificationsSpotSpecification"]]]:
         '''spot_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
         '''
         result = self._values.get("spot_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceFleetLaunchSpecificationsSpotSpecification"]]], result)
@@ -3151,7 +3151,7 @@ class EmrClusterCoreInstanceFleetLaunchSpecifications:
 class EmrClusterCoreInstanceFleetLaunchSpecificationsOnDemandSpecification:
     def __init__(self, *, allocation_strategy: builtins.str) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e18d93fa7d27fa8f4f6a483e3c6c24b37cb0c334dfa69f0098926d77ed3df692)
@@ -3162,7 +3162,7 @@ class EmrClusterCoreInstanceFleetLaunchSpecificationsOnDemandSpecification:
 
     @builtins.property
     def allocation_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         assert result is not None, "Required property 'allocation_strategy' is missing"
         return typing.cast(builtins.str, result)
@@ -3453,10 +3453,10 @@ class EmrClusterCoreInstanceFleetLaunchSpecificationsSpotSpecification:
         block_duration_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
-        :param timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.
-        :param timeout_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.
-        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
+        :param timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.
+        :param timeout_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.
+        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91091e1ad37ceeeb4efefed8baaf8240bffd2312215d3c2d863f01aca197036e)
@@ -3474,28 +3474,28 @@ class EmrClusterCoreInstanceFleetLaunchSpecificationsSpotSpecification:
 
     @builtins.property
     def allocation_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         assert result is not None, "Required property 'allocation_strategy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.'''
         result = self._values.get("timeout_action")
         assert result is not None, "Required property 'timeout_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout_duration_minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.'''
         result = self._values.get("timeout_duration_minutes")
         assert result is not None, "Required property 'timeout_duration_minutes' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def block_duration_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.'''
         result = self._values.get("block_duration_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3761,8 +3761,8 @@ class EmrClusterCoreInstanceFleetOutputReference(
         spot_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EmrClusterCoreInstanceFleetLaunchSpecificationsSpotSpecification, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
-        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
+        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
+        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
         '''
         value = EmrClusterCoreInstanceFleetLaunchSpecifications(
             on_demand_specification=on_demand_specification,
@@ -3925,12 +3925,12 @@ class EmrClusterCoreInstanceGroup:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
-        :param autoscaling_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#autoscaling_policy EmrCluster#autoscaling_policy}.
-        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
-        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
+        :param autoscaling_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#autoscaling_policy EmrCluster#autoscaling_policy}.
+        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
+        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__083209bb67464421bbf19b37b94fa751e1ba3d583ab5be1fd99b0cad1d2bdc39)
@@ -3956,20 +3956,20 @@ class EmrClusterCoreInstanceGroup:
 
     @builtins.property
     def instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def autoscaling_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#autoscaling_policy EmrCluster#autoscaling_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#autoscaling_policy EmrCluster#autoscaling_policy}.'''
         result = self._values.get("autoscaling_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bid_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
         result = self._values.get("bid_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3979,20 +3979,20 @@ class EmrClusterCoreInstanceGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceGroupEbsConfig"]]]:
         '''ebs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
         '''
         result = self._values.get("ebs_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterCoreInstanceGroupEbsConfig"]]], result)
 
     @builtins.property
     def instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.'''
         result = self._values.get("instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4030,11 +4030,11 @@ class EmrClusterCoreInstanceGroupEbsConfig:
         volumes_per_instance: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.
-        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.
+        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__090a3022dd44313ca43e1e4be9c789ac90d7045f7b4a16ae71c768378ca84477)
@@ -4056,33 +4056,33 @@ class EmrClusterCoreInstanceGroupEbsConfig:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
         result = self._values.get("volumes_per_instance")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4533,15 +4533,15 @@ class EmrClusterEc2Attributes:
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_profile EmrCluster#instance_profile}.
-        :param additional_master_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_master_security_groups EmrCluster#additional_master_security_groups}.
-        :param additional_slave_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_slave_security_groups EmrCluster#additional_slave_security_groups}.
-        :param emr_managed_master_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#emr_managed_master_security_group EmrCluster#emr_managed_master_security_group}.
-        :param emr_managed_slave_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#emr_managed_slave_security_group EmrCluster#emr_managed_slave_security_group}.
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#key_name EmrCluster#key_name}.
-        :param service_access_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#service_access_security_group EmrCluster#service_access_security_group}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#subnet_id EmrCluster#subnet_id}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#subnet_ids EmrCluster#subnet_ids}.
+        :param instance_profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_profile EmrCluster#instance_profile}.
+        :param additional_master_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_master_security_groups EmrCluster#additional_master_security_groups}.
+        :param additional_slave_security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_slave_security_groups EmrCluster#additional_slave_security_groups}.
+        :param emr_managed_master_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#emr_managed_master_security_group EmrCluster#emr_managed_master_security_group}.
+        :param emr_managed_slave_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#emr_managed_slave_security_group EmrCluster#emr_managed_slave_security_group}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#key_name EmrCluster#key_name}.
+        :param service_access_security_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#service_access_security_group EmrCluster#service_access_security_group}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#subnet_id EmrCluster#subnet_id}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#subnet_ids EmrCluster#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa093294267df62c1b6c179bccc65ec1631fe29b924dbfe0776ea366bf223641)
@@ -4576,56 +4576,56 @@ class EmrClusterEc2Attributes:
 
     @builtins.property
     def instance_profile(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_profile EmrCluster#instance_profile}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_profile EmrCluster#instance_profile}.'''
         result = self._values.get("instance_profile")
         assert result is not None, "Required property 'instance_profile' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def additional_master_security_groups(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_master_security_groups EmrCluster#additional_master_security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_master_security_groups EmrCluster#additional_master_security_groups}.'''
         result = self._values.get("additional_master_security_groups")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def additional_slave_security_groups(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#additional_slave_security_groups EmrCluster#additional_slave_security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#additional_slave_security_groups EmrCluster#additional_slave_security_groups}.'''
         result = self._values.get("additional_slave_security_groups")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def emr_managed_master_security_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#emr_managed_master_security_group EmrCluster#emr_managed_master_security_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#emr_managed_master_security_group EmrCluster#emr_managed_master_security_group}.'''
         result = self._values.get("emr_managed_master_security_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def emr_managed_slave_security_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#emr_managed_slave_security_group EmrCluster#emr_managed_slave_security_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#emr_managed_slave_security_group EmrCluster#emr_managed_slave_security_group}.'''
         result = self._values.get("emr_managed_slave_security_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#key_name EmrCluster#key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#key_name EmrCluster#key_name}.'''
         result = self._values.get("key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_access_security_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#service_access_security_group EmrCluster#service_access_security_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#service_access_security_group EmrCluster#service_access_security_group}.'''
         result = self._values.get("service_access_security_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#subnet_id EmrCluster#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#subnet_id EmrCluster#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#subnet_ids EmrCluster#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#subnet_ids EmrCluster#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4881,11 +4881,11 @@ class EmrClusterKerberosAttributes:
         cross_realm_trust_principal_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kdc_admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#kdc_admin_password EmrCluster#kdc_admin_password}.
-        :param realm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#realm EmrCluster#realm}.
-        :param ad_domain_join_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ad_domain_join_password EmrCluster#ad_domain_join_password}.
-        :param ad_domain_join_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ad_domain_join_user EmrCluster#ad_domain_join_user}.
-        :param cross_realm_trust_principal_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#cross_realm_trust_principal_password EmrCluster#cross_realm_trust_principal_password}.
+        :param kdc_admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#kdc_admin_password EmrCluster#kdc_admin_password}.
+        :param realm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#realm EmrCluster#realm}.
+        :param ad_domain_join_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ad_domain_join_password EmrCluster#ad_domain_join_password}.
+        :param ad_domain_join_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ad_domain_join_user EmrCluster#ad_domain_join_user}.
+        :param cross_realm_trust_principal_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#cross_realm_trust_principal_password EmrCluster#cross_realm_trust_principal_password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27e877e0a248a67e499b842d773164204efb0821b68ffc7897e006a757413eaa)
@@ -4907,33 +4907,33 @@ class EmrClusterKerberosAttributes:
 
     @builtins.property
     def kdc_admin_password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#kdc_admin_password EmrCluster#kdc_admin_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#kdc_admin_password EmrCluster#kdc_admin_password}.'''
         result = self._values.get("kdc_admin_password")
         assert result is not None, "Required property 'kdc_admin_password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def realm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#realm EmrCluster#realm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#realm EmrCluster#realm}.'''
         result = self._values.get("realm")
         assert result is not None, "Required property 'realm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ad_domain_join_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ad_domain_join_password EmrCluster#ad_domain_join_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ad_domain_join_password EmrCluster#ad_domain_join_password}.'''
         result = self._values.get("ad_domain_join_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ad_domain_join_user(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ad_domain_join_user EmrCluster#ad_domain_join_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ad_domain_join_user EmrCluster#ad_domain_join_user}.'''
         result = self._values.get("ad_domain_join_user")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cross_realm_trust_principal_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#cross_realm_trust_principal_password EmrCluster#cross_realm_trust_principal_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#cross_realm_trust_principal_password EmrCluster#cross_realm_trust_principal_password}.'''
         result = self._values.get("cross_realm_trust_principal_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5106,11 +5106,11 @@ class EmrClusterMasterInstanceFleet:
         target_spot_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
-        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
-        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
-        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
+        :param instance_type_configs: instance_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
+        :param launch_specifications: launch_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param target_on_demand_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.
+        :param target_spot_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.
         '''
         if isinstance(launch_specifications, dict):
             launch_specifications = EmrClusterMasterInstanceFleetLaunchSpecifications(**launch_specifications)
@@ -5139,7 +5139,7 @@ class EmrClusterMasterInstanceFleet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetInstanceTypeConfigs"]]]:
         '''instance_type_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type_configs EmrCluster#instance_type_configs}
         '''
         result = self._values.get("instance_type_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetInstanceTypeConfigs"]]], result)
@@ -5150,26 +5150,26 @@ class EmrClusterMasterInstanceFleet:
     ) -> typing.Optional["EmrClusterMasterInstanceFleetLaunchSpecifications"]:
         '''launch_specifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#launch_specifications EmrCluster#launch_specifications}
         '''
         result = self._values.get("launch_specifications")
         return typing.cast(typing.Optional["EmrClusterMasterInstanceFleetLaunchSpecifications"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_on_demand_capacity EmrCluster#target_on_demand_capacity}.'''
         result = self._values.get("target_on_demand_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def target_spot_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#target_spot_capacity EmrCluster#target_spot_capacity}.'''
         result = self._values.get("target_spot_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5209,12 +5209,12 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigs:
         weighted_capacity: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
-        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
-        :param bid_price_as_percentage_of_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.
-        :param configurations: configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
-        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
-        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
+        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
+        :param bid_price_as_percentage_of_on_demand_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.
+        :param configurations: configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
+        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        :param weighted_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2ba3ba784e0287d95b66ad62014f3069a8e13e313fda749511a819b18edbd4f)
@@ -5240,14 +5240,14 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigs:
 
     @builtins.property
     def instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bid_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
         result = self._values.get("bid_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5255,7 +5255,7 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigs:
     def bid_price_as_percentage_of_on_demand_price(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price_as_percentage_of_on_demand_price EmrCluster#bid_price_as_percentage_of_on_demand_price}.'''
         result = self._values.get("bid_price_as_percentage_of_on_demand_price")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5265,7 +5265,7 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetInstanceTypeConfigsConfigurations"]]]:
         '''configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#configurations EmrCluster#configurations}
         '''
         result = self._values.get("configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetInstanceTypeConfigsConfigurations"]]], result)
@@ -5276,14 +5276,14 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetInstanceTypeConfigsEbsConfig"]]]:
         '''ebs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
         '''
         result = self._values.get("ebs_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetInstanceTypeConfigsEbsConfig"]]], result)
 
     @builtins.property
     def weighted_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#weighted_capacity EmrCluster#weighted_capacity}.'''
         result = self._values.get("weighted_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5312,8 +5312,8 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigsConfigurations:
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#classification EmrCluster#classification}.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#properties EmrCluster#properties}.
+        :param classification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#classification EmrCluster#classification}.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#properties EmrCluster#properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e073de16be882a5a9694de18c3ff59b5f4fc4e543dc93626a883dd5a7b003a97)
@@ -5327,13 +5327,13 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigsConfigurations:
 
     @builtins.property
     def classification(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#classification EmrCluster#classification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#classification EmrCluster#classification}.'''
         result = self._values.get("classification")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#properties EmrCluster#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#properties EmrCluster#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -5550,10 +5550,10 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigsEbsConfig:
         volumes_per_instance: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
-        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
+        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a7870f9dae4c845014e3c5668334577ce6e3e21d85d519f0369bf4a65376463)
@@ -5572,27 +5572,27 @@ class EmrClusterMasterInstanceFleetInstanceTypeConfigsEbsConfig:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
         result = self._values.get("volumes_per_instance")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6118,8 +6118,8 @@ class EmrClusterMasterInstanceFleetLaunchSpecifications:
         spot_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EmrClusterMasterInstanceFleetLaunchSpecificationsSpotSpecification", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
-        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
+        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
+        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b221b0a4420fbd17d707e85abadc4e560f9f704760370f5715ec8e6eef106a9c)
@@ -6137,7 +6137,7 @@ class EmrClusterMasterInstanceFleetLaunchSpecifications:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetLaunchSpecificationsOnDemandSpecification"]]]:
         '''on_demand_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
         '''
         result = self._values.get("on_demand_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetLaunchSpecificationsOnDemandSpecification"]]], result)
@@ -6148,7 +6148,7 @@ class EmrClusterMasterInstanceFleetLaunchSpecifications:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetLaunchSpecificationsSpotSpecification"]]]:
         '''spot_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
         '''
         result = self._values.get("spot_specification")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceFleetLaunchSpecificationsSpotSpecification"]]], result)
@@ -6173,7 +6173,7 @@ class EmrClusterMasterInstanceFleetLaunchSpecifications:
 class EmrClusterMasterInstanceFleetLaunchSpecificationsOnDemandSpecification:
     def __init__(self, *, allocation_strategy: builtins.str) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0fa77b0a757ed4ba1f8eacf1f20cebd79363c1f8b991527f9c13881ffa231ed)
@@ -6184,7 +6184,7 @@ class EmrClusterMasterInstanceFleetLaunchSpecificationsOnDemandSpecification:
 
     @builtins.property
     def allocation_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         assert result is not None, "Required property 'allocation_strategy' is missing"
         return typing.cast(builtins.str, result)
@@ -6475,10 +6475,10 @@ class EmrClusterMasterInstanceFleetLaunchSpecificationsSpotSpecification:
         block_duration_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
-        :param timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.
-        :param timeout_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.
-        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.
+        :param allocation_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.
+        :param timeout_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.
+        :param timeout_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.
+        :param block_duration_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdebe2b035f0520a3cde1885837d02df6651bcb1f9ebad0e87d8ce6f72980865)
@@ -6496,28 +6496,28 @@ class EmrClusterMasterInstanceFleetLaunchSpecificationsSpotSpecification:
 
     @builtins.property
     def allocation_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#allocation_strategy EmrCluster#allocation_strategy}.'''
         result = self._values.get("allocation_strategy")
         assert result is not None, "Required property 'allocation_strategy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_action EmrCluster#timeout_action}.'''
         result = self._values.get("timeout_action")
         assert result is not None, "Required property 'timeout_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout_duration_minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#timeout_duration_minutes EmrCluster#timeout_duration_minutes}.'''
         result = self._values.get("timeout_duration_minutes")
         assert result is not None, "Required property 'timeout_duration_minutes' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def block_duration_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#block_duration_minutes EmrCluster#block_duration_minutes}.'''
         result = self._values.get("block_duration_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6783,8 +6783,8 @@ class EmrClusterMasterInstanceFleetOutputReference(
         spot_specification: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EmrClusterMasterInstanceFleetLaunchSpecificationsSpotSpecification, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
-        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
+        :param on_demand_specification: on_demand_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#on_demand_specification EmrCluster#on_demand_specification}
+        :param spot_specification: spot_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#spot_specification EmrCluster#spot_specification}
         '''
         value = EmrClusterMasterInstanceFleetLaunchSpecifications(
             on_demand_specification=on_demand_specification,
@@ -6945,11 +6945,11 @@ class EmrClusterMasterInstanceGroup:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
-        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
-        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.
+        :param bid_price: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.
+        :param ebs_config: ebs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56756ec1e873c4b6a30c43f7c0ba9dd07cfbfb108ca737cf8eb5c0721130163d)
@@ -6972,14 +6972,14 @@ class EmrClusterMasterInstanceGroup:
 
     @builtins.property
     def instance_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_type EmrCluster#instance_type}.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bid_price(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#bid_price EmrCluster#bid_price}.'''
         result = self._values.get("bid_price")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6989,20 +6989,20 @@ class EmrClusterMasterInstanceGroup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceGroupEbsConfig"]]]:
         '''ebs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#ebs_config EmrCluster#ebs_config}
         '''
         result = self._values.get("ebs_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterMasterInstanceGroupEbsConfig"]]], result)
 
     @builtins.property
     def instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_count EmrCluster#instance_count}.'''
         result = self._values.get("instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7040,11 +7040,11 @@ class EmrClusterMasterInstanceGroupEbsConfig:
         volumes_per_instance: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.
-        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.
+        :param volumes_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83e453c43da7a5da3d72f7bed893b19e70deba07617757e1b552bf1d53f296f9)
@@ -7066,33 +7066,33 @@ class EmrClusterMasterInstanceGroupEbsConfig:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#size EmrCluster#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#type EmrCluster#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#iops EmrCluster#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#throughput EmrCluster#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volumes_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#volumes_per_instance EmrCluster#volumes_per_instance}.'''
         result = self._values.get("volumes_per_instance")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7508,8 +7508,8 @@ class EmrClusterPlacementGroupConfig:
         placement_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_role EmrCluster#instance_role}.
-        :param placement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#placement_strategy EmrCluster#placement_strategy}.
+        :param instance_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_role EmrCluster#instance_role}.
+        :param placement_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#placement_strategy EmrCluster#placement_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b2500ebd0175464382a5b67c3d7da0d2a8ed431893a63a933b63391c1197e35)
@@ -7523,13 +7523,13 @@ class EmrClusterPlacementGroupConfig:
 
     @builtins.property
     def instance_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#instance_role EmrCluster#instance_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#instance_role EmrCluster#instance_role}.'''
         result = self._values.get("instance_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def placement_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#placement_strategy EmrCluster#placement_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#placement_strategy EmrCluster#placement_strategy}.'''
         result = self._values.get("placement_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7742,9 +7742,9 @@ class EmrClusterStep:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action_on_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#action_on_failure EmrCluster#action_on_failure}.
-        :param hadoop_jar_step: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#hadoop_jar_step EmrCluster#hadoop_jar_step}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.
+        :param action_on_failure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#action_on_failure EmrCluster#action_on_failure}.
+        :param hadoop_jar_step: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#hadoop_jar_step EmrCluster#hadoop_jar_step}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdb6c5d16e56d31382d93ff1e7210acf9b189d7f1f6f06cddc888458ae8e8344)
@@ -7761,7 +7761,7 @@ class EmrClusterStep:
 
     @builtins.property
     def action_on_failure(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#action_on_failure EmrCluster#action_on_failure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#action_on_failure EmrCluster#action_on_failure}.'''
         result = self._values.get("action_on_failure")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7769,13 +7769,13 @@ class EmrClusterStep:
     def hadoop_jar_step(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterStepHadoopJarStep"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#hadoop_jar_step EmrCluster#hadoop_jar_step}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#hadoop_jar_step EmrCluster#hadoop_jar_step}.'''
         result = self._values.get("hadoop_jar_step")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EmrClusterStepHadoopJarStep"]]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#name EmrCluster#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7811,10 +7811,10 @@ class EmrClusterStepHadoopJarStep:
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#args EmrCluster#args}.
-        :param jar: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#jar EmrCluster#jar}.
-        :param main_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#main_class EmrCluster#main_class}.
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#properties EmrCluster#properties}.
+        :param args: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#args EmrCluster#args}.
+        :param jar: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#jar EmrCluster#jar}.
+        :param main_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#main_class EmrCluster#main_class}.
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#properties EmrCluster#properties}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3cdfe7dd398d50c5c55186ba4ff3b9a625b5e8c792109553326907eee146099)
@@ -7834,25 +7834,25 @@ class EmrClusterStepHadoopJarStep:
 
     @builtins.property
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#args EmrCluster#args}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#args EmrCluster#args}.'''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def jar(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#jar EmrCluster#jar}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#jar EmrCluster#jar}.'''
         result = self._values.get("jar")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def main_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#main_class EmrCluster#main_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#main_class EmrCluster#main_class}.'''
         result = self._values.get("main_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/emr_cluster#properties EmrCluster#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/emr_cluster#properties EmrCluster#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-cosmos
-Version: 1.9.2
+Version: 1.10.0
 Summary: Orchestrate your dbt projects in Airflow
 Project-URL: Homepage, https://github.com/astronomer/astronomer-cosmos
 Project-URL: Documentation, https://astronomer.github.io/astronomer-cosmos
@@ -35,6 +35,7 @@ Requires-Dist: packaging>=22.0
 Requires-Dist: pydantic>=1.10.0
 Requires-Dist: virtualenv
 Provides-Extra: all
+Requires-Dist: airflow-provider-duckdb>=0.2.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-amazon[s3fs]>=3.0.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-google>=10.17.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-microsoft-azure>=8.5.0; extra == 'all'
@@ -42,6 +43,7 @@ Requires-Dist: dbt-athena; extra == 'all'
 Requires-Dist: dbt-bigquery; extra == 'all'
 Requires-Dist: dbt-clickhouse; extra == 'all'
 Requires-Dist: dbt-databricks!=1.9.0; extra == 'all'
+Requires-Dist: dbt-duckdb; extra == 'all'
 Requires-Dist: dbt-exasol; extra == 'all'
 Requires-Dist: dbt-oracle; extra == 'all'
 Requires-Dist: dbt-postgres; extra == 'all'
@@ -66,6 +68,7 @@ Requires-Dist: dbt-athena; extra == 'dbt-all'
 Requires-Dist: dbt-bigquery; extra == 'dbt-all'
 Requires-Dist: dbt-clickhouse; extra == 'dbt-all'
 Requires-Dist: dbt-databricks!=1.9.0; extra == 'dbt-all'
+Requires-Dist: dbt-duckdb; extra == 'dbt-all'
 Requires-Dist: dbt-exasol; extra == 'dbt-all'
 Requires-Dist: dbt-oracle; extra == 'dbt-all'
 Requires-Dist: dbt-postgres; extra == 'dbt-all'
@@ -83,6 +86,9 @@ Provides-Extra: dbt-clickhouse
 Requires-Dist: dbt-clickhouse; extra == 'dbt-clickhouse'
 Provides-Extra: dbt-databricks
 Requires-Dist: dbt-databricks; extra == 'dbt-databricks'
+Provides-Extra: dbt-duckdb
+Requires-Dist: airflow-provider-duckdb>=0.2.0; extra == 'dbt-duckdb'
+Requires-Dist: dbt-duckdb; extra == 'dbt-duckdb'
 Provides-Extra: dbt-exasol
 Requires-Dist: dbt-exasol; extra == 'dbt-exasol'
 Provides-Extra: dbt-oracle
@@ -102,7 +108,7 @@ Requires-Dist: dbt-vertica<=1.5.4; extra == 'dbt-vertica'
 Provides-Extra: docker
 Requires-Dist: apache-airflow-providers-docker>=3.5.0; extra == 'docker'
 Provides-Extra: docs
-Requires-Dist: apache-airflow-providers-cncf-kubernetes>=5.1.1; extra == 'docs'
+Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.14.0; extra == 'docs'
 Requires-Dist: pydata-sphinx-theme; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autoapi; extra == 'docs'
@@ -113,7 +119,7 @@ Provides-Extra: google
 Requires-Dist: apache-airflow-providers-google>=10.17.0; extra == 'google'
 Requires-Dist: gcsfs<2025.3.0; extra == 'google'
 Provides-Extra: kubernetes
-Requires-Dist: apache-airflow-providers-cncf-kubernetes>=5.1.1; extra == 'kubernetes'
+Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.14.0; extra == 'kubernetes'
 Provides-Extra: microsoft
 Requires-Dist: apache-airflow-providers-microsoft-azure>=8.5.0; extra == 'microsoft'
 Provides-Extra: openlineage

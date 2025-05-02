@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_ingestion`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_ingestion`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion).
+Refer to the Terraform Registry for docs: [`aws_quicksight_ingestion`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightIngestion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightIngestion.QuicksightIngestion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion aws_quicksight_ingestion}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion aws_quicksight_ingestion}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class QuicksightIngestion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion aws_quicksight_ingestion} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion aws_quicksight_ingestion} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#data_set_id QuicksightIngestion#data_set_id}.
-        :param ingestion_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#ingestion_id QuicksightIngestion#ingestion_id}.
-        :param ingestion_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#ingestion_type QuicksightIngestion#ingestion_type}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#aws_account_id QuicksightIngestion#aws_account_id}.
+        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#data_set_id QuicksightIngestion#data_set_id}.
+        :param ingestion_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#ingestion_id QuicksightIngestion#ingestion_id}.
+        :param ingestion_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#ingestion_type QuicksightIngestion#ingestion_type}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#aws_account_id QuicksightIngestion#aws_account_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class QuicksightIngestion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightIngestion to import.
-        :param import_from_id: The id of the existing QuicksightIngestion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightIngestion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightIngestion to import is found.
         '''
         if __debug__:
@@ -265,10 +265,10 @@ class QuicksightIngestionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#data_set_id QuicksightIngestion#data_set_id}.
-        :param ingestion_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#ingestion_id QuicksightIngestion#ingestion_id}.
-        :param ingestion_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#ingestion_type QuicksightIngestion#ingestion_type}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#aws_account_id QuicksightIngestion#aws_account_id}.
+        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#data_set_id QuicksightIngestion#data_set_id}.
+        :param ingestion_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#ingestion_id QuicksightIngestion#ingestion_id}.
+        :param ingestion_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#ingestion_type QuicksightIngestion#ingestion_type}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#aws_account_id QuicksightIngestion#aws_account_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -373,28 +373,28 @@ class QuicksightIngestionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def data_set_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#data_set_id QuicksightIngestion#data_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#data_set_id QuicksightIngestion#data_set_id}.'''
         result = self._values.get("data_set_id")
         assert result is not None, "Required property 'data_set_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ingestion_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#ingestion_id QuicksightIngestion#ingestion_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#ingestion_id QuicksightIngestion#ingestion_id}.'''
         result = self._values.get("ingestion_id")
         assert result is not None, "Required property 'ingestion_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ingestion_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#ingestion_type QuicksightIngestion#ingestion_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#ingestion_type QuicksightIngestion#ingestion_type}.'''
         result = self._values.get("ingestion_type")
         assert result is not None, "Required property 'ingestion_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_ingestion#aws_account_id QuicksightIngestion#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_ingestion#aws_account_id QuicksightIngestion#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

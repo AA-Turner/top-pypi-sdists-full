@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-elevenlabs
-Version: 1.0.17
+Version: 1.0.18
 Summary: Agent Framework plugin for voice synthesis with ElevenLabs' API.
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,7 +18,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9.0
-Requires-Dist: livekit-agents[codecs]>=1.0.17
+Requires-Dist: livekit-agents[codecs]>=1.0.18
 Description-Content-Type: text/markdown
 
 # LiveKit Plugins Elevenlabs

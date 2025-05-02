@@ -1,7 +1,7 @@
 r'''
 # `aws_iot_logging_options`
 
-Refer to the Terraform Registry for docs: [`aws_iot_logging_options`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options).
+Refer to the Terraform Registry for docs: [`aws_iot_logging_options`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IotLoggingOptions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.iotLoggingOptions.IotLoggingOptions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options aws_iot_logging_options}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options aws_iot_logging_options}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class IotLoggingOptions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options aws_iot_logging_options} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options aws_iot_logging_options} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#default_log_level IotLoggingOptions#default_log_level}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#role_arn IotLoggingOptions#role_arn}.
-        :param disable_all_logs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#disable_all_logs IotLoggingOptions#disable_all_logs}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#id IotLoggingOptions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param default_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#default_log_level IotLoggingOptions#default_log_level}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#role_arn IotLoggingOptions#role_arn}.
+        :param disable_all_logs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#disable_all_logs IotLoggingOptions#disable_all_logs}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#id IotLoggingOptions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class IotLoggingOptions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IotLoggingOptions to import.
-        :param import_from_id: The id of the existing IotLoggingOptions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IotLoggingOptions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IotLoggingOptions to import is found.
         '''
         if __debug__:
@@ -261,10 +261,10 @@ class IotLoggingOptionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#default_log_level IotLoggingOptions#default_log_level}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#role_arn IotLoggingOptions#role_arn}.
-        :param disable_all_logs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#disable_all_logs IotLoggingOptions#disable_all_logs}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#id IotLoggingOptions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param default_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#default_log_level IotLoggingOptions#default_log_level}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#role_arn IotLoggingOptions#role_arn}.
+        :param disable_all_logs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#disable_all_logs IotLoggingOptions#disable_all_logs}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#id IotLoggingOptions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,14 +370,14 @@ class IotLoggingOptionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def default_log_level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#default_log_level IotLoggingOptions#default_log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#default_log_level IotLoggingOptions#default_log_level}.'''
         result = self._values.get("default_log_level")
         assert result is not None, "Required property 'default_log_level' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#role_arn IotLoggingOptions#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#role_arn IotLoggingOptions#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -386,13 +386,13 @@ class IotLoggingOptionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disable_all_logs(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#disable_all_logs IotLoggingOptions#disable_all_logs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#disable_all_logs IotLoggingOptions#disable_all_logs}.'''
         result = self._values.get("disable_all_logs")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/iot_logging_options#id IotLoggingOptions#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iot_logging_options#id IotLoggingOptions#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

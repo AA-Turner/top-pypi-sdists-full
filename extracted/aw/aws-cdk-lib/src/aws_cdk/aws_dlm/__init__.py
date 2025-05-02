@@ -782,7 +782,7 @@ class CfnLifecyclePolicy(
                - You must specify either *CronExpression* , or *Interval* , *IntervalUnit* , and *Times* .
                - If you need to specify an `ArchiveRule <https://docs.aws.amazon.com/dlm/latest/APIReference/API_ArchiveRule.html>`_ for the schedule, then you must specify a creation frequency of at least 28 days.
 
-            :param cron_expression: The schedule, as a Cron expression. The schedule interval must be between 1 hour and 1 year. For more information, see the `Cron expressions reference <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html>`_ in the *Amazon EventBridge User Guide* .
+            :param cron_expression: The schedule, as a Cron expression. The schedule interval must be between 1 hour and 1 year. For more information, see the `Cron and rate expressions <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-scheduled-rule-pattern.html>`_ in the *Amazon EventBridge User Guide* .
             :param interval: The interval between snapshots. The supported values are 1, 2, 3, 4, 6, 8, 12, and 24.
             :param interval_unit: The interval unit.
             :param location: *[Custom snapshot policies only]* Specifies the destination for snapshots created by the policy. The allowed destinations depend on the location of the targeted resources. - If the policy targets resources in a Region, then you must create snapshots in the same Region as the source resource. - If the policy targets resources in a Local Zone, you can create snapshots in the same Local Zone or in its parent Region. - If the policy targets resources on an Outpost, then you can create snapshots on the same Outpost or in its parent Region. Specify one of the following values: - To create snapshots in the same Region as the source resource, specify ``CLOUD`` . - To create snapshots in the same Local Zone as the source resource, specify ``LOCAL_ZONE`` . - To create snapshots on the same Outpost as the source resource, specify ``OUTPOST_LOCAL`` . Default: ``CLOUD``
@@ -840,7 +840,7 @@ class CfnLifecyclePolicy(
         def cron_expression(self) -> typing.Optional[builtins.str]:
             '''The schedule, as a Cron expression.
 
-            The schedule interval must be between 1 hour and 1 year. For more information, see the `Cron expressions reference <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html>`_ in the *Amazon EventBridge User Guide* .
+            The schedule interval must be between 1 hour and 1 year. For more information, see the `Cron and rate expressions <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-scheduled-rule-pattern.html>`_ in the *Amazon EventBridge User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-createrule.html#cfn-dlm-lifecyclepolicy-createrule-cronexpression
             '''

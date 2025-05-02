@@ -1,7 +1,7 @@
 r'''
 # `data_aws_lb_listener_rule`
 
-Refer to the Terraform Registry for docs: [`data_aws_lb_listener_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule).
+Refer to the Terraform Registry for docs: [`data_aws_lb_listener_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsLbListenerRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsLbListenerRule.DataAwsLbListenerRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule aws_lb_listener_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule aws_lb_listener_rule}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAwsLbListenerRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule aws_lb_listener_rule} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule aws_lb_listener_rule} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
-        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
+        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAwsLbListenerRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsLbListenerRule to import.
-        :param import_from_id: The id of the existing DataAwsLbListenerRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsLbListenerRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsLbListenerRule to import is found.
         '''
         if __debug__:
@@ -278,7 +278,7 @@ class DataAwsLbListenerRuleAction:
         forward: typing.Optional[typing.Union["DataAwsLbListenerRuleActionForward", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
+        :param forward: forward block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
         '''
         if isinstance(forward, dict):
             forward = DataAwsLbListenerRuleActionForward(**forward)
@@ -293,7 +293,7 @@ class DataAwsLbListenerRuleAction:
     def forward(self) -> typing.Optional["DataAwsLbListenerRuleActionForward"]:
         '''forward block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#forward DataAwsLbListenerRule#forward}
         '''
         result = self._values.get("forward")
         return typing.cast(typing.Optional["DataAwsLbListenerRuleActionForward"], result)
@@ -604,7 +604,7 @@ class DataAwsLbListenerRuleActionForward:
         target_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleActionForwardTargetGroup", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
+        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cb72efdf76122c44ec5abcd641e330128d0d09708f962e128257e20714b48d6)
@@ -619,7 +619,7 @@ class DataAwsLbListenerRuleActionForward:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForwardTargetGroup"]]]:
         '''target_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
         '''
         result = self._values.get("target_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleActionForwardTargetGroup"]]], result)
@@ -1070,7 +1070,7 @@ class DataAwsLbListenerRuleActionOutputReference(
         target_group: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataAwsLbListenerRuleActionForwardTargetGroup, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
+        :param target_group: target_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#target_group DataAwsLbListenerRule#target_group}
         '''
         value = DataAwsLbListenerRuleActionForward(target_group=target_group)
 
@@ -1245,7 +1245,7 @@ class DataAwsLbListenerRuleCondition:
         query_string: typing.Optional[typing.Union["DataAwsLbListenerRuleConditionQueryString", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
         '''
         if isinstance(query_string, dict):
             query_string = DataAwsLbListenerRuleConditionQueryString(**query_string)
@@ -1262,7 +1262,7 @@ class DataAwsLbListenerRuleCondition:
     ) -> typing.Optional["DataAwsLbListenerRuleConditionQueryString"]:
         '''query_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#query_string DataAwsLbListenerRule#query_string}
         '''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional["DataAwsLbListenerRuleConditionQueryString"], result)
@@ -1602,7 +1602,7 @@ class DataAwsLbListenerRuleConditionOutputReference(
         values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleConditionQueryStringValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
         '''
         value = DataAwsLbListenerRuleConditionQueryString(values=values)
 
@@ -1749,7 +1749,7 @@ class DataAwsLbListenerRuleConditionQueryString:
         values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsLbListenerRuleConditionQueryStringValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77653c92d30f7b4a120964ceb0772018237cf316057183b239075abd38d4ba65)
@@ -1764,7 +1764,7 @@ class DataAwsLbListenerRuleConditionQueryString:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionQueryStringValues"]]]:
         '''values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#values DataAwsLbListenerRule#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsLbListenerRuleConditionQueryStringValues"]]], result)
@@ -2123,11 +2123,11 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
-        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
+        :param listener_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2241,14 +2241,14 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleAction]]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#action DataAwsLbListenerRule#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleAction]]], result)
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#arn DataAwsLbListenerRule#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2258,20 +2258,20 @@ class DataAwsLbListenerRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleCondition]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#condition DataAwsLbListenerRule#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataAwsLbListenerRuleCondition]]], result)
 
     @builtins.property
     def listener_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#listener_arn DataAwsLbListenerRule#listener_arn}.'''
         result = self._values.get("listener_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/lb_listener_rule#priority DataAwsLbListenerRule#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 

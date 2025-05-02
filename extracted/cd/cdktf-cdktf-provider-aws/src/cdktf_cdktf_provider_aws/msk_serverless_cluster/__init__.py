@@ -1,7 +1,7 @@
 r'''
 # `aws_msk_serverless_cluster`
 
-Refer to the Terraform Registry for docs: [`aws_msk_serverless_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster).
+Refer to the Terraform Registry for docs: [`aws_msk_serverless_cluster`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MskServerlessCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mskServerlessCluster.MskServerlessCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster aws_msk_serverless_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster aws_msk_serverless_cluster}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class MskServerlessCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster aws_msk_serverless_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster aws_msk_serverless_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#client_authentication MskServerlessCluster#client_authentication}
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#cluster_name MskServerlessCluster#cluster_name}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#vpc_config MskServerlessCluster#vpc_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#id MskServerlessCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#tags MskServerlessCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#tags_all MskServerlessCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#timeouts MskServerlessCluster#timeouts}
+        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#client_authentication MskServerlessCluster#client_authentication}
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#cluster_name MskServerlessCluster#cluster_name}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#vpc_config MskServerlessCluster#vpc_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#id MskServerlessCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#tags MskServerlessCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#tags_all MskServerlessCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#timeouts MskServerlessCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class MskServerlessCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MskServerlessCluster to import.
-        :param import_from_id: The id of the existing MskServerlessCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MskServerlessCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MskServerlessCluster to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class MskServerlessCluster(
         sasl: typing.Union["MskServerlessClusterClientAuthenticationSasl", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#sasl MskServerlessCluster#sasl}
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#sasl MskServerlessCluster#sasl}
         '''
         value = MskServerlessClusterClientAuthentication(sasl=sasl)
 
@@ -153,8 +153,8 @@ class MskServerlessCluster(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#create MskServerlessCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#delete MskServerlessCluster#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#create MskServerlessCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#delete MskServerlessCluster#delete}.
         '''
         value = MskServerlessClusterTimeouts(create=create, delete=delete)
 
@@ -333,7 +333,7 @@ class MskServerlessClusterClientAuthentication:
         sasl: typing.Union["MskServerlessClusterClientAuthenticationSasl", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#sasl MskServerlessCluster#sasl}
+        :param sasl: sasl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#sasl MskServerlessCluster#sasl}
         '''
         if isinstance(sasl, dict):
             sasl = MskServerlessClusterClientAuthenticationSasl(**sasl)
@@ -348,7 +348,7 @@ class MskServerlessClusterClientAuthentication:
     def sasl(self) -> "MskServerlessClusterClientAuthenticationSasl":
         '''sasl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#sasl MskServerlessCluster#sasl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#sasl MskServerlessCluster#sasl}
         '''
         result = self._values.get("sasl")
         assert result is not None, "Required property 'sasl' is missing"
@@ -393,7 +393,7 @@ class MskServerlessClusterClientAuthenticationOutputReference(
         iam: typing.Union["MskServerlessClusterClientAuthenticationSaslIam", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param iam: iam block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#iam MskServerlessCluster#iam}
+        :param iam: iam block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#iam MskServerlessCluster#iam}
         '''
         value = MskServerlessClusterClientAuthenticationSasl(iam=iam)
 
@@ -441,7 +441,7 @@ class MskServerlessClusterClientAuthenticationSasl:
         iam: typing.Union["MskServerlessClusterClientAuthenticationSaslIam", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param iam: iam block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#iam MskServerlessCluster#iam}
+        :param iam: iam block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#iam MskServerlessCluster#iam}
         '''
         if isinstance(iam, dict):
             iam = MskServerlessClusterClientAuthenticationSaslIam(**iam)
@@ -456,7 +456,7 @@ class MskServerlessClusterClientAuthenticationSasl:
     def iam(self) -> "MskServerlessClusterClientAuthenticationSaslIam":
         '''iam block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#iam MskServerlessCluster#iam}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#iam MskServerlessCluster#iam}
         '''
         result = self._values.get("iam")
         assert result is not None, "Required property 'iam' is missing"
@@ -486,7 +486,7 @@ class MskServerlessClusterClientAuthenticationSaslIam:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#enabled MskServerlessCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#enabled MskServerlessCluster#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63321731ce390ef66c2507fd03902db8719d06bf1b2824eda40c2a7fbc9acf3c)
@@ -497,7 +497,7 @@ class MskServerlessClusterClientAuthenticationSaslIam:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#enabled MskServerlessCluster#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#enabled MskServerlessCluster#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -601,7 +601,7 @@ class MskServerlessClusterClientAuthenticationSaslOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#enabled MskServerlessCluster#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#enabled MskServerlessCluster#enabled}.
         '''
         value = MskServerlessClusterClientAuthenticationSaslIam(enabled=enabled)
 
@@ -684,13 +684,13 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#client_authentication MskServerlessCluster#client_authentication}
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#cluster_name MskServerlessCluster#cluster_name}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#vpc_config MskServerlessCluster#vpc_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#id MskServerlessCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#tags MskServerlessCluster#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#tags_all MskServerlessCluster#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#timeouts MskServerlessCluster#timeouts}
+        :param client_authentication: client_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#client_authentication MskServerlessCluster#client_authentication}
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#cluster_name MskServerlessCluster#cluster_name}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#vpc_config MskServerlessCluster#vpc_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#id MskServerlessCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#tags MskServerlessCluster#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#tags_all MskServerlessCluster#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#timeouts MskServerlessCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -810,7 +810,7 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_authentication(self) -> MskServerlessClusterClientAuthentication:
         '''client_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#client_authentication MskServerlessCluster#client_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#client_authentication MskServerlessCluster#client_authentication}
         '''
         result = self._values.get("client_authentication")
         assert result is not None, "Required property 'client_authentication' is missing"
@@ -818,7 +818,7 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#cluster_name MskServerlessCluster#cluster_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#cluster_name MskServerlessCluster#cluster_name}.'''
         result = self._values.get("cluster_name")
         assert result is not None, "Required property 'cluster_name' is missing"
         return typing.cast(builtins.str, result)
@@ -829,7 +829,7 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MskServerlessClusterVpcConfig"]]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#vpc_config MskServerlessCluster#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#vpc_config MskServerlessCluster#vpc_config}
         '''
         result = self._values.get("vpc_config")
         assert result is not None, "Required property 'vpc_config' is missing"
@@ -837,7 +837,7 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#id MskServerlessCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#id MskServerlessCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -847,13 +847,13 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#tags MskServerlessCluster#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#tags MskServerlessCluster#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#tags_all MskServerlessCluster#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#tags_all MskServerlessCluster#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -861,7 +861,7 @@ class MskServerlessClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MskServerlessClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#timeouts MskServerlessCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#timeouts MskServerlessCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MskServerlessClusterTimeouts"], result)
@@ -891,8 +891,8 @@ class MskServerlessClusterTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#create MskServerlessCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#delete MskServerlessCluster#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#create MskServerlessCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#delete MskServerlessCluster#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9761d6f5c6f7e9e62a68277890decbf854b9eb7a1d17c612e529c2aea7dbadeb)
@@ -906,13 +906,13 @@ class MskServerlessClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#create MskServerlessCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#create MskServerlessCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#delete MskServerlessCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#delete MskServerlessCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1021,8 +1021,8 @@ class MskServerlessClusterVpcConfig:
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#subnet_ids MskServerlessCluster#subnet_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#security_group_ids MskServerlessCluster#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#subnet_ids MskServerlessCluster#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#security_group_ids MskServerlessCluster#security_group_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d427f491d37b512d9b8fe6c55b48db1866371da9fb0e8efcb17f358c5a90f355)
@@ -1036,14 +1036,14 @@ class MskServerlessClusterVpcConfig:
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#subnet_ids MskServerlessCluster#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#subnet_ids MskServerlessCluster#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_serverless_cluster#security_group_ids MskServerlessCluster#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_serverless_cluster#security_group_ids MskServerlessCluster#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

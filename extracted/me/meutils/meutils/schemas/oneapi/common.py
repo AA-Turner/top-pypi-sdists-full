@@ -569,6 +569,7 @@ MODEL_RATIO = {
     "abab5.5s-chat": 2.5,
 
     # deepseek
+    "deepseek-prover-v2-671b": 2,
     "deepseek-v3": 1,
     "deepseek-v3-0324": 1,
     "deepseek-v3-250324": 1,
@@ -1132,6 +1133,7 @@ COMPLETION_RATIO = {
     "doubao-1-5-thinking-pro-vision-250415": 4,
     "doubao-1-5-thinking-pro-m-250415": 4,
 
+    "deepseek-prover-v2-671b": 4,
     "deepseek-r1:1.5b": 4,
     "deepseek-r1-distill-qwen-1.5b": 4,
     "deepseek-r1:7b": 4,
@@ -1398,3 +1400,6 @@ if __name__ == '__main__':
     print(bjson({k: v * 6 for k, v in MODEL_RATIO.items() if k.startswith('claude')}))
     print([k for k in MODEL_RATIO if k.startswith('gpt-4.1')] | xjoin(","))
     print([k for k in MODEL_RATIO if k.startswith('qwen3')] | xjoin(","))
+
+    print([k for k in MODEL_RATIO if k.startswith(('deepseek', 'doubao'))] | xjoin(","))
+

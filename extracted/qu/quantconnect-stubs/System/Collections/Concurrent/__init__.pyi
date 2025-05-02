@@ -993,6 +993,15 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
         """Gets a snapshot containing all the values in the ConcurrentDictionary{TKey,TValue}."""
         ...
 
+    def __contains__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> bool:
+        """
+        Determines whether the ConcurrentDictionary{TKey, TValue} contains the specified key.
+        
+        :param key: The key to locate in the ConcurrentDictionary{TKey, TValue}.
+        :returns: true if the ConcurrentDictionary{TKey, TValue} contains an element with the specified key; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey) -> System_Collections_Concurrent_ConcurrentDictionary_TValue:
         """
         Gets or sets the value associated with the specified key.
@@ -1084,6 +1093,9 @@ class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_Concurre
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, key: System_Collections_Concurrent_ConcurrentDictionary_TKey, value: System_Collections_Concurrent_ConcurrentDictionary_TValue) -> None:

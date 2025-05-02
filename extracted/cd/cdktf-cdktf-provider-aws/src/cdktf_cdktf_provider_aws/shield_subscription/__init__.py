@@ -1,7 +1,7 @@
 r'''
 # `aws_shield_subscription`
 
-Refer to the Terraform Registry for docs: [`aws_shield_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription).
+Refer to the Terraform Registry for docs: [`aws_shield_subscription`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ShieldSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.shieldSubscription.ShieldSubscription",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription aws_shield_subscription}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription aws_shield_subscription}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ShieldSubscription(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription aws_shield_subscription} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription aws_shield_subscription} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param auto_renew: Whether to automatically renew the subscription when it expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#auto_renew ShieldSubscription#auto_renew}
-        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#skip_destroy ShieldSubscription#skip_destroy}.
+        :param auto_renew: Whether to automatically renew the subscription when it expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#auto_renew ShieldSubscription#auto_renew}
+        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#skip_destroy ShieldSubscription#skip_destroy}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ShieldSubscription(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ShieldSubscription to import.
-        :param import_from_id: The id of the existing ShieldSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ShieldSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ShieldSubscription to import is found.
         '''
         if __debug__:
@@ -220,8 +220,8 @@ class ShieldSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param auto_renew: Whether to automatically renew the subscription when it expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#auto_renew ShieldSubscription#auto_renew}
-        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#skip_destroy ShieldSubscription#skip_destroy}.
+        :param auto_renew: Whether to automatically renew the subscription when it expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#auto_renew ShieldSubscription#auto_renew}
+        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#skip_destroy ShieldSubscription#skip_destroy}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -324,7 +324,7 @@ class ShieldSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_renew(self) -> typing.Optional[builtins.str]:
         '''Whether to automatically renew the subscription when it expires.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#auto_renew ShieldSubscription#auto_renew}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#auto_renew ShieldSubscription#auto_renew}
         '''
         result = self._values.get("auto_renew")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -333,7 +333,7 @@ class ShieldSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def skip_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/shield_subscription#skip_destroy ShieldSubscription#skip_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/shield_subscription#skip_destroy ShieldSubscription#skip_destroy}.'''
         result = self._values.get("skip_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

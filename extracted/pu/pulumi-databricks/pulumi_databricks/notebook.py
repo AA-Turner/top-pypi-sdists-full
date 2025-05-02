@@ -305,6 +305,9 @@ class _NotebookState:
 
 
 class Notebook(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/notebook:Notebook"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -320,6 +323,8 @@ class Notebook(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage [Databricks Notebooks](https://docs.databricks.com/notebooks/index.html). You can also work with Notebook and get_notebook_paths data sources.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Import
 
@@ -347,6 +352,8 @@ class Notebook(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage [Databricks Notebooks](https://docs.databricks.com/notebooks/index.html). You can also work with Notebook and get_notebook_paths data sources.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Import
 

@@ -67,7 +67,7 @@ def style_filter(cell: Cell, **kwargs: Any) -> Optional[Style]:
     is_failed = False
     is_skipped = False
 
-    if header in (Header.FILEPATH, Header.TESTFUNC, Header.SUBTOTAL):
+    if header in (Header.FILEPATH, Header.TESTFUNC, Header.PARAMS, Header.SUBTOTAL):
         error_ct_list = []
         if "failed" in headers:
             error_ct_list.append(writer.value_matrix[cell.row][headers.index("failed")])

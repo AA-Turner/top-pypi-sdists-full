@@ -101,6 +101,7 @@ from .type_defs import (
     UpdateExtensionRequestTypeDef,
     ValidateConfigurationRequestTypeDef,
 )
+from .waiter import DeploymentCompleteWaiter, EnvironmentReadyForDeploymentWaiter
 
 if sys.version_info >= (3, 9):
     from builtins import type as Type
@@ -691,4 +692,26 @@ class AppConfigClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_paginator.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appconfig/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["deployment_complete"]
+    ) -> DeploymentCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appconfig/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["environment_ready_for_deployment"]
+    ) -> EnvironmentReadyForDeploymentWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfig/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appconfig/client/#get_waiter)
         """

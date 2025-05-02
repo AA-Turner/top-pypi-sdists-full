@@ -1,7 +1,7 @@
 r'''
 # `aws_keyspaces_table`
 
-Refer to the Terraform Registry for docs: [`aws_keyspaces_table`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table).
+Refer to the Terraform Registry for docs: [`aws_keyspaces_table`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KeyspacesTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.keyspacesTable.KeyspacesTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table aws_keyspaces_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table aws_keyspaces_table}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class KeyspacesTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table aws_keyspaces_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table aws_keyspaces_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param keyspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#keyspace_name KeyspacesTable#keyspace_name}.
-        :param schema_definition: schema_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#schema_definition KeyspacesTable#schema_definition}
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#table_name KeyspacesTable#table_name}.
-        :param capacity_specification: capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#capacity_specification KeyspacesTable#capacity_specification}
-        :param client_side_timestamps: client_side_timestamps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#client_side_timestamps KeyspacesTable#client_side_timestamps}
-        :param comment: comment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#comment KeyspacesTable#comment}
-        :param default_time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#default_time_to_live KeyspacesTable#default_time_to_live}.
-        :param encryption_specification: encryption_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#encryption_specification KeyspacesTable#encryption_specification}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#id KeyspacesTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#point_in_time_recovery KeyspacesTable#point_in_time_recovery}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#tags KeyspacesTable#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#tags_all KeyspacesTable#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#timeouts KeyspacesTable#timeouts}
-        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#ttl KeyspacesTable#ttl}
+        :param keyspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#keyspace_name KeyspacesTable#keyspace_name}.
+        :param schema_definition: schema_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#schema_definition KeyspacesTable#schema_definition}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#table_name KeyspacesTable#table_name}.
+        :param capacity_specification: capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#capacity_specification KeyspacesTable#capacity_specification}
+        :param client_side_timestamps: client_side_timestamps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#client_side_timestamps KeyspacesTable#client_side_timestamps}
+        :param comment: comment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#comment KeyspacesTable#comment}
+        :param default_time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#default_time_to_live KeyspacesTable#default_time_to_live}.
+        :param encryption_specification: encryption_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#encryption_specification KeyspacesTable#encryption_specification}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#id KeyspacesTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#point_in_time_recovery KeyspacesTable#point_in_time_recovery}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#tags KeyspacesTable#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#tags_all KeyspacesTable#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#timeouts KeyspacesTable#timeouts}
+        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#ttl KeyspacesTable#ttl}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class KeyspacesTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KeyspacesTable to import.
-        :param import_from_id: The id of the existing KeyspacesTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KeyspacesTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KeyspacesTable to import is found.
         '''
         if __debug__:
@@ -162,9 +162,9 @@ class KeyspacesTable(
         write_capacity_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#read_capacity_units KeyspacesTable#read_capacity_units}.
-        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#throughput_mode KeyspacesTable#throughput_mode}.
-        :param write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#write_capacity_units KeyspacesTable#write_capacity_units}.
+        :param read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#read_capacity_units KeyspacesTable#read_capacity_units}.
+        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#throughput_mode KeyspacesTable#throughput_mode}.
+        :param write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#write_capacity_units KeyspacesTable#write_capacity_units}.
         '''
         value = KeyspacesTableCapacitySpecification(
             read_capacity_units=read_capacity_units,
@@ -177,7 +177,7 @@ class KeyspacesTable(
     @jsii.member(jsii_name="putClientSideTimestamps")
     def put_client_side_timestamps(self, *, status: builtins.str) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
         '''
         value = KeyspacesTableClientSideTimestamps(status=status)
 
@@ -186,7 +186,7 @@ class KeyspacesTable(
     @jsii.member(jsii_name="putComment")
     def put_comment(self, *, message: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#message KeyspacesTable#message}.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#message KeyspacesTable#message}.
         '''
         value = KeyspacesTableComment(message=message)
 
@@ -200,8 +200,8 @@ class KeyspacesTable(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#kms_key_identifier KeyspacesTable#kms_key_identifier}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.
+        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#kms_key_identifier KeyspacesTable#kms_key_identifier}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.
         '''
         value = KeyspacesTableEncryptionSpecification(
             kms_key_identifier=kms_key_identifier, type=type
@@ -216,7 +216,7 @@ class KeyspacesTable(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
         '''
         value = KeyspacesTablePointInTimeRecovery(status=status)
 
@@ -232,10 +232,10 @@ class KeyspacesTable(
         static_column: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KeyspacesTableSchemaDefinitionStaticColumn", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#column KeyspacesTable#column}
-        :param partition_key: partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#partition_key KeyspacesTable#partition_key}
-        :param clustering_key: clustering_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#clustering_key KeyspacesTable#clustering_key}
-        :param static_column: static_column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#static_column KeyspacesTable#static_column}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#column KeyspacesTable#column}
+        :param partition_key: partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#partition_key KeyspacesTable#partition_key}
+        :param clustering_key: clustering_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#clustering_key KeyspacesTable#clustering_key}
+        :param static_column: static_column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#static_column KeyspacesTable#static_column}
         '''
         value = KeyspacesTableSchemaDefinition(
             column=column,
@@ -255,9 +255,9 @@ class KeyspacesTable(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#create KeyspacesTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#delete KeyspacesTable#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#update KeyspacesTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#create KeyspacesTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#delete KeyspacesTable#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#update KeyspacesTable#update}.
         '''
         value = KeyspacesTableTimeouts(create=create, delete=delete, update=update)
 
@@ -266,7 +266,7 @@ class KeyspacesTable(
     @jsii.member(jsii_name="putTtl")
     def put_ttl(self, *, status: builtins.str) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
         '''
         value = KeyspacesTableTtl(status=status)
 
@@ -557,9 +557,9 @@ class KeyspacesTableCapacitySpecification:
         write_capacity_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#read_capacity_units KeyspacesTable#read_capacity_units}.
-        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#throughput_mode KeyspacesTable#throughput_mode}.
-        :param write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#write_capacity_units KeyspacesTable#write_capacity_units}.
+        :param read_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#read_capacity_units KeyspacesTable#read_capacity_units}.
+        :param throughput_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#throughput_mode KeyspacesTable#throughput_mode}.
+        :param write_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#write_capacity_units KeyspacesTable#write_capacity_units}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74717f1fc6af5a9d2bab4d2b266d29e3a1e504da08501571c7d61a003199a534)
@@ -576,19 +576,19 @@ class KeyspacesTableCapacitySpecification:
 
     @builtins.property
     def read_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#read_capacity_units KeyspacesTable#read_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#read_capacity_units KeyspacesTable#read_capacity_units}.'''
         result = self._values.get("read_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def throughput_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#throughput_mode KeyspacesTable#throughput_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#throughput_mode KeyspacesTable#throughput_mode}.'''
         result = self._values.get("throughput_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def write_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#write_capacity_units KeyspacesTable#write_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#write_capacity_units KeyspacesTable#write_capacity_units}.'''
         result = self._values.get("write_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -711,7 +711,7 @@ class KeyspacesTableCapacitySpecificationOutputReference(
 class KeyspacesTableClientSideTimestamps:
     def __init__(self, *, status: builtins.str) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aaf23c57d80958d88b3f73afa51bc4ec10d59275790e5ff471328d88eb12fcca)
@@ -722,7 +722,7 @@ class KeyspacesTableClientSideTimestamps:
 
     @builtins.property
     def status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.'''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
         return typing.cast(builtins.str, result)
@@ -800,7 +800,7 @@ class KeyspacesTableClientSideTimestampsOutputReference(
 class KeyspacesTableComment:
     def __init__(self, *, message: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#message KeyspacesTable#message}.
+        :param message: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#message KeyspacesTable#message}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3974e9d4f7cb4ddcba543d17f372c5cf6cd02f22d7a3468a586e6e28f799ed1)
@@ -811,7 +811,7 @@ class KeyspacesTableComment:
 
     @builtins.property
     def message(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#message KeyspacesTable#message}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#message KeyspacesTable#message}.'''
         result = self._values.get("message")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -942,20 +942,20 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param keyspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#keyspace_name KeyspacesTable#keyspace_name}.
-        :param schema_definition: schema_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#schema_definition KeyspacesTable#schema_definition}
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#table_name KeyspacesTable#table_name}.
-        :param capacity_specification: capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#capacity_specification KeyspacesTable#capacity_specification}
-        :param client_side_timestamps: client_side_timestamps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#client_side_timestamps KeyspacesTable#client_side_timestamps}
-        :param comment: comment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#comment KeyspacesTable#comment}
-        :param default_time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#default_time_to_live KeyspacesTable#default_time_to_live}.
-        :param encryption_specification: encryption_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#encryption_specification KeyspacesTable#encryption_specification}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#id KeyspacesTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#point_in_time_recovery KeyspacesTable#point_in_time_recovery}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#tags KeyspacesTable#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#tags_all KeyspacesTable#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#timeouts KeyspacesTable#timeouts}
-        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#ttl KeyspacesTable#ttl}
+        :param keyspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#keyspace_name KeyspacesTable#keyspace_name}.
+        :param schema_definition: schema_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#schema_definition KeyspacesTable#schema_definition}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#table_name KeyspacesTable#table_name}.
+        :param capacity_specification: capacity_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#capacity_specification KeyspacesTable#capacity_specification}
+        :param client_side_timestamps: client_side_timestamps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#client_side_timestamps KeyspacesTable#client_side_timestamps}
+        :param comment: comment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#comment KeyspacesTable#comment}
+        :param default_time_to_live: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#default_time_to_live KeyspacesTable#default_time_to_live}.
+        :param encryption_specification: encryption_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#encryption_specification KeyspacesTable#encryption_specification}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#id KeyspacesTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param point_in_time_recovery: point_in_time_recovery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#point_in_time_recovery KeyspacesTable#point_in_time_recovery}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#tags KeyspacesTable#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#tags_all KeyspacesTable#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#timeouts KeyspacesTable#timeouts}
+        :param ttl: ttl block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#ttl KeyspacesTable#ttl}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1106,7 +1106,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def keyspace_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#keyspace_name KeyspacesTable#keyspace_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#keyspace_name KeyspacesTable#keyspace_name}.'''
         result = self._values.get("keyspace_name")
         assert result is not None, "Required property 'keyspace_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1115,7 +1115,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema_definition(self) -> "KeyspacesTableSchemaDefinition":
         '''schema_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#schema_definition KeyspacesTable#schema_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#schema_definition KeyspacesTable#schema_definition}
         '''
         result = self._values.get("schema_definition")
         assert result is not None, "Required property 'schema_definition' is missing"
@@ -1123,7 +1123,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#table_name KeyspacesTable#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#table_name KeyspacesTable#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1134,7 +1134,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KeyspacesTableCapacitySpecification]:
         '''capacity_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#capacity_specification KeyspacesTable#capacity_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#capacity_specification KeyspacesTable#capacity_specification}
         '''
         result = self._values.get("capacity_specification")
         return typing.cast(typing.Optional[KeyspacesTableCapacitySpecification], result)
@@ -1145,7 +1145,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KeyspacesTableClientSideTimestamps]:
         '''client_side_timestamps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#client_side_timestamps KeyspacesTable#client_side_timestamps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#client_side_timestamps KeyspacesTable#client_side_timestamps}
         '''
         result = self._values.get("client_side_timestamps")
         return typing.cast(typing.Optional[KeyspacesTableClientSideTimestamps], result)
@@ -1154,14 +1154,14 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[KeyspacesTableComment]:
         '''comment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#comment KeyspacesTable#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#comment KeyspacesTable#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[KeyspacesTableComment], result)
 
     @builtins.property
     def default_time_to_live(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#default_time_to_live KeyspacesTable#default_time_to_live}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#default_time_to_live KeyspacesTable#default_time_to_live}.'''
         result = self._values.get("default_time_to_live")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1171,14 +1171,14 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KeyspacesTableEncryptionSpecification"]:
         '''encryption_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#encryption_specification KeyspacesTable#encryption_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#encryption_specification KeyspacesTable#encryption_specification}
         '''
         result = self._values.get("encryption_specification")
         return typing.cast(typing.Optional["KeyspacesTableEncryptionSpecification"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#id KeyspacesTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#id KeyspacesTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1192,20 +1192,20 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KeyspacesTablePointInTimeRecovery"]:
         '''point_in_time_recovery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#point_in_time_recovery KeyspacesTable#point_in_time_recovery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#point_in_time_recovery KeyspacesTable#point_in_time_recovery}
         '''
         result = self._values.get("point_in_time_recovery")
         return typing.cast(typing.Optional["KeyspacesTablePointInTimeRecovery"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#tags KeyspacesTable#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#tags KeyspacesTable#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#tags_all KeyspacesTable#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#tags_all KeyspacesTable#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1213,7 +1213,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KeyspacesTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#timeouts KeyspacesTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#timeouts KeyspacesTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KeyspacesTableTimeouts"], result)
@@ -1222,7 +1222,7 @@ class KeyspacesTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ttl(self) -> typing.Optional["KeyspacesTableTtl"]:
         '''ttl block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#ttl KeyspacesTable#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#ttl KeyspacesTable#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional["KeyspacesTableTtl"], result)
@@ -1252,8 +1252,8 @@ class KeyspacesTableEncryptionSpecification:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#kms_key_identifier KeyspacesTable#kms_key_identifier}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.
+        :param kms_key_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#kms_key_identifier KeyspacesTable#kms_key_identifier}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3fa1bcd414081ae6133b653398eb99a9b177a719047fc0a9ea3385b60964794c)
@@ -1267,13 +1267,13 @@ class KeyspacesTableEncryptionSpecification:
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#kms_key_identifier KeyspacesTable#kms_key_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#kms_key_identifier KeyspacesTable#kms_key_identifier}.'''
         result = self._values.get("kms_key_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1375,7 +1375,7 @@ class KeyspacesTableEncryptionSpecificationOutputReference(
 class KeyspacesTablePointInTimeRecovery:
     def __init__(self, *, status: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f44f2fbddc4a9c1c5dad99f048dd83c78cc2a078348e8ea76bccfe25c2d3939)
@@ -1386,7 +1386,7 @@ class KeyspacesTablePointInTimeRecovery:
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1479,10 +1479,10 @@ class KeyspacesTableSchemaDefinition:
         static_column: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KeyspacesTableSchemaDefinitionStaticColumn", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#column KeyspacesTable#column}
-        :param partition_key: partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#partition_key KeyspacesTable#partition_key}
-        :param clustering_key: clustering_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#clustering_key KeyspacesTable#clustering_key}
-        :param static_column: static_column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#static_column KeyspacesTable#static_column}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#column KeyspacesTable#column}
+        :param partition_key: partition_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#partition_key KeyspacesTable#partition_key}
+        :param clustering_key: clustering_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#clustering_key KeyspacesTable#clustering_key}
+        :param static_column: static_column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#static_column KeyspacesTable#static_column}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88cad144254a346ecc5618dab9faac7b9ebb40683342e7ef3cbe9e9a1a2b5537)
@@ -1505,7 +1505,7 @@ class KeyspacesTableSchemaDefinition:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyspacesTableSchemaDefinitionColumn"]]:
         '''column block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#column KeyspacesTable#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#column KeyspacesTable#column}
         '''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
@@ -1517,7 +1517,7 @@ class KeyspacesTableSchemaDefinition:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyspacesTableSchemaDefinitionPartitionKey"]]:
         '''partition_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#partition_key KeyspacesTable#partition_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#partition_key KeyspacesTable#partition_key}
         '''
         result = self._values.get("partition_key")
         assert result is not None, "Required property 'partition_key' is missing"
@@ -1529,7 +1529,7 @@ class KeyspacesTableSchemaDefinition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyspacesTableSchemaDefinitionClusteringKey"]]]:
         '''clustering_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#clustering_key KeyspacesTable#clustering_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#clustering_key KeyspacesTable#clustering_key}
         '''
         result = self._values.get("clustering_key")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyspacesTableSchemaDefinitionClusteringKey"]]], result)
@@ -1540,7 +1540,7 @@ class KeyspacesTableSchemaDefinition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyspacesTableSchemaDefinitionStaticColumn"]]]:
         '''static_column block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#static_column KeyspacesTable#static_column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#static_column KeyspacesTable#static_column}
         '''
         result = self._values.get("static_column")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyspacesTableSchemaDefinitionStaticColumn"]]], result)
@@ -1565,8 +1565,8 @@ class KeyspacesTableSchemaDefinition:
 class KeyspacesTableSchemaDefinitionClusteringKey:
     def __init__(self, *, name: builtins.str, order_by: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
-        :param order_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#order_by KeyspacesTable#order_by}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
+        :param order_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#order_by KeyspacesTable#order_by}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cb07e3eb4a1321e7fb69d77c0c582c6bb8295ae382a5afad6d220878713ff13)
@@ -1579,14 +1579,14 @@ class KeyspacesTableSchemaDefinitionClusteringKey:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def order_by(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#order_by KeyspacesTable#order_by}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#order_by KeyspacesTable#order_by}.'''
         result = self._values.get("order_by")
         assert result is not None, "Required property 'order_by' is missing"
         return typing.cast(builtins.str, result)
@@ -1782,8 +1782,8 @@ class KeyspacesTableSchemaDefinitionClusteringKeyOutputReference(
 class KeyspacesTableSchemaDefinitionColumn:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__509443643d67c8a8d7d11e25812cb566cc970c218e224dfad2ae2fee8ce5e5da)
@@ -1796,14 +1796,14 @@ class KeyspacesTableSchemaDefinitionColumn:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#type KeyspacesTable#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -2143,7 +2143,7 @@ class KeyspacesTableSchemaDefinitionOutputReference(
 class KeyspacesTableSchemaDefinitionPartitionKey:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33134e7ebe8cd581ce7a10b08eab6642b13678bf7ec867dd2b2e4a252042ae3f)
@@ -2154,7 +2154,7 @@ class KeyspacesTableSchemaDefinitionPartitionKey:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2333,7 +2333,7 @@ class KeyspacesTableSchemaDefinitionPartitionKeyOutputReference(
 class KeyspacesTableSchemaDefinitionStaticColumn:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5582010914486a5018ee986d3c59670cb452b1fc51d3319cab82a85053bebdd9)
@@ -2344,7 +2344,7 @@ class KeyspacesTableSchemaDefinitionStaticColumn:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#name KeyspacesTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2529,9 +2529,9 @@ class KeyspacesTableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#create KeyspacesTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#delete KeyspacesTable#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#update KeyspacesTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#create KeyspacesTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#delete KeyspacesTable#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#update KeyspacesTable#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79a988e315c724491c63b7900e88538bcbba62ac6e3a21d6890dadd8dec05bc7)
@@ -2548,19 +2548,19 @@ class KeyspacesTableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#create KeyspacesTable#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#create KeyspacesTable#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#delete KeyspacesTable#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#delete KeyspacesTable#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#update KeyspacesTable#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#update KeyspacesTable#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2685,7 +2685,7 @@ class KeyspacesTableTimeoutsOutputReference(
 class KeyspacesTableTtl:
     def __init__(self, *, status: builtins.str) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9006f0b08e6717786dec139d1a6bbc6d15473086d8a7e0854d501f020b2c4e83)
@@ -2696,7 +2696,7 @@ class KeyspacesTableTtl:
 
     @builtins.property
     def status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_table#status KeyspacesTable#status}.'''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
         return typing.cast(builtins.str, result)

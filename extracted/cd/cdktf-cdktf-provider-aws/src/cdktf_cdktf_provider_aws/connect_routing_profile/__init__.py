@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_routing_profile`
 
-Refer to the Terraform Registry for docs: [`aws_connect_routing_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile).
+Refer to the Terraform Registry for docs: [`aws_connect_routing_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectRoutingProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectRoutingProfile.ConnectRoutingProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile aws_connect_routing_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile aws_connect_routing_profile}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ConnectRoutingProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile aws_connect_routing_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile aws_connect_routing_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_outbound_queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#default_outbound_queue_id ConnectRoutingProfile#default_outbound_queue_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#description ConnectRoutingProfile#description}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#instance_id ConnectRoutingProfile#instance_id}.
-        :param media_concurrencies: media_concurrencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#media_concurrencies ConnectRoutingProfile#media_concurrencies}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#name ConnectRoutingProfile#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#id ConnectRoutingProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param queue_configs: queue_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#queue_configs ConnectRoutingProfile#queue_configs}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#tags ConnectRoutingProfile#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#tags_all ConnectRoutingProfile#tags_all}.
+        :param default_outbound_queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#default_outbound_queue_id ConnectRoutingProfile#default_outbound_queue_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#description ConnectRoutingProfile#description}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#instance_id ConnectRoutingProfile#instance_id}.
+        :param media_concurrencies: media_concurrencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#media_concurrencies ConnectRoutingProfile#media_concurrencies}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#name ConnectRoutingProfile#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#id ConnectRoutingProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param queue_configs: queue_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#queue_configs ConnectRoutingProfile#queue_configs}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#tags ConnectRoutingProfile#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#tags_all ConnectRoutingProfile#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ConnectRoutingProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectRoutingProfile to import.
-        :param import_from_id: The id of the existing ConnectRoutingProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectRoutingProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectRoutingProfile to import is found.
         '''
         if __debug__:
@@ -400,15 +400,15 @@ class ConnectRoutingProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_outbound_queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#default_outbound_queue_id ConnectRoutingProfile#default_outbound_queue_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#description ConnectRoutingProfile#description}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#instance_id ConnectRoutingProfile#instance_id}.
-        :param media_concurrencies: media_concurrencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#media_concurrencies ConnectRoutingProfile#media_concurrencies}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#name ConnectRoutingProfile#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#id ConnectRoutingProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param queue_configs: queue_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#queue_configs ConnectRoutingProfile#queue_configs}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#tags ConnectRoutingProfile#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#tags_all ConnectRoutingProfile#tags_all}.
+        :param default_outbound_queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#default_outbound_queue_id ConnectRoutingProfile#default_outbound_queue_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#description ConnectRoutingProfile#description}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#instance_id ConnectRoutingProfile#instance_id}.
+        :param media_concurrencies: media_concurrencies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#media_concurrencies ConnectRoutingProfile#media_concurrencies}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#name ConnectRoutingProfile#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#id ConnectRoutingProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param queue_configs: queue_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#queue_configs ConnectRoutingProfile#queue_configs}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#tags ConnectRoutingProfile#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#tags_all ConnectRoutingProfile#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -526,21 +526,21 @@ class ConnectRoutingProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def default_outbound_queue_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#default_outbound_queue_id ConnectRoutingProfile#default_outbound_queue_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#default_outbound_queue_id ConnectRoutingProfile#default_outbound_queue_id}.'''
         result = self._values.get("default_outbound_queue_id")
         assert result is not None, "Required property 'default_outbound_queue_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#description ConnectRoutingProfile#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#description ConnectRoutingProfile#description}.'''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#instance_id ConnectRoutingProfile#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#instance_id ConnectRoutingProfile#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
@@ -551,7 +551,7 @@ class ConnectRoutingProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectRoutingProfileMediaConcurrencies"]]:
         '''media_concurrencies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#media_concurrencies ConnectRoutingProfile#media_concurrencies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#media_concurrencies ConnectRoutingProfile#media_concurrencies}
         '''
         result = self._values.get("media_concurrencies")
         assert result is not None, "Required property 'media_concurrencies' is missing"
@@ -559,14 +559,14 @@ class ConnectRoutingProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#name ConnectRoutingProfile#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#name ConnectRoutingProfile#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#id ConnectRoutingProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#id ConnectRoutingProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -580,20 +580,20 @@ class ConnectRoutingProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectRoutingProfileQueueConfigs"]]]:
         '''queue_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#queue_configs ConnectRoutingProfile#queue_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#queue_configs ConnectRoutingProfile#queue_configs}
         '''
         result = self._values.get("queue_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectRoutingProfileQueueConfigs"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#tags ConnectRoutingProfile#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#tags ConnectRoutingProfile#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#tags_all ConnectRoutingProfile#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#tags_all ConnectRoutingProfile#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -617,8 +617,8 @@ class ConnectRoutingProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ConnectRoutingProfileMediaConcurrencies:
     def __init__(self, *, channel: builtins.str, concurrency: jsii.Number) -> None:
         '''
-        :param channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.
-        :param concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#concurrency ConnectRoutingProfile#concurrency}.
+        :param channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.
+        :param concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#concurrency ConnectRoutingProfile#concurrency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0687acd988a2fa8310f98862ace60002e9c3ef93c7c743484138a3dfca9562ec)
@@ -631,14 +631,14 @@ class ConnectRoutingProfileMediaConcurrencies:
 
     @builtins.property
     def channel(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.'''
         result = self._values.get("channel")
         assert result is not None, "Required property 'channel' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def concurrency(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#concurrency ConnectRoutingProfile#concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#concurrency ConnectRoutingProfile#concurrency}.'''
         result = self._values.get("concurrency")
         assert result is not None, "Required property 'concurrency' is missing"
         return typing.cast(jsii.Number, result)
@@ -846,10 +846,10 @@ class ConnectRoutingProfileQueueConfigs:
         queue_id: builtins.str,
     ) -> None:
         '''
-        :param channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.
-        :param delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#delay ConnectRoutingProfile#delay}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#priority ConnectRoutingProfile#priority}.
-        :param queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#queue_id ConnectRoutingProfile#queue_id}.
+        :param channel: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.
+        :param delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#delay ConnectRoutingProfile#delay}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#priority ConnectRoutingProfile#priority}.
+        :param queue_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#queue_id ConnectRoutingProfile#queue_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2096c7302ed6fb606ce1d0298f63e8e314204853786683148250be1b709571ca)
@@ -866,28 +866,28 @@ class ConnectRoutingProfileQueueConfigs:
 
     @builtins.property
     def channel(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#channel ConnectRoutingProfile#channel}.'''
         result = self._values.get("channel")
         assert result is not None, "Required property 'channel' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def delay(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#delay ConnectRoutingProfile#delay}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#delay ConnectRoutingProfile#delay}.'''
         result = self._values.get("delay")
         assert result is not None, "Required property 'delay' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#priority ConnectRoutingProfile#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#priority ConnectRoutingProfile#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def queue_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/connect_routing_profile#queue_id ConnectRoutingProfile#queue_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/connect_routing_profile#queue_id ConnectRoutingProfile#queue_id}.'''
         result = self._values.get("queue_id")
         assert result is not None, "Required property 'queue_id' is missing"
         return typing.cast(builtins.str, result)

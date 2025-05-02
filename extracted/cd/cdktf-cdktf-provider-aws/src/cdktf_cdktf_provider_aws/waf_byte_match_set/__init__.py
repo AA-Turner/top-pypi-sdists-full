@@ -1,7 +1,7 @@
 r'''
 # `aws_waf_byte_match_set`
 
-Refer to the Terraform Registry for docs: [`aws_waf_byte_match_set`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set).
+Refer to the Terraform Registry for docs: [`aws_waf_byte_match_set`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WafByteMatchSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafByteMatchSet.WafByteMatchSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set aws_waf_byte_match_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set aws_waf_byte_match_set}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class WafByteMatchSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set aws_waf_byte_match_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set aws_waf_byte_match_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#name WafByteMatchSet#name}.
-        :param byte_match_tuples: byte_match_tuples block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#byte_match_tuples WafByteMatchSet#byte_match_tuples}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#id WafByteMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#name WafByteMatchSet#name}.
+        :param byte_match_tuples: byte_match_tuples block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#byte_match_tuples WafByteMatchSet#byte_match_tuples}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#id WafByteMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class WafByteMatchSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WafByteMatchSet to import.
-        :param import_from_id: The id of the existing WafByteMatchSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WafByteMatchSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WafByteMatchSet to import is found.
         '''
         if __debug__:
@@ -226,10 +226,10 @@ class WafByteMatchSetByteMatchTuples:
         target_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#field_to_match WafByteMatchSet#field_to_match}
-        :param positional_constraint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#positional_constraint WafByteMatchSet#positional_constraint}.
-        :param text_transformation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#text_transformation WafByteMatchSet#text_transformation}.
-        :param target_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#target_string WafByteMatchSet#target_string}.
+        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#field_to_match WafByteMatchSet#field_to_match}
+        :param positional_constraint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#positional_constraint WafByteMatchSet#positional_constraint}.
+        :param text_transformation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#text_transformation WafByteMatchSet#text_transformation}.
+        :param target_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#target_string WafByteMatchSet#target_string}.
         '''
         if isinstance(field_to_match, dict):
             field_to_match = WafByteMatchSetByteMatchTuplesFieldToMatch(**field_to_match)
@@ -251,7 +251,7 @@ class WafByteMatchSetByteMatchTuples:
     def field_to_match(self) -> "WafByteMatchSetByteMatchTuplesFieldToMatch":
         '''field_to_match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#field_to_match WafByteMatchSet#field_to_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#field_to_match WafByteMatchSet#field_to_match}
         '''
         result = self._values.get("field_to_match")
         assert result is not None, "Required property 'field_to_match' is missing"
@@ -259,21 +259,21 @@ class WafByteMatchSetByteMatchTuples:
 
     @builtins.property
     def positional_constraint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#positional_constraint WafByteMatchSet#positional_constraint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#positional_constraint WafByteMatchSet#positional_constraint}.'''
         result = self._values.get("positional_constraint")
         assert result is not None, "Required property 'positional_constraint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def text_transformation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#text_transformation WafByteMatchSet#text_transformation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#text_transformation WafByteMatchSet#text_transformation}.'''
         result = self._values.get("text_transformation")
         assert result is not None, "Required property 'text_transformation' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#target_string WafByteMatchSet#target_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#target_string WafByteMatchSet#target_string}.'''
         result = self._values.get("target_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -302,8 +302,8 @@ class WafByteMatchSetByteMatchTuplesFieldToMatch:
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#type WafByteMatchSet#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#data WafByteMatchSet#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#type WafByteMatchSet#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#data WafByteMatchSet#data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ad5be4f22fd6d762145900b4a11a3d4e90c5d7b203f95ab7486e625106369e7)
@@ -317,14 +317,14 @@ class WafByteMatchSetByteMatchTuplesFieldToMatch:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#type WafByteMatchSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#type WafByteMatchSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#data WafByteMatchSet#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#data WafByteMatchSet#data}.'''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -543,8 +543,8 @@ class WafByteMatchSetByteMatchTuplesOutputReference(
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#type WafByteMatchSet#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#data WafByteMatchSet#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#type WafByteMatchSet#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#data WafByteMatchSet#data}.
         '''
         value = WafByteMatchSetByteMatchTuplesFieldToMatch(type=type, data=data)
 
@@ -676,9 +676,9 @@ class WafByteMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#name WafByteMatchSet#name}.
-        :param byte_match_tuples: byte_match_tuples block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#byte_match_tuples WafByteMatchSet#byte_match_tuples}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#id WafByteMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#name WafByteMatchSet#name}.
+        :param byte_match_tuples: byte_match_tuples block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#byte_match_tuples WafByteMatchSet#byte_match_tuples}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#id WafByteMatchSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -782,7 +782,7 @@ class WafByteMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#name WafByteMatchSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#name WafByteMatchSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -793,14 +793,14 @@ class WafByteMatchSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[WafByteMatchSetByteMatchTuples]]]:
         '''byte_match_tuples block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#byte_match_tuples WafByteMatchSet#byte_match_tuples}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#byte_match_tuples WafByteMatchSet#byte_match_tuples}
         '''
         result = self._values.get("byte_match_tuples")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[WafByteMatchSetByteMatchTuples]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_byte_match_set#id WafByteMatchSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_byte_match_set#id WafByteMatchSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

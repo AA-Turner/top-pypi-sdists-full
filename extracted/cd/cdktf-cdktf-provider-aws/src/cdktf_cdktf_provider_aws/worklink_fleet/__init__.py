@@ -1,7 +1,7 @@
 r'''
 # `aws_worklink_fleet`
 
-Refer to the Terraform Registry for docs: [`aws_worklink_fleet`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet).
+Refer to the Terraform Registry for docs: [`aws_worklink_fleet`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WorklinkFleet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.worklinkFleet.WorklinkFleet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet aws_worklink_fleet}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet aws_worklink_fleet}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class WorklinkFleet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet aws_worklink_fleet} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet aws_worklink_fleet} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#name WorklinkFleet#name}.
-        :param audit_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#audit_stream_arn WorklinkFleet#audit_stream_arn}.
-        :param device_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#device_ca_certificate WorklinkFleet#device_ca_certificate}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#display_name WorklinkFleet#display_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#id WorklinkFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity_provider: identity_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#identity_provider WorklinkFleet#identity_provider}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#network WorklinkFleet#network}
-        :param optimize_for_end_user_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#optimize_for_end_user_location WorklinkFleet#optimize_for_end_user_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#name WorklinkFleet#name}.
+        :param audit_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#audit_stream_arn WorklinkFleet#audit_stream_arn}.
+        :param device_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#device_ca_certificate WorklinkFleet#device_ca_certificate}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#display_name WorklinkFleet#display_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#id WorklinkFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_provider: identity_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#identity_provider WorklinkFleet#identity_provider}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#network WorklinkFleet#network}
+        :param optimize_for_end_user_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#optimize_for_end_user_location WorklinkFleet#optimize_for_end_user_location}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class WorklinkFleet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WorklinkFleet to import.
-        :param import_from_id: The id of the existing WorklinkFleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WorklinkFleet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WorklinkFleet to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class WorklinkFleet(
         type: builtins.str,
     ) -> None:
         '''
-        :param saml_metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#saml_metadata WorklinkFleet#saml_metadata}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#type WorklinkFleet#type}.
+        :param saml_metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#saml_metadata WorklinkFleet#saml_metadata}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#type WorklinkFleet#type}.
         '''
         value = WorklinkFleetIdentityProvider(saml_metadata=saml_metadata, type=type)
 
@@ -159,9 +159,9 @@ class WorklinkFleet(
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#security_group_ids WorklinkFleet#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#subnet_ids WorklinkFleet#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#vpc_id WorklinkFleet#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#security_group_ids WorklinkFleet#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#subnet_ids WorklinkFleet#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#vpc_id WorklinkFleet#vpc_id}.
         '''
         value = WorklinkFleetNetwork(
             security_group_ids=security_group_ids, subnet_ids=subnet_ids, vpc_id=vpc_id
@@ -411,14 +411,14 @@ class WorklinkFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#name WorklinkFleet#name}.
-        :param audit_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#audit_stream_arn WorklinkFleet#audit_stream_arn}.
-        :param device_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#device_ca_certificate WorklinkFleet#device_ca_certificate}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#display_name WorklinkFleet#display_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#id WorklinkFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity_provider: identity_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#identity_provider WorklinkFleet#identity_provider}
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#network WorklinkFleet#network}
-        :param optimize_for_end_user_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#optimize_for_end_user_location WorklinkFleet#optimize_for_end_user_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#name WorklinkFleet#name}.
+        :param audit_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#audit_stream_arn WorklinkFleet#audit_stream_arn}.
+        :param device_ca_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#device_ca_certificate WorklinkFleet#device_ca_certificate}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#display_name WorklinkFleet#display_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#id WorklinkFleet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_provider: identity_provider block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#identity_provider WorklinkFleet#identity_provider}
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#network WorklinkFleet#network}
+        :param optimize_for_end_user_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#optimize_for_end_user_location WorklinkFleet#optimize_for_end_user_location}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -541,32 +541,32 @@ class WorklinkFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#name WorklinkFleet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#name WorklinkFleet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def audit_stream_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#audit_stream_arn WorklinkFleet#audit_stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#audit_stream_arn WorklinkFleet#audit_stream_arn}.'''
         result = self._values.get("audit_stream_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def device_ca_certificate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#device_ca_certificate WorklinkFleet#device_ca_certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#device_ca_certificate WorklinkFleet#device_ca_certificate}.'''
         result = self._values.get("device_ca_certificate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#display_name WorklinkFleet#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#display_name WorklinkFleet#display_name}.'''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#id WorklinkFleet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#id WorklinkFleet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -578,7 +578,7 @@ class WorklinkFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity_provider(self) -> typing.Optional["WorklinkFleetIdentityProvider"]:
         '''identity_provider block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#identity_provider WorklinkFleet#identity_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#identity_provider WorklinkFleet#identity_provider}
         '''
         result = self._values.get("identity_provider")
         return typing.cast(typing.Optional["WorklinkFleetIdentityProvider"], result)
@@ -587,7 +587,7 @@ class WorklinkFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> typing.Optional["WorklinkFleetNetwork"]:
         '''network block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#network WorklinkFleet#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#network WorklinkFleet#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional["WorklinkFleetNetwork"], result)
@@ -596,7 +596,7 @@ class WorklinkFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def optimize_for_end_user_location(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#optimize_for_end_user_location WorklinkFleet#optimize_for_end_user_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#optimize_for_end_user_location WorklinkFleet#optimize_for_end_user_location}.'''
         result = self._values.get("optimize_for_end_user_location")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -620,8 +620,8 @@ class WorklinkFleetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class WorklinkFleetIdentityProvider:
     def __init__(self, *, saml_metadata: builtins.str, type: builtins.str) -> None:
         '''
-        :param saml_metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#saml_metadata WorklinkFleet#saml_metadata}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#type WorklinkFleet#type}.
+        :param saml_metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#saml_metadata WorklinkFleet#saml_metadata}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#type WorklinkFleet#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc8f4b40c32b282aa07085bc837d4b0add6165f258794d620949f4c91bc4f347)
@@ -634,14 +634,14 @@ class WorklinkFleetIdentityProvider:
 
     @builtins.property
     def saml_metadata(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#saml_metadata WorklinkFleet#saml_metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#saml_metadata WorklinkFleet#saml_metadata}.'''
         result = self._values.get("saml_metadata")
         assert result is not None, "Required property 'saml_metadata' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#type WorklinkFleet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#type WorklinkFleet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -746,9 +746,9 @@ class WorklinkFleetNetwork:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#security_group_ids WorklinkFleet#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#subnet_ids WorklinkFleet#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#vpc_id WorklinkFleet#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#security_group_ids WorklinkFleet#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#subnet_ids WorklinkFleet#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#vpc_id WorklinkFleet#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3ae3a592f11fd9704fdaeee02681f05a247f64d3f5f49946a8c5089a176e01b)
@@ -763,21 +763,21 @@ class WorklinkFleetNetwork:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#security_group_ids WorklinkFleet#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#security_group_ids WorklinkFleet#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#subnet_ids WorklinkFleet#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#subnet_ids WorklinkFleet#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/worklink_fleet#vpc_id WorklinkFleet#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/worklink_fleet#vpc_id WorklinkFleet#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)

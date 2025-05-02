@@ -12,6 +12,8 @@ Usage::
     from mypy_boto3_appconfig import (
         AppConfigClient,
         Client,
+        DeploymentCompleteWaiter,
+        EnvironmentReadyForDeploymentWaiter,
         ListApplicationsPaginator,
         ListConfigurationProfilesPaginator,
         ListDeploymentStrategiesPaginator,
@@ -24,6 +26,9 @@ Usage::
 
     session = Session()
     client: AppConfigClient = session.client("appconfig")
+
+    deployment_complete_waiter: DeploymentCompleteWaiter = client.get_waiter("deployment_complete")
+    environment_ready_for_deployment_waiter: EnvironmentReadyForDeploymentWaiter = client.get_waiter("environment_ready_for_deployment")
 
     list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
     list_configuration_profiles_paginator: ListConfigurationProfilesPaginator = client.get_paginator("list_configuration_profiles")
@@ -47,12 +52,15 @@ from .paginator import (
     ListExtensionsPaginator,
     ListHostedConfigurationVersionsPaginator,
 )
+from .waiter import DeploymentCompleteWaiter, EnvironmentReadyForDeploymentWaiter
 
 Client = AppConfigClient
 
 __all__ = (
     "AppConfigClient",
     "Client",
+    "DeploymentCompleteWaiter",
+    "EnvironmentReadyForDeploymentWaiter",
     "ListApplicationsPaginator",
     "ListConfigurationProfilesPaginator",
     "ListDeploymentStrategiesPaginator",

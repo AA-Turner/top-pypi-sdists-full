@@ -19,16 +19,15 @@ from typing import Any
 from etils import epath
 from orbax.checkpoint._src.checkpointers import async_checkpointer
 from orbax.checkpoint._src.handlers import composite_checkpoint_handler
-from orbax.checkpoint._src.handlers import handler_registration
-from orbax.checkpoint._src.multihost import multihost
+from orbax.checkpoint._src.handlers import handler_registration as legacy_handler_registration
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.handlers import compatibility as handler_compatibility
 from orbax.checkpoint.experimental.v1._src.handlers import composite_handler
-from orbax.checkpoint.experimental.v1._src.handlers import pytree_handler
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import format_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
+from orbax.checkpoint.experimental.v1._src.serialization import registration as serialization_registration
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
@@ -82,7 +81,8 @@ def load_pytree(
   that is restored.
 
   Args:
-    directory: The directory to load the checkpoint from.
+    directory: The directory to load the checkpoint from. This directory must
+      contain a subdirectory named `pytree`.
     abstract_pytree: Provides a tree structure for the checkpoint to be restored
       into. May be omitted to load exactly as saved., but this is much more
       brittle than providing the tree.
@@ -91,15 +91,14 @@ def load_pytree(
     The restored PyTree.
   """
   format_utils.validate_pytree_checkpoint(directory)
-  with pytree_handler.pytree_handler_context():
-    return load_checkpointables(
-        directory,
-        {
-            PYTREE_CHECKPOINTABLE_KEY: _standardize_abstract_checkpointables(
-                abstract_pytree
-            )
-        },
-    )[PYTREE_CHECKPOINTABLE_KEY]
+  return load_checkpointables(
+      directory,
+      {
+          PYTREE_CHECKPOINTABLE_KEY: _standardize_abstract_checkpointables(
+              abstract_pytree
+          )
+      },
+  )[PYTREE_CHECKPOINTABLE_KEY]
 
 
 def load_checkpointables(
@@ -148,6 +147,7 @@ def load_checkpointables(
     checkpointables, while the values are the checkpointable objects themselves.
   """
   directory = epath.Path(directory)
+  format_utils.validate_checkpoint(directory)
 
 
   ckptr, args = get_v0_checkpointer_and_args(
@@ -203,24 +203,25 @@ def get_v0_checkpointer_and_args(
   # pylint: disable=protected-access
   handlers = composite_handler.CompositeHandler(
       context.checkpointables_options.registry
-  )._get_loadable_handlers(
-      directory, abstract_checkpointables
-  )
+  )._get_loadable_handlers(directory, abstract_checkpointables)
   # pylint: enable=protected-access
   if not abstract_checkpointables:
     abstract_checkpointables = {
         name: None
         for name in handlers.keys()
         if name not in format_utils.RESERVED_CHECKPOINTABLE_KEYS
+        and (directory / name).exists()
     }
 
   compatibility_handlers = {
       name: handler_compatibility.get_compatibility_handler(handler)
       for name, handler in handlers.items()
   }
-  handler_registry = handler_registration.DefaultCheckpointHandlerRegistry()
+  legacy_handler_registry = (
+      legacy_handler_registration.DefaultCheckpointHandlerRegistry()
+  )
   for name, handler in compatibility_handlers.items():
-    handler_registry.add(name, handler_compatibility.Args, handler)
+    legacy_handler_registry.add(name, handler_compatibility.Args, handler)
   composite_options = composite_checkpoint_handler.CompositeOptions(
       async_options=context.async_options.v0(),
       file_options=context.file_options.v0(),
@@ -229,7 +230,7 @@ def get_v0_checkpointer_and_args(
   )
   ckptr = async_checkpointer.AsyncCheckpointer(
       composite_checkpoint_handler.CompositeCheckpointHandler(
-          handler_registry=handler_registry,
+          handler_registry=legacy_handler_registry,
           composite_options=composite_options,
       ),
       async_options=context.async_options.v0(),

@@ -1,0 +1,102 @@
+[build-system]
+requires = ["hatchling==1.26.3"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "solara-ui"
+readme = "README.md"
+authors = [{name = "Maarten A. Breddels", email = "maartenbreddels@gmail.com"}]
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+packages = [
+    { include = "solara" }
+]
+dependencies = [
+    "reacton>=1.9",
+    "ipywidgets>=7.7",
+    "ipyvuetify>=1.6.10",
+    "ipyvue>=1.9.0",
+    "requests",
+    "humanize",
+]
+
+[project.urls]
+Home = "https://www.github.com/widgetti/solara"
+Documentation = "https://solara.dev"
+
+[tool.hatch.build.targets.wheel.shared-data]
+"prefix/etc/jupyter" = "etc/jupyter"
+
+[tool.hatch.version]
+path = "solara/__init__.py"
+
+# we ignore build/ but on the website we add solara/website/build
+# when using SSG
+[tool.hatch.build]
+ignore-vcs = true
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "solara",
+    "prefix",
+    "packages/solara-widget-manager/LICENSE.voila.txt",
+]
+exclude = ["packages"]
+
+[tool.hatch.build.targets.sdist]
+# unclear from hatch docs, but README.md and LICENSE are included by default
+# even when we explicitly have an include list
+include = [
+    "solara",
+    "tests",
+    "prefix",
+    "packages/solara-widget-manager/LICENSE.voila.txt",
+]
+# and even when we have an include list, we still need to exclude
+# packages (which I think makes no sense)
+exclude = ["packages"]
+
+[project.optional-dependencies]
+all = [
+    "solara-ui[markdown]",
+    "solara-ui[cache]",
+    "solara-ui[extra]",
+]
+
+markdown = [
+    "markdown",
+    "pymdown-extensions",
+    "pygments",
+    "pygments==2.10; python_version < '3.7'",
+]
+
+cache = [
+    "cachetools"
+]
+
+extra = [
+    "numpy",
+    "pillow",
+]
+
+[tool.ruff]
+fix = false
+line-length = 160
+lint.ignore = ["E402"]
+target-version = "py38"
+
+[tool.black]
+line-length = 160
+
+[tool.pytest.ini_options]
+addopts = "--ignore=tests/integration/app_widget.py  --ignore=tests/unit/solara_test_apps"
+timeout = 180
+filterwarnings = [
+    'ignore:.*pyzmq now works with default tornado and asyncio eventloops.*:DeprecationWarning',
+]
+
+[tool.codespell]
+skip='equis-in-vidi.md,substiterat-vati.md,.*,solara/website/build,*.svg,highlight-dark.css,packages/**/dist/*,node_modules,packages/solara-assets,package*.json,tsconfig.tsbuildinfo,*.csv'

@@ -137,7 +137,8 @@ lint_require = (
 
 tests_require = (
     [
-        "pytest==7.3.0",
+        "pytest>=7.3.0,<8.0.0 ; python_version < '3.8'",
+        "pytest>=8.3.0 ; python_version >= '3.8'",
         "pytest-cov",
         "responses==0.21",
         "pytest-asyncio==0.21.1",

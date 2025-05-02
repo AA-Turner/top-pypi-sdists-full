@@ -1,0 +1,193 @@
+[build-system]
+requires = [ "flit-core<4,>=3.2",]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "consolekit"
+version = "1.7.2"
+description = "Additional utilities for click."
+readme = "README.rst"
+requires-python = ">=3.6.1"
+keywords = [ "click", "terminal",]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "click>=7.1.2",
+    'colorama>=0.4.3; python_version < "3.10" and platform_system == "Windows"',
+    "deprecation-alias>=0.1.1",
+    "domdf-python-tools>=3.8.0",
+    "mistletoe>=0.7.2",
+    "typing-extensions!=3.10.0.1,>=3.10.0.0",
+]
+dynamic = []
+
+[project.license]
+file = "LICENSE"
+
+[[project.authors]]
+name = "Dominic Davis-Foster"
+email = "dominic@davis-foster.co.uk"
+
+[project.urls]
+Homepage = "https://github.com/domdfcoding/consolekit"
+"Issue Tracker" = "https://github.com/domdfcoding/consolekit/issues"
+"Source Code" = "https://github.com/domdfcoding/consolekit"
+Documentation = "https://consolekit.readthedocs.io/en/latest"
+
+[project.optional-dependencies]
+terminals = [ "psutil>=5.8.0",]
+testing = [ "coincidence>=0.1.0", "pytest>=6.0.0", "pytest-regressions>=2.0.2",]
+all = [ "coincidence>=0.1.0", "psutil>=5.8.0", "pytest>=6.0.0", "pytest-regressions>=2.0.2",]
+
+[tool.mkrecipe]
+conda-channels = [ "conda-forge", "domdfcoding",]
+extras = []
+license-key = "MIT"
+
+[tool.sphinx-pyproject]
+github_username = "domdfcoding"
+github_repository = "consolekit"
+author = "Dominic Davis-Foster"
+project = "consolekit"
+copyright = "2020-2021 Dominic Davis-Foster"
+language = "en"
+package_root = "consolekit"
+extensions = [
+    "sphinx_toolbox",
+    "sphinx_toolbox.more_autodoc",
+    "sphinx_toolbox.more_autosummary",
+    "sphinx_toolbox.documentation_summary",
+    "sphinx_toolbox.tweaks.param_dash",
+    "sphinxcontrib.toctree_plus",
+    "sphinx_toolbox.tweaks.latex_layout",
+    "sphinx_toolbox.tweaks.latex_toc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
+    "sphinxcontrib.extras_require",
+    "sphinx.ext.todo",
+    "notfound.extension",
+    "sphinx_copybutton",
+    "sphinxcontrib.default_values",
+    "sphinx_debuginfo",
+    "sphinx_licenseinfo",
+    "seed_intersphinx_mapping",
+    "html_section",
+    "sphinx_autofixture",
+    "sphinx_highlights",
+    "latex_transition",
+    "sphinx_toolbox.more_autosummary.column_widths",
+    "sphinx_toolbox.latex.succinct_seealso",
+]
+gitstamp_fmt = "%d %b %Y"
+templates_path = [ "_templates",]
+html_static_path = [ "_static",]
+source_suffix = ".rst"
+master_doc = "index"
+suppress_warnings = [ "image.nonlocal_uri",]
+pygments_style = "default"
+html_theme = "domdf_sphinx_theme"
+html_theme_path = [ "../..",]
+html_show_sourcelink = true
+toctree_plus_types = [
+    "class",
+    "confval",
+    "data",
+    "directive",
+    "enum",
+    "exception",
+    "flag",
+    "function",
+    "namedtuple",
+    "protocol",
+    "role",
+    "typeddict",
+]
+add_module_names = false
+hide_none_rtype = true
+all_typevars = true
+overloads_location = "bottom"
+html_codeblock_linenos_style = "table"
+autodoc_exclude_members = [
+    "__dict__",
+    "__class__",
+    "__dir__",
+    "__weakref__",
+    "__module__",
+    "__annotations__",
+    "__orig_bases__",
+    "__parameters__",
+    "__subclasshook__",
+    "__init_subclass__",
+    "__attrs_attrs__",
+    "__init__",
+    "__new__",
+    "__getnewargs__",
+    "__abstractmethods__",
+    "__hash__",
+]
+
+[tool.whey]
+base-classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+python-versions = [ "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12",]
+python-implementations = [ "CPython", "PyPy",]
+platforms = [ "Windows", "macOS", "Linux",]
+license-key = "MIT"
+
+[tool.mypy]
+python_version = "3.8"
+namespace_packages = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+show_error_codes = true
+
+[tool.snippet-fmt]
+directives = [ "code-block",]
+
+[tool.snippet-fmt.languages.python]
+reformat = true
+
+[tool.snippet-fmt.languages.TOML]
+reformat = true
+
+[tool.snippet-fmt.languages.ini]
+
+[tool.snippet-fmt.languages.json]
+
+[tool.dep_checker]
+allowed_unused = [ "colorama",]
+
+[tool.dependency-dash."requirements.txt"]
+order = 10
+
+[tool.dependency-dash."doc-source/requirements.txt"]
+order = 30
+include = false
+
+[tool.dependency-dash."tests/requirements.txt"]
+order = 20
+include = false

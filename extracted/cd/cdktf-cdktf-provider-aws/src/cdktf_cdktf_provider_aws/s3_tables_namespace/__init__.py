@@ -1,7 +1,7 @@
 r'''
 # `aws_s3tables_namespace`
 
-Refer to the Terraform Registry for docs: [`aws_s3tables_namespace`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace).
+Refer to the Terraform Registry for docs: [`aws_s3tables_namespace`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3TablesNamespace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3TablesNamespace.S3TablesNamespace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace aws_s3tables_namespace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace aws_s3tables_namespace}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class S3TablesNamespace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace aws_s3tables_namespace} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace aws_s3tables_namespace} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#namespace S3TablesNamespace#namespace}.
-        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#table_bucket_arn S3TablesNamespace#table_bucket_arn}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#namespace S3TablesNamespace#namespace}.
+        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#table_bucket_arn S3TablesNamespace#table_bucket_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class S3TablesNamespace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3TablesNamespace to import.
-        :param import_from_id: The id of the existing S3TablesNamespace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3TablesNamespace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3TablesNamespace to import is found.
         '''
         if __debug__:
@@ -217,8 +217,8 @@ class S3TablesNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#namespace S3TablesNamespace#namespace}.
-        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#table_bucket_arn S3TablesNamespace#table_bucket_arn}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#namespace S3TablesNamespace#namespace}.
+        :param table_bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#table_bucket_arn S3TablesNamespace#table_bucket_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -318,14 +318,14 @@ class S3TablesNamespaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#namespace S3TablesNamespace#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#namespace S3TablesNamespace#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_bucket_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3tables_namespace#table_bucket_arn S3TablesNamespace#table_bucket_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3tables_namespace#table_bucket_arn S3TablesNamespace#table_bucket_arn}.'''
         result = self._values.get("table_bucket_arn")
         assert result is not None, "Required property 'table_bucket_arn' is missing"
         return typing.cast(builtins.str, result)

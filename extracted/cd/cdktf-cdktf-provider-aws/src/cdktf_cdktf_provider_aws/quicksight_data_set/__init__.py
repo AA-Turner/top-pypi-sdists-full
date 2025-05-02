@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_data_set`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_data_set`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set).
+Refer to the Terraform Registry for docs: [`aws_quicksight_data_set`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightDataSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightDataSet.QuicksightDataSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set aws_quicksight_data_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set aws_quicksight_data_set}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class QuicksightDataSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set aws_quicksight_data_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set aws_quicksight_data_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_id QuicksightDataSet#data_set_id}.
-        :param import_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#import_mode QuicksightDataSet#import_mode}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#aws_account_id QuicksightDataSet#aws_account_id}.
-        :param column_groups: column_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_groups QuicksightDataSet#column_groups}
-        :param column_level_permission_rules: column_level_permission_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_level_permission_rules QuicksightDataSet#column_level_permission_rules}
-        :param data_set_usage_configuration: data_set_usage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_usage_configuration QuicksightDataSet#data_set_usage_configuration}
-        :param field_folders: field_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#field_folders QuicksightDataSet#field_folders}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#id QuicksightDataSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logical_table_map: logical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#logical_table_map QuicksightDataSet#logical_table_map}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#permissions QuicksightDataSet#permissions}
-        :param physical_table_map: physical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_map QuicksightDataSet#physical_table_map}
-        :param refresh_properties: refresh_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#refresh_properties QuicksightDataSet#refresh_properties}
-        :param row_level_permission_data_set: row_level_permission_data_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#row_level_permission_data_set QuicksightDataSet#row_level_permission_data_set}
-        :param row_level_permission_tag_configuration: row_level_permission_tag_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#row_level_permission_tag_configuration QuicksightDataSet#row_level_permission_tag_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags_all QuicksightDataSet#tags_all}.
+        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_id QuicksightDataSet#data_set_id}.
+        :param import_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#import_mode QuicksightDataSet#import_mode}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#aws_account_id QuicksightDataSet#aws_account_id}.
+        :param column_groups: column_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_groups QuicksightDataSet#column_groups}
+        :param column_level_permission_rules: column_level_permission_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_level_permission_rules QuicksightDataSet#column_level_permission_rules}
+        :param data_set_usage_configuration: data_set_usage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_usage_configuration QuicksightDataSet#data_set_usage_configuration}
+        :param field_folders: field_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#field_folders QuicksightDataSet#field_folders}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#id QuicksightDataSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logical_table_map: logical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#logical_table_map QuicksightDataSet#logical_table_map}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#permissions QuicksightDataSet#permissions}
+        :param physical_table_map: physical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_map QuicksightDataSet#physical_table_map}
+        :param refresh_properties: refresh_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#refresh_properties QuicksightDataSet#refresh_properties}
+        :param row_level_permission_data_set: row_level_permission_data_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#row_level_permission_data_set QuicksightDataSet#row_level_permission_data_set}
+        :param row_level_permission_tag_configuration: row_level_permission_tag_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#row_level_permission_tag_configuration QuicksightDataSet#row_level_permission_tag_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags_all QuicksightDataSet#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class QuicksightDataSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightDataSet to import.
-        :param import_from_id: The id of the existing QuicksightDataSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightDataSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightDataSet to import is found.
         '''
         if __debug__:
@@ -196,8 +196,8 @@ class QuicksightDataSet(
         disable_use_as_imported_source: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disable_use_as_direct_query_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#disable_use_as_direct_query_source QuicksightDataSet#disable_use_as_direct_query_source}.
-        :param disable_use_as_imported_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#disable_use_as_imported_source QuicksightDataSet#disable_use_as_imported_source}.
+        :param disable_use_as_direct_query_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#disable_use_as_direct_query_source QuicksightDataSet#disable_use_as_direct_query_source}.
+        :param disable_use_as_imported_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#disable_use_as_imported_source QuicksightDataSet#disable_use_as_imported_source}.
         '''
         value = QuicksightDataSetDataSetUsageConfiguration(
             disable_use_as_direct_query_source=disable_use_as_direct_query_source,
@@ -265,7 +265,7 @@ class QuicksightDataSet(
         refresh_configuration: typing.Union["QuicksightDataSetRefreshPropertiesRefreshConfiguration", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param refresh_configuration: refresh_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#refresh_configuration QuicksightDataSet#refresh_configuration}
+        :param refresh_configuration: refresh_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#refresh_configuration QuicksightDataSet#refresh_configuration}
         '''
         value = QuicksightDataSetRefreshProperties(
             refresh_configuration=refresh_configuration
@@ -284,11 +284,11 @@ class QuicksightDataSet(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#arn QuicksightDataSet#arn}.
-        :param permission_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#permission_policy QuicksightDataSet#permission_policy}.
-        :param format_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format_version QuicksightDataSet#format_version}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#namespace QuicksightDataSet#namespace}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#arn QuicksightDataSet#arn}.
+        :param permission_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#permission_policy QuicksightDataSet#permission_policy}.
+        :param format_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format_version QuicksightDataSet#format_version}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#namespace QuicksightDataSet#namespace}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
         '''
         value = QuicksightDataSetRowLevelPermissionDataSet(
             arn=arn,
@@ -308,8 +308,8 @@ class QuicksightDataSet(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param tag_rules: tag_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_rules QuicksightDataSet#tag_rules}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
+        :param tag_rules: tag_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_rules QuicksightDataSet#tag_rules}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
         '''
         value = QuicksightDataSetRowLevelPermissionTagConfiguration(
             tag_rules=tag_rules, status=status
@@ -658,7 +658,7 @@ class QuicksightDataSetColumnGroups:
         geo_spatial_column_group: typing.Optional[typing.Union["QuicksightDataSetColumnGroupsGeoSpatialColumnGroup", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param geo_spatial_column_group: geo_spatial_column_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#geo_spatial_column_group QuicksightDataSet#geo_spatial_column_group}
+        :param geo_spatial_column_group: geo_spatial_column_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#geo_spatial_column_group QuicksightDataSet#geo_spatial_column_group}
         '''
         if isinstance(geo_spatial_column_group, dict):
             geo_spatial_column_group = QuicksightDataSetColumnGroupsGeoSpatialColumnGroup(**geo_spatial_column_group)
@@ -675,7 +675,7 @@ class QuicksightDataSetColumnGroups:
     ) -> typing.Optional["QuicksightDataSetColumnGroupsGeoSpatialColumnGroup"]:
         '''geo_spatial_column_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#geo_spatial_column_group QuicksightDataSet#geo_spatial_column_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#geo_spatial_column_group QuicksightDataSet#geo_spatial_column_group}
         '''
         result = self._values.get("geo_spatial_column_group")
         return typing.cast(typing.Optional["QuicksightDataSetColumnGroupsGeoSpatialColumnGroup"], result)
@@ -706,9 +706,9 @@ class QuicksightDataSetColumnGroupsGeoSpatialColumnGroup:
         name: builtins.str,
     ) -> None:
         '''
-        :param columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#country_code QuicksightDataSet#country_code}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#country_code QuicksightDataSet#country_code}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5695cb02a3e87e79e1d38024aa42a66de1235fdc44c2bf187c71327ca554d81d)
@@ -723,21 +723,21 @@ class QuicksightDataSetColumnGroupsGeoSpatialColumnGroup:
 
     @builtins.property
     def columns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.'''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def country_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#country_code QuicksightDataSet#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#country_code QuicksightDataSet#country_code}.'''
         result = self._values.get("country_code")
         assert result is not None, "Required property 'country_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -968,9 +968,9 @@ class QuicksightDataSetColumnGroupsOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#country_code QuicksightDataSet#country_code}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#country_code QuicksightDataSet#country_code}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
         '''
         value = QuicksightDataSetColumnGroupsGeoSpatialColumnGroup(
             columns=columns, country_code=country_code, name=name
@@ -1027,8 +1027,8 @@ class QuicksightDataSetColumnLevelPermissionRules:
         principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_names QuicksightDataSet#column_names}.
-        :param principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#principals QuicksightDataSet#principals}.
+        :param column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_names QuicksightDataSet#column_names}.
+        :param principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#principals QuicksightDataSet#principals}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a34c3a9e07dca9b65924b57425673b2a5244b376181683458c7c4f73b28cccd)
@@ -1042,13 +1042,13 @@ class QuicksightDataSetColumnLevelPermissionRules:
 
     @builtins.property
     def column_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_names QuicksightDataSet#column_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_names QuicksightDataSet#column_names}.'''
         result = self._values.get("column_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def principals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#principals QuicksightDataSet#principals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#principals QuicksightDataSet#principals}.'''
         result = self._values.get("principals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1310,23 +1310,23 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_id QuicksightDataSet#data_set_id}.
-        :param import_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#import_mode QuicksightDataSet#import_mode}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#aws_account_id QuicksightDataSet#aws_account_id}.
-        :param column_groups: column_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_groups QuicksightDataSet#column_groups}
-        :param column_level_permission_rules: column_level_permission_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_level_permission_rules QuicksightDataSet#column_level_permission_rules}
-        :param data_set_usage_configuration: data_set_usage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_usage_configuration QuicksightDataSet#data_set_usage_configuration}
-        :param field_folders: field_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#field_folders QuicksightDataSet#field_folders}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#id QuicksightDataSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logical_table_map: logical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#logical_table_map QuicksightDataSet#logical_table_map}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#permissions QuicksightDataSet#permissions}
-        :param physical_table_map: physical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_map QuicksightDataSet#physical_table_map}
-        :param refresh_properties: refresh_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#refresh_properties QuicksightDataSet#refresh_properties}
-        :param row_level_permission_data_set: row_level_permission_data_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#row_level_permission_data_set QuicksightDataSet#row_level_permission_data_set}
-        :param row_level_permission_tag_configuration: row_level_permission_tag_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#row_level_permission_tag_configuration QuicksightDataSet#row_level_permission_tag_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags_all QuicksightDataSet#tags_all}.
+        :param data_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_id QuicksightDataSet#data_set_id}.
+        :param import_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#import_mode QuicksightDataSet#import_mode}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#aws_account_id QuicksightDataSet#aws_account_id}.
+        :param column_groups: column_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_groups QuicksightDataSet#column_groups}
+        :param column_level_permission_rules: column_level_permission_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_level_permission_rules QuicksightDataSet#column_level_permission_rules}
+        :param data_set_usage_configuration: data_set_usage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_usage_configuration QuicksightDataSet#data_set_usage_configuration}
+        :param field_folders: field_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#field_folders QuicksightDataSet#field_folders}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#id QuicksightDataSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logical_table_map: logical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#logical_table_map QuicksightDataSet#logical_table_map}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#permissions QuicksightDataSet#permissions}
+        :param physical_table_map: physical_table_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_map QuicksightDataSet#physical_table_map}
+        :param refresh_properties: refresh_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#refresh_properties QuicksightDataSet#refresh_properties}
+        :param row_level_permission_data_set: row_level_permission_data_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#row_level_permission_data_set QuicksightDataSet#row_level_permission_data_set}
+        :param row_level_permission_tag_configuration: row_level_permission_tag_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#row_level_permission_tag_configuration QuicksightDataSet#row_level_permission_tag_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags_all QuicksightDataSet#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1478,28 +1478,28 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def data_set_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_id QuicksightDataSet#data_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_id QuicksightDataSet#data_set_id}.'''
         result = self._values.get("data_set_id")
         assert result is not None, "Required property 'data_set_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def import_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#import_mode QuicksightDataSet#import_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#import_mode QuicksightDataSet#import_mode}.'''
         result = self._values.get("import_mode")
         assert result is not None, "Required property 'import_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#aws_account_id QuicksightDataSet#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#aws_account_id QuicksightDataSet#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1509,7 +1509,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[QuicksightDataSetColumnGroups]]]:
         '''column_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_groups QuicksightDataSet#column_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_groups QuicksightDataSet#column_groups}
         '''
         result = self._values.get("column_groups")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[QuicksightDataSetColumnGroups]]], result)
@@ -1520,7 +1520,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[QuicksightDataSetColumnLevelPermissionRules]]]:
         '''column_level_permission_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_level_permission_rules QuicksightDataSet#column_level_permission_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_level_permission_rules QuicksightDataSet#column_level_permission_rules}
         '''
         result = self._values.get("column_level_permission_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[QuicksightDataSetColumnLevelPermissionRules]]], result)
@@ -1531,7 +1531,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["QuicksightDataSetDataSetUsageConfiguration"]:
         '''data_set_usage_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_usage_configuration QuicksightDataSet#data_set_usage_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_usage_configuration QuicksightDataSet#data_set_usage_configuration}
         '''
         result = self._values.get("data_set_usage_configuration")
         return typing.cast(typing.Optional["QuicksightDataSetDataSetUsageConfiguration"], result)
@@ -1542,14 +1542,14 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetFieldFolders"]]]:
         '''field_folders block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#field_folders QuicksightDataSet#field_folders}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#field_folders QuicksightDataSet#field_folders}
         '''
         result = self._values.get("field_folders")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetFieldFolders"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#id QuicksightDataSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#id QuicksightDataSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1563,7 +1563,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetLogicalTableMap"]]]:
         '''logical_table_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#logical_table_map QuicksightDataSet#logical_table_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#logical_table_map QuicksightDataSet#logical_table_map}
         '''
         result = self._values.get("logical_table_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetLogicalTableMap"]]], result)
@@ -1574,7 +1574,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPermissions"]]]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#permissions QuicksightDataSet#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#permissions QuicksightDataSet#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPermissions"]]], result)
@@ -1585,7 +1585,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPhysicalTableMap"]]]:
         '''physical_table_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_map QuicksightDataSet#physical_table_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_map QuicksightDataSet#physical_table_map}
         '''
         result = self._values.get("physical_table_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPhysicalTableMap"]]], result)
@@ -1596,7 +1596,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["QuicksightDataSetRefreshProperties"]:
         '''refresh_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#refresh_properties QuicksightDataSet#refresh_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#refresh_properties QuicksightDataSet#refresh_properties}
         '''
         result = self._values.get("refresh_properties")
         return typing.cast(typing.Optional["QuicksightDataSetRefreshProperties"], result)
@@ -1607,7 +1607,7 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["QuicksightDataSetRowLevelPermissionDataSet"]:
         '''row_level_permission_data_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#row_level_permission_data_set QuicksightDataSet#row_level_permission_data_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#row_level_permission_data_set QuicksightDataSet#row_level_permission_data_set}
         '''
         result = self._values.get("row_level_permission_data_set")
         return typing.cast(typing.Optional["QuicksightDataSetRowLevelPermissionDataSet"], result)
@@ -1618,20 +1618,20 @@ class QuicksightDataSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["QuicksightDataSetRowLevelPermissionTagConfiguration"]:
         '''row_level_permission_tag_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#row_level_permission_tag_configuration QuicksightDataSet#row_level_permission_tag_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#row_level_permission_tag_configuration QuicksightDataSet#row_level_permission_tag_configuration}
         '''
         result = self._values.get("row_level_permission_tag_configuration")
         return typing.cast(typing.Optional["QuicksightDataSetRowLevelPermissionTagConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags_all QuicksightDataSet#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags_all QuicksightDataSet#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1663,8 +1663,8 @@ class QuicksightDataSetDataSetUsageConfiguration:
         disable_use_as_imported_source: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disable_use_as_direct_query_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#disable_use_as_direct_query_source QuicksightDataSet#disable_use_as_direct_query_source}.
-        :param disable_use_as_imported_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#disable_use_as_imported_source QuicksightDataSet#disable_use_as_imported_source}.
+        :param disable_use_as_direct_query_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#disable_use_as_direct_query_source QuicksightDataSet#disable_use_as_direct_query_source}.
+        :param disable_use_as_imported_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#disable_use_as_imported_source QuicksightDataSet#disable_use_as_imported_source}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4bc89478f2bc31bfb0ca155dcf42b48c40f46ef6776d8d790fa8599d1723089)
@@ -1680,7 +1680,7 @@ class QuicksightDataSetDataSetUsageConfiguration:
     def disable_use_as_direct_query_source(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#disable_use_as_direct_query_source QuicksightDataSet#disable_use_as_direct_query_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#disable_use_as_direct_query_source QuicksightDataSet#disable_use_as_direct_query_source}.'''
         result = self._values.get("disable_use_as_direct_query_source")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1688,7 +1688,7 @@ class QuicksightDataSetDataSetUsageConfiguration:
     def disable_use_as_imported_source(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#disable_use_as_imported_source QuicksightDataSet#disable_use_as_imported_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#disable_use_as_imported_source QuicksightDataSet#disable_use_as_imported_source}.'''
         result = self._values.get("disable_use_as_imported_source")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1816,9 +1816,9 @@ class QuicksightDataSetFieldFolders:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param field_folders_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#field_folders_id QuicksightDataSet#field_folders_id}.
-        :param columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#description QuicksightDataSet#description}.
+        :param field_folders_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#field_folders_id QuicksightDataSet#field_folders_id}.
+        :param columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#description QuicksightDataSet#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb2d547e693f903ba80d8aaa25439097dbff1e05d3f067a2e0868c5b72b1a036)
@@ -1835,20 +1835,20 @@ class QuicksightDataSetFieldFolders:
 
     @builtins.property
     def field_folders_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#field_folders_id QuicksightDataSet#field_folders_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#field_folders_id QuicksightDataSet#field_folders_id}.'''
         result = self._values.get("field_folders_id")
         assert result is not None, "Required property 'field_folders_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def columns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}.'''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#description QuicksightDataSet#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#description QuicksightDataSet#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2077,10 +2077,10 @@ class QuicksightDataSetLogicalTableMap:
         data_transforms: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDataSetLogicalTableMapDataTransforms", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#alias QuicksightDataSet#alias}.
-        :param logical_table_map_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#logical_table_map_id QuicksightDataSet#logical_table_map_id}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#source QuicksightDataSet#source}
-        :param data_transforms: data_transforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_transforms QuicksightDataSet#data_transforms}
+        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#alias QuicksightDataSet#alias}.
+        :param logical_table_map_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#logical_table_map_id QuicksightDataSet#logical_table_map_id}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#source QuicksightDataSet#source}
+        :param data_transforms: data_transforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_transforms QuicksightDataSet#data_transforms}
         '''
         if isinstance(source, dict):
             source = QuicksightDataSetLogicalTableMapSource(**source)
@@ -2100,14 +2100,14 @@ class QuicksightDataSetLogicalTableMap:
 
     @builtins.property
     def alias(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#alias QuicksightDataSet#alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#alias QuicksightDataSet#alias}.'''
         result = self._values.get("alias")
         assert result is not None, "Required property 'alias' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def logical_table_map_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#logical_table_map_id QuicksightDataSet#logical_table_map_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#logical_table_map_id QuicksightDataSet#logical_table_map_id}.'''
         result = self._values.get("logical_table_map_id")
         assert result is not None, "Required property 'logical_table_map_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2116,7 +2116,7 @@ class QuicksightDataSetLogicalTableMap:
     def source(self) -> "QuicksightDataSetLogicalTableMapSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#source QuicksightDataSet#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#source QuicksightDataSet#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -2128,7 +2128,7 @@ class QuicksightDataSetLogicalTableMap:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetLogicalTableMapDataTransforms"]]]:
         '''data_transforms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_transforms QuicksightDataSet#data_transforms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_transforms QuicksightDataSet#data_transforms}
         '''
         result = self._values.get("data_transforms")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetLogicalTableMapDataTransforms"]]], result)
@@ -2171,13 +2171,13 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
         untag_column_operation: typing.Optional[typing.Union["QuicksightDataSetLogicalTableMapDataTransformsUntagColumnOperation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cast_column_type_operation: cast_column_type_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#cast_column_type_operation QuicksightDataSet#cast_column_type_operation}
-        :param create_columns_operation: create_columns_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#create_columns_operation QuicksightDataSet#create_columns_operation}
-        :param filter_operation: filter_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#filter_operation QuicksightDataSet#filter_operation}
-        :param project_operation: project_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#project_operation QuicksightDataSet#project_operation}
-        :param rename_column_operation: rename_column_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#rename_column_operation QuicksightDataSet#rename_column_operation}
-        :param tag_column_operation: tag_column_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_column_operation QuicksightDataSet#tag_column_operation}
-        :param untag_column_operation: untag_column_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#untag_column_operation QuicksightDataSet#untag_column_operation}
+        :param cast_column_type_operation: cast_column_type_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#cast_column_type_operation QuicksightDataSet#cast_column_type_operation}
+        :param create_columns_operation: create_columns_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#create_columns_operation QuicksightDataSet#create_columns_operation}
+        :param filter_operation: filter_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#filter_operation QuicksightDataSet#filter_operation}
+        :param project_operation: project_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#project_operation QuicksightDataSet#project_operation}
+        :param rename_column_operation: rename_column_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#rename_column_operation QuicksightDataSet#rename_column_operation}
+        :param tag_column_operation: tag_column_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_column_operation QuicksightDataSet#tag_column_operation}
+        :param untag_column_operation: untag_column_operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#untag_column_operation QuicksightDataSet#untag_column_operation}
         '''
         if isinstance(cast_column_type_operation, dict):
             cast_column_type_operation = QuicksightDataSetLogicalTableMapDataTransformsCastColumnTypeOperation(**cast_column_type_operation)
@@ -2224,7 +2224,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsCastColumnTypeOperation"]:
         '''cast_column_type_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#cast_column_type_operation QuicksightDataSet#cast_column_type_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#cast_column_type_operation QuicksightDataSet#cast_column_type_operation}
         '''
         result = self._values.get("cast_column_type_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsCastColumnTypeOperation"], result)
@@ -2235,7 +2235,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperation"]:
         '''create_columns_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#create_columns_operation QuicksightDataSet#create_columns_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#create_columns_operation QuicksightDataSet#create_columns_operation}
         '''
         result = self._values.get("create_columns_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperation"], result)
@@ -2246,7 +2246,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsFilterOperation"]:
         '''filter_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#filter_operation QuicksightDataSet#filter_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#filter_operation QuicksightDataSet#filter_operation}
         '''
         result = self._values.get("filter_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsFilterOperation"], result)
@@ -2257,7 +2257,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsProjectOperation"]:
         '''project_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#project_operation QuicksightDataSet#project_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#project_operation QuicksightDataSet#project_operation}
         '''
         result = self._values.get("project_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsProjectOperation"], result)
@@ -2268,7 +2268,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsRenameColumnOperation"]:
         '''rename_column_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#rename_column_operation QuicksightDataSet#rename_column_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#rename_column_operation QuicksightDataSet#rename_column_operation}
         '''
         result = self._values.get("rename_column_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsRenameColumnOperation"], result)
@@ -2279,7 +2279,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperation"]:
         '''tag_column_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_column_operation QuicksightDataSet#tag_column_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_column_operation QuicksightDataSet#tag_column_operation}
         '''
         result = self._values.get("tag_column_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperation"], result)
@@ -2290,7 +2290,7 @@ class QuicksightDataSetLogicalTableMapDataTransforms:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsUntagColumnOperation"]:
         '''untag_column_operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#untag_column_operation QuicksightDataSet#untag_column_operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#untag_column_operation QuicksightDataSet#untag_column_operation}
         '''
         result = self._values.get("untag_column_operation")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsUntagColumnOperation"], result)
@@ -2325,9 +2325,9 @@ class QuicksightDataSetLogicalTableMapDataTransformsCastColumnTypeOperation:
         format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param new_column_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#new_column_type QuicksightDataSet#new_column_type}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param new_column_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#new_column_type QuicksightDataSet#new_column_type}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__670dab7db7f2debf75d78f4cee5a01118e6a715c0dc175015875e9c44ef5f37c)
@@ -2343,21 +2343,21 @@ class QuicksightDataSetLogicalTableMapDataTransformsCastColumnTypeOperation:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def new_column_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#new_column_type QuicksightDataSet#new_column_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#new_column_type QuicksightDataSet#new_column_type}.'''
         result = self._values.get("new_column_type")
         assert result is not None, "Required property 'new_column_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.'''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2478,7 +2478,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperation:
         columns: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperationColumns", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88af2a70a2ef3285ceb4707b35b1d11860a36c146e6cb918ad5eadcf55372b3b)
@@ -2493,7 +2493,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperation:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperationColumns"]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -2529,9 +2529,9 @@ class QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperationColumn
         expression: builtins.str,
     ) -> None:
         '''
-        :param column_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_id QuicksightDataSet#column_id}.
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#expression QuicksightDataSet#expression}.
+        :param column_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_id QuicksightDataSet#column_id}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#expression QuicksightDataSet#expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45130f867d79556abf9842eafd5a63009bd0fd534074fa49039cc9e69e6bee12)
@@ -2546,21 +2546,21 @@ class QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperationColumn
 
     @builtins.property
     def column_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_id QuicksightDataSet#column_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_id QuicksightDataSet#column_id}.'''
         result = self._values.get("column_id")
         assert result is not None, "Required property 'column_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#expression QuicksightDataSet#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#expression QuicksightDataSet#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
@@ -2838,7 +2838,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperationOutput
 class QuicksightDataSetLogicalTableMapDataTransformsFilterOperation:
     def __init__(self, *, condition_expression: builtins.str) -> None:
         '''
-        :param condition_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#condition_expression QuicksightDataSet#condition_expression}.
+        :param condition_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#condition_expression QuicksightDataSet#condition_expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c7a8dd61ec83e5f5141b66f6500ffb49f276f11ab49f65315bcc18f7c518a4b)
@@ -2849,7 +2849,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsFilterOperation:
 
     @builtins.property
     def condition_expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#condition_expression QuicksightDataSet#condition_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#condition_expression QuicksightDataSet#condition_expression}.'''
         result = self._values.get("condition_expression")
         assert result is not None, "Required property 'condition_expression' is missing"
         return typing.cast(builtins.str, result)
@@ -3049,9 +3049,9 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
         format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param new_column_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#new_column_type QuicksightDataSet#new_column_type}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param new_column_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#new_column_type QuicksightDataSet#new_column_type}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsCastColumnTypeOperation(
             column_name=column_name, new_column_type=new_column_type, format=format
@@ -3066,7 +3066,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
         columns: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperationColumns, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsCreateColumnsOperation(
             columns=columns
@@ -3077,7 +3077,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
     @jsii.member(jsii_name="putFilterOperation")
     def put_filter_operation(self, *, condition_expression: builtins.str) -> None:
         '''
-        :param condition_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#condition_expression QuicksightDataSet#condition_expression}.
+        :param condition_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#condition_expression QuicksightDataSet#condition_expression}.
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsFilterOperation(
             condition_expression=condition_expression
@@ -3092,7 +3092,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
         projected_columns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param projected_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#projected_columns QuicksightDataSet#projected_columns}.
+        :param projected_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#projected_columns QuicksightDataSet#projected_columns}.
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsProjectOperation(
             projected_columns=projected_columns
@@ -3108,8 +3108,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
         new_column_name: builtins.str,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param new_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#new_column_name QuicksightDataSet#new_column_name}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param new_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#new_column_name QuicksightDataSet#new_column_name}.
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsRenameColumnOperation(
             column_name=column_name, new_column_name=new_column_name
@@ -3125,8 +3125,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
         tags: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTags", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperation(
             column_name=column_name, tags=tags
@@ -3142,8 +3142,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
         tag_names: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param tag_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_names QuicksightDataSet#tag_names}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param tag_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_names QuicksightDataSet#tag_names}.
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsUntagColumnOperation(
             column_name=column_name, tag_names=tag_names
@@ -3303,7 +3303,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsOutputReference(
 class QuicksightDataSetLogicalTableMapDataTransformsProjectOperation:
     def __init__(self, *, projected_columns: typing.Sequence[builtins.str]) -> None:
         '''
-        :param projected_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#projected_columns QuicksightDataSet#projected_columns}.
+        :param projected_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#projected_columns QuicksightDataSet#projected_columns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af7af5eddaa512f82b9062c0517ba3ce855e177ed1c9cf77012593916f7a632a)
@@ -3314,7 +3314,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsProjectOperation:
 
     @builtins.property
     def projected_columns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#projected_columns QuicksightDataSet#projected_columns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#projected_columns QuicksightDataSet#projected_columns}.'''
         result = self._values.get("projected_columns")
         assert result is not None, "Required property 'projected_columns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3399,8 +3399,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsRenameColumnOperation:
         new_column_name: builtins.str,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param new_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#new_column_name QuicksightDataSet#new_column_name}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param new_column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#new_column_name QuicksightDataSet#new_column_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b2d31ce7beb987a33c821b582d902bdd098c812ebc60c90b05897ebb75ba4c6)
@@ -3413,14 +3413,14 @@ class QuicksightDataSetLogicalTableMapDataTransformsRenameColumnOperation:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def new_column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#new_column_name QuicksightDataSet#new_column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#new_column_name QuicksightDataSet#new_column_name}.'''
         result = self._values.get("new_column_name")
         assert result is not None, "Required property 'new_column_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3522,8 +3522,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperation:
         tags: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTags", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c48021da9dcf1863b981e733154ee69c75ecad50f6a0530fb2bdebe90f84aba)
@@ -3536,7 +3536,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperation:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3547,7 +3547,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperation:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTags"]]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tags QuicksightDataSet#tags}
         '''
         result = self._values.get("tags")
         assert result is not None, "Required property 'tags' is missing"
@@ -3663,8 +3663,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTags:
         column_geographic_role: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column_description: column_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_description QuicksightDataSet#column_description}
-        :param column_geographic_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_geographic_role QuicksightDataSet#column_geographic_role}.
+        :param column_description: column_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_description QuicksightDataSet#column_description}
+        :param column_geographic_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_geographic_role QuicksightDataSet#column_geographic_role}.
         '''
         if isinstance(column_description, dict):
             column_description = QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsColumnDescription(**column_description)
@@ -3684,14 +3684,14 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTags:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsColumnDescription"]:
         '''column_description block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_description QuicksightDataSet#column_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_description QuicksightDataSet#column_description}
         '''
         result = self._values.get("column_description")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsColumnDescription"], result)
 
     @builtins.property
     def column_geographic_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_geographic_role QuicksightDataSet#column_geographic_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_geographic_role QuicksightDataSet#column_geographic_role}.'''
         result = self._values.get("column_geographic_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3715,7 +3715,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTags:
 class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsColumnDescription:
     def __init__(self, *, text: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#text QuicksightDataSet#text}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#text QuicksightDataSet#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b16b65ac1e52e446f33a0507855b9ceff6d9fe565a2f909a91470cf7c8add804)
@@ -3726,7 +3726,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsColumn
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#text QuicksightDataSet#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#text QuicksightDataSet#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3927,7 +3927,7 @@ class QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsOutput
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#text QuicksightDataSet#text}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#text QuicksightDataSet#text}.
         '''
         value = QuicksightDataSetLogicalTableMapDataTransformsTagColumnOperationTagsColumnDescription(
             text=text
@@ -4005,8 +4005,8 @@ class QuicksightDataSetLogicalTableMapDataTransformsUntagColumnOperation:
         tag_names: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param tag_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_names QuicksightDataSet#tag_names}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param tag_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_names QuicksightDataSet#tag_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5efc2155ca3bac2811773068cdca54c436b4bf9339bf41ae3aa336de4d470d66)
@@ -4019,14 +4019,14 @@ class QuicksightDataSetLogicalTableMapDataTransformsUntagColumnOperation:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_names QuicksightDataSet#tag_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_names QuicksightDataSet#tag_names}.'''
         result = self._values.get("tag_names")
         assert result is not None, "Required property 'tag_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4256,9 +4256,9 @@ class QuicksightDataSetLogicalTableMapOutputReference(
         physical_table_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_arn QuicksightDataSet#data_set_arn}.
-        :param join_instruction: join_instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#join_instruction QuicksightDataSet#join_instruction}
-        :param physical_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_id QuicksightDataSet#physical_table_id}.
+        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_arn QuicksightDataSet#data_set_arn}.
+        :param join_instruction: join_instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#join_instruction QuicksightDataSet#join_instruction}
+        :param physical_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_id QuicksightDataSet#physical_table_id}.
         '''
         value = QuicksightDataSetLogicalTableMapSource(
             data_set_arn=data_set_arn,
@@ -4364,9 +4364,9 @@ class QuicksightDataSetLogicalTableMapSource:
         physical_table_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_arn QuicksightDataSet#data_set_arn}.
-        :param join_instruction: join_instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#join_instruction QuicksightDataSet#join_instruction}
-        :param physical_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_id QuicksightDataSet#physical_table_id}.
+        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_arn QuicksightDataSet#data_set_arn}.
+        :param join_instruction: join_instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#join_instruction QuicksightDataSet#join_instruction}
+        :param physical_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_id QuicksightDataSet#physical_table_id}.
         '''
         if isinstance(join_instruction, dict):
             join_instruction = QuicksightDataSetLogicalTableMapSourceJoinInstruction(**join_instruction)
@@ -4385,7 +4385,7 @@ class QuicksightDataSetLogicalTableMapSource:
 
     @builtins.property
     def data_set_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_set_arn QuicksightDataSet#data_set_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_set_arn QuicksightDataSet#data_set_arn}.'''
         result = self._values.get("data_set_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4395,14 +4395,14 @@ class QuicksightDataSetLogicalTableMapSource:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapSourceJoinInstruction"]:
         '''join_instruction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#join_instruction QuicksightDataSet#join_instruction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#join_instruction QuicksightDataSet#join_instruction}
         '''
         result = self._values.get("join_instruction")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapSourceJoinInstruction"], result)
 
     @builtins.property
     def physical_table_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_id QuicksightDataSet#physical_table_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_id QuicksightDataSet#physical_table_id}.'''
         result = self._values.get("physical_table_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4442,12 +4442,12 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstruction:
         right_join_key_properties: typing.Optional[typing.Union["QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param left_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#left_operand QuicksightDataSet#left_operand}.
-        :param on_clause: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#on_clause QuicksightDataSet#on_clause}.
-        :param right_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#right_operand QuicksightDataSet#right_operand}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
-        :param left_join_key_properties: left_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#left_join_key_properties QuicksightDataSet#left_join_key_properties}
-        :param right_join_key_properties: right_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#right_join_key_properties QuicksightDataSet#right_join_key_properties}
+        :param left_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#left_operand QuicksightDataSet#left_operand}.
+        :param on_clause: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#on_clause QuicksightDataSet#on_clause}.
+        :param right_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#right_operand QuicksightDataSet#right_operand}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
+        :param left_join_key_properties: left_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#left_join_key_properties QuicksightDataSet#left_join_key_properties}
+        :param right_join_key_properties: right_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#right_join_key_properties QuicksightDataSet#right_join_key_properties}
         '''
         if isinstance(left_join_key_properties, dict):
             left_join_key_properties = QuicksightDataSetLogicalTableMapSourceJoinInstructionLeftJoinKeyProperties(**left_join_key_properties)
@@ -4474,28 +4474,28 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstruction:
 
     @builtins.property
     def left_operand(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#left_operand QuicksightDataSet#left_operand}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#left_operand QuicksightDataSet#left_operand}.'''
         result = self._values.get("left_operand")
         assert result is not None, "Required property 'left_operand' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def on_clause(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#on_clause QuicksightDataSet#on_clause}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#on_clause QuicksightDataSet#on_clause}.'''
         result = self._values.get("on_clause")
         assert result is not None, "Required property 'on_clause' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def right_operand(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#right_operand QuicksightDataSet#right_operand}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#right_operand QuicksightDataSet#right_operand}.'''
         result = self._values.get("right_operand")
         assert result is not None, "Required property 'right_operand' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -4506,7 +4506,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstruction:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapSourceJoinInstructionLeftJoinKeyProperties"]:
         '''left_join_key_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#left_join_key_properties QuicksightDataSet#left_join_key_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#left_join_key_properties QuicksightDataSet#left_join_key_properties}
         '''
         result = self._values.get("left_join_key_properties")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapSourceJoinInstructionLeftJoinKeyProperties"], result)
@@ -4517,7 +4517,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstruction:
     ) -> typing.Optional["QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyProperties"]:
         '''right_join_key_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#right_join_key_properties QuicksightDataSet#right_join_key_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#right_join_key_properties QuicksightDataSet#right_join_key_properties}
         '''
         result = self._values.get("right_join_key_properties")
         return typing.cast(typing.Optional["QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyProperties"], result)
@@ -4546,7 +4546,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstructionLeftJoinKeyProperties
         unique_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
+        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__918fce4a18a90b3fe087f651beb8d62b4987bd7e523e711e1d64d5ed8de88c2d)
@@ -4559,7 +4559,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstructionLeftJoinKeyProperties
     def unique_key(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.'''
         result = self._values.get("unique_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4666,7 +4666,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstructionOutputReference(
         unique_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
+        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
         '''
         value = QuicksightDataSetLogicalTableMapSourceJoinInstructionLeftJoinKeyProperties(
             unique_key=unique_key
@@ -4681,7 +4681,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstructionOutputReference(
         unique_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
+        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
         '''
         value = QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyProperties(
             unique_key=unique_key
@@ -4823,7 +4823,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyPropertie
         unique_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
+        :param unique_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91251aa1250d01124dd24c094710f830373cc2d060f1f5b9bd9ab074a2d6ee19)
@@ -4836,7 +4836,7 @@ class QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyPropertie
     def unique_key(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#unique_key QuicksightDataSet#unique_key}.'''
         result = self._values.get("unique_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4948,12 +4948,12 @@ class QuicksightDataSetLogicalTableMapSourceOutputReference(
         right_join_key_properties: typing.Optional[typing.Union[QuicksightDataSetLogicalTableMapSourceJoinInstructionRightJoinKeyProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param left_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#left_operand QuicksightDataSet#left_operand}.
-        :param on_clause: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#on_clause QuicksightDataSet#on_clause}.
-        :param right_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#right_operand QuicksightDataSet#right_operand}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
-        :param left_join_key_properties: left_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#left_join_key_properties QuicksightDataSet#left_join_key_properties}
-        :param right_join_key_properties: right_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#right_join_key_properties QuicksightDataSet#right_join_key_properties}
+        :param left_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#left_operand QuicksightDataSet#left_operand}.
+        :param on_clause: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#on_clause QuicksightDataSet#on_clause}.
+        :param right_operand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#right_operand QuicksightDataSet#right_operand}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
+        :param left_join_key_properties: left_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#left_join_key_properties QuicksightDataSet#left_join_key_properties}
+        :param right_join_key_properties: right_join_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#right_join_key_properties QuicksightDataSet#right_join_key_properties}
         '''
         value = QuicksightDataSetLogicalTableMapSourceJoinInstruction(
             left_operand=left_operand,
@@ -5209,8 +5209,8 @@ class QuicksightDataSetPermissions:
         principal: builtins.str,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#actions QuicksightDataSet#actions}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#principal QuicksightDataSet#principal}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#actions QuicksightDataSet#actions}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#principal QuicksightDataSet#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff738db5e3b807cf04f91428e649fa035c5fa76fe0ecc43ff893421a8165a0d1)
@@ -5223,14 +5223,14 @@ class QuicksightDataSetPermissions:
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#actions QuicksightDataSet#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#actions QuicksightDataSet#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#principal QuicksightDataSet#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#principal QuicksightDataSet#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -5435,10 +5435,10 @@ class QuicksightDataSetPhysicalTableMap:
         s3_source: typing.Optional[typing.Union["QuicksightDataSetPhysicalTableMapS3Source", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param physical_table_map_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_map_id QuicksightDataSet#physical_table_map_id}.
-        :param custom_sql: custom_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#custom_sql QuicksightDataSet#custom_sql}
-        :param relational_table: relational_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#relational_table QuicksightDataSet#relational_table}
-        :param s3_source: s3_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#s3_source QuicksightDataSet#s3_source}
+        :param physical_table_map_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_map_id QuicksightDataSet#physical_table_map_id}.
+        :param custom_sql: custom_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#custom_sql QuicksightDataSet#custom_sql}
+        :param relational_table: relational_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#relational_table QuicksightDataSet#relational_table}
+        :param s3_source: s3_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#s3_source QuicksightDataSet#s3_source}
         '''
         if isinstance(custom_sql, dict):
             custom_sql = QuicksightDataSetPhysicalTableMapCustomSql(**custom_sql)
@@ -5464,7 +5464,7 @@ class QuicksightDataSetPhysicalTableMap:
 
     @builtins.property
     def physical_table_map_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#physical_table_map_id QuicksightDataSet#physical_table_map_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#physical_table_map_id QuicksightDataSet#physical_table_map_id}.'''
         result = self._values.get("physical_table_map_id")
         assert result is not None, "Required property 'physical_table_map_id' is missing"
         return typing.cast(builtins.str, result)
@@ -5475,7 +5475,7 @@ class QuicksightDataSetPhysicalTableMap:
     ) -> typing.Optional["QuicksightDataSetPhysicalTableMapCustomSql"]:
         '''custom_sql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#custom_sql QuicksightDataSet#custom_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#custom_sql QuicksightDataSet#custom_sql}
         '''
         result = self._values.get("custom_sql")
         return typing.cast(typing.Optional["QuicksightDataSetPhysicalTableMapCustomSql"], result)
@@ -5486,7 +5486,7 @@ class QuicksightDataSetPhysicalTableMap:
     ) -> typing.Optional["QuicksightDataSetPhysicalTableMapRelationalTable"]:
         '''relational_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#relational_table QuicksightDataSet#relational_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#relational_table QuicksightDataSet#relational_table}
         '''
         result = self._values.get("relational_table")
         return typing.cast(typing.Optional["QuicksightDataSetPhysicalTableMapRelationalTable"], result)
@@ -5495,7 +5495,7 @@ class QuicksightDataSetPhysicalTableMap:
     def s3_source(self) -> typing.Optional["QuicksightDataSetPhysicalTableMapS3Source"]:
         '''s3_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#s3_source QuicksightDataSet#s3_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#s3_source QuicksightDataSet#s3_source}
         '''
         result = self._values.get("s3_source")
         return typing.cast(typing.Optional["QuicksightDataSetPhysicalTableMapS3Source"], result)
@@ -5532,10 +5532,10 @@ class QuicksightDataSetPhysicalTableMapCustomSql:
         columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDataSetPhysicalTableMapCustomSqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param sql_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#sql_query QuicksightDataSet#sql_query}.
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
+        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param sql_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#sql_query QuicksightDataSet#sql_query}.
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd7454c35ed8aa625f4e539ec3792321070688f3db4b99848ed8c98b291216fc)
@@ -5553,21 +5553,21 @@ class QuicksightDataSetPhysicalTableMapCustomSql:
 
     @builtins.property
     def data_source_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.'''
         result = self._values.get("data_source_arn")
         assert result is not None, "Required property 'data_source_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sql_query(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#sql_query QuicksightDataSet#sql_query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#sql_query QuicksightDataSet#sql_query}.'''
         result = self._values.get("sql_query")
         assert result is not None, "Required property 'sql_query' is missing"
         return typing.cast(builtins.str, result)
@@ -5578,7 +5578,7 @@ class QuicksightDataSetPhysicalTableMapCustomSql:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPhysicalTableMapCustomSqlColumns"]]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
         '''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPhysicalTableMapCustomSqlColumns"]]], result)
@@ -5603,8 +5603,8 @@ class QuicksightDataSetPhysicalTableMapCustomSql:
 class QuicksightDataSetPhysicalTableMapCustomSqlColumns:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ba98f72a70b3a53811879dee30932c4afc9508216097deaf1fccbe83ded9935)
@@ -5617,14 +5617,14 @@ class QuicksightDataSetPhysicalTableMapCustomSqlColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -6059,10 +6059,10 @@ class QuicksightDataSetPhysicalTableMapOutputReference(
         columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[QuicksightDataSetPhysicalTableMapCustomSqlColumns, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param sql_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#sql_query QuicksightDataSet#sql_query}.
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
+        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param sql_query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#sql_query QuicksightDataSet#sql_query}.
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#columns QuicksightDataSet#columns}
         '''
         value = QuicksightDataSetPhysicalTableMapCustomSql(
             data_source_arn=data_source_arn,
@@ -6084,11 +6084,11 @@ class QuicksightDataSetPhysicalTableMapOutputReference(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
-        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#catalog QuicksightDataSet#catalog}.
-        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#schema QuicksightDataSet#schema}.
+        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
+        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#catalog QuicksightDataSet#catalog}.
+        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#schema QuicksightDataSet#schema}.
         '''
         value = QuicksightDataSetPhysicalTableMapRelationalTable(
             data_source_arn=data_source_arn,
@@ -6109,9 +6109,9 @@ class QuicksightDataSetPhysicalTableMapOutputReference(
         upload_settings: typing.Union["QuicksightDataSetPhysicalTableMapS3SourceUploadSettings", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
-        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
-        :param upload_settings: upload_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#upload_settings QuicksightDataSet#upload_settings}
+        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
+        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
+        :param upload_settings: upload_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#upload_settings QuicksightDataSet#upload_settings}
         '''
         value = QuicksightDataSetPhysicalTableMapS3Source(
             data_source_arn=data_source_arn,
@@ -6228,11 +6228,11 @@ class QuicksightDataSetPhysicalTableMapRelationalTable:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
-        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#catalog QuicksightDataSet#catalog}.
-        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#schema QuicksightDataSet#schema}.
+        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
+        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#catalog QuicksightDataSet#catalog}.
+        :param schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#schema QuicksightDataSet#schema}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0fe698b0ab69d3983ab76fe27a7b741128f3c8f2111356975a67f7639988292)
@@ -6253,7 +6253,7 @@ class QuicksightDataSetPhysicalTableMapRelationalTable:
 
     @builtins.property
     def data_source_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.'''
         result = self._values.get("data_source_arn")
         assert result is not None, "Required property 'data_source_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -6264,7 +6264,7 @@ class QuicksightDataSetPhysicalTableMapRelationalTable:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPhysicalTableMapRelationalTableInputColumns"]]:
         '''input_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
         '''
         result = self._values.get("input_columns")
         assert result is not None, "Required property 'input_columns' is missing"
@@ -6272,20 +6272,20 @@ class QuicksightDataSetPhysicalTableMapRelationalTable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#catalog QuicksightDataSet#catalog}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#catalog QuicksightDataSet#catalog}.'''
         result = self._values.get("catalog")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schema(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#schema QuicksightDataSet#schema}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#schema QuicksightDataSet#schema}.'''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6309,8 +6309,8 @@ class QuicksightDataSetPhysicalTableMapRelationalTable:
 class QuicksightDataSetPhysicalTableMapRelationalTableInputColumns:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd9226b59b4bf5bc23b120176427a4f74ea448cc377e254d15e2d7bd1d2bd9a4)
@@ -6323,14 +6323,14 @@ class QuicksightDataSetPhysicalTableMapRelationalTableInputColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -6677,9 +6677,9 @@ class QuicksightDataSetPhysicalTableMapS3Source:
         upload_settings: typing.Union["QuicksightDataSetPhysicalTableMapS3SourceUploadSettings", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
-        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
-        :param upload_settings: upload_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#upload_settings QuicksightDataSet#upload_settings}
+        :param data_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.
+        :param input_columns: input_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
+        :param upload_settings: upload_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#upload_settings QuicksightDataSet#upload_settings}
         '''
         if isinstance(upload_settings, dict):
             upload_settings = QuicksightDataSetPhysicalTableMapS3SourceUploadSettings(**upload_settings)
@@ -6696,7 +6696,7 @@ class QuicksightDataSetPhysicalTableMapS3Source:
 
     @builtins.property
     def data_source_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#data_source_arn QuicksightDataSet#data_source_arn}.'''
         result = self._values.get("data_source_arn")
         assert result is not None, "Required property 'data_source_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -6707,7 +6707,7 @@ class QuicksightDataSetPhysicalTableMapS3Source:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetPhysicalTableMapS3SourceInputColumns"]]:
         '''input_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#input_columns QuicksightDataSet#input_columns}
         '''
         result = self._values.get("input_columns")
         assert result is not None, "Required property 'input_columns' is missing"
@@ -6719,7 +6719,7 @@ class QuicksightDataSetPhysicalTableMapS3Source:
     ) -> "QuicksightDataSetPhysicalTableMapS3SourceUploadSettings":
         '''upload_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#upload_settings QuicksightDataSet#upload_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#upload_settings QuicksightDataSet#upload_settings}
         '''
         result = self._values.get("upload_settings")
         assert result is not None, "Required property 'upload_settings' is missing"
@@ -6745,8 +6745,8 @@ class QuicksightDataSetPhysicalTableMapS3Source:
 class QuicksightDataSetPhysicalTableMapS3SourceInputColumns:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06717d09b656e8bd965ba16bce817f3e38f3e834162d7e1312a690799063ef56)
@@ -6759,14 +6759,14 @@ class QuicksightDataSetPhysicalTableMapS3SourceInputColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#name QuicksightDataSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#type QuicksightDataSet#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -6998,11 +6998,11 @@ class QuicksightDataSetPhysicalTableMapS3SourceOutputReference(
         text_qualifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#contains_header QuicksightDataSet#contains_header}.
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#delimiter QuicksightDataSet#delimiter}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
-        :param start_from_row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#start_from_row QuicksightDataSet#start_from_row}.
-        :param text_qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#text_qualifier QuicksightDataSet#text_qualifier}.
+        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#contains_header QuicksightDataSet#contains_header}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#delimiter QuicksightDataSet#delimiter}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
+        :param start_from_row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#start_from_row QuicksightDataSet#start_from_row}.
+        :param text_qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#text_qualifier QuicksightDataSet#text_qualifier}.
         '''
         value = QuicksightDataSetPhysicalTableMapS3SourceUploadSettings(
             contains_header=contains_header,
@@ -7099,11 +7099,11 @@ class QuicksightDataSetPhysicalTableMapS3SourceUploadSettings:
         text_qualifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#contains_header QuicksightDataSet#contains_header}.
-        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#delimiter QuicksightDataSet#delimiter}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
-        :param start_from_row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#start_from_row QuicksightDataSet#start_from_row}.
-        :param text_qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#text_qualifier QuicksightDataSet#text_qualifier}.
+        :param contains_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#contains_header QuicksightDataSet#contains_header}.
+        :param delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#delimiter QuicksightDataSet#delimiter}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.
+        :param start_from_row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#start_from_row QuicksightDataSet#start_from_row}.
+        :param text_qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#text_qualifier QuicksightDataSet#text_qualifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28a30a1c2850b0797c1bbf403034e1e35d332243a3e18fe553d6b97430b24daa)
@@ -7128,31 +7128,31 @@ class QuicksightDataSetPhysicalTableMapS3SourceUploadSettings:
     def contains_header(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#contains_header QuicksightDataSet#contains_header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#contains_header QuicksightDataSet#contains_header}.'''
         result = self._values.get("contains_header")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def delimiter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#delimiter QuicksightDataSet#delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#delimiter QuicksightDataSet#delimiter}.'''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format QuicksightDataSet#format}.'''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_from_row(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#start_from_row QuicksightDataSet#start_from_row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#start_from_row QuicksightDataSet#start_from_row}.'''
         result = self._values.get("start_from_row")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def text_qualifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#text_qualifier QuicksightDataSet#text_qualifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#text_qualifier QuicksightDataSet#text_qualifier}.'''
         result = self._values.get("text_qualifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7330,7 +7330,7 @@ class QuicksightDataSetRefreshProperties:
         refresh_configuration: typing.Union["QuicksightDataSetRefreshPropertiesRefreshConfiguration", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param refresh_configuration: refresh_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#refresh_configuration QuicksightDataSet#refresh_configuration}
+        :param refresh_configuration: refresh_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#refresh_configuration QuicksightDataSet#refresh_configuration}
         '''
         if isinstance(refresh_configuration, dict):
             refresh_configuration = QuicksightDataSetRefreshPropertiesRefreshConfiguration(**refresh_configuration)
@@ -7347,7 +7347,7 @@ class QuicksightDataSetRefreshProperties:
     ) -> "QuicksightDataSetRefreshPropertiesRefreshConfiguration":
         '''refresh_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#refresh_configuration QuicksightDataSet#refresh_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#refresh_configuration QuicksightDataSet#refresh_configuration}
         '''
         result = self._values.get("refresh_configuration")
         assert result is not None, "Required property 'refresh_configuration' is missing"
@@ -7392,7 +7392,7 @@ class QuicksightDataSetRefreshPropertiesOutputReference(
         incremental_refresh: typing.Union["QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param incremental_refresh: incremental_refresh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#incremental_refresh QuicksightDataSet#incremental_refresh}
+        :param incremental_refresh: incremental_refresh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#incremental_refresh QuicksightDataSet#incremental_refresh}
         '''
         value = QuicksightDataSetRefreshPropertiesRefreshConfiguration(
             incremental_refresh=incremental_refresh
@@ -7442,7 +7442,7 @@ class QuicksightDataSetRefreshPropertiesRefreshConfiguration:
         incremental_refresh: typing.Union["QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param incremental_refresh: incremental_refresh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#incremental_refresh QuicksightDataSet#incremental_refresh}
+        :param incremental_refresh: incremental_refresh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#incremental_refresh QuicksightDataSet#incremental_refresh}
         '''
         if isinstance(incremental_refresh, dict):
             incremental_refresh = QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh(**incremental_refresh)
@@ -7459,7 +7459,7 @@ class QuicksightDataSetRefreshPropertiesRefreshConfiguration:
     ) -> "QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh":
         '''incremental_refresh block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#incremental_refresh QuicksightDataSet#incremental_refresh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#incremental_refresh QuicksightDataSet#incremental_refresh}
         '''
         result = self._values.get("incremental_refresh")
         assert result is not None, "Required property 'incremental_refresh' is missing"
@@ -7489,7 +7489,7 @@ class QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh:
         lookback_window: typing.Union["QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLookbackWindow", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param lookback_window: lookback_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#lookback_window QuicksightDataSet#lookback_window}
+        :param lookback_window: lookback_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#lookback_window QuicksightDataSet#lookback_window}
         '''
         if isinstance(lookback_window, dict):
             lookback_window = QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLookbackWindow(**lookback_window)
@@ -7506,7 +7506,7 @@ class QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh:
     ) -> "QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLookbackWindow":
         '''lookback_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#lookback_window QuicksightDataSet#lookback_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#lookback_window QuicksightDataSet#lookback_window}
         '''
         result = self._values.get("lookback_window")
         assert result is not None, "Required property 'lookback_window' is missing"
@@ -7542,9 +7542,9 @@ class QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLo
         size_unit: builtins.str,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#size QuicksightDataSet#size}.
-        :param size_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#size_unit QuicksightDataSet#size_unit}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#size QuicksightDataSet#size}.
+        :param size_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#size_unit QuicksightDataSet#size_unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14d31c61a6474ec5bb0c6d8f17174f495caf03324a0cf9fb357a456aea8aec92)
@@ -7559,21 +7559,21 @@ class QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLo
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#size QuicksightDataSet#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#size QuicksightDataSet#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def size_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#size_unit QuicksightDataSet#size_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#size_unit QuicksightDataSet#size_unit}.'''
         result = self._values.get("size_unit")
         assert result is not None, "Required property 'size_unit' is missing"
         return typing.cast(builtins.str, result)
@@ -7708,9 +7708,9 @@ class QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshOu
         size_unit: builtins.str,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#size QuicksightDataSet#size}.
-        :param size_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#size_unit QuicksightDataSet#size_unit}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#size QuicksightDataSet#size}.
+        :param size_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#size_unit QuicksightDataSet#size_unit}.
         '''
         value = QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLookbackWindow(
             column_name=column_name, size=size, size_unit=size_unit
@@ -7777,7 +7777,7 @@ class QuicksightDataSetRefreshPropertiesRefreshConfigurationOutputReference(
         lookback_window: typing.Union[QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefreshLookbackWindow, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param lookback_window: lookback_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#lookback_window QuicksightDataSet#lookback_window}
+        :param lookback_window: lookback_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#lookback_window QuicksightDataSet#lookback_window}
         '''
         value = QuicksightDataSetRefreshPropertiesRefreshConfigurationIncrementalRefresh(
             lookback_window=lookback_window
@@ -7839,11 +7839,11 @@ class QuicksightDataSetRowLevelPermissionDataSet:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#arn QuicksightDataSet#arn}.
-        :param permission_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#permission_policy QuicksightDataSet#permission_policy}.
-        :param format_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format_version QuicksightDataSet#format_version}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#namespace QuicksightDataSet#namespace}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#arn QuicksightDataSet#arn}.
+        :param permission_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#permission_policy QuicksightDataSet#permission_policy}.
+        :param format_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format_version QuicksightDataSet#format_version}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#namespace QuicksightDataSet#namespace}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7c86e9f3cddb6fc90ca08327326ccb5dc0840460e6d3c1038599c713de20edb)
@@ -7865,33 +7865,33 @@ class QuicksightDataSetRowLevelPermissionDataSet:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#arn QuicksightDataSet#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#arn QuicksightDataSet#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def permission_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#permission_policy QuicksightDataSet#permission_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#permission_policy QuicksightDataSet#permission_policy}.'''
         result = self._values.get("permission_policy")
         assert result is not None, "Required property 'permission_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#format_version QuicksightDataSet#format_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#format_version QuicksightDataSet#format_version}.'''
         result = self._values.get("format_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#namespace QuicksightDataSet#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#namespace QuicksightDataSet#namespace}.'''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8055,8 +8055,8 @@ class QuicksightDataSetRowLevelPermissionTagConfiguration:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param tag_rules: tag_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_rules QuicksightDataSet#tag_rules}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
+        :param tag_rules: tag_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_rules QuicksightDataSet#tag_rules}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7156ece02c0344a5036425e98a418409ee57e58c3dc00984dc0504bfec1f323)
@@ -8074,7 +8074,7 @@ class QuicksightDataSetRowLevelPermissionTagConfiguration:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSetRowLevelPermissionTagConfigurationTagRules"]]:
         '''tag_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_rules QuicksightDataSet#tag_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_rules QuicksightDataSet#tag_rules}
         '''
         result = self._values.get("tag_rules")
         assert result is not None, "Required property 'tag_rules' is missing"
@@ -8082,7 +8082,7 @@ class QuicksightDataSetRowLevelPermissionTagConfiguration:
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#status QuicksightDataSet#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8204,10 +8204,10 @@ class QuicksightDataSetRowLevelPermissionTagConfigurationTagRules:
         tag_multi_value_delimiter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_key QuicksightDataSet#tag_key}.
-        :param match_all_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#match_all_value QuicksightDataSet#match_all_value}.
-        :param tag_multi_value_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_multi_value_delimiter QuicksightDataSet#tag_multi_value_delimiter}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_key QuicksightDataSet#tag_key}.
+        :param match_all_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#match_all_value QuicksightDataSet#match_all_value}.
+        :param tag_multi_value_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_multi_value_delimiter QuicksightDataSet#tag_multi_value_delimiter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a47764c11cf0a34111579fd03a274f613440dae4a4fa98bb547356193bf5597)
@@ -8226,27 +8226,27 @@ class QuicksightDataSetRowLevelPermissionTagConfigurationTagRules:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#column_name QuicksightDataSet#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_key QuicksightDataSet#tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_key QuicksightDataSet#tag_key}.'''
         result = self._values.get("tag_key")
         assert result is not None, "Required property 'tag_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_all_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#match_all_value QuicksightDataSet#match_all_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#match_all_value QuicksightDataSet#match_all_value}.'''
         result = self._values.get("match_all_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tag_multi_value_delimiter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_set#tag_multi_value_delimiter QuicksightDataSet#tag_multi_value_delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_set#tag_multi_value_delimiter QuicksightDataSet#tag_multi_value_delimiter}.'''
         result = self._values.get("tag_multi_value_delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
 

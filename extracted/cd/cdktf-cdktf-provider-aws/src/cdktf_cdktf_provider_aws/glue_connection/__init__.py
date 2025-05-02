@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_connection`
 
-Refer to the Terraform Registry for docs: [`aws_glue_connection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection).
+Refer to the Terraform Registry for docs: [`aws_glue_connection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueConnection.GlueConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection aws_glue_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection aws_glue_connection}.'''
 
     def __init__(
         self,
@@ -52,6 +52,7 @@ class GlueConnection(
         id_: builtins.str,
         *,
         name: builtins.str,
+        athena_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         catalog_id: typing.Optional[builtins.str] = None,
         connection_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection_type: typing.Optional[builtins.str] = None,
@@ -69,20 +70,21 @@ class GlueConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection aws_glue_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection aws_glue_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#name GlueConnection#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#catalog_id GlueConnection#catalog_id}.
-        :param connection_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#connection_properties GlueConnection#connection_properties}.
-        :param connection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#connection_type GlueConnection#connection_type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#description GlueConnection#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#id GlueConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param match_criteria: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#match_criteria GlueConnection#match_criteria}.
-        :param physical_connection_requirements: physical_connection_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#physical_connection_requirements GlueConnection#physical_connection_requirements}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#tags GlueConnection#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#tags_all GlueConnection#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#name GlueConnection#name}.
+        :param athena_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#athena_properties GlueConnection#athena_properties}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#catalog_id GlueConnection#catalog_id}.
+        :param connection_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#connection_properties GlueConnection#connection_properties}.
+        :param connection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#connection_type GlueConnection#connection_type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#description GlueConnection#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#id GlueConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param match_criteria: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#match_criteria GlueConnection#match_criteria}.
+        :param physical_connection_requirements: physical_connection_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#physical_connection_requirements GlueConnection#physical_connection_requirements}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#tags GlueConnection#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#tags_all GlueConnection#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -97,6 +99,7 @@ class GlueConnection(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = GlueConnectionConfig(
             name=name,
+            athena_properties=athena_properties,
             catalog_id=catalog_id,
             connection_properties=connection_properties,
             connection_type=connection_type,
@@ -130,7 +133,7 @@ class GlueConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueConnection to import.
-        :param import_from_id: The id of the existing GlueConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueConnection to import is found.
         '''
         if __debug__:
@@ -150,9 +153,9 @@ class GlueConnection(
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#availability_zone GlueConnection#availability_zone}.
-        :param security_group_id_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#security_group_id_list GlueConnection#security_group_id_list}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#subnet_id GlueConnection#subnet_id}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#availability_zone GlueConnection#availability_zone}.
+        :param security_group_id_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#security_group_id_list GlueConnection#security_group_id_list}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#subnet_id GlueConnection#subnet_id}.
         '''
         value = GlueConnectionPhysicalConnectionRequirements(
             availability_zone=availability_zone,
@@ -161,6 +164,10 @@ class GlueConnection(
         )
 
         return typing.cast(None, jsii.invoke(self, "putPhysicalConnectionRequirements", [value]))
+
+    @jsii.member(jsii_name="resetAthenaProperties")
+    def reset_athena_properties(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAthenaProperties", []))
 
     @jsii.member(jsii_name="resetCatalogId")
     def reset_catalog_id(self) -> None:
@@ -224,6 +231,13 @@ class GlueConnection(
         return typing.cast("GlueConnectionPhysicalConnectionRequirementsOutputReference", jsii.get(self, "physicalConnectionRequirements"))
 
     @builtins.property
+    @jsii.member(jsii_name="athenaPropertiesInput")
+    def athena_properties_input(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "athenaPropertiesInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="catalogIdInput")
     def catalog_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "catalogIdInput"))
@@ -278,6 +292,21 @@ class GlueConnection(
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="athenaProperties")
+    def athena_properties(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "athenaProperties"))
+
+    @athena_properties.setter
+    def athena_properties(
+        self,
+        value: typing.Mapping[builtins.str, builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d0fc68b5921c72c101c7a5f89566700db2bb7c8210f59d6672379bf232f9e73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "athenaProperties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="catalogId")
@@ -403,6 +432,7 @@ class GlueConnection(
         "provider": "provider",
         "provisioners": "provisioners",
         "name": "name",
+        "athena_properties": "athenaProperties",
         "catalog_id": "catalogId",
         "connection_properties": "connectionProperties",
         "connection_type": "connectionType",
@@ -426,6 +456,7 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         name: builtins.str,
+        athena_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         catalog_id: typing.Optional[builtins.str] = None,
         connection_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection_type: typing.Optional[builtins.str] = None,
@@ -444,16 +475,17 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#name GlueConnection#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#catalog_id GlueConnection#catalog_id}.
-        :param connection_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#connection_properties GlueConnection#connection_properties}.
-        :param connection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#connection_type GlueConnection#connection_type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#description GlueConnection#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#id GlueConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param match_criteria: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#match_criteria GlueConnection#match_criteria}.
-        :param physical_connection_requirements: physical_connection_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#physical_connection_requirements GlueConnection#physical_connection_requirements}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#tags GlueConnection#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#tags_all GlueConnection#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#name GlueConnection#name}.
+        :param athena_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#athena_properties GlueConnection#athena_properties}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#catalog_id GlueConnection#catalog_id}.
+        :param connection_properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#connection_properties GlueConnection#connection_properties}.
+        :param connection_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#connection_type GlueConnection#connection_type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#description GlueConnection#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#id GlueConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param match_criteria: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#match_criteria GlueConnection#match_criteria}.
+        :param physical_connection_requirements: physical_connection_requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#physical_connection_requirements GlueConnection#physical_connection_requirements}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#tags GlueConnection#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#tags_all GlueConnection#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -469,6 +501,7 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument athena_properties", value=athena_properties, expected_type=type_hints["athena_properties"])
             check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
             check_type(argname="argument connection_properties", value=connection_properties, expected_type=type_hints["connection_properties"])
             check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
@@ -495,6 +528,8 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if athena_properties is not None:
+            self._values["athena_properties"] = athena_properties
         if catalog_id is not None:
             self._values["catalog_id"] = catalog_id
         if connection_properties is not None:
@@ -580,14 +615,22 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#name GlueConnection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#name GlueConnection#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def athena_properties(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#athena_properties GlueConnection#athena_properties}.'''
+        result = self._values.get("athena_properties")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#catalog_id GlueConnection#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#catalog_id GlueConnection#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -595,25 +638,25 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connection_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#connection_properties GlueConnection#connection_properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#connection_properties GlueConnection#connection_properties}.'''
         result = self._values.get("connection_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def connection_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#connection_type GlueConnection#connection_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#connection_type GlueConnection#connection_type}.'''
         result = self._values.get("connection_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#description GlueConnection#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#description GlueConnection#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#id GlueConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#id GlueConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -623,7 +666,7 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def match_criteria(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#match_criteria GlueConnection#match_criteria}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#match_criteria GlueConnection#match_criteria}.'''
         result = self._values.get("match_criteria")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -633,20 +676,20 @@ class GlueConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GlueConnectionPhysicalConnectionRequirements"]:
         '''physical_connection_requirements block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#physical_connection_requirements GlueConnection#physical_connection_requirements}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#physical_connection_requirements GlueConnection#physical_connection_requirements}
         '''
         result = self._values.get("physical_connection_requirements")
         return typing.cast(typing.Optional["GlueConnectionPhysicalConnectionRequirements"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#tags GlueConnection#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#tags GlueConnection#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#tags_all GlueConnection#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#tags_all GlueConnection#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -680,9 +723,9 @@ class GlueConnectionPhysicalConnectionRequirements:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#availability_zone GlueConnection#availability_zone}.
-        :param security_group_id_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#security_group_id_list GlueConnection#security_group_id_list}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#subnet_id GlueConnection#subnet_id}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#availability_zone GlueConnection#availability_zone}.
+        :param security_group_id_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#security_group_id_list GlueConnection#security_group_id_list}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#subnet_id GlueConnection#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acff8eda1154686afad2cb4797167556369fc1d61c2bfc58d28e980fa174f5b9)
@@ -699,19 +742,19 @@ class GlueConnectionPhysicalConnectionRequirements:
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#availability_zone GlueConnection#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#availability_zone GlueConnection#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_group_id_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#security_group_id_list GlueConnection#security_group_id_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#security_group_id_list GlueConnection#security_group_id_list}.'''
         result = self._values.get("security_group_id_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_connection#subnet_id GlueConnection#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_connection#subnet_id GlueConnection#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -844,6 +887,7 @@ def _typecheckingstub__f8f5402f1ce70f2e456332d358c5838d068eafaba5efa356ba31c3c12
     id_: builtins.str,
     *,
     name: builtins.str,
+    athena_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     catalog_id: typing.Optional[builtins.str] = None,
     connection_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection_type: typing.Optional[builtins.str] = None,
@@ -869,6 +913,12 @@ def _typecheckingstub__5d0bdbc29845788cdcfff5db09322314fd76f1b1f9aca11da4188b759
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d0fc68b5921c72c101c7a5f89566700db2bb7c8210f59d6672379bf232f9e73(
+    value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -937,6 +987,7 @@ def _typecheckingstub__82ffc3bc06565ad0be2dcf9005b7f3383ad601bb18b871f888dcc3072
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     name: builtins.str,
+    athena_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     catalog_id: typing.Optional[builtins.str] = None,
     connection_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection_type: typing.Optional[builtins.str] = None,

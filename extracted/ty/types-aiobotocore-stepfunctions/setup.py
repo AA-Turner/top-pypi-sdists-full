@@ -13,13 +13,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-aiobotocore-stepfunctions",
-    version="2.21.1",
+    version="2.22.0",
     packages=["types_aiobotocore_stepfunctions"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for aiobotocore SFN 2.21.1 service generated with mypy-boto3-builder 8.10.0",
+    description="Type annotations for aiobotocore SFN 2.22.0 service generated with mypy-boto3-builder 8.10.1",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

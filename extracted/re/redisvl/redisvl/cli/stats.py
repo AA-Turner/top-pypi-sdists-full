@@ -2,12 +2,11 @@ import argparse
 import sys
 from argparse import Namespace
 
-from tabulate import tabulate
-
 from redisvl.cli.utils import add_index_parsing_options, create_redis_url
 from redisvl.index import SearchIndex
 from redisvl.schema.schema import IndexSchema
 from redisvl.utils.log import get_logger
+from redisvl.utils.utils import lazy_import
 
 logger = get_logger("[RedisVL]")
 
@@ -92,11 +91,11 @@ def _display_stats(index_info, output_format="rounded_outline"):
 
     # Display the statistics in tabular format
     print("\nStatistics:")
-    print(
-        tabulate(
-            stats_data,
-            headers=["Stat Key", "Value"],
-            tablefmt=output_format,
-            colalign=("left", "left"),
-        )
-    )
+    max_key_length = max(len(key) for key, _ in stats_data)
+    horizontal_line = "─" * (max_key_length + 2)
+    print(f"╭{horizontal_line}┬────────────╮")  # top row
+    print("│ Stat Key                    │ Value      │")  # header row
+    print(f"├{horizontal_line}┼────────────┤")  # separator row
+    for key, value in stats_data:
+        print(f"│ {key:<27} │ {value[0:10]:<10} │")  # data rows
+    print(f"╰{horizontal_line}┴────────────╯")  # bottom row

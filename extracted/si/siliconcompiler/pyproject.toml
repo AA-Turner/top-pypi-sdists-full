@@ -1,0 +1,194 @@
+[build-system]
+requires = [
+    "setuptools >= 64",
+    "setuptools_scm[toml] >= 8"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+# Presence of this section activates setuptools_scm, even though it's empty
+
+[project]
+name = "siliconcompiler"
+authors = [
+    {name = "Andreas Olofsson", email="andreas.d.olofsson@gmail.com"}
+]
+description = "A compiler framework that automates translation from source code to silicon."
+readme = {file = "README.md", content-type = "text/markdown"}
+classifiers = [
+    "Environment :: Console",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Topic :: Software Development :: Build Tools"
+]
+requires-python = ">= 3.8"
+dependencies = [
+    "aiohttp == 3.10.11; python_version <= '3.8'",
+    "aiohttp == 3.11.16; python_version >= '3.9'",
+    "requests == 2.32.3",
+    "PyYAML == 6.0.2",
+    "pandas >= 1.1.5",
+    "Jinja2 >= 2.11.3",
+    "graphviz == 0.20.3",
+    "distro == 1.9.0",
+    "packaging >= 21.3, < 25",
+    "psutil >= 5.8.0",
+    "Pillow == 10.4.0; python_version <= '3.8'",
+    "Pillow == 11.1.0; python_version >= '3.9'",
+    "GitPython == 3.1.44",
+    "lambdapdk >= 0.1.47",
+    "PyGithub == 2.6.1",
+    "urllib3 >= 1.26.0", # Required for PyGithub
+    "fasteners == 0.19",
+    "fastjsonschema == 2.21.1",
+    "docker == 7.1.0",
+    "importlib_metadata; python_version < '3.10'",
+    "orjson == 3.10.15; python_version <= '3.8'",
+    "orjson == 3.10.16; python_version >= '3.9'",
+    "pyslang == 8.0.0",
+
+    # dashboard, streamlit does not support 3.9.7
+    "streamlit == 1.40.1; python_version <= '3.8'",
+    "streamlit == 1.44.1; python_version >= '3.9' and python_full_version != '3.9.7'",
+    "streamlit_agraph == 0.0.45; python_full_version != '3.9.7'",
+    "streamlit-antd-components == 0.3.2; python_full_version != '3.9.7'",
+    "streamlit_javascript == 0.1.5; python_full_version != '3.9.7'",
+    "streamlit-autorefresh == 1.0.1; python_full_version != '3.9.7'",
+
+    # CLI dashboard
+    "rich == 13.9.4"
+]
+license = {text = "Apache License 2.0"}
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://www.siliconcompiler.com"
+Documentation = "https://docs.siliconcompiler.com"
+Repository = "https://github.com/siliconcompiler/siliconcompiler"
+Issues = "https://github.com/siliconcompiler/siliconcompiler/issues"
+Discussion = "https://github.com/siliconcompiler/siliconcompiler/discussions"
+
+[project.scripts]
+sc = "siliconcompiler.apps.sc:main"
+sc-dashboard = "siliconcompiler.apps.sc_dashboard:main"
+sc-issue = "siliconcompiler.apps.sc_issue:main"
+sc-remote = "siliconcompiler.apps.sc_remote:main"
+sc-server = "siliconcompiler.apps.sc_server:main"
+sc-show = "siliconcompiler.apps.sc_show:main"
+sc-install = "siliconcompiler.apps.sc_install:main"
+siliconcompiler = "siliconcompiler.apps.sc:main"
+smake = "siliconcompiler.apps.smake:main"
+
+[project.entry-points."siliconcompiler.show"]
+scsetup = "siliconcompiler.utils.showtools:setup"
+
+[project.entry-points."siliconcompiler.target"]
+targets = "siliconcompiler.targets:get_targets"
+
+[project.entry-points."siliconcompiler.path_resolver"]
+https = "siliconcompiler.package.https:get_resolver"
+git = "siliconcompiler.package.git:get_resolver"
+github = "siliconcompiler.package.github:get_resolver"
+
+[project.entry-points."siliconcompiler.docs"]
+linkcode = "siliconcompiler.sphinx_ext:get_codeurl"
+targets = "siliconcompiler.sphinx_ext:targets"
+flows = "siliconcompiler.sphinx_ext:flows"
+libs = "siliconcompiler.sphinx_ext:libraries"
+pdks = "siliconcompiler.sphinx_ext:pdks"
+tools = "siliconcompiler.sphinx_ext:tools"
+apps = "siliconcompiler.sphinx_ext:apps"
+checklists = "siliconcompiler.sphinx_ext:checklists"
+
+[project.optional-dependencies]
+test = [
+    "pytest == 8.3.5",
+    "pytest-xdist == 3.6.1",
+    "pytest-timeout == 2.3.1",
+    "pytest-asyncio == 0.24.0; python_version <= '3.8'",
+    "pytest-asyncio == 0.26.0; python_version >= '3.9'",
+    "pytest-cov == 5.0.0; python_version <= '3.8'",
+    "pytest-cov == 6.1.1; python_version >= '3.9'",
+    "responses == 0.25.7",
+    "PyVirtualDisplay == 3.0",
+    "logiklib == 0.1.0"
+]
+lint = [
+    "flake8 == 7.2.0",
+    "tclint == 0.5.4",
+    "codespell == 2.4.1"
+]
+docs = [
+    "Sphinx == 8.2.3",
+    "pip-licenses == 5.0.0",
+    "pydata-sphinx-theme == 0.16.1",
+    "sc-leflib >= 0.2.0"
+]
+profile = [
+    "gprof2dot == 2024.6.6"
+]
+optimizer = [
+    "google-vizier[jax] == 0.1.21; python_version >= '3.10'"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages]
+find = {namespaces = false}  # Disable implicit namespaces
+
+[tool.setuptools.dynamic]
+version = {attr = "siliconcompiler._metadata.version"}
+
+[tool.pytest.ini_options]
+markers = [
+    "eda: this test requires EDA tools installed to run. By default these tests will be run nightly, not on push.",
+    "quick: always run this test on push, even if it requires EDA tools.",
+    "nostrict: don't automatically set [option, strict] parameter for Chip objects in this test.",
+    "docker: test requires docker",
+]
+testpaths = [
+    "tests"
+]
+timeout = "180"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    'ignore:Deprecated call to `pkg_resources.declare_namespace.*:DeprecationWarning',
+    'ignore:.* is multi-threaded, use of fork\(\) may lead to deadlocks in the child.:DeprecationWarning'
+]
+
+[tool.tclint]
+exclude = [
+    '/setup/',
+    'build/',
+    '.venv/',
+    # messy file adapted from another source
+    '/siliconcompiler/tools/yosys/syn_strategies.tcl'
+]
+
+[tool.tclint.style]
+line-length = 100
+indent = 4
+max-blank-lines = 1
+spaces-in-braces = true
+
+[tool.codespell]
+skip = './build/*,*.json,*.xml,./siliconcompiler/templates/report/bootstrap.min.js,./tests/utils/test_utils.py,./tests/tools/data/klayout_pdk/interposer.drc'
+count = true
+quiet-level = 3
+ignore-words-list = 'synopsys,inout,subtile,FRAM,dffer,dffers'
+
+[tool.check-wheel-contents]
+ignore = [
+    "W002"
+]

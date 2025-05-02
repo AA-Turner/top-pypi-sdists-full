@@ -1,7 +1,7 @@
 r'''
 # `data_aws_autoscaling_groups`
 
-Refer to the Terraform Registry for docs: [`data_aws_autoscaling_groups`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups).
+Refer to the Terraform Registry for docs: [`data_aws_autoscaling_groups`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsAutoscalingGroups(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsAutoscalingGroups.DataAwsAutoscalingGroups",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups aws_autoscaling_groups}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups aws_autoscaling_groups}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAwsAutoscalingGroups(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups aws_autoscaling_groups} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups aws_autoscaling_groups} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#filter DataAwsAutoscalingGroups#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#id DataAwsAutoscalingGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#names DataAwsAutoscalingGroups#names}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#filter DataAwsAutoscalingGroups#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#id DataAwsAutoscalingGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#names DataAwsAutoscalingGroups#names}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAwsAutoscalingGroups(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsAutoscalingGroups to import.
-        :param import_from_id: The id of the existing DataAwsAutoscalingGroups that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsAutoscalingGroups that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsAutoscalingGroups to import is found.
         '''
         if __debug__:
@@ -249,9 +249,9 @@ class DataAwsAutoscalingGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#filter DataAwsAutoscalingGroups#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#id DataAwsAutoscalingGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#names DataAwsAutoscalingGroups#names}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#filter DataAwsAutoscalingGroups#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#id DataAwsAutoscalingGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#names DataAwsAutoscalingGroups#names}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -359,14 +359,14 @@ class DataAwsAutoscalingGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAutoscalingGroupsFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#filter DataAwsAutoscalingGroups#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#filter DataAwsAutoscalingGroups#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAutoscalingGroupsFilter"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#id DataAwsAutoscalingGroups#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#id DataAwsAutoscalingGroups#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -376,7 +376,7 @@ class DataAwsAutoscalingGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#names DataAwsAutoscalingGroups#names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#names DataAwsAutoscalingGroups#names}.'''
         result = self._values.get("names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -405,8 +405,8 @@ class DataAwsAutoscalingGroupsFilter:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#name DataAwsAutoscalingGroups#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#values DataAwsAutoscalingGroups#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#name DataAwsAutoscalingGroups#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#values DataAwsAutoscalingGroups#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d12541c69e63559563b2d7b6054a508c76aedfc827b72171ac1d0805df8f985)
@@ -419,14 +419,14 @@ class DataAwsAutoscalingGroupsFilter:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#name DataAwsAutoscalingGroups#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#name DataAwsAutoscalingGroups#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/autoscaling_groups#values DataAwsAutoscalingGroups#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/autoscaling_groups#values DataAwsAutoscalingGroups#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)

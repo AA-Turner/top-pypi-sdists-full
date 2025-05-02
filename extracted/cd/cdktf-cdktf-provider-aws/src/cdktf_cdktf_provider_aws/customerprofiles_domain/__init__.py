@@ -1,7 +1,7 @@
 r'''
 # `aws_customerprofiles_domain`
 
-Refer to the Terraform Registry for docs: [`aws_customerprofiles_domain`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain).
+Refer to the Terraform Registry for docs: [`aws_customerprofiles_domain`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CustomerprofilesDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.customerprofilesDomain.CustomerprofilesDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain aws_customerprofiles_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain aws_customerprofiles_domain}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class CustomerprofilesDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain aws_customerprofiles_domain} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain aws_customerprofiles_domain} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_expiration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#default_expiration_days CustomerprofilesDomain#default_expiration_days}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#domain_name CustomerprofilesDomain#domain_name}.
-        :param dead_letter_queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#dead_letter_queue_url CustomerprofilesDomain#dead_letter_queue_url}.
-        :param default_encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#default_encryption_key CustomerprofilesDomain#default_encryption_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#id CustomerprofilesDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param matching: matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching CustomerprofilesDomain#matching}
-        :param rule_based_matching: rule_based_matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#rule_based_matching CustomerprofilesDomain#rule_based_matching}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#tags CustomerprofilesDomain#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#tags_all CustomerprofilesDomain#tags_all}.
+        :param default_expiration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#default_expiration_days CustomerprofilesDomain#default_expiration_days}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#domain_name CustomerprofilesDomain#domain_name}.
+        :param dead_letter_queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#dead_letter_queue_url CustomerprofilesDomain#dead_letter_queue_url}.
+        :param default_encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#default_encryption_key CustomerprofilesDomain#default_encryption_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#id CustomerprofilesDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param matching: matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching CustomerprofilesDomain#matching}
+        :param rule_based_matching: rule_based_matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#rule_based_matching CustomerprofilesDomain#rule_based_matching}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#tags CustomerprofilesDomain#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#tags_all CustomerprofilesDomain#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class CustomerprofilesDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CustomerprofilesDomain to import.
-        :param import_from_id: The id of the existing CustomerprofilesDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CustomerprofilesDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CustomerprofilesDomain to import is found.
         '''
         if __debug__:
@@ -148,10 +148,10 @@ class CustomerprofilesDomain(
         job_schedule: typing.Optional[typing.Union["CustomerprofilesDomainMatchingJobSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
-        :param auto_merging: auto_merging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#auto_merging CustomerprofilesDomain#auto_merging}
-        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
-        :param job_schedule: job_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#job_schedule CustomerprofilesDomain#job_schedule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
+        :param auto_merging: auto_merging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#auto_merging CustomerprofilesDomain#auto_merging}
+        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
+        :param job_schedule: job_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#job_schedule CustomerprofilesDomain#job_schedule}
         '''
         value = CustomerprofilesDomainMatching(
             enabled=enabled,
@@ -176,14 +176,14 @@ class CustomerprofilesDomain(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
-        :param attribute_types_selector: attribute_types_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#attribute_types_selector CustomerprofilesDomain#attribute_types_selector}
-        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
-        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
-        :param matching_rules: matching_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching_rules CustomerprofilesDomain#matching_rules}
-        :param max_allowed_rule_level_for_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_matching CustomerprofilesDomain#max_allowed_rule_level_for_matching}.
-        :param max_allowed_rule_level_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_merging CustomerprofilesDomain#max_allowed_rule_level_for_merging}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#status CustomerprofilesDomain#status}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
+        :param attribute_types_selector: attribute_types_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#attribute_types_selector CustomerprofilesDomain#attribute_types_selector}
+        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
+        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
+        :param matching_rules: matching_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching_rules CustomerprofilesDomain#matching_rules}
+        :param max_allowed_rule_level_for_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_matching CustomerprofilesDomain#max_allowed_rule_level_for_matching}.
+        :param max_allowed_rule_level_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_merging CustomerprofilesDomain#max_allowed_rule_level_for_merging}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#status CustomerprofilesDomain#status}.
         '''
         value = CustomerprofilesDomainRuleBasedMatching(
             enabled=enabled,
@@ -441,15 +441,15 @@ class CustomerprofilesDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_expiration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#default_expiration_days CustomerprofilesDomain#default_expiration_days}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#domain_name CustomerprofilesDomain#domain_name}.
-        :param dead_letter_queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#dead_letter_queue_url CustomerprofilesDomain#dead_letter_queue_url}.
-        :param default_encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#default_encryption_key CustomerprofilesDomain#default_encryption_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#id CustomerprofilesDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param matching: matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching CustomerprofilesDomain#matching}
-        :param rule_based_matching: rule_based_matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#rule_based_matching CustomerprofilesDomain#rule_based_matching}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#tags CustomerprofilesDomain#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#tags_all CustomerprofilesDomain#tags_all}.
+        :param default_expiration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#default_expiration_days CustomerprofilesDomain#default_expiration_days}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#domain_name CustomerprofilesDomain#domain_name}.
+        :param dead_letter_queue_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#dead_letter_queue_url CustomerprofilesDomain#dead_letter_queue_url}.
+        :param default_encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#default_encryption_key CustomerprofilesDomain#default_encryption_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#id CustomerprofilesDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param matching: matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching CustomerprofilesDomain#matching}
+        :param rule_based_matching: rule_based_matching block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#rule_based_matching CustomerprofilesDomain#rule_based_matching}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#tags CustomerprofilesDomain#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#tags_all CustomerprofilesDomain#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -574,33 +574,33 @@ class CustomerprofilesDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def default_expiration_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#default_expiration_days CustomerprofilesDomain#default_expiration_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#default_expiration_days CustomerprofilesDomain#default_expiration_days}.'''
         result = self._values.get("default_expiration_days")
         assert result is not None, "Required property 'default_expiration_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#domain_name CustomerprofilesDomain#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#domain_name CustomerprofilesDomain#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dead_letter_queue_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#dead_letter_queue_url CustomerprofilesDomain#dead_letter_queue_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#dead_letter_queue_url CustomerprofilesDomain#dead_letter_queue_url}.'''
         result = self._values.get("dead_letter_queue_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_encryption_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#default_encryption_key CustomerprofilesDomain#default_encryption_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#default_encryption_key CustomerprofilesDomain#default_encryption_key}.'''
         result = self._values.get("default_encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#id CustomerprofilesDomain#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#id CustomerprofilesDomain#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -612,7 +612,7 @@ class CustomerprofilesDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def matching(self) -> typing.Optional["CustomerprofilesDomainMatching"]:
         '''matching block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching CustomerprofilesDomain#matching}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching CustomerprofilesDomain#matching}
         '''
         result = self._values.get("matching")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatching"], result)
@@ -623,20 +623,20 @@ class CustomerprofilesDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CustomerprofilesDomainRuleBasedMatching"]:
         '''rule_based_matching block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#rule_based_matching CustomerprofilesDomain#rule_based_matching}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#rule_based_matching CustomerprofilesDomain#rule_based_matching}
         '''
         result = self._values.get("rule_based_matching")
         return typing.cast(typing.Optional["CustomerprofilesDomainRuleBasedMatching"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#tags CustomerprofilesDomain#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#tags CustomerprofilesDomain#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#tags_all CustomerprofilesDomain#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#tags_all CustomerprofilesDomain#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -672,10 +672,10 @@ class CustomerprofilesDomainMatching:
         job_schedule: typing.Optional[typing.Union["CustomerprofilesDomainMatchingJobSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
-        :param auto_merging: auto_merging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#auto_merging CustomerprofilesDomain#auto_merging}
-        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
-        :param job_schedule: job_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#job_schedule CustomerprofilesDomain#job_schedule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
+        :param auto_merging: auto_merging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#auto_merging CustomerprofilesDomain#auto_merging}
+        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
+        :param job_schedule: job_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#job_schedule CustomerprofilesDomain#job_schedule}
         '''
         if isinstance(auto_merging, dict):
             auto_merging = CustomerprofilesDomainMatchingAutoMerging(**auto_merging)
@@ -701,7 +701,7 @@ class CustomerprofilesDomainMatching:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -712,7 +712,7 @@ class CustomerprofilesDomainMatching:
     ) -> typing.Optional["CustomerprofilesDomainMatchingAutoMerging"]:
         '''auto_merging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#auto_merging CustomerprofilesDomain#auto_merging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#auto_merging CustomerprofilesDomain#auto_merging}
         '''
         result = self._values.get("auto_merging")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatchingAutoMerging"], result)
@@ -723,7 +723,7 @@ class CustomerprofilesDomainMatching:
     ) -> typing.Optional["CustomerprofilesDomainMatchingExportingConfig"]:
         '''exporting_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
         '''
         result = self._values.get("exporting_config")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatchingExportingConfig"], result)
@@ -734,7 +734,7 @@ class CustomerprofilesDomainMatching:
     ) -> typing.Optional["CustomerprofilesDomainMatchingJobSchedule"]:
         '''job_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#job_schedule CustomerprofilesDomain#job_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#job_schedule CustomerprofilesDomain#job_schedule}
         '''
         result = self._values.get("job_schedule")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatchingJobSchedule"], result)
@@ -771,10 +771,10 @@ class CustomerprofilesDomainMatchingAutoMerging:
         min_allowed_confidence_score_for_merging: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
-        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
-        :param consolidation: consolidation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#consolidation CustomerprofilesDomain#consolidation}
-        :param min_allowed_confidence_score_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#min_allowed_confidence_score_for_merging CustomerprofilesDomain#min_allowed_confidence_score_for_merging}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
+        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
+        :param consolidation: consolidation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#consolidation CustomerprofilesDomain#consolidation}
+        :param min_allowed_confidence_score_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#min_allowed_confidence_score_for_merging CustomerprofilesDomain#min_allowed_confidence_score_for_merging}.
         '''
         if isinstance(conflict_resolution, dict):
             conflict_resolution = CustomerprofilesDomainMatchingAutoMergingConflictResolution(**conflict_resolution)
@@ -798,7 +798,7 @@ class CustomerprofilesDomainMatchingAutoMerging:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -809,7 +809,7 @@ class CustomerprofilesDomainMatchingAutoMerging:
     ) -> typing.Optional["CustomerprofilesDomainMatchingAutoMergingConflictResolution"]:
         '''conflict_resolution block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
         '''
         result = self._values.get("conflict_resolution")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatchingAutoMergingConflictResolution"], result)
@@ -820,14 +820,14 @@ class CustomerprofilesDomainMatchingAutoMerging:
     ) -> typing.Optional["CustomerprofilesDomainMatchingAutoMergingConsolidation"]:
         '''consolidation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#consolidation CustomerprofilesDomain#consolidation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#consolidation CustomerprofilesDomain#consolidation}
         '''
         result = self._values.get("consolidation")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatchingAutoMergingConsolidation"], result)
 
     @builtins.property
     def min_allowed_confidence_score_for_merging(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#min_allowed_confidence_score_for_merging CustomerprofilesDomain#min_allowed_confidence_score_for_merging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#min_allowed_confidence_score_for_merging CustomerprofilesDomain#min_allowed_confidence_score_for_merging}.'''
         result = self._values.get("min_allowed_confidence_score_for_merging")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -859,8 +859,8 @@ class CustomerprofilesDomainMatchingAutoMergingConflictResolution:
         source_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
+        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3242aa776d6761704e6d4f17a2e64e13b1e4331466905c6130e0cd452096cfd0)
@@ -874,14 +874,14 @@ class CustomerprofilesDomainMatchingAutoMergingConflictResolution:
 
     @builtins.property
     def conflict_resolving_model(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.'''
         result = self._values.get("conflict_resolving_model")
         assert result is not None, "Required property 'conflict_resolving_model' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.'''
         result = self._values.get("source_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -985,7 +985,7 @@ class CustomerprofilesDomainMatchingAutoMergingConsolidation:
         matching_attributes_list: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Sequence[builtins.str]]],
     ) -> None:
         '''
-        :param matching_attributes_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching_attributes_list CustomerprofilesDomain#matching_attributes_list}.
+        :param matching_attributes_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching_attributes_list CustomerprofilesDomain#matching_attributes_list}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d4a1719942dd0af2e777d67b09c41858cc34ea2dde8b928a4e4dcb1aeceebd2)
@@ -998,7 +998,7 @@ class CustomerprofilesDomainMatchingAutoMergingConsolidation:
     def matching_attributes_list(
         self,
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.List[builtins.str]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching_attributes_list CustomerprofilesDomain#matching_attributes_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching_attributes_list CustomerprofilesDomain#matching_attributes_list}.'''
         result = self._values.get("matching_attributes_list")
         assert result is not None, "Required property 'matching_attributes_list' is missing"
         return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.List[builtins.str]]], result)
@@ -1105,8 +1105,8 @@ class CustomerprofilesDomainMatchingAutoMergingOutputReference(
         source_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
+        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
         '''
         value = CustomerprofilesDomainMatchingAutoMergingConflictResolution(
             conflict_resolving_model=conflict_resolving_model, source_name=source_name
@@ -1121,7 +1121,7 @@ class CustomerprofilesDomainMatchingAutoMergingOutputReference(
         matching_attributes_list: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Sequence[builtins.str]]],
     ) -> None:
         '''
-        :param matching_attributes_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching_attributes_list CustomerprofilesDomain#matching_attributes_list}.
+        :param matching_attributes_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching_attributes_list CustomerprofilesDomain#matching_attributes_list}.
         '''
         value = CustomerprofilesDomainMatchingAutoMergingConsolidation(
             matching_attributes_list=matching_attributes_list
@@ -1240,7 +1240,7 @@ class CustomerprofilesDomainMatchingExportingConfig:
         s3_exporting: typing.Optional[typing.Union["CustomerprofilesDomainMatchingExportingConfigS3Exporting", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
+        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
         '''
         if isinstance(s3_exporting, dict):
             s3_exporting = CustomerprofilesDomainMatchingExportingConfigS3Exporting(**s3_exporting)
@@ -1257,7 +1257,7 @@ class CustomerprofilesDomainMatchingExportingConfig:
     ) -> typing.Optional["CustomerprofilesDomainMatchingExportingConfigS3Exporting"]:
         '''s3_exporting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
         '''
         result = self._values.get("s3_exporting")
         return typing.cast(typing.Optional["CustomerprofilesDomainMatchingExportingConfigS3Exporting"], result)
@@ -1302,8 +1302,8 @@ class CustomerprofilesDomainMatchingExportingConfigOutputReference(
         s3_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
-        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
+        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
         '''
         value = CustomerprofilesDomainMatchingExportingConfigS3Exporting(
             s3_bucket_name=s3_bucket_name, s3_key_name=s3_key_name
@@ -1360,8 +1360,8 @@ class CustomerprofilesDomainMatchingExportingConfigS3Exporting:
         s3_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
-        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
+        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc287237c9f3996a77c264c277575337d947320d1f601bb5f20c0c1ca82d2fb2)
@@ -1375,14 +1375,14 @@ class CustomerprofilesDomainMatchingExportingConfigS3Exporting:
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.'''
         result = self._values.get("s3_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1482,8 +1482,8 @@ class CustomerprofilesDomainMatchingExportingConfigS3ExportingOutputReference(
 class CustomerprofilesDomainMatchingJobSchedule:
     def __init__(self, *, day_of_the_week: builtins.str, time: builtins.str) -> None:
         '''
-        :param day_of_the_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#day_of_the_week CustomerprofilesDomain#day_of_the_week}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#time CustomerprofilesDomain#time}.
+        :param day_of_the_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#day_of_the_week CustomerprofilesDomain#day_of_the_week}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#time CustomerprofilesDomain#time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__764e24acc585cb43889fdc73075c5067b440f9613cc27d88ecd55bce8928db3e)
@@ -1496,14 +1496,14 @@ class CustomerprofilesDomainMatchingJobSchedule:
 
     @builtins.property
     def day_of_the_week(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#day_of_the_week CustomerprofilesDomain#day_of_the_week}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#day_of_the_week CustomerprofilesDomain#day_of_the_week}.'''
         result = self._values.get("day_of_the_week")
         assert result is not None, "Required property 'day_of_the_week' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#time CustomerprofilesDomain#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#time CustomerprofilesDomain#time}.'''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
         return typing.cast(builtins.str, result)
@@ -1622,10 +1622,10 @@ class CustomerprofilesDomainMatchingOutputReference(
         min_allowed_confidence_score_for_merging: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
-        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
-        :param consolidation: consolidation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#consolidation CustomerprofilesDomain#consolidation}
-        :param min_allowed_confidence_score_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#min_allowed_confidence_score_for_merging CustomerprofilesDomain#min_allowed_confidence_score_for_merging}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
+        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
+        :param consolidation: consolidation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#consolidation CustomerprofilesDomain#consolidation}
+        :param min_allowed_confidence_score_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#min_allowed_confidence_score_for_merging CustomerprofilesDomain#min_allowed_confidence_score_for_merging}.
         '''
         value = CustomerprofilesDomainMatchingAutoMerging(
             enabled=enabled,
@@ -1643,7 +1643,7 @@ class CustomerprofilesDomainMatchingOutputReference(
         s3_exporting: typing.Optional[typing.Union[CustomerprofilesDomainMatchingExportingConfigS3Exporting, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
+        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
         '''
         value = CustomerprofilesDomainMatchingExportingConfig(
             s3_exporting=s3_exporting
@@ -1659,8 +1659,8 @@ class CustomerprofilesDomainMatchingOutputReference(
         time: builtins.str,
     ) -> None:
         '''
-        :param day_of_the_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#day_of_the_week CustomerprofilesDomain#day_of_the_week}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#time CustomerprofilesDomain#time}.
+        :param day_of_the_week: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#day_of_the_week CustomerprofilesDomain#day_of_the_week}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#time CustomerprofilesDomain#time}.
         '''
         value = CustomerprofilesDomainMatchingJobSchedule(
             day_of_the_week=day_of_the_week, time=time
@@ -1784,14 +1784,14 @@ class CustomerprofilesDomainRuleBasedMatching:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
-        :param attribute_types_selector: attribute_types_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#attribute_types_selector CustomerprofilesDomain#attribute_types_selector}
-        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
-        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
-        :param matching_rules: matching_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching_rules CustomerprofilesDomain#matching_rules}
-        :param max_allowed_rule_level_for_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_matching CustomerprofilesDomain#max_allowed_rule_level_for_matching}.
-        :param max_allowed_rule_level_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_merging CustomerprofilesDomain#max_allowed_rule_level_for_merging}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#status CustomerprofilesDomain#status}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.
+        :param attribute_types_selector: attribute_types_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#attribute_types_selector CustomerprofilesDomain#attribute_types_selector}
+        :param conflict_resolution: conflict_resolution block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
+        :param exporting_config: exporting_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
+        :param matching_rules: matching_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching_rules CustomerprofilesDomain#matching_rules}
+        :param max_allowed_rule_level_for_matching: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_matching CustomerprofilesDomain#max_allowed_rule_level_for_matching}.
+        :param max_allowed_rule_level_for_merging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_merging CustomerprofilesDomain#max_allowed_rule_level_for_merging}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#status CustomerprofilesDomain#status}.
         '''
         if isinstance(attribute_types_selector, dict):
             attribute_types_selector = CustomerprofilesDomainRuleBasedMatchingAttributeTypesSelector(**attribute_types_selector)
@@ -1829,7 +1829,7 @@ class CustomerprofilesDomainRuleBasedMatching:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#enabled CustomerprofilesDomain#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1840,7 +1840,7 @@ class CustomerprofilesDomainRuleBasedMatching:
     ) -> typing.Optional["CustomerprofilesDomainRuleBasedMatchingAttributeTypesSelector"]:
         '''attribute_types_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#attribute_types_selector CustomerprofilesDomain#attribute_types_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#attribute_types_selector CustomerprofilesDomain#attribute_types_selector}
         '''
         result = self._values.get("attribute_types_selector")
         return typing.cast(typing.Optional["CustomerprofilesDomainRuleBasedMatchingAttributeTypesSelector"], result)
@@ -1851,7 +1851,7 @@ class CustomerprofilesDomainRuleBasedMatching:
     ) -> typing.Optional["CustomerprofilesDomainRuleBasedMatchingConflictResolution"]:
         '''conflict_resolution block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolution CustomerprofilesDomain#conflict_resolution}
         '''
         result = self._values.get("conflict_resolution")
         return typing.cast(typing.Optional["CustomerprofilesDomainRuleBasedMatchingConflictResolution"], result)
@@ -1862,7 +1862,7 @@ class CustomerprofilesDomainRuleBasedMatching:
     ) -> typing.Optional["CustomerprofilesDomainRuleBasedMatchingExportingConfig"]:
         '''exporting_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#exporting_config CustomerprofilesDomain#exporting_config}
         '''
         result = self._values.get("exporting_config")
         return typing.cast(typing.Optional["CustomerprofilesDomainRuleBasedMatchingExportingConfig"], result)
@@ -1873,26 +1873,26 @@ class CustomerprofilesDomainRuleBasedMatching:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CustomerprofilesDomainRuleBasedMatchingMatchingRules"]]]:
         '''matching_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#matching_rules CustomerprofilesDomain#matching_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#matching_rules CustomerprofilesDomain#matching_rules}
         '''
         result = self._values.get("matching_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CustomerprofilesDomainRuleBasedMatchingMatchingRules"]]], result)
 
     @builtins.property
     def max_allowed_rule_level_for_matching(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_matching CustomerprofilesDomain#max_allowed_rule_level_for_matching}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_matching CustomerprofilesDomain#max_allowed_rule_level_for_matching}.'''
         result = self._values.get("max_allowed_rule_level_for_matching")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_allowed_rule_level_for_merging(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_merging CustomerprofilesDomain#max_allowed_rule_level_for_merging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#max_allowed_rule_level_for_merging CustomerprofilesDomain#max_allowed_rule_level_for_merging}.'''
         result = self._values.get("max_allowed_rule_level_for_merging")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#status CustomerprofilesDomain#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#status CustomerprofilesDomain#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1928,10 +1928,10 @@ class CustomerprofilesDomainRuleBasedMatchingAttributeTypesSelector:
         phone_number: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param attribute_matching_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#attribute_matching_model CustomerprofilesDomain#attribute_matching_model}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#address CustomerprofilesDomain#address}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#email_address CustomerprofilesDomain#email_address}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#phone_number CustomerprofilesDomain#phone_number}.
+        :param attribute_matching_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#attribute_matching_model CustomerprofilesDomain#attribute_matching_model}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#address CustomerprofilesDomain#address}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#email_address CustomerprofilesDomain#email_address}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#phone_number CustomerprofilesDomain#phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5133db52b8df22c171606b572b5a72f891382d4207c460f4d0510ded924186ac)
@@ -1951,26 +1951,26 @@ class CustomerprofilesDomainRuleBasedMatchingAttributeTypesSelector:
 
     @builtins.property
     def attribute_matching_model(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#attribute_matching_model CustomerprofilesDomain#attribute_matching_model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#attribute_matching_model CustomerprofilesDomain#attribute_matching_model}.'''
         result = self._values.get("attribute_matching_model")
         assert result is not None, "Required property 'attribute_matching_model' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def address(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#address CustomerprofilesDomain#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#address CustomerprofilesDomain#address}.'''
         result = self._values.get("address")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def email_address(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#email_address CustomerprofilesDomain#email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#email_address CustomerprofilesDomain#email_address}.'''
         result = self._values.get("email_address")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#phone_number CustomerprofilesDomain#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#phone_number CustomerprofilesDomain#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2120,8 +2120,8 @@ class CustomerprofilesDomainRuleBasedMatchingConflictResolution:
         source_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
+        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8472b6b4791b9420569e3a8c9a32ea66bd278f39e6b2519971fefa631bdecb5)
@@ -2135,14 +2135,14 @@ class CustomerprofilesDomainRuleBasedMatchingConflictResolution:
 
     @builtins.property
     def conflict_resolving_model(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.'''
         result = self._values.get("conflict_resolving_model")
         assert result is not None, "Required property 'conflict_resolving_model' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.'''
         result = self._values.get("source_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2246,7 +2246,7 @@ class CustomerprofilesDomainRuleBasedMatchingExportingConfig:
         s3_exporting: typing.Optional[typing.Union["CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
+        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
         '''
         if isinstance(s3_exporting, dict):
             s3_exporting = CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting(**s3_exporting)
@@ -2263,7 +2263,7 @@ class CustomerprofilesDomainRuleBasedMatchingExportingConfig:
     ) -> typing.Optional["CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting"]:
         '''s3_exporting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
         '''
         result = self._values.get("s3_exporting")
         return typing.cast(typing.Optional["CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting"], result)
@@ -2308,8 +2308,8 @@ class CustomerprofilesDomainRuleBasedMatchingExportingConfigOutputReference(
         s3_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
-        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
+        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
         '''
         value = CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting(
             s3_bucket_name=s3_bucket_name, s3_key_name=s3_key_name
@@ -2366,8 +2366,8 @@ class CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting:
         s3_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
-        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.
+        :param s3_key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bba76a1ce680a48b1eeb637181a6441e268c007207652e86018bb2ae7282775)
@@ -2381,14 +2381,14 @@ class CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting:
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_bucket_name CustomerprofilesDomain#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_key_name CustomerprofilesDomain#s3_key_name}.'''
         result = self._values.get("s3_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2488,7 +2488,7 @@ class CustomerprofilesDomainRuleBasedMatchingExportingConfigS3ExportingOutputRef
 class CustomerprofilesDomainRuleBasedMatchingMatchingRules:
     def __init__(self, *, rule: typing.Sequence[builtins.str]) -> None:
         '''
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#rule CustomerprofilesDomain#rule}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#rule CustomerprofilesDomain#rule}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88a8b2e4f55b70cc8120dcce4ca3fbf9d9a10b9d9b372ed627a1937d231fe276)
@@ -2499,7 +2499,7 @@ class CustomerprofilesDomainRuleBasedMatchingMatchingRules:
 
     @builtins.property
     def rule(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#rule CustomerprofilesDomain#rule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#rule CustomerprofilesDomain#rule}.'''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2700,10 +2700,10 @@ class CustomerprofilesDomainRuleBasedMatchingOutputReference(
         phone_number: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param attribute_matching_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#attribute_matching_model CustomerprofilesDomain#attribute_matching_model}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#address CustomerprofilesDomain#address}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#email_address CustomerprofilesDomain#email_address}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#phone_number CustomerprofilesDomain#phone_number}.
+        :param attribute_matching_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#attribute_matching_model CustomerprofilesDomain#attribute_matching_model}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#address CustomerprofilesDomain#address}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#email_address CustomerprofilesDomain#email_address}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#phone_number CustomerprofilesDomain#phone_number}.
         '''
         value = CustomerprofilesDomainRuleBasedMatchingAttributeTypesSelector(
             attribute_matching_model=attribute_matching_model,
@@ -2722,8 +2722,8 @@ class CustomerprofilesDomainRuleBasedMatchingOutputReference(
         source_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
+        :param conflict_resolving_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#conflict_resolving_model CustomerprofilesDomain#conflict_resolving_model}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#source_name CustomerprofilesDomain#source_name}.
         '''
         value = CustomerprofilesDomainRuleBasedMatchingConflictResolution(
             conflict_resolving_model=conflict_resolving_model, source_name=source_name
@@ -2738,7 +2738,7 @@ class CustomerprofilesDomainRuleBasedMatchingOutputReference(
         s3_exporting: typing.Optional[typing.Union[CustomerprofilesDomainRuleBasedMatchingExportingConfigS3Exporting, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
+        :param s3_exporting: s3_exporting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_domain#s3_exporting CustomerprofilesDomain#s3_exporting}
         '''
         value = CustomerprofilesDomainRuleBasedMatchingExportingConfig(
             s3_exporting=s3_exporting

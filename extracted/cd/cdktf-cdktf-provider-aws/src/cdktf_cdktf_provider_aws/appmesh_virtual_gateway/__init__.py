@@ -1,7 +1,7 @@
 r'''
 # `aws_appmesh_virtual_gateway`
 
-Refer to the Terraform Registry for docs: [`aws_appmesh_virtual_gateway`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway).
+Refer to the Terraform Registry for docs: [`aws_appmesh_virtual_gateway`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppmeshVirtualGateway(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appmeshVirtualGateway.AppmeshVirtualGateway",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway aws_appmesh_virtual_gateway}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway aws_appmesh_virtual_gateway}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class AppmeshVirtualGateway(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway aws_appmesh_virtual_gateway} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway aws_appmesh_virtual_gateway} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mesh_name AppmeshVirtualGateway#mesh_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#name AppmeshVirtualGateway#name}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#spec AppmeshVirtualGateway#spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#id AppmeshVirtualGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mesh_owner AppmeshVirtualGateway#mesh_owner}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tags AppmeshVirtualGateway#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tags_all AppmeshVirtualGateway#tags_all}.
+        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mesh_name AppmeshVirtualGateway#mesh_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#name AppmeshVirtualGateway#name}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#spec AppmeshVirtualGateway#spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#id AppmeshVirtualGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mesh_owner AppmeshVirtualGateway#mesh_owner}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tags AppmeshVirtualGateway#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tags_all AppmeshVirtualGateway#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class AppmeshVirtualGateway(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppmeshVirtualGateway to import.
-        :param import_from_id: The id of the existing AppmeshVirtualGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppmeshVirtualGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppmeshVirtualGateway to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class AppmeshVirtualGateway(
         logging: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecLogging", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#listener AppmeshVirtualGateway#listener}
-        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#backend_defaults AppmeshVirtualGateway#backend_defaults}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#logging AppmeshVirtualGateway#logging}
+        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#listener AppmeshVirtualGateway#listener}
+        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#backend_defaults AppmeshVirtualGateway#backend_defaults}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#logging AppmeshVirtualGateway#logging}
         '''
         value = AppmeshVirtualGatewaySpec(
             listener=listener, backend_defaults=backend_defaults, logging=logging
@@ -362,13 +362,13 @@ class AppmeshVirtualGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mesh_name AppmeshVirtualGateway#mesh_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#name AppmeshVirtualGateway#name}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#spec AppmeshVirtualGateway#spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#id AppmeshVirtualGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mesh_owner AppmeshVirtualGateway#mesh_owner}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tags AppmeshVirtualGateway#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tags_all AppmeshVirtualGateway#tags_all}.
+        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mesh_name AppmeshVirtualGateway#mesh_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#name AppmeshVirtualGateway#name}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#spec AppmeshVirtualGateway#spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#id AppmeshVirtualGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mesh_owner AppmeshVirtualGateway#mesh_owner}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tags AppmeshVirtualGateway#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tags_all AppmeshVirtualGateway#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -484,14 +484,14 @@ class AppmeshVirtualGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mesh_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mesh_name AppmeshVirtualGateway#mesh_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mesh_name AppmeshVirtualGateway#mesh_name}.'''
         result = self._values.get("mesh_name")
         assert result is not None, "Required property 'mesh_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#name AppmeshVirtualGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#name AppmeshVirtualGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -500,7 +500,7 @@ class AppmeshVirtualGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> "AppmeshVirtualGatewaySpec":
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#spec AppmeshVirtualGateway#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#spec AppmeshVirtualGateway#spec}
         '''
         result = self._values.get("spec")
         assert result is not None, "Required property 'spec' is missing"
@@ -508,7 +508,7 @@ class AppmeshVirtualGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#id AppmeshVirtualGateway#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#id AppmeshVirtualGateway#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -518,19 +518,19 @@ class AppmeshVirtualGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mesh_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mesh_owner AppmeshVirtualGateway#mesh_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mesh_owner AppmeshVirtualGateway#mesh_owner}.'''
         result = self._values.get("mesh_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tags AppmeshVirtualGateway#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tags AppmeshVirtualGateway#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tags_all AppmeshVirtualGateway#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tags_all AppmeshVirtualGateway#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -564,9 +564,9 @@ class AppmeshVirtualGatewaySpec:
         logging: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecLogging", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#listener AppmeshVirtualGateway#listener}
-        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#backend_defaults AppmeshVirtualGateway#backend_defaults}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#logging AppmeshVirtualGateway#logging}
+        :param listener: listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#listener AppmeshVirtualGateway#listener}
+        :param backend_defaults: backend_defaults block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#backend_defaults AppmeshVirtualGateway#backend_defaults}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#logging AppmeshVirtualGateway#logging}
         '''
         if isinstance(backend_defaults, dict):
             backend_defaults = AppmeshVirtualGatewaySpecBackendDefaults(**backend_defaults)
@@ -591,7 +591,7 @@ class AppmeshVirtualGatewaySpec:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualGatewaySpecListener"]]:
         '''listener block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#listener AppmeshVirtualGateway#listener}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#listener AppmeshVirtualGateway#listener}
         '''
         result = self._values.get("listener")
         assert result is not None, "Required property 'listener' is missing"
@@ -603,7 +603,7 @@ class AppmeshVirtualGatewaySpec:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaults"]:
         '''backend_defaults block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#backend_defaults AppmeshVirtualGateway#backend_defaults}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#backend_defaults AppmeshVirtualGateway#backend_defaults}
         '''
         result = self._values.get("backend_defaults")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaults"], result)
@@ -612,7 +612,7 @@ class AppmeshVirtualGatewaySpec:
     def logging(self) -> typing.Optional["AppmeshVirtualGatewaySpecLogging"]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#logging AppmeshVirtualGateway#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#logging AppmeshVirtualGateway#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecLogging"], result)
@@ -641,7 +641,7 @@ class AppmeshVirtualGatewaySpecBackendDefaults:
         client_policy: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#client_policy AppmeshVirtualGateway#client_policy}
+        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#client_policy AppmeshVirtualGateway#client_policy}
         '''
         if isinstance(client_policy, dict):
             client_policy = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy(**client_policy)
@@ -658,7 +658,7 @@ class AppmeshVirtualGatewaySpecBackendDefaults:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy"]:
         '''client_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#client_policy AppmeshVirtualGateway#client_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#client_policy AppmeshVirtualGateway#client_policy}
         '''
         result = self._values.get("client_policy")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy"], result)
@@ -687,7 +687,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy:
         tls: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
         '''
         if isinstance(tls, dict):
             tls = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls(**tls)
@@ -704,7 +704,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls"], result)
@@ -751,10 +751,10 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyOutputReference(
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#enforce AppmeshVirtualGateway#enforce}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#ports AppmeshVirtualGateway#ports}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#enforce AppmeshVirtualGateway#enforce}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#ports AppmeshVirtualGateway#ports}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls(
             validation=validation,
@@ -821,10 +821,10 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls:
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
-        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#enforce AppmeshVirtualGateway#enforce}.
-        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#ports AppmeshVirtualGateway#ports}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
+        :param enforce: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#enforce AppmeshVirtualGateway#enforce}.
+        :param ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#ports AppmeshVirtualGateway#ports}.
         '''
         if isinstance(validation, dict):
             validation = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidation(**validation)
@@ -852,7 +852,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls:
     ) -> "AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidation":
         '''validation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
         '''
         result = self._values.get("validation")
         assert result is not None, "Required property 'validation' is missing"
@@ -864,7 +864,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificate"]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificate"], result)
@@ -873,13 +873,13 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls:
     def enforce(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#enforce AppmeshVirtualGateway#enforce}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#enforce AppmeshVirtualGateway#enforce}.'''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#ports AppmeshVirtualGateway#ports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#ports AppmeshVirtualGateway#ports}.'''
         result = self._values.get("ports")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -908,8 +908,8 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificate:
         sds: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateFile(**file)
@@ -931,7 +931,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateFile"], result)
@@ -942,7 +942,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds"], result)
@@ -975,8 +975,8 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateFile:
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53718804467a2a5575dcbe3c99d40ba0b38094fc524de270d7f7bd43b3d84b8f)
@@ -989,14 +989,14 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1113,8 +1113,8 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateOutputRe
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateFile(
             certificate_chain=certificate_chain, private_key=private_key
@@ -1125,7 +1125,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateOutputRe
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds(
             secret_name=secret_name
@@ -1195,7 +1195,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateOutputRe
 class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__045f3ddd4d9ded13c284e07dcb2c5b3694a204510fbf37f3d30179239e545786)
@@ -1206,7 +1206,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1306,8 +1306,8 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsOutputReference(
         sds: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificateSds, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsCertificate(
             file=file, sds=sds
@@ -1323,8 +1323,8 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsOutputReference(
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidation(
             trust=trust, subject_alternative_names=subject_alternative_names
@@ -1445,8 +1445,8 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidation:
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
         '''
         if isinstance(trust, dict):
             trust = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust(**trust)
@@ -1468,7 +1468,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidation:
     ) -> "AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust":
         '''trust block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
         '''
         result = self._values.get("trust")
         assert result is not None, "Required property 'trust' is missing"
@@ -1480,7 +1480,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidation:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames"]:
         '''subject_alternative_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
         '''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames"], result)
@@ -1524,7 +1524,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationOutputRef
         match: typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNames(
             match=match
@@ -1541,9 +1541,9 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationOutputRef
         sds: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust(
             acm=acm, file=file, sds=sds
@@ -1613,7 +1613,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAl
         match: typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
         '''
         if isinstance(match, dict):
             match = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch(**match)
@@ -1630,7 +1630,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAl
     ) -> "AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -1656,7 +1656,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAl
 class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch:
     def __init__(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33f4dba5998681a61914b206a37d182cdbf12ea528c4eae513c9676edb13222b)
@@ -1667,7 +1667,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAl
 
     @builtins.property
     def exact(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1762,7 +1762,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAl
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationSubjectAlternativeNamesMatch(
             exact=exact
@@ -1816,9 +1816,9 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust:
         sds: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         if isinstance(acm, dict):
             acm = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcm(**acm)
@@ -1845,7 +1845,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcm"]:
         '''acm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
         '''
         result = self._values.get("acm")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcm"], result)
@@ -1856,7 +1856,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustFile"], result)
@@ -1867,7 +1867,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds"], result)
@@ -1896,7 +1896,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcm:
         certificate_authority_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_authority_arns AppmeshVirtualGateway#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_authority_arns AppmeshVirtualGateway#certificate_authority_arns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39856c9103fc4d05657f395df848facab6785bab3d8448f048a0b95ee77924d7)
@@ -1907,7 +1907,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcm:
 
     @builtins.property
     def certificate_authority_arns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_authority_arns AppmeshVirtualGateway#certificate_authority_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_authority_arns AppmeshVirtualGateway#certificate_authority_arns}.'''
         result = self._values.get("certificate_authority_arns")
         assert result is not None, "Required property 'certificate_authority_arns' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1989,7 +1989,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcmO
 class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustFile:
     def __init__(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89cf80b3b565378308734c6f9d24a53f4efaa3fe49dd1d58d33b038a92ddb0c1)
@@ -2000,7 +2000,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustFile
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
@@ -2099,7 +2099,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustOutp
         certificate_authority_arns: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_authority_arns AppmeshVirtualGateway#certificate_authority_arns}.
+        :param certificate_authority_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_authority_arns AppmeshVirtualGateway#certificate_authority_arns}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustAcm(
             certificate_authority_arns=certificate_authority_arns
@@ -2110,7 +2110,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustOutp
     @jsii.member(jsii_name="putFile")
     def put_file(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustFile(
             certificate_chain=certificate_chain
@@ -2121,7 +2121,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustOutp
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds(
             secret_name=secret_name
@@ -2209,7 +2209,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustOutp
 class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b7906f1764b71d7364d4013a261b7f742233a2073c5b351e1618a1aee0a7377)
@@ -2220,7 +2220,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTlsValidationTrustSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2319,7 +2319,7 @@ class AppmeshVirtualGatewaySpecBackendDefaultsOutputReference(
         tls: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecBackendDefaultsClientPolicyTls, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy(tls=tls)
 
@@ -2381,10 +2381,10 @@ class AppmeshVirtualGatewaySpecListener:
         tls: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTls", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port_mapping: port_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port_mapping AppmeshVirtualGateway#port_mapping}
-        :param connection_pool: connection_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#connection_pool AppmeshVirtualGateway#connection_pool}
-        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#health_check AppmeshVirtualGateway#health_check}
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
+        :param port_mapping: port_mapping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port_mapping AppmeshVirtualGateway#port_mapping}
+        :param connection_pool: connection_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#connection_pool AppmeshVirtualGateway#connection_pool}
+        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#health_check AppmeshVirtualGateway#health_check}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
         '''
         if isinstance(port_mapping, dict):
             port_mapping = AppmeshVirtualGatewaySpecListenerPortMapping(**port_mapping)
@@ -2414,7 +2414,7 @@ class AppmeshVirtualGatewaySpecListener:
     def port_mapping(self) -> "AppmeshVirtualGatewaySpecListenerPortMapping":
         '''port_mapping block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port_mapping AppmeshVirtualGateway#port_mapping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port_mapping AppmeshVirtualGateway#port_mapping}
         '''
         result = self._values.get("port_mapping")
         assert result is not None, "Required property 'port_mapping' is missing"
@@ -2426,7 +2426,7 @@ class AppmeshVirtualGatewaySpecListener:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPool"]:
         '''connection_pool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#connection_pool AppmeshVirtualGateway#connection_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#connection_pool AppmeshVirtualGateway#connection_pool}
         '''
         result = self._values.get("connection_pool")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPool"], result)
@@ -2437,7 +2437,7 @@ class AppmeshVirtualGatewaySpecListener:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerHealthCheck"]:
         '''health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#health_check AppmeshVirtualGateway#health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#health_check AppmeshVirtualGateway#health_check}
         '''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerHealthCheck"], result)
@@ -2446,7 +2446,7 @@ class AppmeshVirtualGatewaySpecListener:
     def tls(self) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#tls AppmeshVirtualGateway#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTls"], result)
@@ -2477,9 +2477,9 @@ class AppmeshVirtualGatewaySpecListenerConnectionPool:
         http2: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#grpc AppmeshVirtualGateway#grpc}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#http AppmeshVirtualGateway#http}
-        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#http2 AppmeshVirtualGateway#http2}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#grpc AppmeshVirtualGateway#grpc}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#http AppmeshVirtualGateway#http}
+        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#http2 AppmeshVirtualGateway#http2}
         '''
         if isinstance(grpc, dict):
             grpc = AppmeshVirtualGatewaySpecListenerConnectionPoolGrpc(**grpc)
@@ -2506,7 +2506,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPool:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPoolGrpc"]:
         '''grpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#grpc AppmeshVirtualGateway#grpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#grpc AppmeshVirtualGateway#grpc}
         '''
         result = self._values.get("grpc")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPoolGrpc"], result)
@@ -2517,7 +2517,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPool:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPoolHttp"]:
         '''http block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#http AppmeshVirtualGateway#http}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#http AppmeshVirtualGateway#http}
         '''
         result = self._values.get("http")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPoolHttp"], result)
@@ -2528,7 +2528,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPool:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2"]:
         '''http2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#http2 AppmeshVirtualGateway#http2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#http2 AppmeshVirtualGateway#http2}
         '''
         result = self._values.get("http2")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2"], result)
@@ -2553,7 +2553,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPool:
 class AppmeshVirtualGatewaySpecListenerConnectionPoolGrpc:
     def __init__(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24b5ce8b41811b17840df1b27382a021af0b91c6f479b8b96180f1c8825da73c)
@@ -2564,7 +2564,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolGrpc:
 
     @builtins.property
     def max_requests(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.'''
         result = self._values.get("max_requests")
         assert result is not None, "Required property 'max_requests' is missing"
         return typing.cast(jsii.Number, result)
@@ -2652,8 +2652,8 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolHttp:
         max_pending_requests: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_connections AppmeshVirtualGateway#max_connections}.
-        :param max_pending_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_pending_requests AppmeshVirtualGateway#max_pending_requests}.
+        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_connections AppmeshVirtualGateway#max_connections}.
+        :param max_pending_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_pending_requests AppmeshVirtualGateway#max_pending_requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fbc66155915fd8e8b0bbad8e7b3723cc1c56cdc9f6ec49108c13855b187bafba)
@@ -2667,14 +2667,14 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolHttp:
 
     @builtins.property
     def max_connections(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_connections AppmeshVirtualGateway#max_connections}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_connections AppmeshVirtualGateway#max_connections}.'''
         result = self._values.get("max_connections")
         assert result is not None, "Required property 'max_connections' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_pending_requests(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_pending_requests AppmeshVirtualGateway#max_pending_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_pending_requests AppmeshVirtualGateway#max_pending_requests}.'''
         result = self._values.get("max_pending_requests")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2698,7 +2698,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolHttp:
 class AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2:
     def __init__(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bb02a97a7b49b33a97721721939e1918bdcc63043dce0fafe3416e9faf0f07a)
@@ -2709,7 +2709,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2:
 
     @builtins.property
     def max_requests(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.'''
         result = self._values.get("max_requests")
         assert result is not None, "Required property 'max_requests' is missing"
         return typing.cast(jsii.Number, result)
@@ -2880,7 +2880,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolOutputReference(
     @jsii.member(jsii_name="putGrpc")
     def put_grpc(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
         '''
         value = AppmeshVirtualGatewaySpecListenerConnectionPoolGrpc(
             max_requests=max_requests
@@ -2896,8 +2896,8 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolOutputReference(
         max_pending_requests: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_connections AppmeshVirtualGateway#max_connections}.
-        :param max_pending_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_pending_requests AppmeshVirtualGateway#max_pending_requests}.
+        :param max_connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_connections AppmeshVirtualGateway#max_connections}.
+        :param max_pending_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_pending_requests AppmeshVirtualGateway#max_pending_requests}.
         '''
         value = AppmeshVirtualGatewaySpecListenerConnectionPoolHttp(
             max_connections=max_connections, max_pending_requests=max_pending_requests
@@ -2908,7 +2908,7 @@ class AppmeshVirtualGatewaySpecListenerConnectionPoolOutputReference(
     @jsii.member(jsii_name="putHttp2")
     def put_http2(self, *, max_requests: jsii.Number) -> None:
         '''
-        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
+        :param max_requests: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#max_requests AppmeshVirtualGateway#max_requests}.
         '''
         value = AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2(
             max_requests=max_requests
@@ -3014,13 +3014,13 @@ class AppmeshVirtualGatewaySpecListenerHealthCheck:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#healthy_threshold AppmeshVirtualGateway#healthy_threshold}.
-        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#interval_millis AppmeshVirtualGateway#interval_millis}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
-        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#timeout_millis AppmeshVirtualGateway#timeout_millis}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#unhealthy_threshold AppmeshVirtualGateway#unhealthy_threshold}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#healthy_threshold AppmeshVirtualGateway#healthy_threshold}.
+        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#interval_millis AppmeshVirtualGateway#interval_millis}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
+        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#timeout_millis AppmeshVirtualGateway#timeout_millis}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#unhealthy_threshold AppmeshVirtualGateway#unhealthy_threshold}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fffbd0c71421f4551f0212c529364581b5f591eeb18ebc04c0cdcd8e27285584)
@@ -3045,48 +3045,48 @@ class AppmeshVirtualGatewaySpecListenerHealthCheck:
 
     @builtins.property
     def healthy_threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#healthy_threshold AppmeshVirtualGateway#healthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#healthy_threshold AppmeshVirtualGateway#healthy_threshold}.'''
         result = self._values.get("healthy_threshold")
         assert result is not None, "Required property 'healthy_threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def interval_millis(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#interval_millis AppmeshVirtualGateway#interval_millis}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#interval_millis AppmeshVirtualGateway#interval_millis}.'''
         result = self._values.get("interval_millis")
         assert result is not None, "Required property 'interval_millis' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeout_millis(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#timeout_millis AppmeshVirtualGateway#timeout_millis}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#timeout_millis AppmeshVirtualGateway#timeout_millis}.'''
         result = self._values.get("timeout_millis")
         assert result is not None, "Required property 'timeout_millis' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def unhealthy_threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#unhealthy_threshold AppmeshVirtualGateway#unhealthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#unhealthy_threshold AppmeshVirtualGateway#unhealthy_threshold}.'''
         result = self._values.get("unhealthy_threshold")
         assert result is not None, "Required property 'unhealthy_threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3395,9 +3395,9 @@ class AppmeshVirtualGatewaySpecListenerOutputReference(
         http2: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecListenerConnectionPoolHttp2, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#grpc AppmeshVirtualGateway#grpc}
-        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#http AppmeshVirtualGateway#http}
-        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#http2 AppmeshVirtualGateway#http2}
+        :param grpc: grpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#grpc AppmeshVirtualGateway#grpc}
+        :param http: http block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#http AppmeshVirtualGateway#http}
+        :param http2: http2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#http2 AppmeshVirtualGateway#http2}
         '''
         value = AppmeshVirtualGatewaySpecListenerConnectionPool(
             grpc=grpc, http=http, http2=http2
@@ -3418,13 +3418,13 @@ class AppmeshVirtualGatewaySpecListenerOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#healthy_threshold AppmeshVirtualGateway#healthy_threshold}.
-        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#interval_millis AppmeshVirtualGateway#interval_millis}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
-        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#timeout_millis AppmeshVirtualGateway#timeout_millis}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#unhealthy_threshold AppmeshVirtualGateway#unhealthy_threshold}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#healthy_threshold AppmeshVirtualGateway#healthy_threshold}.
+        :param interval_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#interval_millis AppmeshVirtualGateway#interval_millis}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
+        :param timeout_millis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#timeout_millis AppmeshVirtualGateway#timeout_millis}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#unhealthy_threshold AppmeshVirtualGateway#unhealthy_threshold}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
         '''
         value = AppmeshVirtualGatewaySpecListenerHealthCheck(
             healthy_threshold=healthy_threshold,
@@ -3441,8 +3441,8 @@ class AppmeshVirtualGatewaySpecListenerOutputReference(
     @jsii.member(jsii_name="putPortMapping")
     def put_port_mapping(self, *, port: jsii.Number, protocol: builtins.str) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
         '''
         value = AppmeshVirtualGatewaySpecListenerPortMapping(
             port=port, protocol=protocol
@@ -3459,9 +3459,9 @@ class AppmeshVirtualGatewaySpecListenerOutputReference(
         validation: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mode AppmeshVirtualGateway#mode}.
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mode AppmeshVirtualGateway#mode}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
         '''
         value = AppmeshVirtualGatewaySpecListenerTls(
             certificate=certificate, mode=mode, validation=validation
@@ -3559,8 +3559,8 @@ class AppmeshVirtualGatewaySpecListenerOutputReference(
 class AppmeshVirtualGatewaySpecListenerPortMapping:
     def __init__(self, *, port: jsii.Number, protocol: builtins.str) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e550cd91218c2c54e0925dd713832d74b8a52e08d8fd9ea0e08d7927a5969ede)
@@ -3573,14 +3573,14 @@ class AppmeshVirtualGatewaySpecListenerPortMapping:
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#port AppmeshVirtualGateway#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#protocol AppmeshVirtualGateway#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
@@ -3687,9 +3687,9 @@ class AppmeshVirtualGatewaySpecListenerTls:
         validation: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mode AppmeshVirtualGateway#mode}.
-        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mode AppmeshVirtualGateway#mode}.
+        :param validation: validation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
         '''
         if isinstance(certificate, dict):
             certificate = AppmeshVirtualGatewaySpecListenerTlsCertificate(**certificate)
@@ -3711,7 +3711,7 @@ class AppmeshVirtualGatewaySpecListenerTls:
     def certificate(self) -> "AppmeshVirtualGatewaySpecListenerTlsCertificate":
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate AppmeshVirtualGateway#certificate}
         '''
         result = self._values.get("certificate")
         assert result is not None, "Required property 'certificate' is missing"
@@ -3719,7 +3719,7 @@ class AppmeshVirtualGatewaySpecListenerTls:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#mode AppmeshVirtualGateway#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#mode AppmeshVirtualGateway#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
@@ -3730,7 +3730,7 @@ class AppmeshVirtualGatewaySpecListenerTls:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidation"]:
         '''validation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#validation AppmeshVirtualGateway#validation}
         '''
         result = self._values.get("validation")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidation"], result)
@@ -3761,9 +3761,9 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificate:
         sds: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsCertificateSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         if isinstance(acm, dict):
             acm = AppmeshVirtualGatewaySpecListenerTlsCertificateAcm(**acm)
@@ -3790,7 +3790,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsCertificateAcm"]:
         '''acm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
         '''
         result = self._values.get("acm")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsCertificateAcm"], result)
@@ -3801,7 +3801,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsCertificateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsCertificateFile"], result)
@@ -3812,7 +3812,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificate:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsCertificateSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsCertificateSds"], result)
@@ -3837,7 +3837,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificate:
 class AppmeshVirtualGatewaySpecListenerTlsCertificateAcm:
     def __init__(self, *, certificate_arn: builtins.str) -> None:
         '''
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_arn AppmeshVirtualGateway#certificate_arn}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_arn AppmeshVirtualGateway#certificate_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__baefe3b071bbbea0faf708816ba89bf1fea6d48b82d6ff79cb55a5f463aa0fe3)
@@ -3848,7 +3848,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateAcm:
 
     @builtins.property
     def certificate_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_arn AppmeshVirtualGateway#certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_arn AppmeshVirtualGateway#certificate_arn}.'''
         result = self._values.get("certificate_arn")
         assert result is not None, "Required property 'certificate_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -3936,8 +3936,8 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateFile:
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a04f45f41b2e2e664bfa223157864fdf6b3b0c27535e0a46b5cc6cc7835f4754)
@@ -3950,14 +3950,14 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.'''
         result = self._values.get("private_key")
         assert result is not None, "Required property 'private_key' is missing"
         return typing.cast(builtins.str, result)
@@ -4069,7 +4069,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateOutputReference(
     @jsii.member(jsii_name="putAcm")
     def put_acm(self, *, certificate_arn: builtins.str) -> None:
         '''
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_arn AppmeshVirtualGateway#certificate_arn}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_arn AppmeshVirtualGateway#certificate_arn}.
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsCertificateAcm(
             certificate_arn=certificate_arn
@@ -4085,8 +4085,8 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateOutputReference(
         private_key: builtins.str,
     ) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#private_key AppmeshVirtualGateway#private_key}.
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsCertificateFile(
             certificate_chain=certificate_chain, private_key=private_key
@@ -4097,7 +4097,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateOutputReference(
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsCertificateSds(
             secret_name=secret_name
@@ -4183,7 +4183,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateOutputReference(
 class AppmeshVirtualGatewaySpecListenerTlsCertificateSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d7fd9be4ed1fec26ee5ce1ea616fcc6d67c432b853aaceacfd4de329efd1871)
@@ -4194,7 +4194,7 @@ class AppmeshVirtualGatewaySpecListenerTlsCertificateSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4295,9 +4295,9 @@ class AppmeshVirtualGatewaySpecListenerTlsOutputReference(
         sds: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecListenerTlsCertificateSds, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param acm: acm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#acm AppmeshVirtualGateway#acm}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsCertificate(
             acm=acm, file=file, sds=sds
@@ -4313,8 +4313,8 @@ class AppmeshVirtualGatewaySpecListenerTlsOutputReference(
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsValidation(
             trust=trust, subject_alternative_names=subject_alternative_names
@@ -4403,8 +4403,8 @@ class AppmeshVirtualGatewaySpecListenerTlsValidation:
         subject_alternative_names: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
+        :param trust: trust block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
         '''
         if isinstance(trust, dict):
             trust = AppmeshVirtualGatewaySpecListenerTlsValidationTrust(**trust)
@@ -4424,7 +4424,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidation:
     def trust(self) -> "AppmeshVirtualGatewaySpecListenerTlsValidationTrust":
         '''trust block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#trust AppmeshVirtualGateway#trust}
         '''
         result = self._values.get("trust")
         assert result is not None, "Required property 'trust' is missing"
@@ -4436,7 +4436,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidation:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames"]:
         '''subject_alternative_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#subject_alternative_names AppmeshVirtualGateway#subject_alternative_names}
         '''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames"], result)
@@ -4480,7 +4480,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationOutputReference(
         match: typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames(
             match=match
@@ -4496,8 +4496,8 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationOutputReference(
         sds: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsValidationTrust(file=file, sds=sds)
 
@@ -4565,7 +4565,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames:
         match: typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
         '''
         if isinstance(match, dict):
             match = AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch(**match)
@@ -4582,7 +4582,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames:
     ) -> "AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#match AppmeshVirtualGateway#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -4608,7 +4608,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNames:
 class AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch:
     def __init__(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9bbc1dabe43968f7b4599b6ce15515e56ccfa969e71a89e4f7e0c25041e8fd5)
@@ -4619,7 +4619,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch
 
     @builtins.property
     def exact(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4714,7 +4714,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesOutpu
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Sequence[builtins.str]) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#exact AppmeshVirtualGateway#exact}.
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsValidationSubjectAlternativeNamesMatch(
             exact=exact
@@ -4767,8 +4767,8 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrust:
         sds: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
-        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param sds: sds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualGatewaySpecListenerTlsValidationTrustFile(**file)
@@ -4790,7 +4790,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidationTrustFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidationTrustFile"], result)
@@ -4801,7 +4801,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrust:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds"]:
         '''sds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#sds AppmeshVirtualGateway#sds}
         '''
         result = self._values.get("sds")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds"], result)
@@ -4826,7 +4826,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrust:
 class AppmeshVirtualGatewaySpecListenerTlsValidationTrustFile:
     def __init__(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4feb650a1b4845480fa5cac44d72a005e60ede97e2623183250380c8e31e56ed)
@@ -4837,7 +4837,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrustFile:
 
     @builtins.property
     def certificate_chain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.'''
         result = self._values.get("certificate_chain")
         assert result is not None, "Required property 'certificate_chain' is missing"
         return typing.cast(builtins.str, result)
@@ -4932,7 +4932,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrustOutputReference(
     @jsii.member(jsii_name="putFile")
     def put_file(self, *, certificate_chain: builtins.str) -> None:
         '''
-        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
+        :param certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#certificate_chain AppmeshVirtualGateway#certificate_chain}.
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsValidationTrustFile(
             certificate_chain=certificate_chain
@@ -4943,7 +4943,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrustOutputReference(
     @jsii.member(jsii_name="putSds")
     def put_sds(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         value = AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds(
             secret_name=secret_name
@@ -5013,7 +5013,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrustOutputReference(
 class AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds:
     def __init__(self, *, secret_name: builtins.str) -> None:
         '''
-        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
+        :param secret_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e08fc1d3270aaacdfdb87b6de647877f19a44c3395f6686470ccd8d9c1f03480)
@@ -5024,7 +5024,7 @@ class AppmeshVirtualGatewaySpecListenerTlsValidationTrustSds:
 
     @builtins.property
     def secret_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#secret_name AppmeshVirtualGateway#secret_name}.'''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
         return typing.cast(builtins.str, result)
@@ -5108,7 +5108,7 @@ class AppmeshVirtualGatewaySpecLogging:
         access_log: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecLoggingAccessLog", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#access_log AppmeshVirtualGateway#access_log}
+        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#access_log AppmeshVirtualGateway#access_log}
         '''
         if isinstance(access_log, dict):
             access_log = AppmeshVirtualGatewaySpecLoggingAccessLog(**access_log)
@@ -5125,7 +5125,7 @@ class AppmeshVirtualGatewaySpecLogging:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecLoggingAccessLog"]:
         '''access_log block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#access_log AppmeshVirtualGateway#access_log}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#access_log AppmeshVirtualGateway#access_log}
         '''
         result = self._values.get("access_log")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecLoggingAccessLog"], result)
@@ -5154,7 +5154,7 @@ class AppmeshVirtualGatewaySpecLoggingAccessLog:
         file: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecLoggingAccessLogFile", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         if isinstance(file, dict):
             file = AppmeshVirtualGatewaySpecLoggingAccessLogFile(**file)
@@ -5169,7 +5169,7 @@ class AppmeshVirtualGatewaySpecLoggingAccessLog:
     def file(self) -> typing.Optional["AppmeshVirtualGatewaySpecLoggingAccessLogFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecLoggingAccessLogFile"], result)
@@ -5199,8 +5199,8 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFile:
         format: typing.Optional[typing.Union["AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
-        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#format AppmeshVirtualGateway#format}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
+        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#format AppmeshVirtualGateway#format}
         '''
         if isinstance(format, dict):
             format = AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat(**format)
@@ -5216,7 +5216,7 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFile:
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -5227,7 +5227,7 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFile:
     ) -> typing.Optional["AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat"]:
         '''format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#format AppmeshVirtualGateway#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#format AppmeshVirtualGateway#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional["AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat"], result)
@@ -5257,8 +5257,8 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#json AppmeshVirtualGateway#json}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#text AppmeshVirtualGateway#text}.
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#json AppmeshVirtualGateway#json}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#text AppmeshVirtualGateway#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d7469c4ba9f7ce966329eae36fe8b6bc45a796efb6fcfb11a19a5899b0a9903)
@@ -5276,14 +5276,14 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualGatewaySpecLoggingAccessLogFileFormatJson"]]]:
         '''json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#json AppmeshVirtualGateway#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#json AppmeshVirtualGateway#json}
         '''
         result = self._values.get("json")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshVirtualGatewaySpecLoggingAccessLogFileFormatJson"]]], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#text AppmeshVirtualGateway#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#text AppmeshVirtualGateway#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5307,8 +5307,8 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat:
 class AppmeshVirtualGatewaySpecLoggingAccessLogFileFormatJson:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#key AppmeshVirtualGateway#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#value AppmeshVirtualGateway#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#key AppmeshVirtualGateway#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#value AppmeshVirtualGateway#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7f12b2eb626f0c7d391e2a971913235ee157a143ad61ffa8041901a52dd0a16)
@@ -5321,14 +5321,14 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFileFormatJson:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#key AppmeshVirtualGateway#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#key AppmeshVirtualGateway#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#value AppmeshVirtualGateway#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#value AppmeshVirtualGateway#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5632,8 +5632,8 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogFileOutputReference(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#json AppmeshVirtualGateway#json}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#text AppmeshVirtualGateway#text}.
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#json AppmeshVirtualGateway#json}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#text AppmeshVirtualGateway#text}.
         '''
         value = AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat(
             json=json, text=text
@@ -5722,8 +5722,8 @@ class AppmeshVirtualGatewaySpecLoggingAccessLogOutputReference(
         format: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecLoggingAccessLogFileFormat, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
-        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#format AppmeshVirtualGateway#format}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#path AppmeshVirtualGateway#path}.
+        :param format: format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#format AppmeshVirtualGateway#format}
         '''
         value = AppmeshVirtualGatewaySpecLoggingAccessLogFile(path=path, format=format)
 
@@ -5790,7 +5790,7 @@ class AppmeshVirtualGatewaySpecLoggingOutputReference(
         file: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecLoggingAccessLogFile, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#file AppmeshVirtualGateway#file}
         '''
         value = AppmeshVirtualGatewaySpecLoggingAccessLog(file=file)
 
@@ -5855,7 +5855,7 @@ class AppmeshVirtualGatewaySpecOutputReference(
         client_policy: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecBackendDefaultsClientPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#client_policy AppmeshVirtualGateway#client_policy}
+        :param client_policy: client_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#client_policy AppmeshVirtualGateway#client_policy}
         '''
         value = AppmeshVirtualGatewaySpecBackendDefaults(client_policy=client_policy)
 
@@ -5881,7 +5881,7 @@ class AppmeshVirtualGatewaySpecOutputReference(
         access_log: typing.Optional[typing.Union[AppmeshVirtualGatewaySpecLoggingAccessLog, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/appmesh_virtual_gateway#access_log AppmeshVirtualGateway#access_log}
+        :param access_log: access_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/appmesh_virtual_gateway#access_log AppmeshVirtualGateway#access_log}
         '''
         value = AppmeshVirtualGatewaySpecLogging(access_log=access_log)
 

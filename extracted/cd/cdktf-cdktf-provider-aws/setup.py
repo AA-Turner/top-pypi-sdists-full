@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "19.62.0",
+    "version": "19.63.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -1110,6 +1110,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.ec2_client_vpn_endpoint",
         "cdktf_cdktf_provider_aws.ec2_client_vpn_network_association",
         "cdktf_cdktf_provider_aws.ec2_client_vpn_route",
+        "cdktf_cdktf_provider_aws.ec2_default_credit_specification",
         "cdktf_cdktf_provider_aws.ec2_fleet",
         "cdktf_cdktf_provider_aws.ec2_host",
         "cdktf_cdktf_provider_aws.ec2_image_block_public_access",
@@ -2132,7 +2133,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@19.62.0.jsii.tgz"
+            "provider-aws@19.63.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

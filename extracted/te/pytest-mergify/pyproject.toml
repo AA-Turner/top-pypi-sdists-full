@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "pytest-mergify"
+version = "2025.04.10.1"
+description = "Pytest plugin for Mergify"
+authors = ["Julien Danjou <jd@mergify.com>"]
+license = "GPL-3.0-only"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+# We set this version explicitly to avoid breaking changes
+opentelemetry-exporter-otlp-proto-http = ">=1.25"
+opentelemetry-sdk = ">=1.25"
+requests = "^2.32.3"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.9.2,<0.12.0"
+mypy = "^1.13.0"
+pytest = "^8.3.4"
+poethepoet = ">=0.30"
+codespell = "^2.3.0"
+yamllint = "^1.35.1"
+anys = "^0.3.1"
+
+[build-system]
+requires = ["poetry-core", "poetry-dynamic-versioning"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins.pytest11]
+pytest_mergify = "pytest_mergify"
+
+[tool.poe]
+include = ["poe.toml"]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+files = ["pytest_mergify", "tests"]
+show_error_codes = true
+
+[tool.ruff]
+target-version = "py38"
+
+[[tool.mypy.overrides]]
+module = [
+  "pytest_opentelemetry.*"
+]
+ignore_missing_imports = true
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+dirty = true
+pattern = "default-unprefixed"

@@ -1,7 +1,7 @@
 r'''
 # `aws_datazone_asset_type`
 
-Refer to the Terraform Registry for docs: [`aws_datazone_asset_type`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type).
+Refer to the Terraform Registry for docs: [`aws_datazone_asset_type`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatazoneAssetType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.datazoneAssetType.DatazoneAssetType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type aws_datazone_asset_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type aws_datazone_asset_type}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DatazoneAssetType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type aws_datazone_asset_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type aws_datazone_asset_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#domain_identifier DatazoneAssetType#domain_identifier}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#name DatazoneAssetType#name}.
-        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#owning_project_identifier DatazoneAssetType#owning_project_identifier}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#description DatazoneAssetType#description}.
-        :param forms_input: forms_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#forms_input DatazoneAssetType#forms_input}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#timeouts DatazoneAssetType#timeouts}
+        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#domain_identifier DatazoneAssetType#domain_identifier}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#name DatazoneAssetType#name}.
+        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#owning_project_identifier DatazoneAssetType#owning_project_identifier}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#description DatazoneAssetType#description}.
+        :param forms_input: forms_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#forms_input DatazoneAssetType#forms_input}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#timeouts DatazoneAssetType#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DatazoneAssetType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatazoneAssetType to import.
-        :param import_from_id: The id of the existing DatazoneAssetType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatazoneAssetType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatazoneAssetType to import is found.
         '''
         if __debug__:
@@ -145,7 +145,7 @@ class DatazoneAssetType(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#create DatazoneAssetType#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#create DatazoneAssetType#create}
         '''
         value = DatazoneAssetTypeTimeouts(create=create)
 
@@ -329,12 +329,12 @@ class DatazoneAssetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#domain_identifier DatazoneAssetType#domain_identifier}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#name DatazoneAssetType#name}.
-        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#owning_project_identifier DatazoneAssetType#owning_project_identifier}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#description DatazoneAssetType#description}.
-        :param forms_input: forms_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#forms_input DatazoneAssetType#forms_input}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#timeouts DatazoneAssetType#timeouts}
+        :param domain_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#domain_identifier DatazoneAssetType#domain_identifier}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#name DatazoneAssetType#name}.
+        :param owning_project_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#owning_project_identifier DatazoneAssetType#owning_project_identifier}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#description DatazoneAssetType#description}.
+        :param forms_input: forms_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#forms_input DatazoneAssetType#forms_input}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#timeouts DatazoneAssetType#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -447,28 +447,28 @@ class DatazoneAssetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#domain_identifier DatazoneAssetType#domain_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#domain_identifier DatazoneAssetType#domain_identifier}.'''
         result = self._values.get("domain_identifier")
         assert result is not None, "Required property 'domain_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#name DatazoneAssetType#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#name DatazoneAssetType#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def owning_project_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#owning_project_identifier DatazoneAssetType#owning_project_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#owning_project_identifier DatazoneAssetType#owning_project_identifier}.'''
         result = self._values.get("owning_project_identifier")
         assert result is not None, "Required property 'owning_project_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#description DatazoneAssetType#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#description DatazoneAssetType#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -478,7 +478,7 @@ class DatazoneAssetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatazoneAssetTypeFormsInput"]]]:
         '''forms_input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#forms_input DatazoneAssetType#forms_input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#forms_input DatazoneAssetType#forms_input}
         '''
         result = self._values.get("forms_input")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatazoneAssetTypeFormsInput"]]], result)
@@ -487,7 +487,7 @@ class DatazoneAssetTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatazoneAssetTypeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#timeouts DatazoneAssetType#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#timeouts DatazoneAssetType#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatazoneAssetTypeTimeouts"], result)
@@ -524,10 +524,10 @@ class DatazoneAssetTypeFormsInput:
         required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#map_block_key DatazoneAssetType#map_block_key}.
-        :param type_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#type_identifier DatazoneAssetType#type_identifier}.
-        :param type_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#type_revision DatazoneAssetType#type_revision}.
-        :param required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#required DatazoneAssetType#required}.
+        :param map_block_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#map_block_key DatazoneAssetType#map_block_key}.
+        :param type_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#type_identifier DatazoneAssetType#type_identifier}.
+        :param type_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#type_revision DatazoneAssetType#type_revision}.
+        :param required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#required DatazoneAssetType#required}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__993e8ca02306d149a9ba2e2fbc77477eb1bf2a132ec8d7759e49eb0b85d02061)
@@ -545,21 +545,21 @@ class DatazoneAssetTypeFormsInput:
 
     @builtins.property
     def map_block_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#map_block_key DatazoneAssetType#map_block_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#map_block_key DatazoneAssetType#map_block_key}.'''
         result = self._values.get("map_block_key")
         assert result is not None, "Required property 'map_block_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#type_identifier DatazoneAssetType#type_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#type_identifier DatazoneAssetType#type_identifier}.'''
         result = self._values.get("type_identifier")
         assert result is not None, "Required property 'type_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type_revision(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#type_revision DatazoneAssetType#type_revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#type_revision DatazoneAssetType#type_revision}.'''
         result = self._values.get("type_revision")
         assert result is not None, "Required property 'type_revision' is missing"
         return typing.cast(builtins.str, result)
@@ -568,7 +568,7 @@ class DatazoneAssetTypeFormsInput:
     def required(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#required DatazoneAssetType#required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#required DatazoneAssetType#required}.'''
         result = self._values.get("required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -803,7 +803,7 @@ class DatazoneAssetTypeFormsInputOutputReference(
 class DatazoneAssetTypeTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#create DatazoneAssetType#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#create DatazoneAssetType#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ec60292a3b19eb5ee03613e195492a705b38fe237e915667eaa21ece273d6e3)
@@ -816,7 +816,7 @@ class DatazoneAssetTypeTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/datazone_asset_type#create DatazoneAssetType#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/datazone_asset_type#create DatazoneAssetType#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

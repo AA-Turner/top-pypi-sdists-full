@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_dashboard`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_dashboard`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard).
+Refer to the Terraform Registry for docs: [`aws_quicksight_dashboard`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightDashboard(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightDashboard.QuicksightDashboard",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard aws_quicksight_dashboard}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard aws_quicksight_dashboard}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class QuicksightDashboard(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard aws_quicksight_dashboard} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard aws_quicksight_dashboard} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dashboard_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#dashboard_id QuicksightDashboard#dashboard_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#version_description QuicksightDashboard#version_description}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#aws_account_id QuicksightDashboard#aws_account_id}.
-        :param dashboard_publish_options: dashboard_publish_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#dashboard_publish_options QuicksightDashboard#dashboard_publish_options}
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#definition QuicksightDashboard#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#id QuicksightDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#parameters QuicksightDashboard#parameters}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#permissions QuicksightDashboard#permissions}
-        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#source_entity QuicksightDashboard#source_entity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#tags QuicksightDashboard#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#tags_all QuicksightDashboard#tags_all}.
-        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#theme_arn QuicksightDashboard#theme_arn}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#timeouts QuicksightDashboard#timeouts}
+        :param dashboard_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#dashboard_id QuicksightDashboard#dashboard_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#version_description QuicksightDashboard#version_description}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#aws_account_id QuicksightDashboard#aws_account_id}.
+        :param dashboard_publish_options: dashboard_publish_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#dashboard_publish_options QuicksightDashboard#dashboard_publish_options}
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#definition QuicksightDashboard#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#id QuicksightDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#parameters QuicksightDashboard#parameters}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#permissions QuicksightDashboard#permissions}
+        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#source_entity QuicksightDashboard#source_entity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#tags QuicksightDashboard#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#tags_all QuicksightDashboard#tags_all}.
+        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#theme_arn QuicksightDashboard#theme_arn}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#timeouts QuicksightDashboard#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class QuicksightDashboard(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightDashboard to import.
-        :param import_from_id: The id of the existing QuicksightDashboard that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightDashboard that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightDashboard to import is found.
         '''
         if __debug__:
@@ -169,16 +169,16 @@ class QuicksightDashboard(
         visual_menu_option: typing.Optional[typing.Union["QuicksightDashboardDashboardPublishOptionsVisualMenuOption", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ad_hoc_filtering_option: ad_hoc_filtering_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#ad_hoc_filtering_option QuicksightDashboard#ad_hoc_filtering_option}
-        :param data_point_drill_up_down_option: data_point_drill_up_down_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_drill_up_down_option QuicksightDashboard#data_point_drill_up_down_option}
-        :param data_point_menu_label_option: data_point_menu_label_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_menu_label_option QuicksightDashboard#data_point_menu_label_option}
-        :param data_point_tooltip_option: data_point_tooltip_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_tooltip_option QuicksightDashboard#data_point_tooltip_option}
-        :param export_to_csv_option: export_to_csv_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#export_to_csv_option QuicksightDashboard#export_to_csv_option}
-        :param export_with_hidden_fields_option: export_with_hidden_fields_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#export_with_hidden_fields_option QuicksightDashboard#export_with_hidden_fields_option}
-        :param sheet_controls_option: sheet_controls_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#sheet_controls_option QuicksightDashboard#sheet_controls_option}
-        :param sheet_layout_element_maximization_option: sheet_layout_element_maximization_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#sheet_layout_element_maximization_option QuicksightDashboard#sheet_layout_element_maximization_option}
-        :param visual_axis_sort_option: visual_axis_sort_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visual_axis_sort_option QuicksightDashboard#visual_axis_sort_option}
-        :param visual_menu_option: visual_menu_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visual_menu_option QuicksightDashboard#visual_menu_option}
+        :param ad_hoc_filtering_option: ad_hoc_filtering_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#ad_hoc_filtering_option QuicksightDashboard#ad_hoc_filtering_option}
+        :param data_point_drill_up_down_option: data_point_drill_up_down_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_drill_up_down_option QuicksightDashboard#data_point_drill_up_down_option}
+        :param data_point_menu_label_option: data_point_menu_label_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_menu_label_option QuicksightDashboard#data_point_menu_label_option}
+        :param data_point_tooltip_option: data_point_tooltip_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_tooltip_option QuicksightDashboard#data_point_tooltip_option}
+        :param export_to_csv_option: export_to_csv_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#export_to_csv_option QuicksightDashboard#export_to_csv_option}
+        :param export_with_hidden_fields_option: export_with_hidden_fields_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#export_with_hidden_fields_option QuicksightDashboard#export_with_hidden_fields_option}
+        :param sheet_controls_option: sheet_controls_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#sheet_controls_option QuicksightDashboard#sheet_controls_option}
+        :param sheet_layout_element_maximization_option: sheet_layout_element_maximization_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#sheet_layout_element_maximization_option QuicksightDashboard#sheet_layout_element_maximization_option}
+        :param visual_axis_sort_option: visual_axis_sort_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visual_axis_sort_option QuicksightDashboard#visual_axis_sort_option}
+        :param visual_menu_option: visual_menu_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visual_menu_option QuicksightDashboard#visual_menu_option}
         '''
         value = QuicksightDashboardDashboardPublishOptions(
             ad_hoc_filtering_option=ad_hoc_filtering_option,
@@ -205,10 +205,10 @@ class QuicksightDashboard(
         string_parameters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDashboardParametersStringParameters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#date_time_parameters QuicksightDashboard#date_time_parameters}
-        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#decimal_parameters QuicksightDashboard#decimal_parameters}
-        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#integer_parameters QuicksightDashboard#integer_parameters}
-        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#string_parameters QuicksightDashboard#string_parameters}
+        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#date_time_parameters QuicksightDashboard#date_time_parameters}
+        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#decimal_parameters QuicksightDashboard#decimal_parameters}
+        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#integer_parameters QuicksightDashboard#integer_parameters}
+        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#string_parameters QuicksightDashboard#string_parameters}
         '''
         value = QuicksightDashboardParameters(
             date_time_parameters=date_time_parameters,
@@ -239,7 +239,7 @@ class QuicksightDashboard(
         source_template: typing.Optional[typing.Union["QuicksightDashboardSourceEntitySourceTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#source_template QuicksightDashboard#source_template}
+        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#source_template QuicksightDashboard#source_template}
         '''
         value = QuicksightDashboardSourceEntity(source_template=source_template)
 
@@ -254,9 +254,9 @@ class QuicksightDashboard(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#create QuicksightDashboard#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#delete QuicksightDashboard#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#update QuicksightDashboard#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#create QuicksightDashboard#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#delete QuicksightDashboard#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#update QuicksightDashboard#update}.
         '''
         value = QuicksightDashboardTimeouts(
             create=create, delete=delete, update=update
@@ -631,20 +631,20 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dashboard_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#dashboard_id QuicksightDashboard#dashboard_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#version_description QuicksightDashboard#version_description}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#aws_account_id QuicksightDashboard#aws_account_id}.
-        :param dashboard_publish_options: dashboard_publish_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#dashboard_publish_options QuicksightDashboard#dashboard_publish_options}
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#definition QuicksightDashboard#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#id QuicksightDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#parameters QuicksightDashboard#parameters}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#permissions QuicksightDashboard#permissions}
-        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#source_entity QuicksightDashboard#source_entity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#tags QuicksightDashboard#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#tags_all QuicksightDashboard#tags_all}.
-        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#theme_arn QuicksightDashboard#theme_arn}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#timeouts QuicksightDashboard#timeouts}
+        :param dashboard_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#dashboard_id QuicksightDashboard#dashboard_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#version_description QuicksightDashboard#version_description}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#aws_account_id QuicksightDashboard#aws_account_id}.
+        :param dashboard_publish_options: dashboard_publish_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#dashboard_publish_options QuicksightDashboard#dashboard_publish_options}
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#definition QuicksightDashboard#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#id QuicksightDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#parameters QuicksightDashboard#parameters}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#permissions QuicksightDashboard#permissions}
+        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#source_entity QuicksightDashboard#source_entity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#tags QuicksightDashboard#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#tags_all QuicksightDashboard#tags_all}.
+        :param theme_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#theme_arn QuicksightDashboard#theme_arn}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#timeouts QuicksightDashboard#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -787,28 +787,28 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def dashboard_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#dashboard_id QuicksightDashboard#dashboard_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#dashboard_id QuicksightDashboard#dashboard_id}.'''
         result = self._values.get("dashboard_id")
         assert result is not None, "Required property 'dashboard_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version_description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#version_description QuicksightDashboard#version_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#version_description QuicksightDashboard#version_description}.'''
         result = self._values.get("version_description")
         assert result is not None, "Required property 'version_description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#aws_account_id QuicksightDashboard#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#aws_account_id QuicksightDashboard#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -818,7 +818,7 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptions"]:
         '''dashboard_publish_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#dashboard_publish_options QuicksightDashboard#dashboard_publish_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#dashboard_publish_options QuicksightDashboard#dashboard_publish_options}
         '''
         result = self._values.get("dashboard_publish_options")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptions"], result)
@@ -827,14 +827,14 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def definition(self) -> typing.Any:
         '''definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#definition QuicksightDashboard#definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#definition QuicksightDashboard#definition}
         '''
         result = self._values.get("definition")
         return typing.cast(typing.Any, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#id QuicksightDashboard#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#id QuicksightDashboard#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -846,7 +846,7 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parameters(self) -> typing.Optional["QuicksightDashboardParameters"]:
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#parameters QuicksightDashboard#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#parameters QuicksightDashboard#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional["QuicksightDashboardParameters"], result)
@@ -857,7 +857,7 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardPermissions"]]]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#permissions QuicksightDashboard#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#permissions QuicksightDashboard#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardPermissions"]]], result)
@@ -866,26 +866,26 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_entity(self) -> typing.Optional["QuicksightDashboardSourceEntity"]:
         '''source_entity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#source_entity QuicksightDashboard#source_entity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#source_entity QuicksightDashboard#source_entity}
         '''
         result = self._values.get("source_entity")
         return typing.cast(typing.Optional["QuicksightDashboardSourceEntity"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#tags QuicksightDashboard#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#tags QuicksightDashboard#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#tags_all QuicksightDashboard#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#tags_all QuicksightDashboard#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def theme_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#theme_arn QuicksightDashboard#theme_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#theme_arn QuicksightDashboard#theme_arn}.'''
         result = self._values.get("theme_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -893,7 +893,7 @@ class QuicksightDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QuicksightDashboardTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#timeouts QuicksightDashboard#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#timeouts QuicksightDashboard#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QuicksightDashboardTimeouts"], result)
@@ -942,16 +942,16 @@ class QuicksightDashboardDashboardPublishOptions:
         visual_menu_option: typing.Optional[typing.Union["QuicksightDashboardDashboardPublishOptionsVisualMenuOption", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ad_hoc_filtering_option: ad_hoc_filtering_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#ad_hoc_filtering_option QuicksightDashboard#ad_hoc_filtering_option}
-        :param data_point_drill_up_down_option: data_point_drill_up_down_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_drill_up_down_option QuicksightDashboard#data_point_drill_up_down_option}
-        :param data_point_menu_label_option: data_point_menu_label_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_menu_label_option QuicksightDashboard#data_point_menu_label_option}
-        :param data_point_tooltip_option: data_point_tooltip_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_tooltip_option QuicksightDashboard#data_point_tooltip_option}
-        :param export_to_csv_option: export_to_csv_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#export_to_csv_option QuicksightDashboard#export_to_csv_option}
-        :param export_with_hidden_fields_option: export_with_hidden_fields_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#export_with_hidden_fields_option QuicksightDashboard#export_with_hidden_fields_option}
-        :param sheet_controls_option: sheet_controls_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#sheet_controls_option QuicksightDashboard#sheet_controls_option}
-        :param sheet_layout_element_maximization_option: sheet_layout_element_maximization_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#sheet_layout_element_maximization_option QuicksightDashboard#sheet_layout_element_maximization_option}
-        :param visual_axis_sort_option: visual_axis_sort_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visual_axis_sort_option QuicksightDashboard#visual_axis_sort_option}
-        :param visual_menu_option: visual_menu_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visual_menu_option QuicksightDashboard#visual_menu_option}
+        :param ad_hoc_filtering_option: ad_hoc_filtering_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#ad_hoc_filtering_option QuicksightDashboard#ad_hoc_filtering_option}
+        :param data_point_drill_up_down_option: data_point_drill_up_down_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_drill_up_down_option QuicksightDashboard#data_point_drill_up_down_option}
+        :param data_point_menu_label_option: data_point_menu_label_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_menu_label_option QuicksightDashboard#data_point_menu_label_option}
+        :param data_point_tooltip_option: data_point_tooltip_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_tooltip_option QuicksightDashboard#data_point_tooltip_option}
+        :param export_to_csv_option: export_to_csv_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#export_to_csv_option QuicksightDashboard#export_to_csv_option}
+        :param export_with_hidden_fields_option: export_with_hidden_fields_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#export_with_hidden_fields_option QuicksightDashboard#export_with_hidden_fields_option}
+        :param sheet_controls_option: sheet_controls_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#sheet_controls_option QuicksightDashboard#sheet_controls_option}
+        :param sheet_layout_element_maximization_option: sheet_layout_element_maximization_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#sheet_layout_element_maximization_option QuicksightDashboard#sheet_layout_element_maximization_option}
+        :param visual_axis_sort_option: visual_axis_sort_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visual_axis_sort_option QuicksightDashboard#visual_axis_sort_option}
+        :param visual_menu_option: visual_menu_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visual_menu_option QuicksightDashboard#visual_menu_option}
         '''
         if isinstance(ad_hoc_filtering_option, dict):
             ad_hoc_filtering_option = QuicksightDashboardDashboardPublishOptionsAdHocFilteringOption(**ad_hoc_filtering_option)
@@ -1013,7 +1013,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsAdHocFilteringOption"]:
         '''ad_hoc_filtering_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#ad_hoc_filtering_option QuicksightDashboard#ad_hoc_filtering_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#ad_hoc_filtering_option QuicksightDashboard#ad_hoc_filtering_option}
         '''
         result = self._values.get("ad_hoc_filtering_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsAdHocFilteringOption"], result)
@@ -1024,7 +1024,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsDataPointDrillUpDownOption"]:
         '''data_point_drill_up_down_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_drill_up_down_option QuicksightDashboard#data_point_drill_up_down_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_drill_up_down_option QuicksightDashboard#data_point_drill_up_down_option}
         '''
         result = self._values.get("data_point_drill_up_down_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsDataPointDrillUpDownOption"], result)
@@ -1035,7 +1035,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsDataPointMenuLabelOption"]:
         '''data_point_menu_label_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_menu_label_option QuicksightDashboard#data_point_menu_label_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_menu_label_option QuicksightDashboard#data_point_menu_label_option}
         '''
         result = self._values.get("data_point_menu_label_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsDataPointMenuLabelOption"], result)
@@ -1046,7 +1046,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsDataPointTooltipOption"]:
         '''data_point_tooltip_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_point_tooltip_option QuicksightDashboard#data_point_tooltip_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_point_tooltip_option QuicksightDashboard#data_point_tooltip_option}
         '''
         result = self._values.get("data_point_tooltip_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsDataPointTooltipOption"], result)
@@ -1057,7 +1057,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsExportToCsvOption"]:
         '''export_to_csv_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#export_to_csv_option QuicksightDashboard#export_to_csv_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#export_to_csv_option QuicksightDashboard#export_to_csv_option}
         '''
         result = self._values.get("export_to_csv_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsExportToCsvOption"], result)
@@ -1068,7 +1068,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsExportWithHiddenFieldsOption"]:
         '''export_with_hidden_fields_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#export_with_hidden_fields_option QuicksightDashboard#export_with_hidden_fields_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#export_with_hidden_fields_option QuicksightDashboard#export_with_hidden_fields_option}
         '''
         result = self._values.get("export_with_hidden_fields_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsExportWithHiddenFieldsOption"], result)
@@ -1079,7 +1079,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsSheetControlsOption"]:
         '''sheet_controls_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#sheet_controls_option QuicksightDashboard#sheet_controls_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#sheet_controls_option QuicksightDashboard#sheet_controls_option}
         '''
         result = self._values.get("sheet_controls_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsSheetControlsOption"], result)
@@ -1090,7 +1090,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsSheetLayoutElementMaximizationOption"]:
         '''sheet_layout_element_maximization_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#sheet_layout_element_maximization_option QuicksightDashboard#sheet_layout_element_maximization_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#sheet_layout_element_maximization_option QuicksightDashboard#sheet_layout_element_maximization_option}
         '''
         result = self._values.get("sheet_layout_element_maximization_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsSheetLayoutElementMaximizationOption"], result)
@@ -1101,7 +1101,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsVisualAxisSortOption"]:
         '''visual_axis_sort_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visual_axis_sort_option QuicksightDashboard#visual_axis_sort_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visual_axis_sort_option QuicksightDashboard#visual_axis_sort_option}
         '''
         result = self._values.get("visual_axis_sort_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsVisualAxisSortOption"], result)
@@ -1112,7 +1112,7 @@ class QuicksightDashboardDashboardPublishOptions:
     ) -> typing.Optional["QuicksightDashboardDashboardPublishOptionsVisualMenuOption"]:
         '''visual_menu_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visual_menu_option QuicksightDashboard#visual_menu_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visual_menu_option QuicksightDashboard#visual_menu_option}
         '''
         result = self._values.get("visual_menu_option")
         return typing.cast(typing.Optional["QuicksightDashboardDashboardPublishOptionsVisualMenuOption"], result)
@@ -1141,7 +1141,7 @@ class QuicksightDashboardDashboardPublishOptionsAdHocFilteringOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a2613bdfa8665d7153a9d846a698c4fb3fa1e779d60a18452b6ad970ce4418f)
@@ -1152,7 +1152,7 @@ class QuicksightDashboardDashboardPublishOptionsAdHocFilteringOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1239,7 +1239,7 @@ class QuicksightDashboardDashboardPublishOptionsDataPointDrillUpDownOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2485280f7dffc230e14823beca272229f50461f98759403f598e313b3f5b6c0)
@@ -1250,7 +1250,7 @@ class QuicksightDashboardDashboardPublishOptionsDataPointDrillUpDownOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1337,7 +1337,7 @@ class QuicksightDashboardDashboardPublishOptionsDataPointMenuLabelOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e3613d0dfc6aa00d1f804909fc62b68839d621740b17e4582e34c8cce88b077)
@@ -1348,7 +1348,7 @@ class QuicksightDashboardDashboardPublishOptionsDataPointMenuLabelOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1435,7 +1435,7 @@ class QuicksightDashboardDashboardPublishOptionsDataPointTooltipOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b460e3cb24617c0c24bc456896df0d12ba4d32032a419066b6777d2e0d22fd7a)
@@ -1446,7 +1446,7 @@ class QuicksightDashboardDashboardPublishOptionsDataPointTooltipOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1533,7 +1533,7 @@ class QuicksightDashboardDashboardPublishOptionsExportToCsvOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8367d68118412c6f84aa1bf4e322787cd5c50a1f2082c14766bb711d75f47bb8)
@@ -1544,7 +1544,7 @@ class QuicksightDashboardDashboardPublishOptionsExportToCsvOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1631,7 +1631,7 @@ class QuicksightDashboardDashboardPublishOptionsExportWithHiddenFieldsOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ea1f783d2e42717f1a7067ff74d632dacb176dd6054a46bf46a98021f4aef62)
@@ -1642,7 +1642,7 @@ class QuicksightDashboardDashboardPublishOptionsExportWithHiddenFieldsOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1744,7 +1744,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsAdHocFilteringOption(
             availability_status=availability_status
@@ -1759,7 +1759,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsDataPointDrillUpDownOption(
             availability_status=availability_status
@@ -1774,7 +1774,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsDataPointMenuLabelOption(
             availability_status=availability_status
@@ -1789,7 +1789,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsDataPointTooltipOption(
             availability_status=availability_status
@@ -1804,7 +1804,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsExportToCsvOption(
             availability_status=availability_status
@@ -1819,7 +1819,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsExportWithHiddenFieldsOption(
             availability_status=availability_status
@@ -1834,7 +1834,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         visibility_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param visibility_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visibility_state QuicksightDashboard#visibility_state}.
+        :param visibility_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visibility_state QuicksightDashboard#visibility_state}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsSheetControlsOption(
             visibility_state=visibility_state
@@ -1849,7 +1849,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsSheetLayoutElementMaximizationOption(
             availability_status=availability_status
@@ -1864,7 +1864,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsVisualAxisSortOption(
             availability_status=availability_status
@@ -1879,7 +1879,7 @@ class QuicksightDashboardDashboardPublishOptionsOutputReference(
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         value = QuicksightDashboardDashboardPublishOptionsVisualMenuOption(
             availability_status=availability_status
@@ -2097,7 +2097,7 @@ class QuicksightDashboardDashboardPublishOptionsSheetControlsOption:
         visibility_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param visibility_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visibility_state QuicksightDashboard#visibility_state}.
+        :param visibility_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visibility_state QuicksightDashboard#visibility_state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11557a62d378a61358f6b60ee803e4ac9c7fcf4f6f775dab661a38192d162e87)
@@ -2108,7 +2108,7 @@ class QuicksightDashboardDashboardPublishOptionsSheetControlsOption:
 
     @builtins.property
     def visibility_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#visibility_state QuicksightDashboard#visibility_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#visibility_state QuicksightDashboard#visibility_state}.'''
         result = self._values.get("visibility_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2195,7 +2195,7 @@ class QuicksightDashboardDashboardPublishOptionsSheetLayoutElementMaximizationOp
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b70b814680390886f046f72b66b14935f29e26f4769b446bbe272c39bbef2a87)
@@ -2206,7 +2206,7 @@ class QuicksightDashboardDashboardPublishOptionsSheetLayoutElementMaximizationOp
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2293,7 +2293,7 @@ class QuicksightDashboardDashboardPublishOptionsVisualAxisSortOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9460ed0526df21e52efee23557a4ccf19a6c818a861d287a78713addde95f2a1)
@@ -2304,7 +2304,7 @@ class QuicksightDashboardDashboardPublishOptionsVisualAxisSortOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2391,7 +2391,7 @@ class QuicksightDashboardDashboardPublishOptionsVisualMenuOption:
         availability_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
+        :param availability_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03074491a25d067744d284d65f94a920759f536e1f591dde0129c3d59225d64b)
@@ -2402,7 +2402,7 @@ class QuicksightDashboardDashboardPublishOptionsVisualMenuOption:
 
     @builtins.property
     def availability_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#availability_status QuicksightDashboard#availability_status}.'''
         result = self._values.get("availability_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2497,10 +2497,10 @@ class QuicksightDashboardParameters:
         string_parameters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDashboardParametersStringParameters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#date_time_parameters QuicksightDashboard#date_time_parameters}
-        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#decimal_parameters QuicksightDashboard#decimal_parameters}
-        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#integer_parameters QuicksightDashboard#integer_parameters}
-        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#string_parameters QuicksightDashboard#string_parameters}
+        :param date_time_parameters: date_time_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#date_time_parameters QuicksightDashboard#date_time_parameters}
+        :param decimal_parameters: decimal_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#decimal_parameters QuicksightDashboard#decimal_parameters}
+        :param integer_parameters: integer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#integer_parameters QuicksightDashboard#integer_parameters}
+        :param string_parameters: string_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#string_parameters QuicksightDashboard#string_parameters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__478346108de6548d464713f912ab1acbb869c1fea57e7bbfa631471138e985c8)
@@ -2524,7 +2524,7 @@ class QuicksightDashboardParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersDateTimeParameters"]]]:
         '''date_time_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#date_time_parameters QuicksightDashboard#date_time_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#date_time_parameters QuicksightDashboard#date_time_parameters}
         '''
         result = self._values.get("date_time_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersDateTimeParameters"]]], result)
@@ -2535,7 +2535,7 @@ class QuicksightDashboardParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersDecimalParameters"]]]:
         '''decimal_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#decimal_parameters QuicksightDashboard#decimal_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#decimal_parameters QuicksightDashboard#decimal_parameters}
         '''
         result = self._values.get("decimal_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersDecimalParameters"]]], result)
@@ -2546,7 +2546,7 @@ class QuicksightDashboardParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersIntegerParameters"]]]:
         '''integer_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#integer_parameters QuicksightDashboard#integer_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#integer_parameters QuicksightDashboard#integer_parameters}
         '''
         result = self._values.get("integer_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersIntegerParameters"]]], result)
@@ -2557,7 +2557,7 @@ class QuicksightDashboardParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersStringParameters"]]]:
         '''string_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#string_parameters QuicksightDashboard#string_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#string_parameters QuicksightDashboard#string_parameters}
         '''
         result = self._values.get("string_parameters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardParametersStringParameters"]]], result)
@@ -2587,8 +2587,8 @@ class QuicksightDashboardParametersDateTimeParameters:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3ea3c38f723c7680c280d6a00811c66314303fbf2140778fe6e5c80eb13f1f7)
@@ -2601,14 +2601,14 @@ class QuicksightDashboardParametersDateTimeParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2809,8 +2809,8 @@ class QuicksightDashboardParametersDecimalParameters:
         values: typing.Sequence[jsii.Number],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7d59397d7604571d20133dafccbb7187d258d44cbebcb634fe49cc90bc9ed1e)
@@ -2823,14 +2823,14 @@ class QuicksightDashboardParametersDecimalParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -3031,8 +3031,8 @@ class QuicksightDashboardParametersIntegerParameters:
         values: typing.Sequence[jsii.Number],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__057dae497491d09ae2ca11645434cea9086dda7d746575c5e85e05f8a534ba7b)
@@ -3045,14 +3045,14 @@ class QuicksightDashboardParametersIntegerParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -3407,8 +3407,8 @@ class QuicksightDashboardParametersStringParameters:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4de184a4481fa42475483c6951c359869159b7cc94682f9e70cbf877646a86cf)
@@ -3421,14 +3421,14 @@ class QuicksightDashboardParametersStringParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#name QuicksightDashboard#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#values QuicksightDashboard#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3629,8 +3629,8 @@ class QuicksightDashboardPermissions:
         principal: builtins.str,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#actions QuicksightDashboard#actions}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#principal QuicksightDashboard#principal}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#actions QuicksightDashboard#actions}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#principal QuicksightDashboard#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c82c5daa33f44f99d7bf44521adb572eb73f76bf1f51beb4462de54fe8e5144f)
@@ -3643,14 +3643,14 @@ class QuicksightDashboardPermissions:
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#actions QuicksightDashboard#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#actions QuicksightDashboard#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#principal QuicksightDashboard#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#principal QuicksightDashboard#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -3850,7 +3850,7 @@ class QuicksightDashboardSourceEntity:
         source_template: typing.Optional[typing.Union["QuicksightDashboardSourceEntitySourceTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#source_template QuicksightDashboard#source_template}
+        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#source_template QuicksightDashboard#source_template}
         '''
         if isinstance(source_template, dict):
             source_template = QuicksightDashboardSourceEntitySourceTemplate(**source_template)
@@ -3867,7 +3867,7 @@ class QuicksightDashboardSourceEntity:
     ) -> typing.Optional["QuicksightDashboardSourceEntitySourceTemplate"]:
         '''source_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#source_template QuicksightDashboard#source_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#source_template QuicksightDashboard#source_template}
         '''
         result = self._values.get("source_template")
         return typing.cast(typing.Optional["QuicksightDashboardSourceEntitySourceTemplate"], result)
@@ -3912,8 +3912,8 @@ class QuicksightDashboardSourceEntityOutputReference(
         data_set_references: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDashboardSourceEntitySourceTemplateDataSetReferences", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#arn QuicksightDashboard#arn}.
-        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_references QuicksightDashboard#data_set_references}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#arn QuicksightDashboard#arn}.
+        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_references QuicksightDashboard#data_set_references}
         '''
         value = QuicksightDashboardSourceEntitySourceTemplate(
             arn=arn, data_set_references=data_set_references
@@ -3968,8 +3968,8 @@ class QuicksightDashboardSourceEntitySourceTemplate:
         data_set_references: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightDashboardSourceEntitySourceTemplateDataSetReferences", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#arn QuicksightDashboard#arn}.
-        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_references QuicksightDashboard#data_set_references}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#arn QuicksightDashboard#arn}.
+        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_references QuicksightDashboard#data_set_references}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__846d82b572abae5a05f17991462916d2aab8140c197ed360ed0fdb3b229829f7)
@@ -3982,7 +3982,7 @@ class QuicksightDashboardSourceEntitySourceTemplate:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#arn QuicksightDashboard#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#arn QuicksightDashboard#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
@@ -3993,7 +3993,7 @@ class QuicksightDashboardSourceEntitySourceTemplate:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDashboardSourceEntitySourceTemplateDataSetReferences"]]:
         '''data_set_references block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_references QuicksightDashboard#data_set_references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_references QuicksightDashboard#data_set_references}
         '''
         result = self._values.get("data_set_references")
         assert result is not None, "Required property 'data_set_references' is missing"
@@ -4027,8 +4027,8 @@ class QuicksightDashboardSourceEntitySourceTemplateDataSetReferences:
         data_set_placeholder: builtins.str,
     ) -> None:
         '''
-        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_arn QuicksightDashboard#data_set_arn}.
-        :param data_set_placeholder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_placeholder QuicksightDashboard#data_set_placeholder}.
+        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_arn QuicksightDashboard#data_set_arn}.
+        :param data_set_placeholder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_placeholder QuicksightDashboard#data_set_placeholder}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47ac365679c95f625c1db363197e211119071c998661d9808cf6b38960e3acfa)
@@ -4041,14 +4041,14 @@ class QuicksightDashboardSourceEntitySourceTemplateDataSetReferences:
 
     @builtins.property
     def data_set_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_arn QuicksightDashboard#data_set_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_arn QuicksightDashboard#data_set_arn}.'''
         result = self._values.get("data_set_arn")
         assert result is not None, "Required property 'data_set_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_set_placeholder(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#data_set_placeholder QuicksightDashboard#data_set_placeholder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#data_set_placeholder QuicksightDashboard#data_set_placeholder}.'''
         result = self._values.get("data_set_placeholder")
         assert result is not None, "Required property 'data_set_placeholder' is missing"
         return typing.cast(builtins.str, result)
@@ -4332,9 +4332,9 @@ class QuicksightDashboardTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#create QuicksightDashboard#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#delete QuicksightDashboard#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#update QuicksightDashboard#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#create QuicksightDashboard#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#delete QuicksightDashboard#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#update QuicksightDashboard#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a8aa81a353a21b2caf0930db1fc100fc8191f9683ff1335bc7c5ad8599627ae)
@@ -4351,19 +4351,19 @@ class QuicksightDashboardTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#create QuicksightDashboard#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#create QuicksightDashboard#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#delete QuicksightDashboard#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#delete QuicksightDashboard#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_dashboard#update QuicksightDashboard#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_dashboard#update QuicksightDashboard#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster-pandas
-Version: 0.26.12
+Version: 0.26.13
 Summary: Utilities and examples for working with pandas and dagster, an opinionated framework for expressing data pipelines
 Home-page: https://github.com/dagster-io/dagster
 Author: Dagster Labs
@@ -15,6 +15,19 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: dagster==1.10.13
+Requires-Dist: pandas
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # dagster-pandas
 

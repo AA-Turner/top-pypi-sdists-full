@@ -1,7 +1,7 @@
 r'''
 # `aws_rds_export_task`
 
-Refer to the Terraform Registry for docs: [`aws_rds_export_task`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task).
+Refer to the Terraform Registry for docs: [`aws_rds_export_task`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RdsExportTask(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.rdsExportTask.RdsExportTask",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task aws_rds_export_task}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task aws_rds_export_task}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class RdsExportTask(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task aws_rds_export_task} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task aws_rds_export_task} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param export_task_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#export_task_identifier RdsExportTask#export_task_identifier}.
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#iam_role_arn RdsExportTask#iam_role_arn}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#kms_key_id RdsExportTask#kms_key_id}.
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#s3_bucket_name RdsExportTask#s3_bucket_name}.
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#source_arn RdsExportTask#source_arn}.
-        :param export_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#export_only RdsExportTask#export_only}.
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#s3_prefix RdsExportTask#s3_prefix}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#timeouts RdsExportTask#timeouts}
+        :param export_task_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#export_task_identifier RdsExportTask#export_task_identifier}.
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#iam_role_arn RdsExportTask#iam_role_arn}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#kms_key_id RdsExportTask#kms_key_id}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#s3_bucket_name RdsExportTask#s3_bucket_name}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#source_arn RdsExportTask#source_arn}.
+        :param export_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#export_only RdsExportTask#export_only}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#s3_prefix RdsExportTask#s3_prefix}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#timeouts RdsExportTask#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class RdsExportTask(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RdsExportTask to import.
-        :param import_from_id: The id of the existing RdsExportTask that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RdsExportTask that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RdsExportTask to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class RdsExportTask(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#create RdsExportTask#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#delete RdsExportTask#delete}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#create RdsExportTask#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#delete RdsExportTask#delete}
         '''
         value = RdsExportTaskTimeouts(create=create, delete=delete)
 
@@ -401,14 +401,14 @@ class RdsExportTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param export_task_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#export_task_identifier RdsExportTask#export_task_identifier}.
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#iam_role_arn RdsExportTask#iam_role_arn}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#kms_key_id RdsExportTask#kms_key_id}.
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#s3_bucket_name RdsExportTask#s3_bucket_name}.
-        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#source_arn RdsExportTask#source_arn}.
-        :param export_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#export_only RdsExportTask#export_only}.
-        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#s3_prefix RdsExportTask#s3_prefix}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#timeouts RdsExportTask#timeouts}
+        :param export_task_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#export_task_identifier RdsExportTask#export_task_identifier}.
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#iam_role_arn RdsExportTask#iam_role_arn}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#kms_key_id RdsExportTask#kms_key_id}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#s3_bucket_name RdsExportTask#s3_bucket_name}.
+        :param source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#source_arn RdsExportTask#source_arn}.
+        :param export_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#export_only RdsExportTask#export_only}.
+        :param s3_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#s3_prefix RdsExportTask#s3_prefix}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#timeouts RdsExportTask#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -525,48 +525,48 @@ class RdsExportTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def export_task_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#export_task_identifier RdsExportTask#export_task_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#export_task_identifier RdsExportTask#export_task_identifier}.'''
         result = self._values.get("export_task_identifier")
         assert result is not None, "Required property 'export_task_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def iam_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#iam_role_arn RdsExportTask#iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#iam_role_arn RdsExportTask#iam_role_arn}.'''
         result = self._values.get("iam_role_arn")
         assert result is not None, "Required property 'iam_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#kms_key_id RdsExportTask#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#kms_key_id RdsExportTask#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         assert result is not None, "Required property 'kms_key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#s3_bucket_name RdsExportTask#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#s3_bucket_name RdsExportTask#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#source_arn RdsExportTask#source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#source_arn RdsExportTask#source_arn}.'''
         result = self._values.get("source_arn")
         assert result is not None, "Required property 'source_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def export_only(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#export_only RdsExportTask#export_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#export_only RdsExportTask#export_only}.'''
         result = self._values.get("export_only")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#s3_prefix RdsExportTask#s3_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#s3_prefix RdsExportTask#s3_prefix}.'''
         result = self._values.get("s3_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -574,7 +574,7 @@ class RdsExportTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RdsExportTaskTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#timeouts RdsExportTask#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#timeouts RdsExportTask#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RdsExportTaskTimeouts"], result)
@@ -604,8 +604,8 @@ class RdsExportTaskTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#create RdsExportTask#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#delete RdsExportTask#delete}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#create RdsExportTask#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#delete RdsExportTask#delete}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d184678c228d3719457c3c50fcb1f2dfc35ce28c16f6c6870be02945c58a6e5)
@@ -621,7 +621,7 @@ class RdsExportTaskTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#create RdsExportTask#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#create RdsExportTask#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -630,7 +630,7 @@ class RdsExportTaskTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/rds_export_task#delete RdsExportTask#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/rds_export_task#delete RdsExportTask#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)

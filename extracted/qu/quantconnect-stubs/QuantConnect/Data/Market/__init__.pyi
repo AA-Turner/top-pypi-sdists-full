@@ -2839,6 +2839,15 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         """
         ...
 
+    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determines whether the System.Collections.Generic.IDictionary{TKey, TValue} contains an element with the specified key.
+        
+        :param key: The key to locate in the System.Collections.Generic.IDictionary{TKey, TValue}.
+        :returns: true if the System.Collections.Generic.IDictionary{TKey, TValue} contains an element with the key; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect_Data_Market_DataDictionary_T:
         """
         Gets or sets the element with the specified key.
@@ -2874,6 +2883,9 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect_Data_Market_DataDictionary_T) -> None:

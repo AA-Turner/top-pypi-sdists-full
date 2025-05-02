@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 5.96.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 5.97.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/5.96.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/5.97.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -1213,6 +1213,7 @@ __all__ = [
     "ec2_client_vpn_endpoint",
     "ec2_client_vpn_network_association",
     "ec2_client_vpn_route",
+    "ec2_default_credit_specification",
     "ec2_fleet",
     "ec2_host",
     "ec2_image_block_public_access",
@@ -3324,6 +3325,7 @@ from . import ec2_client_vpn_authorization_rule
 from . import ec2_client_vpn_endpoint
 from . import ec2_client_vpn_network_association
 from . import ec2_client_vpn_route
+from . import ec2_default_credit_specification
 from . import ec2_fleet
 from . import ec2_host
 from . import ec2_image_block_public_access

@@ -19,11 +19,6 @@ from weakref import WeakKeyDictionary
 
 from chalk.utils.missing_dependency import missing_dependency_exception
 
-try:
-    import ddtrace
-except ImportError:
-    ddtrace = None
-
 _LOGGING_CONTEXT: contextvars.ContextVar[Mapping[str, Any]] = contextvars.ContextVar("_LOGGING_CONTEXT", default={})
 
 
@@ -163,6 +158,11 @@ def get_json_logging_formatter() -> logging.Formatter:
         from pythonjsonlogger import jsonlogger
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
+
+    try:
+        import ddtrace
+    except ImportError:
+        ddtrace = None
 
     class ChalkJsonFormatter(jsonlogger.JsonFormatter):
         def __init__(self):

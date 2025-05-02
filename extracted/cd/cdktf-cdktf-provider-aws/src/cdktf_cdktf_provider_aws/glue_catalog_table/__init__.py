@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_catalog_table`
 
-Refer to the Terraform Registry for docs: [`aws_glue_catalog_table`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table).
+Refer to the Terraform Registry for docs: [`aws_glue_catalog_table`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueCatalogTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueCatalogTable.GlueCatalogTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table aws_glue_catalog_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table aws_glue_catalog_table}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class GlueCatalogTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table aws_glue_catalog_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table aws_glue_catalog_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#description GlueCatalogTable#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#id GlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param open_table_format_input: open_table_format_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#open_table_format_input GlueCatalogTable#open_table_format_input}
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#owner GlueCatalogTable#owner}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#partition_index GlueCatalogTable#partition_index}
-        :param partition_keys: partition_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#partition_keys GlueCatalogTable#partition_keys}
-        :param retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#retention GlueCatalogTable#retention}.
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#storage_descriptor GlueCatalogTable#storage_descriptor}
-        :param table_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#table_type GlueCatalogTable#table_type}.
-        :param target_table: target_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#target_table GlueCatalogTable#target_table}
-        :param view_expanded_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#view_expanded_text GlueCatalogTable#view_expanded_text}.
-        :param view_original_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#view_original_text GlueCatalogTable#view_original_text}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#description GlueCatalogTable#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#id GlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param open_table_format_input: open_table_format_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#open_table_format_input GlueCatalogTable#open_table_format_input}
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#owner GlueCatalogTable#owner}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#partition_index GlueCatalogTable#partition_index}
+        :param partition_keys: partition_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#partition_keys GlueCatalogTable#partition_keys}
+        :param retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#retention GlueCatalogTable#retention}.
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#storage_descriptor GlueCatalogTable#storage_descriptor}
+        :param table_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#table_type GlueCatalogTable#table_type}.
+        :param target_table: target_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#target_table GlueCatalogTable#target_table}
+        :param view_expanded_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#view_expanded_text GlueCatalogTable#view_expanded_text}.
+        :param view_original_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#view_original_text GlueCatalogTable#view_original_text}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class GlueCatalogTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueCatalogTable to import.
-        :param import_from_id: The id of the existing GlueCatalogTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueCatalogTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueCatalogTable to import is found.
         '''
         if __debug__:
@@ -166,7 +166,7 @@ class GlueCatalogTable(
         iceberg_input: typing.Union["GlueCatalogTableOpenTableFormatInputIcebergInput", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param iceberg_input: iceberg_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#iceberg_input GlueCatalogTable#iceberg_input}
+        :param iceberg_input: iceberg_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#iceberg_input GlueCatalogTable#iceberg_input}
         '''
         value = GlueCatalogTableOpenTableFormatInput(iceberg_input=iceberg_input)
 
@@ -218,20 +218,20 @@ class GlueCatalogTable(
         stored_as_sub_directories: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#additional_locations GlueCatalogTable#additional_locations}.
-        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#bucket_columns GlueCatalogTable#bucket_columns}.
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#columns GlueCatalogTable#columns}
-        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#compressed GlueCatalogTable#compressed}.
-        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#input_format GlueCatalogTable#input_format}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#location GlueCatalogTable#location}.
-        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#number_of_buckets GlueCatalogTable#number_of_buckets}.
-        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#output_format GlueCatalogTable#output_format}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param schema_reference: schema_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_reference GlueCatalogTable#schema_reference}
-        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#ser_de_info GlueCatalogTable#ser_de_info}
-        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_info GlueCatalogTable#skewed_info}
-        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#sort_columns GlueCatalogTable#sort_columns}
-        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#stored_as_sub_directories GlueCatalogTable#stored_as_sub_directories}.
+        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#additional_locations GlueCatalogTable#additional_locations}.
+        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#bucket_columns GlueCatalogTable#bucket_columns}.
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#columns GlueCatalogTable#columns}
+        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#compressed GlueCatalogTable#compressed}.
+        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#input_format GlueCatalogTable#input_format}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#location GlueCatalogTable#location}.
+        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#number_of_buckets GlueCatalogTable#number_of_buckets}.
+        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#output_format GlueCatalogTable#output_format}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param schema_reference: schema_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_reference GlueCatalogTable#schema_reference}
+        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#ser_de_info GlueCatalogTable#ser_de_info}
+        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_info GlueCatalogTable#skewed_info}
+        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#sort_columns GlueCatalogTable#sort_columns}
+        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#stored_as_sub_directories GlueCatalogTable#stored_as_sub_directories}.
         '''
         value = GlueCatalogTableStorageDescriptor(
             additional_locations=additional_locations,
@@ -262,10 +262,10 @@ class GlueCatalogTable(
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#region GlueCatalogTable#region}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#region GlueCatalogTable#region}.
         '''
         value = GlueCatalogTableTargetTable(
             catalog_id=catalog_id,
@@ -665,22 +665,22 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#description GlueCatalogTable#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#id GlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param open_table_format_input: open_table_format_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#open_table_format_input GlueCatalogTable#open_table_format_input}
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#owner GlueCatalogTable#owner}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#partition_index GlueCatalogTable#partition_index}
-        :param partition_keys: partition_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#partition_keys GlueCatalogTable#partition_keys}
-        :param retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#retention GlueCatalogTable#retention}.
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#storage_descriptor GlueCatalogTable#storage_descriptor}
-        :param table_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#table_type GlueCatalogTable#table_type}.
-        :param target_table: target_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#target_table GlueCatalogTable#target_table}
-        :param view_expanded_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#view_expanded_text GlueCatalogTable#view_expanded_text}.
-        :param view_original_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#view_original_text GlueCatalogTable#view_original_text}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#description GlueCatalogTable#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#id GlueCatalogTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param open_table_format_input: open_table_format_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#open_table_format_input GlueCatalogTable#open_table_format_input}
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#owner GlueCatalogTable#owner}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param partition_index: partition_index block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#partition_index GlueCatalogTable#partition_index}
+        :param partition_keys: partition_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#partition_keys GlueCatalogTable#partition_keys}
+        :param retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#retention GlueCatalogTable#retention}.
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#storage_descriptor GlueCatalogTable#storage_descriptor}
+        :param table_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#table_type GlueCatalogTable#table_type}.
+        :param target_table: target_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#target_table GlueCatalogTable#target_table}
+        :param view_expanded_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#view_expanded_text GlueCatalogTable#view_expanded_text}.
+        :param view_original_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#view_original_text GlueCatalogTable#view_original_text}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -828,33 +828,33 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#description GlueCatalogTable#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#description GlueCatalogTable#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#id GlueCatalogTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#id GlueCatalogTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -868,20 +868,20 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GlueCatalogTableOpenTableFormatInput"]:
         '''open_table_format_input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#open_table_format_input GlueCatalogTable#open_table_format_input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#open_table_format_input GlueCatalogTable#open_table_format_input}
         '''
         result = self._values.get("open_table_format_input")
         return typing.cast(typing.Optional["GlueCatalogTableOpenTableFormatInput"], result)
 
     @builtins.property
     def owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#owner GlueCatalogTable#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#owner GlueCatalogTable#owner}.'''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -891,7 +891,7 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTablePartitionIndex"]]]:
         '''partition_index block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#partition_index GlueCatalogTable#partition_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#partition_index GlueCatalogTable#partition_index}
         '''
         result = self._values.get("partition_index")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTablePartitionIndex"]]], result)
@@ -902,14 +902,14 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTablePartitionKeys"]]]:
         '''partition_keys block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#partition_keys GlueCatalogTable#partition_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#partition_keys GlueCatalogTable#partition_keys}
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTablePartitionKeys"]]], result)
 
     @builtins.property
     def retention(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#retention GlueCatalogTable#retention}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#retention GlueCatalogTable#retention}.'''
         result = self._values.get("retention")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -919,14 +919,14 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GlueCatalogTableStorageDescriptor"]:
         '''storage_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#storage_descriptor GlueCatalogTable#storage_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#storage_descriptor GlueCatalogTable#storage_descriptor}
         '''
         result = self._values.get("storage_descriptor")
         return typing.cast(typing.Optional["GlueCatalogTableStorageDescriptor"], result)
 
     @builtins.property
     def table_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#table_type GlueCatalogTable#table_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#table_type GlueCatalogTable#table_type}.'''
         result = self._values.get("table_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -934,20 +934,20 @@ class GlueCatalogTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_table(self) -> typing.Optional["GlueCatalogTableTargetTable"]:
         '''target_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#target_table GlueCatalogTable#target_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#target_table GlueCatalogTable#target_table}
         '''
         result = self._values.get("target_table")
         return typing.cast(typing.Optional["GlueCatalogTableTargetTable"], result)
 
     @builtins.property
     def view_expanded_text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#view_expanded_text GlueCatalogTable#view_expanded_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#view_expanded_text GlueCatalogTable#view_expanded_text}.'''
         result = self._values.get("view_expanded_text")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def view_original_text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#view_original_text GlueCatalogTable#view_original_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#view_original_text GlueCatalogTable#view_original_text}.'''
         result = self._values.get("view_original_text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -975,7 +975,7 @@ class GlueCatalogTableOpenTableFormatInput:
         iceberg_input: typing.Union["GlueCatalogTableOpenTableFormatInputIcebergInput", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param iceberg_input: iceberg_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#iceberg_input GlueCatalogTable#iceberg_input}
+        :param iceberg_input: iceberg_input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#iceberg_input GlueCatalogTable#iceberg_input}
         '''
         if isinstance(iceberg_input, dict):
             iceberg_input = GlueCatalogTableOpenTableFormatInputIcebergInput(**iceberg_input)
@@ -990,7 +990,7 @@ class GlueCatalogTableOpenTableFormatInput:
     def iceberg_input(self) -> "GlueCatalogTableOpenTableFormatInputIcebergInput":
         '''iceberg_input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#iceberg_input GlueCatalogTable#iceberg_input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#iceberg_input GlueCatalogTable#iceberg_input}
         '''
         result = self._values.get("iceberg_input")
         assert result is not None, "Required property 'iceberg_input' is missing"
@@ -1021,8 +1021,8 @@ class GlueCatalogTableOpenTableFormatInputIcebergInput:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#metadata_operation GlueCatalogTable#metadata_operation}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#version GlueCatalogTable#version}.
+        :param metadata_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#metadata_operation GlueCatalogTable#metadata_operation}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#version GlueCatalogTable#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cbc13fb0bd37aac22b16c3fc9cb17d8bbbf7890d8d06ab497d4ca9956a6dc54)
@@ -1036,14 +1036,14 @@ class GlueCatalogTableOpenTableFormatInputIcebergInput:
 
     @builtins.property
     def metadata_operation(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#metadata_operation GlueCatalogTable#metadata_operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#metadata_operation GlueCatalogTable#metadata_operation}.'''
         result = self._values.get("metadata_operation")
         assert result is not None, "Required property 'metadata_operation' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#version GlueCatalogTable#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#version GlueCatalogTable#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1163,8 +1163,8 @@ class GlueCatalogTableOpenTableFormatInputOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#metadata_operation GlueCatalogTable#metadata_operation}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#version GlueCatalogTable#version}.
+        :param metadata_operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#metadata_operation GlueCatalogTable#metadata_operation}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#version GlueCatalogTable#version}.
         '''
         value = GlueCatalogTableOpenTableFormatInputIcebergInput(
             metadata_operation=metadata_operation, version=version
@@ -1215,8 +1215,8 @@ class GlueCatalogTablePartitionIndex:
         keys: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#index_name GlueCatalogTable#index_name}.
-        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#keys GlueCatalogTable#keys}.
+        :param index_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#index_name GlueCatalogTable#index_name}.
+        :param keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#keys GlueCatalogTable#keys}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fbb4fa04d955903aa845c86a0b9b2adf71f1ec2f2d52fe13855bc49e33aaa624)
@@ -1229,14 +1229,14 @@ class GlueCatalogTablePartitionIndex:
 
     @builtins.property
     def index_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#index_name GlueCatalogTable#index_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#index_name GlueCatalogTable#index_name}.'''
         result = self._values.get("index_name")
         assert result is not None, "Required property 'index_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def keys(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#keys GlueCatalogTable#keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#keys GlueCatalogTable#keys}.'''
         result = self._values.get("keys")
         assert result is not None, "Required property 'keys' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1443,9 +1443,9 @@ class GlueCatalogTablePartitionKeys:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24d1cf4bfa264933491b203942c892ed4f0a8d2801a97442e4d5abbd8107668c)
@@ -1462,20 +1462,20 @@ class GlueCatalogTablePartitionKeys:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1724,20 +1724,20 @@ class GlueCatalogTableStorageDescriptor:
         stored_as_sub_directories: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#additional_locations GlueCatalogTable#additional_locations}.
-        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#bucket_columns GlueCatalogTable#bucket_columns}.
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#columns GlueCatalogTable#columns}
-        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#compressed GlueCatalogTable#compressed}.
-        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#input_format GlueCatalogTable#input_format}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#location GlueCatalogTable#location}.
-        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#number_of_buckets GlueCatalogTable#number_of_buckets}.
-        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#output_format GlueCatalogTable#output_format}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param schema_reference: schema_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_reference GlueCatalogTable#schema_reference}
-        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#ser_de_info GlueCatalogTable#ser_de_info}
-        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_info GlueCatalogTable#skewed_info}
-        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#sort_columns GlueCatalogTable#sort_columns}
-        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#stored_as_sub_directories GlueCatalogTable#stored_as_sub_directories}.
+        :param additional_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#additional_locations GlueCatalogTable#additional_locations}.
+        :param bucket_columns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#bucket_columns GlueCatalogTable#bucket_columns}.
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#columns GlueCatalogTable#columns}
+        :param compressed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#compressed GlueCatalogTable#compressed}.
+        :param input_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#input_format GlueCatalogTable#input_format}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#location GlueCatalogTable#location}.
+        :param number_of_buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#number_of_buckets GlueCatalogTable#number_of_buckets}.
+        :param output_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#output_format GlueCatalogTable#output_format}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param schema_reference: schema_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_reference GlueCatalogTable#schema_reference}
+        :param ser_de_info: ser_de_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#ser_de_info GlueCatalogTable#ser_de_info}
+        :param skewed_info: skewed_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_info GlueCatalogTable#skewed_info}
+        :param sort_columns: sort_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#sort_columns GlueCatalogTable#sort_columns}
+        :param stored_as_sub_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#stored_as_sub_directories GlueCatalogTable#stored_as_sub_directories}.
         '''
         if isinstance(schema_reference, dict):
             schema_reference = GlueCatalogTableStorageDescriptorSchemaReference(**schema_reference)
@@ -1793,13 +1793,13 @@ class GlueCatalogTableStorageDescriptor:
 
     @builtins.property
     def additional_locations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#additional_locations GlueCatalogTable#additional_locations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#additional_locations GlueCatalogTable#additional_locations}.'''
         result = self._values.get("additional_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def bucket_columns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#bucket_columns GlueCatalogTable#bucket_columns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#bucket_columns GlueCatalogTable#bucket_columns}.'''
         result = self._values.get("bucket_columns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1809,7 +1809,7 @@ class GlueCatalogTableStorageDescriptor:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTableStorageDescriptorColumns"]]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#columns GlueCatalogTable#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#columns GlueCatalogTable#columns}
         '''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTableStorageDescriptorColumns"]]], result)
@@ -1818,37 +1818,37 @@ class GlueCatalogTableStorageDescriptor:
     def compressed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#compressed GlueCatalogTable#compressed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#compressed GlueCatalogTable#compressed}.'''
         result = self._values.get("compressed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def input_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#input_format GlueCatalogTable#input_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#input_format GlueCatalogTable#input_format}.'''
         result = self._values.get("input_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#location GlueCatalogTable#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#location GlueCatalogTable#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def number_of_buckets(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#number_of_buckets GlueCatalogTable#number_of_buckets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#number_of_buckets GlueCatalogTable#number_of_buckets}.'''
         result = self._values.get("number_of_buckets")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def output_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#output_format GlueCatalogTable#output_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#output_format GlueCatalogTable#output_format}.'''
         result = self._values.get("output_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1858,7 +1858,7 @@ class GlueCatalogTableStorageDescriptor:
     ) -> typing.Optional["GlueCatalogTableStorageDescriptorSchemaReference"]:
         '''schema_reference block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_reference GlueCatalogTable#schema_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_reference GlueCatalogTable#schema_reference}
         '''
         result = self._values.get("schema_reference")
         return typing.cast(typing.Optional["GlueCatalogTableStorageDescriptorSchemaReference"], result)
@@ -1869,7 +1869,7 @@ class GlueCatalogTableStorageDescriptor:
     ) -> typing.Optional["GlueCatalogTableStorageDescriptorSerDeInfo"]:
         '''ser_de_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#ser_de_info GlueCatalogTable#ser_de_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#ser_de_info GlueCatalogTable#ser_de_info}
         '''
         result = self._values.get("ser_de_info")
         return typing.cast(typing.Optional["GlueCatalogTableStorageDescriptorSerDeInfo"], result)
@@ -1880,7 +1880,7 @@ class GlueCatalogTableStorageDescriptor:
     ) -> typing.Optional["GlueCatalogTableStorageDescriptorSkewedInfo"]:
         '''skewed_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_info GlueCatalogTable#skewed_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_info GlueCatalogTable#skewed_info}
         '''
         result = self._values.get("skewed_info")
         return typing.cast(typing.Optional["GlueCatalogTableStorageDescriptorSkewedInfo"], result)
@@ -1891,7 +1891,7 @@ class GlueCatalogTableStorageDescriptor:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTableStorageDescriptorSortColumns"]]]:
         '''sort_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#sort_columns GlueCatalogTable#sort_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#sort_columns GlueCatalogTable#sort_columns}
         '''
         result = self._values.get("sort_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogTableStorageDescriptorSortColumns"]]], result)
@@ -1900,7 +1900,7 @@ class GlueCatalogTableStorageDescriptor:
     def stored_as_sub_directories(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#stored_as_sub_directories GlueCatalogTable#stored_as_sub_directories}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#stored_as_sub_directories GlueCatalogTable#stored_as_sub_directories}.'''
         result = self._values.get("stored_as_sub_directories")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1936,10 +1936,10 @@ class GlueCatalogTableStorageDescriptorColumns:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6250234c8325632527930865074099fc62baf5109a78af9c2d9292132c0faad6)
@@ -1959,26 +1959,26 @@ class GlueCatalogTableStorageDescriptorColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#comment GlueCatalogTable#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#type GlueCatalogTable#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2255,9 +2255,9 @@ class GlueCatalogTableStorageDescriptorOutputReference(
         schema_version_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_version_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_version_number GlueCatalogTable#schema_version_number}.
-        :param schema_id: schema_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_id GlueCatalogTable#schema_id}
-        :param schema_version_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_version_id GlueCatalogTable#schema_version_id}.
+        :param schema_version_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_version_number GlueCatalogTable#schema_version_number}.
+        :param schema_id: schema_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_id GlueCatalogTable#schema_id}
+        :param schema_version_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_version_id GlueCatalogTable#schema_version_id}.
         '''
         value = GlueCatalogTableStorageDescriptorSchemaReference(
             schema_version_number=schema_version_number,
@@ -2276,9 +2276,9 @@ class GlueCatalogTableStorageDescriptorOutputReference(
         serialization_library: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#serialization_library GlueCatalogTable#serialization_library}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#serialization_library GlueCatalogTable#serialization_library}.
         '''
         value = GlueCatalogTableStorageDescriptorSerDeInfo(
             name=name,
@@ -2297,9 +2297,9 @@ class GlueCatalogTableStorageDescriptorOutputReference(
         skewed_column_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_names GlueCatalogTable#skewed_column_names}.
-        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_value_location_maps GlueCatalogTable#skewed_column_value_location_maps}.
-        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_values GlueCatalogTable#skewed_column_values}.
+        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_names GlueCatalogTable#skewed_column_names}.
+        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_value_location_maps GlueCatalogTable#skewed_column_value_location_maps}.
+        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_values GlueCatalogTable#skewed_column_values}.
         '''
         value = GlueCatalogTableStorageDescriptorSkewedInfo(
             skewed_column_names=skewed_column_names,
@@ -2645,9 +2645,9 @@ class GlueCatalogTableStorageDescriptorSchemaReference:
         schema_version_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param schema_version_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_version_number GlueCatalogTable#schema_version_number}.
-        :param schema_id: schema_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_id GlueCatalogTable#schema_id}
-        :param schema_version_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_version_id GlueCatalogTable#schema_version_id}.
+        :param schema_version_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_version_number GlueCatalogTable#schema_version_number}.
+        :param schema_id: schema_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_id GlueCatalogTable#schema_id}
+        :param schema_version_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_version_id GlueCatalogTable#schema_version_id}.
         '''
         if isinstance(schema_id, dict):
             schema_id = GlueCatalogTableStorageDescriptorSchemaReferenceSchemaId(**schema_id)
@@ -2666,7 +2666,7 @@ class GlueCatalogTableStorageDescriptorSchemaReference:
 
     @builtins.property
     def schema_version_number(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_version_number GlueCatalogTable#schema_version_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_version_number GlueCatalogTable#schema_version_number}.'''
         result = self._values.get("schema_version_number")
         assert result is not None, "Required property 'schema_version_number' is missing"
         return typing.cast(jsii.Number, result)
@@ -2677,14 +2677,14 @@ class GlueCatalogTableStorageDescriptorSchemaReference:
     ) -> typing.Optional["GlueCatalogTableStorageDescriptorSchemaReferenceSchemaId"]:
         '''schema_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_id GlueCatalogTable#schema_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_id GlueCatalogTable#schema_id}
         '''
         result = self._values.get("schema_id")
         return typing.cast(typing.Optional["GlueCatalogTableStorageDescriptorSchemaReferenceSchemaId"], result)
 
     @builtins.property
     def schema_version_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_version_id GlueCatalogTable#schema_version_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_version_id GlueCatalogTable#schema_version_id}.'''
         result = self._values.get("schema_version_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2729,9 +2729,9 @@ class GlueCatalogTableStorageDescriptorSchemaReferenceOutputReference(
         schema_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#registry_name GlueCatalogTable#registry_name}.
-        :param schema_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_arn GlueCatalogTable#schema_arn}.
-        :param schema_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_name GlueCatalogTable#schema_name}.
+        :param registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#registry_name GlueCatalogTable#registry_name}.
+        :param schema_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_arn GlueCatalogTable#schema_arn}.
+        :param schema_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_name GlueCatalogTable#schema_name}.
         '''
         value = GlueCatalogTableStorageDescriptorSchemaReferenceSchemaId(
             registry_name=registry_name, schema_arn=schema_arn, schema_name=schema_name
@@ -2831,9 +2831,9 @@ class GlueCatalogTableStorageDescriptorSchemaReferenceSchemaId:
         schema_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#registry_name GlueCatalogTable#registry_name}.
-        :param schema_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_arn GlueCatalogTable#schema_arn}.
-        :param schema_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_name GlueCatalogTable#schema_name}.
+        :param registry_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#registry_name GlueCatalogTable#registry_name}.
+        :param schema_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_arn GlueCatalogTable#schema_arn}.
+        :param schema_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_name GlueCatalogTable#schema_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3645c20fd643076b406addf68aa1ebeae0916883857d4edd94663de446cbb2b2)
@@ -2850,19 +2850,19 @@ class GlueCatalogTableStorageDescriptorSchemaReferenceSchemaId:
 
     @builtins.property
     def registry_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#registry_name GlueCatalogTable#registry_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#registry_name GlueCatalogTable#registry_name}.'''
         result = self._values.get("registry_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schema_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_arn GlueCatalogTable#schema_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_arn GlueCatalogTable#schema_arn}.'''
         result = self._values.get("schema_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schema_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#schema_name GlueCatalogTable#schema_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#schema_name GlueCatalogTable#schema_name}.'''
         result = self._values.get("schema_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2997,9 +2997,9 @@ class GlueCatalogTableStorageDescriptorSerDeInfo:
         serialization_library: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
-        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#serialization_library GlueCatalogTable#serialization_library}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.
+        :param serialization_library: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#serialization_library GlueCatalogTable#serialization_library}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__292152f3b2e052c3e8134e022ef88cc241b6ff9ff10646e7155d4f4939cda61a)
@@ -3016,19 +3016,19 @@ class GlueCatalogTableStorageDescriptorSerDeInfo:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#parameters GlueCatalogTable#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def serialization_library(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#serialization_library GlueCatalogTable#serialization_library}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#serialization_library GlueCatalogTable#serialization_library}.'''
         result = self._values.get("serialization_library")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3165,9 +3165,9 @@ class GlueCatalogTableStorageDescriptorSkewedInfo:
         skewed_column_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_names GlueCatalogTable#skewed_column_names}.
-        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_value_location_maps GlueCatalogTable#skewed_column_value_location_maps}.
-        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_values GlueCatalogTable#skewed_column_values}.
+        :param skewed_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_names GlueCatalogTable#skewed_column_names}.
+        :param skewed_column_value_location_maps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_value_location_maps GlueCatalogTable#skewed_column_value_location_maps}.
+        :param skewed_column_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_values GlueCatalogTable#skewed_column_values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cac840aef30f79632b0b44003461055fc73a0dc153a651586a86b6ca778b005)
@@ -3184,7 +3184,7 @@ class GlueCatalogTableStorageDescriptorSkewedInfo:
 
     @builtins.property
     def skewed_column_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_names GlueCatalogTable#skewed_column_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_names GlueCatalogTable#skewed_column_names}.'''
         result = self._values.get("skewed_column_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3192,13 +3192,13 @@ class GlueCatalogTableStorageDescriptorSkewedInfo:
     def skewed_column_value_location_maps(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_value_location_maps GlueCatalogTable#skewed_column_value_location_maps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_value_location_maps GlueCatalogTable#skewed_column_value_location_maps}.'''
         result = self._values.get("skewed_column_value_location_maps")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def skewed_column_values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#skewed_column_values GlueCatalogTable#skewed_column_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#skewed_column_values GlueCatalogTable#skewed_column_values}.'''
         result = self._values.get("skewed_column_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3330,8 +3330,8 @@ class GlueCatalogTableStorageDescriptorSkewedInfoOutputReference(
 class GlueCatalogTableStorageDescriptorSortColumns:
     def __init__(self, *, column: builtins.str, sort_order: jsii.Number) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#column GlueCatalogTable#column}.
-        :param sort_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#sort_order GlueCatalogTable#sort_order}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#column GlueCatalogTable#column}.
+        :param sort_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#sort_order GlueCatalogTable#sort_order}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5433d48236cafe3e9537b990ace0f75f2910fd17c8c71a05bba65e8ca7143b1)
@@ -3344,14 +3344,14 @@ class GlueCatalogTableStorageDescriptorSortColumns:
 
     @builtins.property
     def column(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#column GlueCatalogTable#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#column GlueCatalogTable#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sort_order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#sort_order GlueCatalogTable#sort_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#sort_order GlueCatalogTable#sort_order}.'''
         result = self._values.get("sort_order")
         assert result is not None, "Required property 'sort_order' is missing"
         return typing.cast(jsii.Number, result)
@@ -3559,10 +3559,10 @@ class GlueCatalogTableTargetTable:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#region GlueCatalogTable#region}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#region GlueCatalogTable#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__492ed0c8cf8e5dfb48db3804d3b160c31c946b6a6a5a69d8a4ec3e7a56dbb10e)
@@ -3580,28 +3580,28 @@ class GlueCatalogTableTargetTable:
 
     @builtins.property
     def catalog_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#catalog_id GlueCatalogTable#catalog_id}.'''
         result = self._values.get("catalog_id")
         assert result is not None, "Required property 'catalog_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#database_name GlueCatalogTable#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#name GlueCatalogTable#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_table#region GlueCatalogTable#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_table#region GlueCatalogTable#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 

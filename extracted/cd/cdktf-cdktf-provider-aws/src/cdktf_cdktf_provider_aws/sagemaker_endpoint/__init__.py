@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_endpoint`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_endpoint`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_endpoint`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerEndpoint.SagemakerEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint aws_sagemaker_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint aws_sagemaker_endpoint}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SagemakerEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint aws_sagemaker_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint aws_sagemaker_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param endpoint_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#endpoint_config_name SagemakerEndpoint#endpoint_config_name}.
-        :param deployment_config: deployment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#deployment_config SagemakerEndpoint#deployment_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#id SagemakerEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#name SagemakerEndpoint#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#tags SagemakerEndpoint#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#tags_all SagemakerEndpoint#tags_all}.
+        :param endpoint_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#endpoint_config_name SagemakerEndpoint#endpoint_config_name}.
+        :param deployment_config: deployment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#deployment_config SagemakerEndpoint#deployment_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#id SagemakerEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#name SagemakerEndpoint#name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#tags SagemakerEndpoint#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#tags_all SagemakerEndpoint#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SagemakerEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerEndpoint to import.
-        :param import_from_id: The id of the existing SagemakerEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerEndpoint to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class SagemakerEndpoint(
         rolling_update_policy: typing.Optional[typing.Union["SagemakerEndpointDeploymentConfigRollingUpdatePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_rollback_configuration: auto_rollback_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#auto_rollback_configuration SagemakerEndpoint#auto_rollback_configuration}
-        :param blue_green_update_policy: blue_green_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#blue_green_update_policy SagemakerEndpoint#blue_green_update_policy}
-        :param rolling_update_policy: rolling_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#rolling_update_policy SagemakerEndpoint#rolling_update_policy}
+        :param auto_rollback_configuration: auto_rollback_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#auto_rollback_configuration SagemakerEndpoint#auto_rollback_configuration}
+        :param blue_green_update_policy: blue_green_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#blue_green_update_policy SagemakerEndpoint#blue_green_update_policy}
+        :param rolling_update_policy: rolling_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#rolling_update_policy SagemakerEndpoint#rolling_update_policy}
         '''
         value = SagemakerEndpointDeploymentConfig(
             auto_rollback_configuration=auto_rollback_configuration,
@@ -333,12 +333,12 @@ class SagemakerEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param endpoint_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#endpoint_config_name SagemakerEndpoint#endpoint_config_name}.
-        :param deployment_config: deployment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#deployment_config SagemakerEndpoint#deployment_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#id SagemakerEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#name SagemakerEndpoint#name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#tags SagemakerEndpoint#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#tags_all SagemakerEndpoint#tags_all}.
+        :param endpoint_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#endpoint_config_name SagemakerEndpoint#endpoint_config_name}.
+        :param deployment_config: deployment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#deployment_config SagemakerEndpoint#deployment_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#id SagemakerEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#name SagemakerEndpoint#name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#tags SagemakerEndpoint#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#tags_all SagemakerEndpoint#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -453,7 +453,7 @@ class SagemakerEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def endpoint_config_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#endpoint_config_name SagemakerEndpoint#endpoint_config_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#endpoint_config_name SagemakerEndpoint#endpoint_config_name}.'''
         result = self._values.get("endpoint_config_name")
         assert result is not None, "Required property 'endpoint_config_name' is missing"
         return typing.cast(builtins.str, result)
@@ -462,14 +462,14 @@ class SagemakerEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deployment_config(self) -> typing.Optional["SagemakerEndpointDeploymentConfig"]:
         '''deployment_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#deployment_config SagemakerEndpoint#deployment_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#deployment_config SagemakerEndpoint#deployment_config}
         '''
         result = self._values.get("deployment_config")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#id SagemakerEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#id SagemakerEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -479,19 +479,19 @@ class SagemakerEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#name SagemakerEndpoint#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#name SagemakerEndpoint#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#tags SagemakerEndpoint#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#tags SagemakerEndpoint#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#tags_all SagemakerEndpoint#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#tags_all SagemakerEndpoint#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -525,9 +525,9 @@ class SagemakerEndpointDeploymentConfig:
         rolling_update_policy: typing.Optional[typing.Union["SagemakerEndpointDeploymentConfigRollingUpdatePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_rollback_configuration: auto_rollback_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#auto_rollback_configuration SagemakerEndpoint#auto_rollback_configuration}
-        :param blue_green_update_policy: blue_green_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#blue_green_update_policy SagemakerEndpoint#blue_green_update_policy}
-        :param rolling_update_policy: rolling_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#rolling_update_policy SagemakerEndpoint#rolling_update_policy}
+        :param auto_rollback_configuration: auto_rollback_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#auto_rollback_configuration SagemakerEndpoint#auto_rollback_configuration}
+        :param blue_green_update_policy: blue_green_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#blue_green_update_policy SagemakerEndpoint#blue_green_update_policy}
+        :param rolling_update_policy: rolling_update_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#rolling_update_policy SagemakerEndpoint#rolling_update_policy}
         '''
         if isinstance(auto_rollback_configuration, dict):
             auto_rollback_configuration = SagemakerEndpointDeploymentConfigAutoRollbackConfiguration(**auto_rollback_configuration)
@@ -554,7 +554,7 @@ class SagemakerEndpointDeploymentConfig:
     ) -> typing.Optional["SagemakerEndpointDeploymentConfigAutoRollbackConfiguration"]:
         '''auto_rollback_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#auto_rollback_configuration SagemakerEndpoint#auto_rollback_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#auto_rollback_configuration SagemakerEndpoint#auto_rollback_configuration}
         '''
         result = self._values.get("auto_rollback_configuration")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfigAutoRollbackConfiguration"], result)
@@ -565,7 +565,7 @@ class SagemakerEndpointDeploymentConfig:
     ) -> typing.Optional["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicy"]:
         '''blue_green_update_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#blue_green_update_policy SagemakerEndpoint#blue_green_update_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#blue_green_update_policy SagemakerEndpoint#blue_green_update_policy}
         '''
         result = self._values.get("blue_green_update_policy")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicy"], result)
@@ -576,7 +576,7 @@ class SagemakerEndpointDeploymentConfig:
     ) -> typing.Optional["SagemakerEndpointDeploymentConfigRollingUpdatePolicy"]:
         '''rolling_update_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#rolling_update_policy SagemakerEndpoint#rolling_update_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#rolling_update_policy SagemakerEndpoint#rolling_update_policy}
         '''
         result = self._values.get("rolling_update_policy")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfigRollingUpdatePolicy"], result)
@@ -605,7 +605,7 @@ class SagemakerEndpointDeploymentConfigAutoRollbackConfiguration:
         alarms: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerEndpointDeploymentConfigAutoRollbackConfigurationAlarms", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#alarms SagemakerEndpoint#alarms}
+        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#alarms SagemakerEndpoint#alarms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60403c3aed1f457890e8a4ce5f7be711a6e2ec579d3f2b517260cc3fb502bd20)
@@ -620,7 +620,7 @@ class SagemakerEndpointDeploymentConfigAutoRollbackConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointDeploymentConfigAutoRollbackConfigurationAlarms"]]]:
         '''alarms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#alarms SagemakerEndpoint#alarms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#alarms SagemakerEndpoint#alarms}
         '''
         result = self._values.get("alarms")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointDeploymentConfigAutoRollbackConfigurationAlarms"]]], result)
@@ -645,7 +645,7 @@ class SagemakerEndpointDeploymentConfigAutoRollbackConfiguration:
 class SagemakerEndpointDeploymentConfigAutoRollbackConfigurationAlarms:
     def __init__(self, *, alarm_name: builtins.str) -> None:
         '''
-        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#alarm_name SagemakerEndpoint#alarm_name}.
+        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#alarm_name SagemakerEndpoint#alarm_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f9ab3ba1a3f6ca04690c5ba65a404cad8094043f1a58910098e08ad383d3d63)
@@ -656,7 +656,7 @@ class SagemakerEndpointDeploymentConfigAutoRollbackConfigurationAlarms:
 
     @builtins.property
     def alarm_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#alarm_name SagemakerEndpoint#alarm_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#alarm_name SagemakerEndpoint#alarm_name}.'''
         result = self._values.get("alarm_name")
         assert result is not None, "Required property 'alarm_name' is missing"
         return typing.cast(builtins.str, result)
@@ -914,9 +914,9 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicy:
         termination_wait_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param traffic_routing_configuration: traffic_routing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#traffic_routing_configuration SagemakerEndpoint#traffic_routing_configuration}
-        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
-        :param termination_wait_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#termination_wait_in_seconds SagemakerEndpoint#termination_wait_in_seconds}.
+        :param traffic_routing_configuration: traffic_routing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#traffic_routing_configuration SagemakerEndpoint#traffic_routing_configuration}
+        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
+        :param termination_wait_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#termination_wait_in_seconds SagemakerEndpoint#termination_wait_in_seconds}.
         '''
         if isinstance(traffic_routing_configuration, dict):
             traffic_routing_configuration = SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfiguration(**traffic_routing_configuration)
@@ -939,7 +939,7 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicy:
     ) -> "SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfiguration":
         '''traffic_routing_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#traffic_routing_configuration SagemakerEndpoint#traffic_routing_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#traffic_routing_configuration SagemakerEndpoint#traffic_routing_configuration}
         '''
         result = self._values.get("traffic_routing_configuration")
         assert result is not None, "Required property 'traffic_routing_configuration' is missing"
@@ -947,13 +947,13 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicy:
 
     @builtins.property
     def maximum_execution_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.'''
         result = self._values.get("maximum_execution_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def termination_wait_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#termination_wait_in_seconds SagemakerEndpoint#termination_wait_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#termination_wait_in_seconds SagemakerEndpoint#termination_wait_in_seconds}.'''
         result = self._values.get("termination_wait_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -999,10 +999,10 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyOutputReference(
         linear_step_size: typing.Optional[typing.Union["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationLinearStepSize", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
-        :param canary_size: canary_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#canary_size SagemakerEndpoint#canary_size}
-        :param linear_step_size: linear_step_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#linear_step_size SagemakerEndpoint#linear_step_size}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
+        :param canary_size: canary_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#canary_size SagemakerEndpoint#canary_size}
+        :param linear_step_size: linear_step_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#linear_step_size SagemakerEndpoint#linear_step_size}
         '''
         value = SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfiguration(
             type=type,
@@ -1109,10 +1109,10 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
         linear_step_size: typing.Optional[typing.Union["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationLinearStepSize", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
-        :param canary_size: canary_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#canary_size SagemakerEndpoint#canary_size}
-        :param linear_step_size: linear_step_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#linear_step_size SagemakerEndpoint#linear_step_size}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
+        :param canary_size: canary_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#canary_size SagemakerEndpoint#canary_size}
+        :param linear_step_size: linear_step_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#linear_step_size SagemakerEndpoint#linear_step_size}
         '''
         if isinstance(canary_size, dict):
             canary_size = SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationCanarySize(**canary_size)
@@ -1135,14 +1135,14 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def wait_interval_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.'''
         result = self._values.get("wait_interval_in_seconds")
         assert result is not None, "Required property 'wait_interval_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -1153,7 +1153,7 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
     ) -> typing.Optional["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationCanarySize"]:
         '''canary_size block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#canary_size SagemakerEndpoint#canary_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#canary_size SagemakerEndpoint#canary_size}
         '''
         result = self._values.get("canary_size")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationCanarySize"], result)
@@ -1164,7 +1164,7 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
     ) -> typing.Optional["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationLinearStepSize"]:
         '''linear_step_size block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#linear_step_size SagemakerEndpoint#linear_step_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#linear_step_size SagemakerEndpoint#linear_step_size}
         '''
         result = self._values.get("linear_step_size")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationLinearStepSize"], result)
@@ -1189,8 +1189,8 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
 class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationCanarySize:
     def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e11b81974a8369bf514168284786081803fb8d72164c512128abe15e42be02c5)
@@ -1203,14 +1203,14 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1307,8 +1307,8 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
 class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationLinearStepSize:
     def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1814d4e0bbd76af30a367391aa4f08cebec6aed978c9935e3faa2edbd95b9f71)
@@ -1321,14 +1321,14 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1440,8 +1440,8 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
     @jsii.member(jsii_name="putCanarySize")
     def put_canary_size(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         value_ = SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationCanarySize(
             type=type, value=value
@@ -1452,8 +1452,8 @@ class SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfig
     @jsii.member(jsii_name="putLinearStepSize")
     def put_linear_step_size(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         value_ = SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicyTrafficRoutingConfigurationLinearStepSize(
             type=type, value=value
@@ -1576,7 +1576,7 @@ class SagemakerEndpointDeploymentConfigOutputReference(
         alarms: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerEndpointDeploymentConfigAutoRollbackConfigurationAlarms, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#alarms SagemakerEndpoint#alarms}
+        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#alarms SagemakerEndpoint#alarms}
         '''
         value = SagemakerEndpointDeploymentConfigAutoRollbackConfiguration(
             alarms=alarms
@@ -1593,9 +1593,9 @@ class SagemakerEndpointDeploymentConfigOutputReference(
         termination_wait_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param traffic_routing_configuration: traffic_routing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#traffic_routing_configuration SagemakerEndpoint#traffic_routing_configuration}
-        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
-        :param termination_wait_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#termination_wait_in_seconds SagemakerEndpoint#termination_wait_in_seconds}.
+        :param traffic_routing_configuration: traffic_routing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#traffic_routing_configuration SagemakerEndpoint#traffic_routing_configuration}
+        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
+        :param termination_wait_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#termination_wait_in_seconds SagemakerEndpoint#termination_wait_in_seconds}.
         '''
         value = SagemakerEndpointDeploymentConfigBlueGreenUpdatePolicy(
             traffic_routing_configuration=traffic_routing_configuration,
@@ -1615,10 +1615,10 @@ class SagemakerEndpointDeploymentConfigOutputReference(
         rollback_maximum_batch_size: typing.Optional[typing.Union["SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSize", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param maximum_batch_size: maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_batch_size SagemakerEndpoint#maximum_batch_size}
-        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
-        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
-        :param rollback_maximum_batch_size: rollback_maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#rollback_maximum_batch_size SagemakerEndpoint#rollback_maximum_batch_size}
+        :param maximum_batch_size: maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_batch_size SagemakerEndpoint#maximum_batch_size}
+        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
+        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
+        :param rollback_maximum_batch_size: rollback_maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#rollback_maximum_batch_size SagemakerEndpoint#rollback_maximum_batch_size}
         '''
         value = SagemakerEndpointDeploymentConfigRollingUpdatePolicy(
             maximum_batch_size=maximum_batch_size,
@@ -1719,10 +1719,10 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicy:
         rollback_maximum_batch_size: typing.Optional[typing.Union["SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSize", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param maximum_batch_size: maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_batch_size SagemakerEndpoint#maximum_batch_size}
-        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
-        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
-        :param rollback_maximum_batch_size: rollback_maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#rollback_maximum_batch_size SagemakerEndpoint#rollback_maximum_batch_size}
+        :param maximum_batch_size: maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_batch_size SagemakerEndpoint#maximum_batch_size}
+        :param wait_interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.
+        :param maximum_execution_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.
+        :param rollback_maximum_batch_size: rollback_maximum_batch_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#rollback_maximum_batch_size SagemakerEndpoint#rollback_maximum_batch_size}
         '''
         if isinstance(maximum_batch_size, dict):
             maximum_batch_size = SagemakerEndpointDeploymentConfigRollingUpdatePolicyMaximumBatchSize(**maximum_batch_size)
@@ -1749,7 +1749,7 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicy:
     ) -> "SagemakerEndpointDeploymentConfigRollingUpdatePolicyMaximumBatchSize":
         '''maximum_batch_size block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_batch_size SagemakerEndpoint#maximum_batch_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_batch_size SagemakerEndpoint#maximum_batch_size}
         '''
         result = self._values.get("maximum_batch_size")
         assert result is not None, "Required property 'maximum_batch_size' is missing"
@@ -1757,14 +1757,14 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicy:
 
     @builtins.property
     def wait_interval_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#wait_interval_in_seconds SagemakerEndpoint#wait_interval_in_seconds}.'''
         result = self._values.get("wait_interval_in_seconds")
         assert result is not None, "Required property 'wait_interval_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def maximum_execution_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#maximum_execution_timeout_in_seconds SagemakerEndpoint#maximum_execution_timeout_in_seconds}.'''
         result = self._values.get("maximum_execution_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1774,7 +1774,7 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicy:
     ) -> typing.Optional["SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSize"]:
         '''rollback_maximum_batch_size block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#rollback_maximum_batch_size SagemakerEndpoint#rollback_maximum_batch_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#rollback_maximum_batch_size SagemakerEndpoint#rollback_maximum_batch_size}
         '''
         result = self._values.get("rollback_maximum_batch_size")
         return typing.cast(typing.Optional["SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSize"], result)
@@ -1799,8 +1799,8 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicy:
 class SagemakerEndpointDeploymentConfigRollingUpdatePolicyMaximumBatchSize:
     def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18636c44317e9998f04fd7ad4440bb8554333cc1bd2d369c2803890963b36d02)
@@ -1813,14 +1813,14 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicyMaximumBatchSize:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1932,8 +1932,8 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicyOutputReference(
     @jsii.member(jsii_name="putMaximumBatchSize")
     def put_maximum_batch_size(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         value_ = SagemakerEndpointDeploymentConfigRollingUpdatePolicyMaximumBatchSize(
             type=type, value=value
@@ -1949,8 +1949,8 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicyOutputReference(
         value: jsii.Number,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         value_ = SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSize(
             type=type, value=value
@@ -2056,8 +2056,8 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicyOutputReference(
 class SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSize:
     def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61fb47c4cfd7d104e3b8ac2b87129696e94e934a75365ec76b7539fb6c210d08)
@@ -2070,14 +2070,14 @@ class SagemakerEndpointDeploymentConfigRollingUpdatePolicyRollbackMaximumBatchSi
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#type SagemakerEndpoint#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_endpoint#value SagemakerEndpoint#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)

@@ -1,7 +1,7 @@
 r'''
 # `aws_opensearch_package`
 
-Refer to the Terraform Registry for docs: [`aws_opensearch_package`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package).
+Refer to the Terraform Registry for docs: [`aws_opensearch_package`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpensearchPackage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.opensearchPackage.OpensearchPackage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package aws_opensearch_package}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package aws_opensearch_package}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class OpensearchPackage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package aws_opensearch_package} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package aws_opensearch_package} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_name OpensearchPackage#package_name}.
-        :param package_source: package_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_source OpensearchPackage#package_source}
-        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_type OpensearchPackage#package_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#id OpensearchPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param package_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_description OpensearchPackage#package_description}.
+        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_name OpensearchPackage#package_name}.
+        :param package_source: package_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_source OpensearchPackage#package_source}
+        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_type OpensearchPackage#package_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#id OpensearchPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param package_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_description OpensearchPackage#package_description}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class OpensearchPackage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpensearchPackage to import.
-        :param import_from_id: The id of the existing OpensearchPackage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpensearchPackage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpensearchPackage to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class OpensearchPackage(
         s3_key: builtins.str,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#s3_bucket_name OpensearchPackage#s3_bucket_name}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#s3_key OpensearchPackage#s3_key}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#s3_bucket_name OpensearchPackage#s3_bucket_name}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#s3_key OpensearchPackage#s3_key}.
         '''
         value = OpensearchPackagePackageSource(
             s3_bucket_name=s3_bucket_name, s3_key=s3_key
@@ -296,11 +296,11 @@ class OpensearchPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_name OpensearchPackage#package_name}.
-        :param package_source: package_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_source OpensearchPackage#package_source}
-        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_type OpensearchPackage#package_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#id OpensearchPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param package_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_description OpensearchPackage#package_description}.
+        :param package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_name OpensearchPackage#package_name}.
+        :param package_source: package_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_source OpensearchPackage#package_source}
+        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_type OpensearchPackage#package_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#id OpensearchPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param package_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_description OpensearchPackage#package_description}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -410,7 +410,7 @@ class OpensearchPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def package_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_name OpensearchPackage#package_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_name OpensearchPackage#package_name}.'''
         result = self._values.get("package_name")
         assert result is not None, "Required property 'package_name' is missing"
         return typing.cast(builtins.str, result)
@@ -419,7 +419,7 @@ class OpensearchPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def package_source(self) -> "OpensearchPackagePackageSource":
         '''package_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_source OpensearchPackage#package_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_source OpensearchPackage#package_source}
         '''
         result = self._values.get("package_source")
         assert result is not None, "Required property 'package_source' is missing"
@@ -427,14 +427,14 @@ class OpensearchPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def package_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_type OpensearchPackage#package_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_type OpensearchPackage#package_type}.'''
         result = self._values.get("package_type")
         assert result is not None, "Required property 'package_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#id OpensearchPackage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#id OpensearchPackage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -444,7 +444,7 @@ class OpensearchPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def package_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#package_description OpensearchPackage#package_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#package_description OpensearchPackage#package_description}.'''
         result = self._values.get("package_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -468,8 +468,8 @@ class OpensearchPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class OpensearchPackagePackageSource:
     def __init__(self, *, s3_bucket_name: builtins.str, s3_key: builtins.str) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#s3_bucket_name OpensearchPackage#s3_bucket_name}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#s3_key OpensearchPackage#s3_key}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#s3_bucket_name OpensearchPackage#s3_bucket_name}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#s3_key OpensearchPackage#s3_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__460d729469b069df549e7830f0aba0459f79ac18c3363c824a9c90f2c1658668)
@@ -482,14 +482,14 @@ class OpensearchPackagePackageSource:
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#s3_bucket_name OpensearchPackage#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#s3_bucket_name OpensearchPackage#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opensearch_package#s3_key OpensearchPackage#s3_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opensearch_package#s3_key OpensearchPackage#s3_key}.'''
         result = self._values.get("s3_key")
         assert result is not None, "Required property 's3_key' is missing"
         return typing.cast(builtins.str, result)

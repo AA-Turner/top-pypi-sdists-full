@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster-snowflake
-Version: 0.26.12
+Version: 0.26.13
 Summary: Package for Snowflake Dagster framework components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-snowflake
 Author: Dagster Labs
@@ -13,6 +13,23 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
-Provides-Extra: snowflake.sqlalchemy
-Provides-Extra: pandas
 License-File: LICENSE
+Requires-Dist: dagster==1.10.13
+Requires-Dist: snowflake-connector-python>=3.4.0
+Requires-Dist: pyOpenSSL>=22.1.0
+Provides-Extra: snowflake-sqlalchemy
+Requires-Dist: sqlalchemy!=1.4.42; extra == "snowflake-sqlalchemy"
+Requires-Dist: snowflake-sqlalchemy; extra == "snowflake-sqlalchemy"
+Provides-Extra: pandas
+Requires-Dist: pandas; extra == "pandas"
+Requires-Dist: snowflake-connector-python[pandas]>=3.4.0; extra == "pandas"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

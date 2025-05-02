@@ -145,6 +145,9 @@ class _DirectoryState:
 
 
 class Directory(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/directory:Directory"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -155,6 +158,8 @@ class Directory(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -207,6 +212,8 @@ class Directory(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

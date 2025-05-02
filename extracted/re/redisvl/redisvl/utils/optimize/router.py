@@ -1,7 +1,9 @@
 import random
 from typing import Any, Callable, Dict, List
 
-import numpy as np
+from redisvl.utils.utils import lazy_import
+
+np = lazy_import("numpy")
 from ranx import Qrels, Run, evaluate
 
 from redisvl.extensions.router.semantic import SemanticRouter
@@ -18,9 +20,9 @@ def _generate_run_router(test_data: List[LabeledData], router: SemanticRouter) -
         run_dict[td.id] = {}
         route_match = router(td.query)
         if route_match and route_match.name == td.query_match:
-            run_dict[td.id][td.query_match] = 1
+            run_dict[td.id][td.query_match] = np.int64(1)
         else:
-            run_dict[td.id][NULL_RESPONSE_KEY] = 1
+            run_dict[td.id][NULL_RESPONSE_KEY] = np.int64(1)
 
     return Run(run_dict)
 

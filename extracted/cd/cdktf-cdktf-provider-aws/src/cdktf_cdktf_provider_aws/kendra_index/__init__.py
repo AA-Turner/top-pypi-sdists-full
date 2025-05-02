@@ -1,7 +1,7 @@
 r'''
 # `aws_kendra_index`
 
-Refer to the Terraform Registry for docs: [`aws_kendra_index`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index).
+Refer to the Terraform Registry for docs: [`aws_kendra_index`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KendraIndex(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kendraIndex.KendraIndex",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index aws_kendra_index}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index aws_kendra_index}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class KendraIndex(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index aws_kendra_index} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index aws_kendra_index} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#name KendraIndex#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#role_arn KendraIndex#role_arn}.
-        :param capacity_units: capacity_units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#capacity_units KendraIndex#capacity_units}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#description KendraIndex#description}.
-        :param document_metadata_configuration_updates: document_metadata_configuration_updates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#document_metadata_configuration_updates KendraIndex#document_metadata_configuration_updates}
-        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#edition KendraIndex#edition}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#id KendraIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#server_side_encryption_configuration KendraIndex#server_side_encryption_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#tags KendraIndex#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#tags_all KendraIndex#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#timeouts KendraIndex#timeouts}
-        :param user_context_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_context_policy KendraIndex#user_context_policy}.
-        :param user_group_resolution_configuration: user_group_resolution_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_group_resolution_configuration KendraIndex#user_group_resolution_configuration}
-        :param user_token_configurations: user_token_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_token_configurations KendraIndex#user_token_configurations}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#name KendraIndex#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#role_arn KendraIndex#role_arn}.
+        :param capacity_units: capacity_units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#capacity_units KendraIndex#capacity_units}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#description KendraIndex#description}.
+        :param document_metadata_configuration_updates: document_metadata_configuration_updates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#document_metadata_configuration_updates KendraIndex#document_metadata_configuration_updates}
+        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#edition KendraIndex#edition}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#id KendraIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#server_side_encryption_configuration KendraIndex#server_side_encryption_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#tags KendraIndex#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#tags_all KendraIndex#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#timeouts KendraIndex#timeouts}
+        :param user_context_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_context_policy KendraIndex#user_context_policy}.
+        :param user_group_resolution_configuration: user_group_resolution_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_group_resolution_configuration KendraIndex#user_group_resolution_configuration}
+        :param user_token_configurations: user_token_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_token_configurations KendraIndex#user_token_configurations}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class KendraIndex(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KendraIndex to import.
-        :param import_from_id: The id of the existing KendraIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KendraIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KendraIndex to import is found.
         '''
         if __debug__:
@@ -161,8 +161,8 @@ class KendraIndex(
         storage_capacity_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param query_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#query_capacity_units KendraIndex#query_capacity_units}.
-        :param storage_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#storage_capacity_units KendraIndex#storage_capacity_units}.
+        :param query_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#query_capacity_units KendraIndex#query_capacity_units}.
+        :param storage_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#storage_capacity_units KendraIndex#storage_capacity_units}.
         '''
         value = KendraIndexCapacityUnits(
             query_capacity_units=query_capacity_units,
@@ -191,7 +191,7 @@ class KendraIndex(
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#kms_key_id KendraIndex#kms_key_id}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#kms_key_id KendraIndex#kms_key_id}.
         '''
         value = KendraIndexServerSideEncryptionConfiguration(kms_key_id=kms_key_id)
 
@@ -206,9 +206,9 @@ class KendraIndex(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#create KendraIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#delete KendraIndex#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#update KendraIndex#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#create KendraIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#delete KendraIndex#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#update KendraIndex#update}.
         '''
         value = KendraIndexTimeouts(create=create, delete=delete, update=update)
 
@@ -221,7 +221,7 @@ class KendraIndex(
         user_group_resolution_mode: builtins.str,
     ) -> None:
         '''
-        :param user_group_resolution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_group_resolution_mode KendraIndex#user_group_resolution_mode}.
+        :param user_group_resolution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_group_resolution_mode KendraIndex#user_group_resolution_mode}.
         '''
         value = KendraIndexUserGroupResolutionConfiguration(
             user_group_resolution_mode=user_group_resolution_mode
@@ -237,8 +237,8 @@ class KendraIndex(
         jwt_token_type_configuration: typing.Optional[typing.Union["KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param json_token_type_configuration: json_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#json_token_type_configuration KendraIndex#json_token_type_configuration}
-        :param jwt_token_type_configuration: jwt_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#jwt_token_type_configuration KendraIndex#jwt_token_type_configuration}
+        :param json_token_type_configuration: json_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#json_token_type_configuration KendraIndex#json_token_type_configuration}
+        :param jwt_token_type_configuration: jwt_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#jwt_token_type_configuration KendraIndex#jwt_token_type_configuration}
         '''
         value = KendraIndexUserTokenConfigurations(
             json_token_type_configuration=json_token_type_configuration,
@@ -571,8 +571,8 @@ class KendraIndexCapacityUnits:
         storage_capacity_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param query_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#query_capacity_units KendraIndex#query_capacity_units}.
-        :param storage_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#storage_capacity_units KendraIndex#storage_capacity_units}.
+        :param query_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#query_capacity_units KendraIndex#query_capacity_units}.
+        :param storage_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#storage_capacity_units KendraIndex#storage_capacity_units}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b619c670ad9c2e2acabc591d3e9bd971f1bef683797373abaaa1e4f6651bfad)
@@ -586,13 +586,13 @@ class KendraIndexCapacityUnits:
 
     @builtins.property
     def query_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#query_capacity_units KendraIndex#query_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#query_capacity_units KendraIndex#query_capacity_units}.'''
         result = self._values.get("query_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def storage_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#storage_capacity_units KendraIndex#storage_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#storage_capacity_units KendraIndex#storage_capacity_units}.'''
         result = self._values.get("storage_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -744,20 +744,20 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#name KendraIndex#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#role_arn KendraIndex#role_arn}.
-        :param capacity_units: capacity_units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#capacity_units KendraIndex#capacity_units}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#description KendraIndex#description}.
-        :param document_metadata_configuration_updates: document_metadata_configuration_updates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#document_metadata_configuration_updates KendraIndex#document_metadata_configuration_updates}
-        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#edition KendraIndex#edition}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#id KendraIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#server_side_encryption_configuration KendraIndex#server_side_encryption_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#tags KendraIndex#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#tags_all KendraIndex#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#timeouts KendraIndex#timeouts}
-        :param user_context_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_context_policy KendraIndex#user_context_policy}.
-        :param user_group_resolution_configuration: user_group_resolution_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_group_resolution_configuration KendraIndex#user_group_resolution_configuration}
-        :param user_token_configurations: user_token_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_token_configurations KendraIndex#user_token_configurations}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#name KendraIndex#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#role_arn KendraIndex#role_arn}.
+        :param capacity_units: capacity_units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#capacity_units KendraIndex#capacity_units}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#description KendraIndex#description}.
+        :param document_metadata_configuration_updates: document_metadata_configuration_updates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#document_metadata_configuration_updates KendraIndex#document_metadata_configuration_updates}
+        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#edition KendraIndex#edition}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#id KendraIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param server_side_encryption_configuration: server_side_encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#server_side_encryption_configuration KendraIndex#server_side_encryption_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#tags KendraIndex#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#tags_all KendraIndex#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#timeouts KendraIndex#timeouts}
+        :param user_context_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_context_policy KendraIndex#user_context_policy}.
+        :param user_group_resolution_configuration: user_group_resolution_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_group_resolution_configuration KendraIndex#user_group_resolution_configuration}
+        :param user_token_configurations: user_token_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_token_configurations KendraIndex#user_token_configurations}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -903,14 +903,14 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#name KendraIndex#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#name KendraIndex#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#role_arn KendraIndex#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#role_arn KendraIndex#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -919,14 +919,14 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_units(self) -> typing.Optional[KendraIndexCapacityUnits]:
         '''capacity_units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#capacity_units KendraIndex#capacity_units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#capacity_units KendraIndex#capacity_units}
         '''
         result = self._values.get("capacity_units")
         return typing.cast(typing.Optional[KendraIndexCapacityUnits], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#description KendraIndex#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#description KendraIndex#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -936,20 +936,20 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KendraIndexDocumentMetadataConfigurationUpdates"]]]:
         '''document_metadata_configuration_updates block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#document_metadata_configuration_updates KendraIndex#document_metadata_configuration_updates}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#document_metadata_configuration_updates KendraIndex#document_metadata_configuration_updates}
         '''
         result = self._values.get("document_metadata_configuration_updates")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KendraIndexDocumentMetadataConfigurationUpdates"]]], result)
 
     @builtins.property
     def edition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#edition KendraIndex#edition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#edition KendraIndex#edition}.'''
         result = self._values.get("edition")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#id KendraIndex#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#id KendraIndex#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -963,20 +963,20 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KendraIndexServerSideEncryptionConfiguration"]:
         '''server_side_encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#server_side_encryption_configuration KendraIndex#server_side_encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#server_side_encryption_configuration KendraIndex#server_side_encryption_configuration}
         '''
         result = self._values.get("server_side_encryption_configuration")
         return typing.cast(typing.Optional["KendraIndexServerSideEncryptionConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#tags KendraIndex#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#tags KendraIndex#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#tags_all KendraIndex#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#tags_all KendraIndex#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -984,14 +984,14 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KendraIndexTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#timeouts KendraIndex#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#timeouts KendraIndex#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KendraIndexTimeouts"], result)
 
     @builtins.property
     def user_context_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_context_policy KendraIndex#user_context_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_context_policy KendraIndex#user_context_policy}.'''
         result = self._values.get("user_context_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1001,7 +1001,7 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KendraIndexUserGroupResolutionConfiguration"]:
         '''user_group_resolution_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_group_resolution_configuration KendraIndex#user_group_resolution_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_group_resolution_configuration KendraIndex#user_group_resolution_configuration}
         '''
         result = self._values.get("user_group_resolution_configuration")
         return typing.cast(typing.Optional["KendraIndexUserGroupResolutionConfiguration"], result)
@@ -1012,7 +1012,7 @@ class KendraIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KendraIndexUserTokenConfigurations"]:
         '''user_token_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_token_configurations KendraIndex#user_token_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_token_configurations KendraIndex#user_token_configurations}
         '''
         result = self._values.get("user_token_configurations")
         return typing.cast(typing.Optional["KendraIndexUserTokenConfigurations"], result)
@@ -1049,10 +1049,10 @@ class KendraIndexDocumentMetadataConfigurationUpdates:
         search: typing.Optional[typing.Union["KendraIndexDocumentMetadataConfigurationUpdatesSearch", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#name KendraIndex#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#type KendraIndex#type}.
-        :param relevance: relevance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#relevance KendraIndex#relevance}
-        :param search: search block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#search KendraIndex#search}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#name KendraIndex#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#type KendraIndex#type}.
+        :param relevance: relevance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#relevance KendraIndex#relevance}
+        :param search: search block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#search KendraIndex#search}
         '''
         if isinstance(relevance, dict):
             relevance = KendraIndexDocumentMetadataConfigurationUpdatesRelevance(**relevance)
@@ -1075,14 +1075,14 @@ class KendraIndexDocumentMetadataConfigurationUpdates:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#name KendraIndex#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#name KendraIndex#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#type KendraIndex#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#type KendraIndex#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1093,7 +1093,7 @@ class KendraIndexDocumentMetadataConfigurationUpdates:
     ) -> typing.Optional["KendraIndexDocumentMetadataConfigurationUpdatesRelevance"]:
         '''relevance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#relevance KendraIndex#relevance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#relevance KendraIndex#relevance}
         '''
         result = self._values.get("relevance")
         return typing.cast(typing.Optional["KendraIndexDocumentMetadataConfigurationUpdatesRelevance"], result)
@@ -1104,7 +1104,7 @@ class KendraIndexDocumentMetadataConfigurationUpdates:
     ) -> typing.Optional["KendraIndexDocumentMetadataConfigurationUpdatesSearch"]:
         '''search block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#search KendraIndex#search}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#search KendraIndex#search}
         '''
         result = self._values.get("search")
         return typing.cast(typing.Optional["KendraIndexDocumentMetadataConfigurationUpdatesSearch"], result)
@@ -1251,11 +1251,11 @@ class KendraIndexDocumentMetadataConfigurationUpdatesOutputReference(
         values_importance_map: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#duration KendraIndex#duration}.
-        :param freshness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#freshness KendraIndex#freshness}.
-        :param importance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#importance KendraIndex#importance}.
-        :param rank_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#rank_order KendraIndex#rank_order}.
-        :param values_importance_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#values_importance_map KendraIndex#values_importance_map}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#duration KendraIndex#duration}.
+        :param freshness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#freshness KendraIndex#freshness}.
+        :param importance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#importance KendraIndex#importance}.
+        :param rank_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#rank_order KendraIndex#rank_order}.
+        :param values_importance_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#values_importance_map KendraIndex#values_importance_map}.
         '''
         value = KendraIndexDocumentMetadataConfigurationUpdatesRelevance(
             duration=duration,
@@ -1277,10 +1277,10 @@ class KendraIndexDocumentMetadataConfigurationUpdatesOutputReference(
         sortable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param displayable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#displayable KendraIndex#displayable}.
-        :param facetable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#facetable KendraIndex#facetable}.
-        :param searchable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#searchable KendraIndex#searchable}.
-        :param sortable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#sortable KendraIndex#sortable}.
+        :param displayable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#displayable KendraIndex#displayable}.
+        :param facetable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#facetable KendraIndex#facetable}.
+        :param searchable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#searchable KendraIndex#searchable}.
+        :param sortable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#sortable KendraIndex#sortable}.
         '''
         value = KendraIndexDocumentMetadataConfigurationUpdatesSearch(
             displayable=displayable,
@@ -1401,11 +1401,11 @@ class KendraIndexDocumentMetadataConfigurationUpdatesRelevance:
         values_importance_map: typing.Optional[typing.Mapping[builtins.str, jsii.Number]] = None,
     ) -> None:
         '''
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#duration KendraIndex#duration}.
-        :param freshness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#freshness KendraIndex#freshness}.
-        :param importance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#importance KendraIndex#importance}.
-        :param rank_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#rank_order KendraIndex#rank_order}.
-        :param values_importance_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#values_importance_map KendraIndex#values_importance_map}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#duration KendraIndex#duration}.
+        :param freshness: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#freshness KendraIndex#freshness}.
+        :param importance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#importance KendraIndex#importance}.
+        :param rank_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#rank_order KendraIndex#rank_order}.
+        :param values_importance_map: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#values_importance_map KendraIndex#values_importance_map}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22491698088a5fa4ab0013e57ed1ef19a98146a6128798e354d35a175cae87f4)
@@ -1428,7 +1428,7 @@ class KendraIndexDocumentMetadataConfigurationUpdatesRelevance:
 
     @builtins.property
     def duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#duration KendraIndex#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#duration KendraIndex#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1436,19 +1436,19 @@ class KendraIndexDocumentMetadataConfigurationUpdatesRelevance:
     def freshness(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#freshness KendraIndex#freshness}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#freshness KendraIndex#freshness}.'''
         result = self._values.get("freshness")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def importance(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#importance KendraIndex#importance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#importance KendraIndex#importance}.'''
         result = self._values.get("importance")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def rank_order(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#rank_order KendraIndex#rank_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#rank_order KendraIndex#rank_order}.'''
         result = self._values.get("rank_order")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1456,7 +1456,7 @@ class KendraIndexDocumentMetadataConfigurationUpdatesRelevance:
     def values_importance_map(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#values_importance_map KendraIndex#values_importance_map}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#values_importance_map KendraIndex#values_importance_map}.'''
         result = self._values.get("values_importance_map")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, jsii.Number]], result)
 
@@ -1645,10 +1645,10 @@ class KendraIndexDocumentMetadataConfigurationUpdatesSearch:
         sortable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param displayable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#displayable KendraIndex#displayable}.
-        :param facetable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#facetable KendraIndex#facetable}.
-        :param searchable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#searchable KendraIndex#searchable}.
-        :param sortable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#sortable KendraIndex#sortable}.
+        :param displayable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#displayable KendraIndex#displayable}.
+        :param facetable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#facetable KendraIndex#facetable}.
+        :param searchable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#searchable KendraIndex#searchable}.
+        :param sortable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#sortable KendraIndex#sortable}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70a59d367aabf614ba96722f0dbf3a0a5ac459214efb5d48e231b4d54d9fc1ab)
@@ -1670,7 +1670,7 @@ class KendraIndexDocumentMetadataConfigurationUpdatesSearch:
     def displayable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#displayable KendraIndex#displayable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#displayable KendraIndex#displayable}.'''
         result = self._values.get("displayable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1678,7 +1678,7 @@ class KendraIndexDocumentMetadataConfigurationUpdatesSearch:
     def facetable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#facetable KendraIndex#facetable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#facetable KendraIndex#facetable}.'''
         result = self._values.get("facetable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1686,7 +1686,7 @@ class KendraIndexDocumentMetadataConfigurationUpdatesSearch:
     def searchable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#searchable KendraIndex#searchable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#searchable KendraIndex#searchable}.'''
         result = self._values.get("searchable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1694,7 +1694,7 @@ class KendraIndexDocumentMetadataConfigurationUpdatesSearch:
     def sortable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#sortable KendraIndex#sortable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#sortable KendraIndex#sortable}.'''
         result = self._values.get("sortable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2305,7 +2305,7 @@ class KendraIndexIndexStatisticsTextDocumentStatisticsOutputReference(
 class KendraIndexServerSideEncryptionConfiguration:
     def __init__(self, *, kms_key_id: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#kms_key_id KendraIndex#kms_key_id}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#kms_key_id KendraIndex#kms_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__437080790511b646aea1dc32e8c8369912a8ccf5ce5831526124b3cf86d18a34)
@@ -2316,7 +2316,7 @@ class KendraIndexServerSideEncryptionConfiguration:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#kms_key_id KendraIndex#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#kms_key_id KendraIndex#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2405,9 +2405,9 @@ class KendraIndexTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#create KendraIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#delete KendraIndex#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#update KendraIndex#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#create KendraIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#delete KendraIndex#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#update KendraIndex#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99851d73bc44f3bc4038cca58891226ee7271f99c6f9593d008c03269eb0b984)
@@ -2424,19 +2424,19 @@ class KendraIndexTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#create KendraIndex#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#create KendraIndex#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#delete KendraIndex#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#delete KendraIndex#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#update KendraIndex#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#update KendraIndex#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2561,7 +2561,7 @@ class KendraIndexTimeoutsOutputReference(
 class KendraIndexUserGroupResolutionConfiguration:
     def __init__(self, *, user_group_resolution_mode: builtins.str) -> None:
         '''
-        :param user_group_resolution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_group_resolution_mode KendraIndex#user_group_resolution_mode}.
+        :param user_group_resolution_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_group_resolution_mode KendraIndex#user_group_resolution_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29a0318fee6074834e4d4e95594b77f197500ab93e909178363202cdff7c9564)
@@ -2572,7 +2572,7 @@ class KendraIndexUserGroupResolutionConfiguration:
 
     @builtins.property
     def user_group_resolution_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_group_resolution_mode KendraIndex#user_group_resolution_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_group_resolution_mode KendraIndex#user_group_resolution_mode}.'''
         result = self._values.get("user_group_resolution_mode")
         assert result is not None, "Required property 'user_group_resolution_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -2660,8 +2660,8 @@ class KendraIndexUserTokenConfigurations:
         jwt_token_type_configuration: typing.Optional[typing.Union["KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param json_token_type_configuration: json_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#json_token_type_configuration KendraIndex#json_token_type_configuration}
-        :param jwt_token_type_configuration: jwt_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#jwt_token_type_configuration KendraIndex#jwt_token_type_configuration}
+        :param json_token_type_configuration: json_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#json_token_type_configuration KendraIndex#json_token_type_configuration}
+        :param jwt_token_type_configuration: jwt_token_type_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#jwt_token_type_configuration KendraIndex#jwt_token_type_configuration}
         '''
         if isinstance(json_token_type_configuration, dict):
             json_token_type_configuration = KendraIndexUserTokenConfigurationsJsonTokenTypeConfiguration(**json_token_type_configuration)
@@ -2683,7 +2683,7 @@ class KendraIndexUserTokenConfigurations:
     ) -> typing.Optional["KendraIndexUserTokenConfigurationsJsonTokenTypeConfiguration"]:
         '''json_token_type_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#json_token_type_configuration KendraIndex#json_token_type_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#json_token_type_configuration KendraIndex#json_token_type_configuration}
         '''
         result = self._values.get("json_token_type_configuration")
         return typing.cast(typing.Optional["KendraIndexUserTokenConfigurationsJsonTokenTypeConfiguration"], result)
@@ -2694,7 +2694,7 @@ class KendraIndexUserTokenConfigurations:
     ) -> typing.Optional["KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration"]:
         '''jwt_token_type_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#jwt_token_type_configuration KendraIndex#jwt_token_type_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#jwt_token_type_configuration KendraIndex#jwt_token_type_configuration}
         '''
         result = self._values.get("jwt_token_type_configuration")
         return typing.cast(typing.Optional["KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration"], result)
@@ -2727,8 +2727,8 @@ class KendraIndexUserTokenConfigurationsJsonTokenTypeConfiguration:
         user_name_attribute_field: builtins.str,
     ) -> None:
         '''
-        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
-        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
+        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
+        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f18f7f2a475216926d030fbd4a5eae87a618dd4f5a8740d083abbcb2e79fcdf)
@@ -2741,14 +2741,14 @@ class KendraIndexUserTokenConfigurationsJsonTokenTypeConfiguration:
 
     @builtins.property
     def group_attribute_field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.'''
         result = self._values.get("group_attribute_field")
         assert result is not None, "Required property 'group_attribute_field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_name_attribute_field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.'''
         result = self._values.get("user_name_attribute_field")
         assert result is not None, "Required property 'user_name_attribute_field' is missing"
         return typing.cast(builtins.str, result)
@@ -2863,13 +2863,13 @@ class KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration:
         user_name_attribute_field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#key_location KendraIndex#key_location}.
-        :param claim_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#claim_regex KendraIndex#claim_regex}.
-        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#issuer KendraIndex#issuer}.
-        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#secrets_manager_arn KendraIndex#secrets_manager_arn}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#url KendraIndex#url}.
-        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
+        :param key_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#key_location KendraIndex#key_location}.
+        :param claim_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#claim_regex KendraIndex#claim_regex}.
+        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#issuer KendraIndex#issuer}.
+        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#secrets_manager_arn KendraIndex#secrets_manager_arn}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#url KendraIndex#url}.
+        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54dbf9577601ac61e3eb4950faeaf7407d9a3526ae97fa9b82027812da0d4e4f)
@@ -2898,44 +2898,44 @@ class KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration:
 
     @builtins.property
     def key_location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#key_location KendraIndex#key_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#key_location KendraIndex#key_location}.'''
         result = self._values.get("key_location")
         assert result is not None, "Required property 'key_location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def claim_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#claim_regex KendraIndex#claim_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#claim_regex KendraIndex#claim_regex}.'''
         result = self._values.get("claim_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def group_attribute_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.'''
         result = self._values.get("group_attribute_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def issuer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#issuer KendraIndex#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#issuer KendraIndex#issuer}.'''
         result = self._values.get("issuer")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secrets_manager_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#secrets_manager_arn KendraIndex#secrets_manager_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#secrets_manager_arn KendraIndex#secrets_manager_arn}.'''
         result = self._values.get("secrets_manager_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#url KendraIndex#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#url KendraIndex#url}.'''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_name_attribute_field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.'''
         result = self._values.get("user_name_attribute_field")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3160,8 +3160,8 @@ class KendraIndexUserTokenConfigurationsOutputReference(
         user_name_attribute_field: builtins.str,
     ) -> None:
         '''
-        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
-        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
+        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
+        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
         '''
         value = KendraIndexUserTokenConfigurationsJsonTokenTypeConfiguration(
             group_attribute_field=group_attribute_field,
@@ -3183,13 +3183,13 @@ class KendraIndexUserTokenConfigurationsOutputReference(
         user_name_attribute_field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#key_location KendraIndex#key_location}.
-        :param claim_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#claim_regex KendraIndex#claim_regex}.
-        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#issuer KendraIndex#issuer}.
-        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#secrets_manager_arn KendraIndex#secrets_manager_arn}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#url KendraIndex#url}.
-        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
+        :param key_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#key_location KendraIndex#key_location}.
+        :param claim_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#claim_regex KendraIndex#claim_regex}.
+        :param group_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#group_attribute_field KendraIndex#group_attribute_field}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#issuer KendraIndex#issuer}.
+        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#secrets_manager_arn KendraIndex#secrets_manager_arn}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#url KendraIndex#url}.
+        :param user_name_attribute_field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kendra_index#user_name_attribute_field KendraIndex#user_name_attribute_field}.
         '''
         value = KendraIndexUserTokenConfigurationsJwtTokenTypeConfiguration(
             key_location=key_location,

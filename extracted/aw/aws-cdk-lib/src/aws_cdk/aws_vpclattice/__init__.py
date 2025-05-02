@@ -917,7 +917,7 @@ class CfnListener(
         def __init__(self, *, status_code: jsii.Number) -> None:
             '''Describes an action that returns a custom HTTP response.
 
-            :param status_code: The HTTP response code.
+            :param status_code: The HTTP response code. Only ``404`` and ``500`` status codes are supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-listener-fixedresponse.html
             :exampleMetadata: fixture=_generated
@@ -942,6 +942,8 @@ class CfnListener(
         @builtins.property
         def status_code(self) -> jsii.Number:
             '''The HTTP response code.
+
+            Only ``404`` and ``500`` status codes are supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-listener-fixedresponse.html#cfn-vpclattice-listener-fixedresponse-statuscode
             '''
@@ -2871,7 +2873,7 @@ class CfnRule(
         def __init__(self, *, status_code: jsii.Number) -> None:
             '''Describes an action that returns a custom HTTP response.
 
-            :param status_code: The HTTP response code.
+            :param status_code: The HTTP response code. Only ``404`` and ``500`` status codes are supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-rule-fixedresponse.html
             :exampleMetadata: fixture=_generated
@@ -2896,6 +2898,8 @@ class CfnRule(
         @builtins.property
         def status_code(self) -> jsii.Number:
             '''The HTTP response code.
+
+            Only ``404`` and ``500`` status codes are supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-rule-fixedresponse.html#cfn-vpclattice-rule-fixedresponse-statuscode
             '''

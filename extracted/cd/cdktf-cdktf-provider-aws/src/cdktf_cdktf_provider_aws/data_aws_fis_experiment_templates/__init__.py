@@ -1,7 +1,7 @@
 r'''
 # `data_aws_fis_experiment_templates`
 
-Refer to the Terraform Registry for docs: [`data_aws_fis_experiment_templates`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates).
+Refer to the Terraform Registry for docs: [`data_aws_fis_experiment_templates`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsFisExperimentTemplates(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsFisExperimentTemplates.DataAwsFisExperimentTemplates",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates aws_fis_experiment_templates}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates aws_fis_experiment_templates}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsFisExperimentTemplates(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates aws_fis_experiment_templates} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates aws_fis_experiment_templates} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates#tags DataAwsFisExperimentTemplates#tags}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates#tags DataAwsFisExperimentTemplates#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsFisExperimentTemplates(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsFisExperimentTemplates to import.
-        :param import_from_id: The id of the existing DataAwsFisExperimentTemplates that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsFisExperimentTemplates that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsFisExperimentTemplates to import is found.
         '''
         if __debug__:
@@ -189,7 +189,7 @@ class DataAwsFisExperimentTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates#tags DataAwsFisExperimentTemplates#tags}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates#tags DataAwsFisExperimentTemplates#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -287,7 +287,7 @@ class DataAwsFisExperimentTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/fis_experiment_templates#tags DataAwsFisExperimentTemplates#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/fis_experiment_templates#tags DataAwsFisExperimentTemplates#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

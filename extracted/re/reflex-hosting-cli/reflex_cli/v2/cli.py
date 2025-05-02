@@ -131,6 +131,7 @@ def deploy(
         config = hosting.read_config(config_path)
 
     packages = None
+    strategy = None
     include_db = False
     # If a cloud.yml file is provided, use values from the file that are not provided as arguments.
     if config:
@@ -157,6 +158,8 @@ def deploy(
             packages = config.get("packages", None)
         if not include_db:
             include_db = config.get("include_db", False)
+        if not strategy:
+            strategy = config.get("strategy", None)
         app_name = config.get("name", app_name)
         if not isinstance(app_name, (str, type(None))):
             console.error(
@@ -363,6 +366,7 @@ def deploy(
         secrets=processed_envs,
         client=authenticated_client,
         packages=packages,
+        strategy=strategy,
     )
     if "failed" in result:
         console.error(result)

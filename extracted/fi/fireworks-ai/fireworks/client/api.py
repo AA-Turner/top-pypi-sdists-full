@@ -114,6 +114,7 @@ class CompletionResponse(BaseModel, extra=extra_policy):
     model: str
     choices: List[Choice]
     usage: UsageInfo
+    perf_metrics: Optional[Dict[str, Any]] = None
 
 
 class CompletionResponseStreamChoice(BaseModel, extra=extra_policy):
@@ -153,6 +154,7 @@ class CompletionStreamResponse(BaseModel, extra=extra_policy):
     model: str
     choices: List[CompletionResponseStreamChoice]
     usage: Optional[UsageInfo] = None
+    perf_metrics: Optional[Dict[str, Any]] = None
 
 
 class Model(BaseModel, extra=extra_policy):
@@ -233,6 +235,7 @@ class ChatMessage(BaseModel, extra=extra_policy):
 
     role: StrictStr
     content: Optional[Union[StrictStr, List[ChatMessageContent]]] = None
+    reasoning_content: Optional[StrictStr] = None
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
     tool_call_id: Optional[StrictStr] = None
     function: Optional[ChatCompletionMessageToolCallFunction] = None
@@ -296,6 +299,7 @@ class ChatCompletionResponse(BaseModel, extra=extra_policy):
     choices: List[ChatCompletionResponseChoice]
     # extension of OpenAI API
     usage: Optional[UsageInfo] = None
+    perf_metrics: Optional[Dict[str, Any]] = None
 
 
 class DeltaMessage(BaseModel, extra=extra_policy):
@@ -308,6 +312,7 @@ class DeltaMessage(BaseModel, extra=extra_policy):
 
     role: Optional[str] = None
     content: Optional[str] = None
+    reasoning_content: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionMessageToolCall]] = None
     function: Optional[str] = None
 
@@ -326,9 +331,7 @@ class ChatCompletionResponseStreamChoice(BaseModel, extra=extra_policy):
 
     index: int
     delta: DeltaMessage
-    finish_reason: Optional[
-        Literal["stop", "length", "function_call", "tool_calls"]
-    ] = None
+    finish_reason: Optional[Literal["stop", "length", "function_call", "tool_calls"]] = None
     # extension of OpenAI API
     logprobs: Optional[Union[LogProbs, NewLogProbs]] = None
 
@@ -351,6 +354,7 @@ class ChatCompletionStreamResponse(BaseModel, extra=extra_policy):
     model: str
     choices: List[ChatCompletionResponseStreamChoice]
     usage: Optional[UsageInfo] = None
+    perf_metrics: Optional[Dict[str, Any]] = None
 
 
 class EmbeddingInfo(BaseModel, extra=extra_policy):
@@ -367,6 +371,7 @@ class EmbeddingResponse(BaseModel, extra=extra_policy):
     data: List[EmbeddingInfo]
     model: str
     usage: Optional[UsageInfo] = None
+    perf_metrics: Optional[Dict[str, Any]] = None
     object: str = "list"
 
 
@@ -391,3 +396,70 @@ class RerankResponse(BaseModel, extra=extra_policy):
     """
 
     results: List[Document]
+
+
+# Hugging Face TGI response formats.
+class TgiGenerateTokenInfo(BaseModel, extra=extra_policy):
+    """Information about a generated token.
+
+    Attributes:
+      id (int): The token ID.
+      text (str): The token text.
+      logprob (float): Log probability of the token.
+      special (bool): Whether this is a special token.
+    """
+
+    id: int
+    text: str
+    logprob: float
+    special: bool
+
+
+class TgiGenerateDetails(BaseModel, extra=extra_policy):
+    """Details about the text generation process.
+
+    Attributes:
+      finish_reason (str): The reason generation stopped.
+      generated_tokens (int): Number of tokens generated.
+      tokens (List[TgiGenerateTokenInfo]): Information about each generated token.
+    """
+
+    finish_reason: str
+    generated_tokens: int
+    tokens: List[TgiGenerateTokenInfo]
+
+
+class TgiGenerateResponse(BaseModel, extra=extra_policy):
+    """Response from text generation.
+
+    Attributes:
+      generated_text (str): The complete generated text.
+      details (Optional[TgiGenerateDetails]): Additional details about the generation process.
+    """
+
+    id: Optional[str] = None
+    object: str = "text_completion"
+    created: Optional[int] = None
+    model: Optional[str] = None
+    generated_text: str
+    details: Optional[TgiGenerateDetails] = None
+
+
+class TgiGenerateStreamResponse(BaseModel, extra=extra_policy):
+    """Streaming response for text generation.
+
+    Attributes:
+      token (TgiGenerateTokenInfo): Information about the current generated token.
+      generated_text (Optional[str]): The text generated so far.
+      details (Optional[TgiGenerateDetails]): Additional generation details.
+      index (int): Position in the generation sequence.
+    """
+
+    id: Optional[str] = None
+    object: str = "text_completion"
+    created: Optional[int] = None
+    model: Optional[str] = None
+    token: Optional[TgiGenerateTokenInfo] = None
+    generated_text: Optional[str] = None
+    details: Optional[TgiGenerateDetails] = None
+    index: int = 0

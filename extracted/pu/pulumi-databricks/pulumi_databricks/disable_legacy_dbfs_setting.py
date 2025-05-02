@@ -115,6 +115,9 @@ class _DisableLegacyDbfsSettingState:
 
 
 class DisableLegacyDbfsSetting(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/disableLegacyDbfsSetting:DisableLegacyDbfsSetting"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -124,12 +127,12 @@ class DisableLegacyDbfsSetting(pulumi.CustomResource):
                  setting_name: Optional[pulumi.Input[builtins.str]] = None,
                  __props__=None):
         """
-        > This resource can only be used with a workspace-level provider!
+        The `DisableLegacyDbfsSetting` resource allows you to disable legacy dbfs features.
+        When this setting is on, access to DBFS root and DBFS mounts is disallowed (as well as creation of new mounts). When the setting is off, all DBFS functionality is enabled. This setting has no impact on workspace internal storage (WIS).
 
         > This setting is currently in private preview, and only available for enrolled customers.
 
-        The `DisableLegacyDbfsSetting` resource allows you to disable legacy dbfs features.
-        When this setting is on, access to DBFS root and DBFS mounts is disallowed (as well as creation of new mounts). When the setting is off, all DBFS functionality is enabled. This setting has no impact on workspace internal storage (WIS).
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -163,12 +166,12 @@ class DisableLegacyDbfsSetting(pulumi.CustomResource):
                  args: DisableLegacyDbfsSettingArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        > This resource can only be used with a workspace-level provider!
+        The `DisableLegacyDbfsSetting` resource allows you to disable legacy dbfs features.
+        When this setting is on, access to DBFS root and DBFS mounts is disallowed (as well as creation of new mounts). When the setting is off, all DBFS functionality is enabled. This setting has no impact on workspace internal storage (WIS).
 
         > This setting is currently in private preview, and only available for enrolled customers.
 
-        The `DisableLegacyDbfsSetting` resource allows you to disable legacy dbfs features.
-        When this setting is on, access to DBFS root and DBFS mounts is disallowed (as well as creation of new mounts). When the setting is off, all DBFS functionality is enabled. This setting has no impact on workspace internal storage (WIS).
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

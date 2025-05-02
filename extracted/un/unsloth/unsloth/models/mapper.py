@@ -772,6 +772,50 @@ __INT_TO_FLOAT_MAPPER = \
         "unsloth/Qwen3-30B-A3B",
         "Qwen/Qwen3-30B-A3B",
     ),
+    "unsloth/Qwen3-0.6B-Base-unsloth-bnb-4bit" : (
+        "unsloth/Qwen3-0.6B-Base",
+        "Qwen/Qwen3-0.6B-Base",
+        "unsloth/Qwen3-0.6B-Base-bnb-4bit",
+    ),
+    "unsloth/Qwen3-1.7B-Base-unsloth-bnb-4bit" : (
+        "unsloth/Qwen3-1.7B-Base",
+        "Qwen/Qwen3-1.7B-Base",
+        "unsloth/Qwen3-1.7B-Base-bnb-4bit",
+    ),
+    "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit" : (
+        "unsloth/Qwen3-4B-Base",
+        "Qwen/Qwen3-4B-Base",
+        "unsloth/Qwen3-4B-Base-bnb-4bit",
+    ),
+    "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit" : (
+        "unsloth/Qwen3-8B-Base",
+        "Qwen/Qwen3-8B-Base",
+        "unsloth/Qwen3-8B-Base-bnb-4bit",
+    ),
+    "unsloth/Qwen3-14B-Base-unsloth-bnb-4bit" : (
+        "unsloth/Qwen3-14B-Base",
+        "Qwen/Qwen3-14B-Base",
+        "unsloth/Qwen3-14B-Base-bnb-4bit",
+    ),
+    "unsloth/Qwen3-30B-A3B-Base-bnb-4bit" : (
+        "unsloth/Qwen3-30B-A3B-Base",
+        "Qwen/Qwen3-30B-A3B-Base",
+    ),
+    "unsloth/phi-4-reasoning-unsloth-bnb-4bit" : (
+        "unsloth/phi-4-reasoning",
+        "microsoft/Phi-4-reasoning",
+        "unsloth/phi-4-reasoning-bnb-4bit",
+    ),
+    "unsloth/phi-4-reasoning-plus-unsloth-bnb-4bit" : (
+        "unsloth/phi-4-reasoning-plus",
+        "microsoft/Phi-4-reasoning-plus",
+        "unsloth/phi-4-reasoning-plus-bnb-4bit",
+    ),
+    "unsloth/phi-4-mini-reasoning-unsloth-bnb-4bit" : (
+        "unsloth/phi-4-mini-reasoning",
+        "microsoft/Phi-4-mini-reasoning",
+        "unsloth/phi-4-mini-reasoning-bnb-4bit",
+    ),
 }
 
 INT_TO_FLOAT_MAPPER  = {}

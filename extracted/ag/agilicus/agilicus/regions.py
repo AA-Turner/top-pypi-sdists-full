@@ -468,4 +468,4 @@ def routing_request(ctx, *args, ip_address=None, **kwargs):
 
 def list_regional_locations(ctx, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
-    return apiclient.regions_api.get_regional_locations(**kwargs)
+    return apiclient.regions_api.get_regional_locations(**strip_none(kwargs))

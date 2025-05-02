@@ -1,7 +1,7 @@
 r'''
 # `data_aws_auditmanager_framework`
 
-Refer to the Terraform Registry for docs: [`data_aws_auditmanager_framework`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework).
+Refer to the Terraform Registry for docs: [`data_aws_auditmanager_framework`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsAuditmanagerFramework(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsAuditmanagerFramework.DataAwsAuditmanagerFramework",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework aws_auditmanager_framework}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework aws_auditmanager_framework}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAwsAuditmanagerFramework(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework aws_auditmanager_framework} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework aws_auditmanager_framework} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param framework_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#framework_type DataAwsAuditmanagerFramework#framework_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#name DataAwsAuditmanagerFramework#name}.
-        :param control_sets: control_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#control_sets DataAwsAuditmanagerFramework#control_sets}
+        :param framework_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#framework_type DataAwsAuditmanagerFramework#framework_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#name DataAwsAuditmanagerFramework#name}.
+        :param control_sets: control_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#control_sets DataAwsAuditmanagerFramework#control_sets}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAwsAuditmanagerFramework(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsAuditmanagerFramework to import.
-        :param import_from_id: The id of the existing DataAwsAuditmanagerFramework that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsAuditmanagerFramework that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsAuditmanagerFramework to import is found.
         '''
         if __debug__:
@@ -261,9 +261,9 @@ class DataAwsAuditmanagerFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param framework_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#framework_type DataAwsAuditmanagerFramework#framework_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#name DataAwsAuditmanagerFramework#name}.
-        :param control_sets: control_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#control_sets DataAwsAuditmanagerFramework#control_sets}
+        :param framework_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#framework_type DataAwsAuditmanagerFramework#framework_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#name DataAwsAuditmanagerFramework#name}.
+        :param control_sets: control_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#control_sets DataAwsAuditmanagerFramework#control_sets}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -366,14 +366,14 @@ class DataAwsAuditmanagerFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def framework_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#framework_type DataAwsAuditmanagerFramework#framework_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#framework_type DataAwsAuditmanagerFramework#framework_type}.'''
         result = self._values.get("framework_type")
         assert result is not None, "Required property 'framework_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#name DataAwsAuditmanagerFramework#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#name DataAwsAuditmanagerFramework#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -384,7 +384,7 @@ class DataAwsAuditmanagerFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerFrameworkControlSets"]]]:
         '''control_sets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#control_sets DataAwsAuditmanagerFramework#control_sets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#control_sets DataAwsAuditmanagerFramework#control_sets}
         '''
         result = self._values.get("control_sets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerFrameworkControlSets"]]], result)
@@ -413,7 +413,7 @@ class DataAwsAuditmanagerFrameworkControlSets:
         controls: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataAwsAuditmanagerFrameworkControlSetsControls", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param controls: controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#controls DataAwsAuditmanagerFramework#controls}
+        :param controls: controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#controls DataAwsAuditmanagerFramework#controls}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e57b4f4eb66ed2f328d4d4bc00900e37e6a8382034db7f62c06fd3ebe9251394)
@@ -428,7 +428,7 @@ class DataAwsAuditmanagerFrameworkControlSets:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerFrameworkControlSetsControls"]]]:
         '''controls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/auditmanager_framework#controls DataAwsAuditmanagerFramework#controls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/auditmanager_framework#controls DataAwsAuditmanagerFramework#controls}
         '''
         result = self._values.get("controls")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsAuditmanagerFrameworkControlSetsControls"]]], result)

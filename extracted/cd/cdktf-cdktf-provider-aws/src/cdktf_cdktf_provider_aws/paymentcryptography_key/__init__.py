@@ -1,7 +1,7 @@
 r'''
 # `aws_paymentcryptography_key`
 
-Refer to the Terraform Registry for docs: [`aws_paymentcryptography_key`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key).
+Refer to the Terraform Registry for docs: [`aws_paymentcryptography_key`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PaymentcryptographyKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.paymentcryptographyKey.PaymentcryptographyKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key aws_paymentcryptography_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key aws_paymentcryptography_key}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class PaymentcryptographyKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key aws_paymentcryptography_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key aws_paymentcryptography_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#exportable PaymentcryptographyKey#exportable}.
-        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#deletion_window_in_days PaymentcryptographyKey#deletion_window_in_days}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#enabled PaymentcryptographyKey#enabled}.
-        :param key_attributes: key_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_attributes PaymentcryptographyKey#key_attributes}
-        :param key_check_value_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_check_value_algorithm PaymentcryptographyKey#key_check_value_algorithm}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#tags PaymentcryptographyKey#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#timeouts PaymentcryptographyKey#timeouts}
+        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#exportable PaymentcryptographyKey#exportable}.
+        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#deletion_window_in_days PaymentcryptographyKey#deletion_window_in_days}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#enabled PaymentcryptographyKey#enabled}.
+        :param key_attributes: key_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_attributes PaymentcryptographyKey#key_attributes}
+        :param key_check_value_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_check_value_algorithm PaymentcryptographyKey#key_check_value_algorithm}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#tags PaymentcryptographyKey#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#timeouts PaymentcryptographyKey#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class PaymentcryptographyKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PaymentcryptographyKey to import.
-        :param import_from_id: The id of the existing PaymentcryptographyKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PaymentcryptographyKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PaymentcryptographyKey to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class PaymentcryptographyKey(
         key_modes_of_use: typing.Optional[typing.Union["PaymentcryptographyKeyKeyAttributesKeyModesOfUse", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_algorithm PaymentcryptographyKey#key_algorithm}.
-        :param key_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_class PaymentcryptographyKey#key_class}.
-        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_usage PaymentcryptographyKey#key_usage}.
-        :param key_modes_of_use: key_modes_of_use block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_modes_of_use PaymentcryptographyKey#key_modes_of_use}
+        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_algorithm PaymentcryptographyKey#key_algorithm}.
+        :param key_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_class PaymentcryptographyKey#key_class}.
+        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_usage PaymentcryptographyKey#key_usage}.
+        :param key_modes_of_use: key_modes_of_use block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_modes_of_use PaymentcryptographyKey#key_modes_of_use}
         '''
         value = PaymentcryptographyKeyKeyAttributes(
             key_algorithm=key_algorithm,
@@ -165,9 +165,9 @@ class PaymentcryptographyKey(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#create PaymentcryptographyKey#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#delete PaymentcryptographyKey#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#update PaymentcryptographyKey#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#create PaymentcryptographyKey#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#delete PaymentcryptographyKey#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#update PaymentcryptographyKey#update}
         '''
         value = PaymentcryptographyKeyTimeouts(
             create=create, delete=delete, update=update
@@ -409,13 +409,13 @@ class PaymentcryptographyKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#exportable PaymentcryptographyKey#exportable}.
-        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#deletion_window_in_days PaymentcryptographyKey#deletion_window_in_days}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#enabled PaymentcryptographyKey#enabled}.
-        :param key_attributes: key_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_attributes PaymentcryptographyKey#key_attributes}
-        :param key_check_value_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_check_value_algorithm PaymentcryptographyKey#key_check_value_algorithm}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#tags PaymentcryptographyKey#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#timeouts PaymentcryptographyKey#timeouts}
+        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#exportable PaymentcryptographyKey#exportable}.
+        :param deletion_window_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#deletion_window_in_days PaymentcryptographyKey#deletion_window_in_days}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#enabled PaymentcryptographyKey#enabled}.
+        :param key_attributes: key_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_attributes PaymentcryptographyKey#key_attributes}
+        :param key_check_value_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_check_value_algorithm PaymentcryptographyKey#key_check_value_algorithm}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#tags PaymentcryptographyKey#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#timeouts PaymentcryptographyKey#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -535,14 +535,14 @@ class PaymentcryptographyKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def exportable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#exportable PaymentcryptographyKey#exportable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#exportable PaymentcryptographyKey#exportable}.'''
         result = self._values.get("exportable")
         assert result is not None, "Required property 'exportable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def deletion_window_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#deletion_window_in_days PaymentcryptographyKey#deletion_window_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#deletion_window_in_days PaymentcryptographyKey#deletion_window_in_days}.'''
         result = self._values.get("deletion_window_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -550,7 +550,7 @@ class PaymentcryptographyKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#enabled PaymentcryptographyKey#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#enabled PaymentcryptographyKey#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -558,20 +558,20 @@ class PaymentcryptographyKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_attributes(self) -> typing.Optional["PaymentcryptographyKeyKeyAttributes"]:
         '''key_attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_attributes PaymentcryptographyKey#key_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_attributes PaymentcryptographyKey#key_attributes}
         '''
         result = self._values.get("key_attributes")
         return typing.cast(typing.Optional["PaymentcryptographyKeyKeyAttributes"], result)
 
     @builtins.property
     def key_check_value_algorithm(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_check_value_algorithm PaymentcryptographyKey#key_check_value_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_check_value_algorithm PaymentcryptographyKey#key_check_value_algorithm}.'''
         result = self._values.get("key_check_value_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#tags PaymentcryptographyKey#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#tags PaymentcryptographyKey#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -579,7 +579,7 @@ class PaymentcryptographyKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PaymentcryptographyKeyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#timeouts PaymentcryptographyKey#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#timeouts PaymentcryptographyKey#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PaymentcryptographyKeyTimeouts"], result)
@@ -616,10 +616,10 @@ class PaymentcryptographyKeyKeyAttributes:
         key_modes_of_use: typing.Optional[typing.Union["PaymentcryptographyKeyKeyAttributesKeyModesOfUse", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_algorithm PaymentcryptographyKey#key_algorithm}.
-        :param key_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_class PaymentcryptographyKey#key_class}.
-        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_usage PaymentcryptographyKey#key_usage}.
-        :param key_modes_of_use: key_modes_of_use block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_modes_of_use PaymentcryptographyKey#key_modes_of_use}
+        :param key_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_algorithm PaymentcryptographyKey#key_algorithm}.
+        :param key_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_class PaymentcryptographyKey#key_class}.
+        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_usage PaymentcryptographyKey#key_usage}.
+        :param key_modes_of_use: key_modes_of_use block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_modes_of_use PaymentcryptographyKey#key_modes_of_use}
         '''
         if isinstance(key_modes_of_use, dict):
             key_modes_of_use = PaymentcryptographyKeyKeyAttributesKeyModesOfUse(**key_modes_of_use)
@@ -639,21 +639,21 @@ class PaymentcryptographyKeyKeyAttributes:
 
     @builtins.property
     def key_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_algorithm PaymentcryptographyKey#key_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_algorithm PaymentcryptographyKey#key_algorithm}.'''
         result = self._values.get("key_algorithm")
         assert result is not None, "Required property 'key_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_class(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_class PaymentcryptographyKey#key_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_class PaymentcryptographyKey#key_class}.'''
         result = self._values.get("key_class")
         assert result is not None, "Required property 'key_class' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_usage(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_usage PaymentcryptographyKey#key_usage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_usage PaymentcryptographyKey#key_usage}.'''
         result = self._values.get("key_usage")
         assert result is not None, "Required property 'key_usage' is missing"
         return typing.cast(builtins.str, result)
@@ -664,7 +664,7 @@ class PaymentcryptographyKeyKeyAttributes:
     ) -> typing.Optional["PaymentcryptographyKeyKeyAttributesKeyModesOfUse"]:
         '''key_modes_of_use block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#key_modes_of_use PaymentcryptographyKey#key_modes_of_use}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#key_modes_of_use PaymentcryptographyKey#key_modes_of_use}
         '''
         result = self._values.get("key_modes_of_use")
         return typing.cast(typing.Optional["PaymentcryptographyKeyKeyAttributesKeyModesOfUse"], result)
@@ -711,15 +711,15 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
         wrap: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param decrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#decrypt PaymentcryptographyKey#decrypt}.
-        :param derive_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#derive_key PaymentcryptographyKey#derive_key}.
-        :param encrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#encrypt PaymentcryptographyKey#encrypt}.
-        :param generate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#generate PaymentcryptographyKey#generate}.
-        :param no_restrictions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#no_restrictions PaymentcryptographyKey#no_restrictions}.
-        :param sign: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#sign PaymentcryptographyKey#sign}.
-        :param unwrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#unwrap PaymentcryptographyKey#unwrap}.
-        :param verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#verify PaymentcryptographyKey#verify}.
-        :param wrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#wrap PaymentcryptographyKey#wrap}.
+        :param decrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#decrypt PaymentcryptographyKey#decrypt}.
+        :param derive_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#derive_key PaymentcryptographyKey#derive_key}.
+        :param encrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#encrypt PaymentcryptographyKey#encrypt}.
+        :param generate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#generate PaymentcryptographyKey#generate}.
+        :param no_restrictions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#no_restrictions PaymentcryptographyKey#no_restrictions}.
+        :param sign: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#sign PaymentcryptographyKey#sign}.
+        :param unwrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#unwrap PaymentcryptographyKey#unwrap}.
+        :param verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#verify PaymentcryptographyKey#verify}.
+        :param wrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#wrap PaymentcryptographyKey#wrap}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c80bedec29fdafc646d3930f6c9fa2df6ec89866b52882e184d86c13d18fd818)
@@ -756,7 +756,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def decrypt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#decrypt PaymentcryptographyKey#decrypt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#decrypt PaymentcryptographyKey#decrypt}.'''
         result = self._values.get("decrypt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -764,7 +764,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def derive_key(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#derive_key PaymentcryptographyKey#derive_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#derive_key PaymentcryptographyKey#derive_key}.'''
         result = self._values.get("derive_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -772,7 +772,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def encrypt(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#encrypt PaymentcryptographyKey#encrypt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#encrypt PaymentcryptographyKey#encrypt}.'''
         result = self._values.get("encrypt")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -780,7 +780,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def generate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#generate PaymentcryptographyKey#generate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#generate PaymentcryptographyKey#generate}.'''
         result = self._values.get("generate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -788,7 +788,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def no_restrictions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#no_restrictions PaymentcryptographyKey#no_restrictions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#no_restrictions PaymentcryptographyKey#no_restrictions}.'''
         result = self._values.get("no_restrictions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -796,7 +796,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def sign(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#sign PaymentcryptographyKey#sign}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#sign PaymentcryptographyKey#sign}.'''
         result = self._values.get("sign")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -804,7 +804,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def unwrap(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#unwrap PaymentcryptographyKey#unwrap}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#unwrap PaymentcryptographyKey#unwrap}.'''
         result = self._values.get("unwrap")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -812,7 +812,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def verify(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#verify PaymentcryptographyKey#verify}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#verify PaymentcryptographyKey#verify}.'''
         result = self._values.get("verify")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -820,7 +820,7 @@ class PaymentcryptographyKeyKeyAttributesKeyModesOfUse:
     def wrap(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#wrap PaymentcryptographyKey#wrap}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#wrap PaymentcryptographyKey#wrap}.'''
         result = self._values.get("wrap")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1145,15 +1145,15 @@ class PaymentcryptographyKeyKeyAttributesOutputReference(
         wrap: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param decrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#decrypt PaymentcryptographyKey#decrypt}.
-        :param derive_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#derive_key PaymentcryptographyKey#derive_key}.
-        :param encrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#encrypt PaymentcryptographyKey#encrypt}.
-        :param generate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#generate PaymentcryptographyKey#generate}.
-        :param no_restrictions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#no_restrictions PaymentcryptographyKey#no_restrictions}.
-        :param sign: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#sign PaymentcryptographyKey#sign}.
-        :param unwrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#unwrap PaymentcryptographyKey#unwrap}.
-        :param verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#verify PaymentcryptographyKey#verify}.
-        :param wrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#wrap PaymentcryptographyKey#wrap}.
+        :param decrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#decrypt PaymentcryptographyKey#decrypt}.
+        :param derive_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#derive_key PaymentcryptographyKey#derive_key}.
+        :param encrypt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#encrypt PaymentcryptographyKey#encrypt}.
+        :param generate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#generate PaymentcryptographyKey#generate}.
+        :param no_restrictions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#no_restrictions PaymentcryptographyKey#no_restrictions}.
+        :param sign: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#sign PaymentcryptographyKey#sign}.
+        :param unwrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#unwrap PaymentcryptographyKey#unwrap}.
+        :param verify: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#verify PaymentcryptographyKey#verify}.
+        :param wrap: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#wrap PaymentcryptographyKey#wrap}.
         '''
         value = PaymentcryptographyKeyKeyAttributesKeyModesOfUse(
             decrypt=decrypt,
@@ -1270,9 +1270,9 @@ class PaymentcryptographyKeyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#create PaymentcryptographyKey#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#delete PaymentcryptographyKey#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#update PaymentcryptographyKey#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#create PaymentcryptographyKey#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#delete PaymentcryptographyKey#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#update PaymentcryptographyKey#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0263ffd6113c1b7312e6f3efacc0a97116d8595d4e84a933fadac675f5f354f1)
@@ -1291,7 +1291,7 @@ class PaymentcryptographyKeyTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#create PaymentcryptographyKey#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#create PaymentcryptographyKey#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1300,7 +1300,7 @@ class PaymentcryptographyKeyTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#delete PaymentcryptographyKey#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#delete PaymentcryptographyKey#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1309,7 +1309,7 @@ class PaymentcryptographyKeyTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/paymentcryptography_key#update PaymentcryptographyKey#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/paymentcryptography_key#update PaymentcryptographyKey#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

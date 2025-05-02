@@ -1,0 +1,28 @@
+Metadata-Version: 2.3
+Name: pytest-mergify
+Version: 2025.4.10.1
+Summary: Pytest plugin for Mergify
+License: GPL-3.0-only
+Author: Julien Danjou
+Author-email: jd@mergify.com
+Requires-Python: >=3.8
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.25)
+Requires-Dist: opentelemetry-sdk (>=1.25)
+Requires-Dist: requests (>=2.32.3,<3.0.0)
+Description-Content-Type: text/markdown
+
+# pytest-mergify
+
+A **pytest** plugin that integrates seamlessly with **Mergify**, enabling
+tracing of test executions.
+
+More information at https://mergify.com
+

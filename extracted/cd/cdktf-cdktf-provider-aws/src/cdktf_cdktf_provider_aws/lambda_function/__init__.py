@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_function`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_function`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function).
+Refer to the Terraform Registry for docs: [`aws_lambda_function`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaFunction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaFunction.LambdaFunction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function aws_lambda_function}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function aws_lambda_function}.'''
 
     def __init__(
         self,
@@ -95,46 +95,46 @@ class LambdaFunction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function aws_lambda_function} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function aws_lambda_function} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#function_name LambdaFunction#function_name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#role LambdaFunction#role}.
-        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#architectures LambdaFunction#architectures}.
-        :param code_signing_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#code_signing_config_arn LambdaFunction#code_signing_config_arn}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#dead_letter_config LambdaFunction#dead_letter_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#description LambdaFunction#description}.
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#environment LambdaFunction#environment}
-        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#ephemeral_storage LambdaFunction#ephemeral_storage}
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#filename LambdaFunction#filename}.
-        :param file_system_config: file_system_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#file_system_config LambdaFunction#file_system_config}
-        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#handler LambdaFunction#handler}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#id LambdaFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#image_config LambdaFunction#image_config}
-        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#image_uri LambdaFunction#image_uri}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#kms_key_arn LambdaFunction#kms_key_arn}.
-        :param layers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#layers LambdaFunction#layers}.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#logging_config LambdaFunction#logging_config}
-        :param memory_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#memory_size LambdaFunction#memory_size}.
-        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#package_type LambdaFunction#package_type}.
-        :param publish: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#publish LambdaFunction#publish}.
-        :param replacement_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#replacement_security_group_ids LambdaFunction#replacement_security_group_ids}.
-        :param replace_security_groups_on_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#replace_security_groups_on_destroy LambdaFunction#replace_security_groups_on_destroy}.
-        :param reserved_concurrent_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#reserved_concurrent_executions LambdaFunction#reserved_concurrent_executions}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#runtime LambdaFunction#runtime}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_bucket LambdaFunction#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_key LambdaFunction#s3_key}.
-        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_object_version LambdaFunction#s3_object_version}.
-        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#skip_destroy LambdaFunction#skip_destroy}.
-        :param snap_start: snap_start block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#snap_start LambdaFunction#snap_start}
-        :param source_code_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#source_code_hash LambdaFunction#source_code_hash}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tags LambdaFunction#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tags_all LambdaFunction#tags_all}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#timeout LambdaFunction#timeout}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#timeouts LambdaFunction#timeouts}
-        :param tracing_config: tracing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tracing_config LambdaFunction#tracing_config}
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#vpc_config LambdaFunction#vpc_config}
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#function_name LambdaFunction#function_name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#role LambdaFunction#role}.
+        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#architectures LambdaFunction#architectures}.
+        :param code_signing_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#code_signing_config_arn LambdaFunction#code_signing_config_arn}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#dead_letter_config LambdaFunction#dead_letter_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#description LambdaFunction#description}.
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#environment LambdaFunction#environment}
+        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#ephemeral_storage LambdaFunction#ephemeral_storage}
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#filename LambdaFunction#filename}.
+        :param file_system_config: file_system_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#file_system_config LambdaFunction#file_system_config}
+        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#handler LambdaFunction#handler}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#id LambdaFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#image_config LambdaFunction#image_config}
+        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#image_uri LambdaFunction#image_uri}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#kms_key_arn LambdaFunction#kms_key_arn}.
+        :param layers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#layers LambdaFunction#layers}.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#logging_config LambdaFunction#logging_config}
+        :param memory_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#memory_size LambdaFunction#memory_size}.
+        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#package_type LambdaFunction#package_type}.
+        :param publish: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#publish LambdaFunction#publish}.
+        :param replacement_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#replacement_security_group_ids LambdaFunction#replacement_security_group_ids}.
+        :param replace_security_groups_on_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#replace_security_groups_on_destroy LambdaFunction#replace_security_groups_on_destroy}.
+        :param reserved_concurrent_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#reserved_concurrent_executions LambdaFunction#reserved_concurrent_executions}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#runtime LambdaFunction#runtime}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_bucket LambdaFunction#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_key LambdaFunction#s3_key}.
+        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_object_version LambdaFunction#s3_object_version}.
+        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#skip_destroy LambdaFunction#skip_destroy}.
+        :param snap_start: snap_start block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#snap_start LambdaFunction#snap_start}
+        :param source_code_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#source_code_hash LambdaFunction#source_code_hash}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tags LambdaFunction#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tags_all LambdaFunction#tags_all}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#timeout LambdaFunction#timeout}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#timeouts LambdaFunction#timeouts}
+        :param tracing_config: tracing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tracing_config LambdaFunction#tracing_config}
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#vpc_config LambdaFunction#vpc_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -208,7 +208,7 @@ class LambdaFunction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaFunction to import.
-        :param import_from_id: The id of the existing LambdaFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaFunction to import is found.
         '''
         if __debug__:
@@ -222,7 +222,7 @@ class LambdaFunction(
     @jsii.member(jsii_name="putDeadLetterConfig")
     def put_dead_letter_config(self, *, target_arn: builtins.str) -> None:
         '''
-        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#target_arn LambdaFunction#target_arn}.
+        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#target_arn LambdaFunction#target_arn}.
         '''
         value = LambdaFunctionDeadLetterConfig(target_arn=target_arn)
 
@@ -235,7 +235,7 @@ class LambdaFunction(
         variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#variables LambdaFunction#variables}.
+        :param variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#variables LambdaFunction#variables}.
         '''
         value = LambdaFunctionEnvironment(variables=variables)
 
@@ -248,7 +248,7 @@ class LambdaFunction(
         size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#size LambdaFunction#size}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#size LambdaFunction#size}.
         '''
         value = LambdaFunctionEphemeralStorage(size=size)
 
@@ -262,8 +262,8 @@ class LambdaFunction(
         local_mount_path: builtins.str,
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#arn LambdaFunction#arn}.
-        :param local_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#local_mount_path LambdaFunction#local_mount_path}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#arn LambdaFunction#arn}.
+        :param local_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#local_mount_path LambdaFunction#local_mount_path}.
         '''
         value = LambdaFunctionFileSystemConfig(
             arn=arn, local_mount_path=local_mount_path
@@ -280,9 +280,9 @@ class LambdaFunction(
         working_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#command LambdaFunction#command}.
-        :param entry_point: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#entry_point LambdaFunction#entry_point}.
-        :param working_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#working_directory LambdaFunction#working_directory}.
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#command LambdaFunction#command}.
+        :param entry_point: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#entry_point LambdaFunction#entry_point}.
+        :param working_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#working_directory LambdaFunction#working_directory}.
         '''
         value = LambdaFunctionImageConfig(
             command=command,
@@ -302,10 +302,10 @@ class LambdaFunction(
         system_log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#log_format LambdaFunction#log_format}.
-        :param application_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#application_log_level LambdaFunction#application_log_level}.
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#log_group LambdaFunction#log_group}.
-        :param system_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#system_log_level LambdaFunction#system_log_level}.
+        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#log_format LambdaFunction#log_format}.
+        :param application_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#application_log_level LambdaFunction#application_log_level}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#log_group LambdaFunction#log_group}.
+        :param system_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#system_log_level LambdaFunction#system_log_level}.
         '''
         value = LambdaFunctionLoggingConfig(
             log_format=log_format,
@@ -319,7 +319,7 @@ class LambdaFunction(
     @jsii.member(jsii_name="putSnapStart")
     def put_snap_start(self, *, apply_on: builtins.str) -> None:
         '''
-        :param apply_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#apply_on LambdaFunction#apply_on}.
+        :param apply_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#apply_on LambdaFunction#apply_on}.
         '''
         value = LambdaFunctionSnapStart(apply_on=apply_on)
 
@@ -334,9 +334,9 @@ class LambdaFunction(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#create LambdaFunction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#delete LambdaFunction#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#update LambdaFunction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#create LambdaFunction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#delete LambdaFunction#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#update LambdaFunction#update}.
         '''
         value = LambdaFunctionTimeouts(create=create, delete=delete, update=update)
 
@@ -345,7 +345,7 @@ class LambdaFunction(
     @jsii.member(jsii_name="putTracingConfig")
     def put_tracing_config(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#mode LambdaFunction#mode}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#mode LambdaFunction#mode}.
         '''
         value = LambdaFunctionTracingConfig(mode=mode)
 
@@ -360,9 +360,9 @@ class LambdaFunction(
         ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#security_group_ids LambdaFunction#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#subnet_ids LambdaFunction#subnet_ids}.
-        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#ipv6_allowed_for_dual_stack LambdaFunction#ipv6_allowed_for_dual_stack}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#security_group_ids LambdaFunction#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#subnet_ids LambdaFunction#subnet_ids}.
+        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#ipv6_allowed_for_dual_stack LambdaFunction#ipv6_allowed_for_dual_stack}.
         '''
         value = LambdaFunctionVpcConfig(
             security_group_ids=security_group_ids,
@@ -1248,42 +1248,42 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#function_name LambdaFunction#function_name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#role LambdaFunction#role}.
-        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#architectures LambdaFunction#architectures}.
-        :param code_signing_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#code_signing_config_arn LambdaFunction#code_signing_config_arn}.
-        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#dead_letter_config LambdaFunction#dead_letter_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#description LambdaFunction#description}.
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#environment LambdaFunction#environment}
-        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#ephemeral_storage LambdaFunction#ephemeral_storage}
-        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#filename LambdaFunction#filename}.
-        :param file_system_config: file_system_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#file_system_config LambdaFunction#file_system_config}
-        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#handler LambdaFunction#handler}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#id LambdaFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#image_config LambdaFunction#image_config}
-        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#image_uri LambdaFunction#image_uri}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#kms_key_arn LambdaFunction#kms_key_arn}.
-        :param layers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#layers LambdaFunction#layers}.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#logging_config LambdaFunction#logging_config}
-        :param memory_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#memory_size LambdaFunction#memory_size}.
-        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#package_type LambdaFunction#package_type}.
-        :param publish: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#publish LambdaFunction#publish}.
-        :param replacement_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#replacement_security_group_ids LambdaFunction#replacement_security_group_ids}.
-        :param replace_security_groups_on_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#replace_security_groups_on_destroy LambdaFunction#replace_security_groups_on_destroy}.
-        :param reserved_concurrent_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#reserved_concurrent_executions LambdaFunction#reserved_concurrent_executions}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#runtime LambdaFunction#runtime}.
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_bucket LambdaFunction#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_key LambdaFunction#s3_key}.
-        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_object_version LambdaFunction#s3_object_version}.
-        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#skip_destroy LambdaFunction#skip_destroy}.
-        :param snap_start: snap_start block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#snap_start LambdaFunction#snap_start}
-        :param source_code_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#source_code_hash LambdaFunction#source_code_hash}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tags LambdaFunction#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tags_all LambdaFunction#tags_all}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#timeout LambdaFunction#timeout}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#timeouts LambdaFunction#timeouts}
-        :param tracing_config: tracing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tracing_config LambdaFunction#tracing_config}
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#vpc_config LambdaFunction#vpc_config}
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#function_name LambdaFunction#function_name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#role LambdaFunction#role}.
+        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#architectures LambdaFunction#architectures}.
+        :param code_signing_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#code_signing_config_arn LambdaFunction#code_signing_config_arn}.
+        :param dead_letter_config: dead_letter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#dead_letter_config LambdaFunction#dead_letter_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#description LambdaFunction#description}.
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#environment LambdaFunction#environment}
+        :param ephemeral_storage: ephemeral_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#ephemeral_storage LambdaFunction#ephemeral_storage}
+        :param filename: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#filename LambdaFunction#filename}.
+        :param file_system_config: file_system_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#file_system_config LambdaFunction#file_system_config}
+        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#handler LambdaFunction#handler}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#id LambdaFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#image_config LambdaFunction#image_config}
+        :param image_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#image_uri LambdaFunction#image_uri}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#kms_key_arn LambdaFunction#kms_key_arn}.
+        :param layers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#layers LambdaFunction#layers}.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#logging_config LambdaFunction#logging_config}
+        :param memory_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#memory_size LambdaFunction#memory_size}.
+        :param package_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#package_type LambdaFunction#package_type}.
+        :param publish: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#publish LambdaFunction#publish}.
+        :param replacement_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#replacement_security_group_ids LambdaFunction#replacement_security_group_ids}.
+        :param replace_security_groups_on_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#replace_security_groups_on_destroy LambdaFunction#replace_security_groups_on_destroy}.
+        :param reserved_concurrent_executions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#reserved_concurrent_executions LambdaFunction#reserved_concurrent_executions}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#runtime LambdaFunction#runtime}.
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_bucket LambdaFunction#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_key LambdaFunction#s3_key}.
+        :param s3_object_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_object_version LambdaFunction#s3_object_version}.
+        :param skip_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#skip_destroy LambdaFunction#skip_destroy}.
+        :param snap_start: snap_start block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#snap_start LambdaFunction#snap_start}
+        :param source_code_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#source_code_hash LambdaFunction#source_code_hash}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tags LambdaFunction#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tags_all LambdaFunction#tags_all}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#timeout LambdaFunction#timeout}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#timeouts LambdaFunction#timeouts}
+        :param tracing_config: tracing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tracing_config LambdaFunction#tracing_config}
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#vpc_config LambdaFunction#vpc_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1505,27 +1505,27 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#function_name LambdaFunction#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#function_name LambdaFunction#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#role LambdaFunction#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#role LambdaFunction#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#architectures LambdaFunction#architectures}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#architectures LambdaFunction#architectures}.'''
         result = self._values.get("architectures")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def code_signing_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#code_signing_config_arn LambdaFunction#code_signing_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#code_signing_config_arn LambdaFunction#code_signing_config_arn}.'''
         result = self._values.get("code_signing_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1533,14 +1533,14 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dead_letter_config(self) -> typing.Optional["LambdaFunctionDeadLetterConfig"]:
         '''dead_letter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#dead_letter_config LambdaFunction#dead_letter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#dead_letter_config LambdaFunction#dead_letter_config}
         '''
         result = self._values.get("dead_letter_config")
         return typing.cast(typing.Optional["LambdaFunctionDeadLetterConfig"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#description LambdaFunction#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#description LambdaFunction#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1548,7 +1548,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment(self) -> typing.Optional["LambdaFunctionEnvironment"]:
         '''environment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#environment LambdaFunction#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#environment LambdaFunction#environment}
         '''
         result = self._values.get("environment")
         return typing.cast(typing.Optional["LambdaFunctionEnvironment"], result)
@@ -1557,14 +1557,14 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ephemeral_storage(self) -> typing.Optional["LambdaFunctionEphemeralStorage"]:
         '''ephemeral_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#ephemeral_storage LambdaFunction#ephemeral_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#ephemeral_storage LambdaFunction#ephemeral_storage}
         '''
         result = self._values.get("ephemeral_storage")
         return typing.cast(typing.Optional["LambdaFunctionEphemeralStorage"], result)
 
     @builtins.property
     def filename(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#filename LambdaFunction#filename}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#filename LambdaFunction#filename}.'''
         result = self._values.get("filename")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1572,20 +1572,20 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def file_system_config(self) -> typing.Optional["LambdaFunctionFileSystemConfig"]:
         '''file_system_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#file_system_config LambdaFunction#file_system_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#file_system_config LambdaFunction#file_system_config}
         '''
         result = self._values.get("file_system_config")
         return typing.cast(typing.Optional["LambdaFunctionFileSystemConfig"], result)
 
     @builtins.property
     def handler(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#handler LambdaFunction#handler}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#handler LambdaFunction#handler}.'''
         result = self._values.get("handler")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#id LambdaFunction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#id LambdaFunction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1597,26 +1597,26 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def image_config(self) -> typing.Optional["LambdaFunctionImageConfig"]:
         '''image_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#image_config LambdaFunction#image_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#image_config LambdaFunction#image_config}
         '''
         result = self._values.get("image_config")
         return typing.cast(typing.Optional["LambdaFunctionImageConfig"], result)
 
     @builtins.property
     def image_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#image_uri LambdaFunction#image_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#image_uri LambdaFunction#image_uri}.'''
         result = self._values.get("image_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#kms_key_arn LambdaFunction#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#kms_key_arn LambdaFunction#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def layers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#layers LambdaFunction#layers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#layers LambdaFunction#layers}.'''
         result = self._values.get("layers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1624,20 +1624,20 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging_config(self) -> typing.Optional["LambdaFunctionLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#logging_config LambdaFunction#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#logging_config LambdaFunction#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["LambdaFunctionLoggingConfig"], result)
 
     @builtins.property
     def memory_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#memory_size LambdaFunction#memory_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#memory_size LambdaFunction#memory_size}.'''
         result = self._values.get("memory_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def package_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#package_type LambdaFunction#package_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#package_type LambdaFunction#package_type}.'''
         result = self._values.get("package_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1645,7 +1645,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publish(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#publish LambdaFunction#publish}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#publish LambdaFunction#publish}.'''
         result = self._values.get("publish")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1653,7 +1653,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replacement_security_group_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#replacement_security_group_ids LambdaFunction#replacement_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#replacement_security_group_ids LambdaFunction#replacement_security_group_ids}.'''
         result = self._values.get("replacement_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1661,37 +1661,37 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replace_security_groups_on_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#replace_security_groups_on_destroy LambdaFunction#replace_security_groups_on_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#replace_security_groups_on_destroy LambdaFunction#replace_security_groups_on_destroy}.'''
         result = self._values.get("replace_security_groups_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def reserved_concurrent_executions(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#reserved_concurrent_executions LambdaFunction#reserved_concurrent_executions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#reserved_concurrent_executions LambdaFunction#reserved_concurrent_executions}.'''
         result = self._values.get("reserved_concurrent_executions")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def runtime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#runtime LambdaFunction#runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#runtime LambdaFunction#runtime}.'''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_bucket LambdaFunction#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_bucket LambdaFunction#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_key LambdaFunction#s3_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_key LambdaFunction#s3_key}.'''
         result = self._values.get("s3_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_object_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#s3_object_version LambdaFunction#s3_object_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#s3_object_version LambdaFunction#s3_object_version}.'''
         result = self._values.get("s3_object_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1699,7 +1699,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def skip_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#skip_destroy LambdaFunction#skip_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#skip_destroy LambdaFunction#skip_destroy}.'''
         result = self._values.get("skip_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1707,32 +1707,32 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def snap_start(self) -> typing.Optional["LambdaFunctionSnapStart"]:
         '''snap_start block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#snap_start LambdaFunction#snap_start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#snap_start LambdaFunction#snap_start}
         '''
         result = self._values.get("snap_start")
         return typing.cast(typing.Optional["LambdaFunctionSnapStart"], result)
 
     @builtins.property
     def source_code_hash(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#source_code_hash LambdaFunction#source_code_hash}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#source_code_hash LambdaFunction#source_code_hash}.'''
         result = self._values.get("source_code_hash")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tags LambdaFunction#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tags LambdaFunction#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tags_all LambdaFunction#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tags_all LambdaFunction#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#timeout LambdaFunction#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#timeout LambdaFunction#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1740,7 +1740,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LambdaFunctionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#timeouts LambdaFunction#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#timeouts LambdaFunction#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LambdaFunctionTimeouts"], result)
@@ -1749,7 +1749,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tracing_config(self) -> typing.Optional["LambdaFunctionTracingConfig"]:
         '''tracing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#tracing_config LambdaFunction#tracing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#tracing_config LambdaFunction#tracing_config}
         '''
         result = self._values.get("tracing_config")
         return typing.cast(typing.Optional["LambdaFunctionTracingConfig"], result)
@@ -1758,7 +1758,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_config(self) -> typing.Optional["LambdaFunctionVpcConfig"]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#vpc_config LambdaFunction#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#vpc_config LambdaFunction#vpc_config}
         '''
         result = self._values.get("vpc_config")
         return typing.cast(typing.Optional["LambdaFunctionVpcConfig"], result)
@@ -1783,7 +1783,7 @@ class LambdaFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class LambdaFunctionDeadLetterConfig:
     def __init__(self, *, target_arn: builtins.str) -> None:
         '''
-        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#target_arn LambdaFunction#target_arn}.
+        :param target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#target_arn LambdaFunction#target_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a4a02c0fc6491620deddcb5d574742f2f8fcac2c2587663b572d466899b5551)
@@ -1794,7 +1794,7 @@ class LambdaFunctionDeadLetterConfig:
 
     @builtins.property
     def target_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#target_arn LambdaFunction#target_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#target_arn LambdaFunction#target_arn}.'''
         result = self._values.get("target_arn")
         assert result is not None, "Required property 'target_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1876,7 +1876,7 @@ class LambdaFunctionEnvironment:
         variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#variables LambdaFunction#variables}.
+        :param variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#variables LambdaFunction#variables}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a683654a7cbec07f263e0b9473e7822a0f686e669135969e118a95e805f3718e)
@@ -1887,7 +1887,7 @@ class LambdaFunctionEnvironment:
 
     @builtins.property
     def variables(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#variables LambdaFunction#variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#variables LambdaFunction#variables}.'''
         result = self._values.get("variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1967,7 +1967,7 @@ class LambdaFunctionEnvironmentOutputReference(
 class LambdaFunctionEphemeralStorage:
     def __init__(self, *, size: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#size LambdaFunction#size}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#size LambdaFunction#size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a3c9663d726add860feae2dc60180ebb56e0a3148f4b688dbd34e480bee075a)
@@ -1978,7 +1978,7 @@ class LambdaFunctionEphemeralStorage:
 
     @builtins.property
     def size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#size LambdaFunction#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#size LambdaFunction#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2059,8 +2059,8 @@ class LambdaFunctionEphemeralStorageOutputReference(
 class LambdaFunctionFileSystemConfig:
     def __init__(self, *, arn: builtins.str, local_mount_path: builtins.str) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#arn LambdaFunction#arn}.
-        :param local_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#local_mount_path LambdaFunction#local_mount_path}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#arn LambdaFunction#arn}.
+        :param local_mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#local_mount_path LambdaFunction#local_mount_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bdc756a83b47acb5b5beb1d853047ec7b7a79e5e663a64150fe007f78616054)
@@ -2073,14 +2073,14 @@ class LambdaFunctionFileSystemConfig:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#arn LambdaFunction#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#arn LambdaFunction#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def local_mount_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#local_mount_path LambdaFunction#local_mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#local_mount_path LambdaFunction#local_mount_path}.'''
         result = self._values.get("local_mount_path")
         assert result is not None, "Required property 'local_mount_path' is missing"
         return typing.cast(builtins.str, result)
@@ -2185,9 +2185,9 @@ class LambdaFunctionImageConfig:
         working_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#command LambdaFunction#command}.
-        :param entry_point: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#entry_point LambdaFunction#entry_point}.
-        :param working_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#working_directory LambdaFunction#working_directory}.
+        :param command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#command LambdaFunction#command}.
+        :param entry_point: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#entry_point LambdaFunction#entry_point}.
+        :param working_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#working_directory LambdaFunction#working_directory}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c92f9b9103d333ed4b6acaaa6f3efa16cf2c04f2f3419a91c700103d8b53b0a)
@@ -2204,19 +2204,19 @@ class LambdaFunctionImageConfig:
 
     @builtins.property
     def command(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#command LambdaFunction#command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#command LambdaFunction#command}.'''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def entry_point(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#entry_point LambdaFunction#entry_point}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#entry_point LambdaFunction#entry_point}.'''
         result = self._values.get("entry_point")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def working_directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#working_directory LambdaFunction#working_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#working_directory LambdaFunction#working_directory}.'''
         result = self._values.get("working_directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2348,10 +2348,10 @@ class LambdaFunctionLoggingConfig:
         system_log_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#log_format LambdaFunction#log_format}.
-        :param application_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#application_log_level LambdaFunction#application_log_level}.
-        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#log_group LambdaFunction#log_group}.
-        :param system_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#system_log_level LambdaFunction#system_log_level}.
+        :param log_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#log_format LambdaFunction#log_format}.
+        :param application_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#application_log_level LambdaFunction#application_log_level}.
+        :param log_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#log_group LambdaFunction#log_group}.
+        :param system_log_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#system_log_level LambdaFunction#system_log_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bc30891a4573a673ab914566a16a5b33e1a28e8d897ece692e1d089ed63b8b8)
@@ -2371,26 +2371,26 @@ class LambdaFunctionLoggingConfig:
 
     @builtins.property
     def log_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#log_format LambdaFunction#log_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#log_format LambdaFunction#log_format}.'''
         result = self._values.get("log_format")
         assert result is not None, "Required property 'log_format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def application_log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#application_log_level LambdaFunction#application_log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#application_log_level LambdaFunction#application_log_level}.'''
         result = self._values.get("application_log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#log_group LambdaFunction#log_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#log_group LambdaFunction#log_group}.'''
         result = self._values.get("log_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def system_log_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#system_log_level LambdaFunction#system_log_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#system_log_level LambdaFunction#system_log_level}.'''
         result = self._values.get("system_log_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2530,7 +2530,7 @@ class LambdaFunctionLoggingConfigOutputReference(
 class LambdaFunctionSnapStart:
     def __init__(self, *, apply_on: builtins.str) -> None:
         '''
-        :param apply_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#apply_on LambdaFunction#apply_on}.
+        :param apply_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#apply_on LambdaFunction#apply_on}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__394ea1f11621cee32f2541866a7d66076b5e53a12eb5399f940fbc7cc57f1fe9)
@@ -2541,7 +2541,7 @@ class LambdaFunctionSnapStart:
 
     @builtins.property
     def apply_on(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#apply_on LambdaFunction#apply_on}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#apply_on LambdaFunction#apply_on}.'''
         result = self._values.get("apply_on")
         assert result is not None, "Required property 'apply_on' is missing"
         return typing.cast(builtins.str, result)
@@ -2627,9 +2627,9 @@ class LambdaFunctionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#create LambdaFunction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#delete LambdaFunction#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#update LambdaFunction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#create LambdaFunction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#delete LambdaFunction#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#update LambdaFunction#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b25d292e3bb9c44a89b3c3de9a4494c12200ab9486afcdbd435b1722d874d99)
@@ -2646,19 +2646,19 @@ class LambdaFunctionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#create LambdaFunction#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#create LambdaFunction#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#delete LambdaFunction#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#delete LambdaFunction#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#update LambdaFunction#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#update LambdaFunction#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2783,7 +2783,7 @@ class LambdaFunctionTimeoutsOutputReference(
 class LambdaFunctionTracingConfig:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#mode LambdaFunction#mode}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#mode LambdaFunction#mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4318a82aea5486679c0e883c087fe3900fcb963c75499a08cac8907cb137fb7b)
@@ -2794,7 +2794,7 @@ class LambdaFunctionTracingConfig:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#mode LambdaFunction#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#mode LambdaFunction#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
@@ -2882,9 +2882,9 @@ class LambdaFunctionVpcConfig:
         ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#security_group_ids LambdaFunction#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#subnet_ids LambdaFunction#subnet_ids}.
-        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#ipv6_allowed_for_dual_stack LambdaFunction#ipv6_allowed_for_dual_stack}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#security_group_ids LambdaFunction#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#subnet_ids LambdaFunction#subnet_ids}.
+        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#ipv6_allowed_for_dual_stack LambdaFunction#ipv6_allowed_for_dual_stack}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__207ab8d52f2a6a5c4d7ac73e97ab5aee61d51d7e9ccaa27045ba84ddc138a891)
@@ -2900,14 +2900,14 @@ class LambdaFunctionVpcConfig:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#security_group_ids LambdaFunction#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#security_group_ids LambdaFunction#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#subnet_ids LambdaFunction#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#subnet_ids LambdaFunction#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2916,7 +2916,7 @@ class LambdaFunctionVpcConfig:
     def ipv6_allowed_for_dual_stack(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lambda_function#ipv6_allowed_for_dual_stack LambdaFunction#ipv6_allowed_for_dual_stack}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lambda_function#ipv6_allowed_for_dual_stack LambdaFunction#ipv6_allowed_for_dual_stack}.'''
         result = self._values.get("ipv6_allowed_for_dual_stack")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

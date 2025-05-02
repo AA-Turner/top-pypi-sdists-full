@@ -482,6 +482,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AccessAnalyzerClient]:
         """
         Create client for AccessAnalyzer service.
@@ -500,6 +501,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AccountClient]:
         """
         Create client for Account service.
@@ -518,6 +520,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ACMClient]:
         """
         Create client for ACM service.
@@ -536,6 +539,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ACMPCAClient]:
         """
         Create client for ACMPCA service.
@@ -554,6 +558,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PrometheusServiceClient]:
         """
         Create client for PrometheusService service.
@@ -572,6 +577,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AmplifyClient]:
         """
         Create client for Amplify service.
@@ -590,6 +596,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AmplifyBackendClient]:
         """
         Create client for AmplifyBackend service.
@@ -608,6 +615,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AmplifyUIBuilderClient]:
         """
         Create client for AmplifyUIBuilder service.
@@ -626,6 +634,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[APIGatewayClient]:
         """
         Create client for APIGateway service.
@@ -644,6 +653,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ApiGatewayManagementApiClient]:
         """
         Create client for ApiGatewayManagementApi service.
@@ -662,6 +672,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ApiGatewayV2Client]:
         """
         Create client for ApiGatewayV2 service.
@@ -680,6 +691,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppConfigClient]:
         """
         Create client for AppConfig service.
@@ -698,6 +710,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppConfigDataClient]:
         """
         Create client for AppConfigData service.
@@ -716,6 +729,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppFabricClient]:
         """
         Create client for AppFabric service.
@@ -734,6 +748,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppflowClient]:
         """
         Create client for Appflow service.
@@ -752,6 +767,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppIntegrationsServiceClient]:
         """
         Create client for AppIntegrationsService service.
@@ -770,6 +786,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ApplicationAutoScalingClient]:
         """
         Create client for ApplicationAutoScaling service.
@@ -788,6 +805,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ApplicationInsightsClient]:
         """
         Create client for ApplicationInsights service.
@@ -806,6 +824,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchApplicationSignalsClient]:
         """
         Create client for CloudWatchApplicationSignals service.
@@ -824,6 +843,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ApplicationCostProfilerClient]:
         """
         Create client for ApplicationCostProfiler service.
@@ -842,6 +862,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppMeshClient]:
         """
         Create client for AppMesh service.
@@ -860,6 +881,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppRunnerClient]:
         """
         Create client for AppRunner service.
@@ -878,6 +900,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppStreamClient]:
         """
         Create client for AppStream service.
@@ -896,6 +919,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppSyncClient]:
         """
         Create client for AppSync service.
@@ -914,6 +938,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MainframeModernizationApplicationTestingClient]:
         """
         Create client for MainframeModernizationApplicationTesting service.
@@ -932,6 +957,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ARCZonalShiftClient]:
         """
         Create client for ARCZonalShift service.
@@ -950,6 +976,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ArtifactClient]:
         """
         Create client for Artifact service.
@@ -968,6 +995,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AthenaClient]:
         """
         Create client for Athena service.
@@ -986,6 +1014,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AuditManagerClient]:
         """
         Create client for AuditManager service.
@@ -1004,6 +1033,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AutoScalingClient]:
         """
         Create client for AutoScaling service.
@@ -1022,6 +1052,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AutoScalingPlansClient]:
         """
         Create client for AutoScalingPlans service.
@@ -1040,6 +1071,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[B2BIClient]:
         """
         Create client for B2BI service.
@@ -1058,6 +1090,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BackupClient]:
         """
         Create client for Backup service.
@@ -1076,6 +1109,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BackupGatewayClient]:
         """
         Create client for BackupGateway service.
@@ -1094,6 +1128,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BackupSearchClient]:
         """
         Create client for BackupSearch service.
@@ -1112,6 +1147,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BatchClient]:
         """
         Create client for Batch service.
@@ -1130,6 +1166,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BillingandCostManagementDataExportsClient]:
         """
         Create client for BillingandCostManagementDataExports service.
@@ -1148,6 +1185,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BillingandCostManagementPricingCalculatorClient]:
         """
         Create client for BillingandCostManagementPricingCalculator service.
@@ -1166,6 +1204,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BedrockClient]:
         """
         Create client for Bedrock service.
@@ -1184,6 +1223,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AgentsforBedrockClient]:
         """
         Create client for AgentsforBedrock service.
@@ -1202,6 +1242,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AgentsforBedrockRuntimeClient]:
         """
         Create client for AgentsforBedrockRuntime service.
@@ -1220,6 +1261,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DataAutomationforBedrockClient]:
         """
         Create client for DataAutomationforBedrock service.
@@ -1238,6 +1280,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RuntimeforBedrockDataAutomationClient]:
         """
         Create client for RuntimeforBedrockDataAutomation service.
@@ -1256,6 +1299,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BedrockRuntimeClient]:
         """
         Create client for BedrockRuntime service.
@@ -1274,6 +1318,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BillingClient]:
         """
         Create client for Billing service.
@@ -1292,6 +1337,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BillingConductorClient]:
         """
         Create client for BillingConductor service.
@@ -1310,6 +1356,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BraketClient]:
         """
         Create client for Braket service.
@@ -1328,6 +1375,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[BudgetsClient]:
         """
         Create client for Budgets service.
@@ -1346,6 +1394,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CostExplorerClient]:
         """
         Create client for CostExplorer service.
@@ -1364,6 +1413,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChatbotClient]:
         """
         Create client for Chatbot service.
@@ -1382,6 +1432,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChimeClient]:
         """
         Create client for Chime service.
@@ -1400,6 +1451,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChimeSDKIdentityClient]:
         """
         Create client for ChimeSDKIdentity service.
@@ -1418,6 +1470,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChimeSDKMediaPipelinesClient]:
         """
         Create client for ChimeSDKMediaPipelines service.
@@ -1436,6 +1489,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChimeSDKMeetingsClient]:
         """
         Create client for ChimeSDKMeetings service.
@@ -1454,6 +1508,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChimeSDKMessagingClient]:
         """
         Create client for ChimeSDKMessaging service.
@@ -1472,6 +1527,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ChimeSDKVoiceClient]:
         """
         Create client for ChimeSDKVoice service.
@@ -1490,6 +1546,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CleanRoomsServiceClient]:
         """
         Create client for CleanRoomsService service.
@@ -1508,6 +1565,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CleanRoomsMLClient]:
         """
         Create client for CleanRoomsML service.
@@ -1526,6 +1584,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Cloud9Client]:
         """
         Create client for Cloud9 service.
@@ -1544,6 +1603,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudControlApiClient]:
         """
         Create client for CloudControlApi service.
@@ -1562,6 +1622,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudDirectoryClient]:
         """
         Create client for CloudDirectory service.
@@ -1580,6 +1641,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudFormationClient]:
         """
         Create client for CloudFormation service.
@@ -1598,6 +1660,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudFrontClient]:
         """
         Create client for CloudFront service.
@@ -1616,6 +1679,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudFrontKeyValueStoreClient]:
         """
         Create client for CloudFrontKeyValueStore service.
@@ -1634,6 +1698,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudHSMClient]:
         """
         Create client for CloudHSM service.
@@ -1652,6 +1717,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudHSMV2Client]:
         """
         Create client for CloudHSMV2 service.
@@ -1670,6 +1736,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudSearchClient]:
         """
         Create client for CloudSearch service.
@@ -1688,6 +1755,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudSearchDomainClient]:
         """
         Create client for CloudSearchDomain service.
@@ -1706,6 +1774,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudTrailClient]:
         """
         Create client for CloudTrail service.
@@ -1724,6 +1793,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudTrailDataServiceClient]:
         """
         Create client for CloudTrailDataService service.
@@ -1742,6 +1812,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchClient]:
         """
         Create client for CloudWatch service.
@@ -1760,6 +1831,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeArtifactClient]:
         """
         Create client for CodeArtifact service.
@@ -1778,6 +1850,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeBuildClient]:
         """
         Create client for CodeBuild service.
@@ -1796,6 +1869,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeCatalystClient]:
         """
         Create client for CodeCatalyst service.
@@ -1814,6 +1888,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeCommitClient]:
         """
         Create client for CodeCommit service.
@@ -1832,6 +1907,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeConnectionsClient]:
         """
         Create client for CodeConnections service.
@@ -1850,6 +1926,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeDeployClient]:
         """
         Create client for CodeDeploy service.
@@ -1868,6 +1945,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeGuruReviewerClient]:
         """
         Create client for CodeGuruReviewer service.
@@ -1886,6 +1964,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeGuruSecurityClient]:
         """
         Create client for CodeGuruSecurity service.
@@ -1904,6 +1983,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeGuruProfilerClient]:
         """
         Create client for CodeGuruProfiler service.
@@ -1922,6 +2002,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodePipelineClient]:
         """
         Create client for CodePipeline service.
@@ -1940,6 +2021,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeStarconnectionsClient]:
         """
         Create client for CodeStarconnections service.
@@ -1958,6 +2040,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CodeStarNotificationsClient]:
         """
         Create client for CodeStarNotifications service.
@@ -1976,6 +2059,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CognitoIdentityClient]:
         """
         Create client for CognitoIdentity service.
@@ -1994,6 +2078,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CognitoIdentityProviderClient]:
         """
         Create client for CognitoIdentityProvider service.
@@ -2012,6 +2097,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CognitoSyncClient]:
         """
         Create client for CognitoSync service.
@@ -2030,6 +2116,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ComprehendClient]:
         """
         Create client for Comprehend service.
@@ -2048,6 +2135,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ComprehendMedicalClient]:
         """
         Create client for ComprehendMedical service.
@@ -2066,6 +2154,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ComputeOptimizerClient]:
         """
         Create client for ComputeOptimizer service.
@@ -2084,6 +2173,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConfigServiceClient]:
         """
         Create client for ConfigService service.
@@ -2102,6 +2192,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectClient]:
         """
         Create client for Connect service.
@@ -2120,6 +2211,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectContactLensClient]:
         """
         Create client for ConnectContactLens service.
@@ -2138,6 +2230,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectCampaignServiceClient]:
         """
         Create client for ConnectCampaignService service.
@@ -2156,6 +2249,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectCampaignServiceV2Client]:
         """
         Create client for ConnectCampaignServiceV2 service.
@@ -2174,6 +2268,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectCasesClient]:
         """
         Create client for ConnectCases service.
@@ -2192,6 +2287,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectParticipantClient]:
         """
         Create client for ConnectParticipant service.
@@ -2210,6 +2306,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ControlCatalogClient]:
         """
         Create client for ControlCatalog service.
@@ -2228,6 +2325,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ControlTowerClient]:
         """
         Create client for ControlTower service.
@@ -2246,6 +2344,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CostOptimizationHubClient]:
         """
         Create client for CostOptimizationHub service.
@@ -2264,6 +2363,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CostandUsageReportServiceClient]:
         """
         Create client for CostandUsageReportService service.
@@ -2282,6 +2382,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CustomerProfilesClient]:
         """
         Create client for CustomerProfiles service.
@@ -2300,6 +2401,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GlueDataBrewClient]:
         """
         Create client for GlueDataBrew service.
@@ -2318,6 +2420,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DataExchangeClient]:
         """
         Create client for DataExchange service.
@@ -2336,6 +2439,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DataPipelineClient]:
         """
         Create client for DataPipeline service.
@@ -2354,6 +2458,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DataSyncClient]:
         """
         Create client for DataSync service.
@@ -2372,6 +2477,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DataZoneClient]:
         """
         Create client for DataZone service.
@@ -2390,6 +2496,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DAXClient]:
         """
         Create client for DAX service.
@@ -2408,6 +2515,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DeadlineCloudClient]:
         """
         Create client for DeadlineCloud service.
@@ -2426,6 +2534,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DetectiveClient]:
         """
         Create client for Detective service.
@@ -2444,6 +2553,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DeviceFarmClient]:
         """
         Create client for DeviceFarm service.
@@ -2462,6 +2572,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DevOpsGuruClient]:
         """
         Create client for DevOpsGuru service.
@@ -2480,6 +2591,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DirectConnectClient]:
         """
         Create client for DirectConnect service.
@@ -2498,6 +2610,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ApplicationDiscoveryServiceClient]:
         """
         Create client for ApplicationDiscoveryService service.
@@ -2516,6 +2629,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DLMClient]:
         """
         Create client for DLM service.
@@ -2534,6 +2648,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DatabaseMigrationServiceClient]:
         """
         Create client for DatabaseMigrationService service.
@@ -2552,6 +2667,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DocDBClient]:
         """
         Create client for DocDB service.
@@ -2570,6 +2686,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DocDBElasticClient]:
         """
         Create client for DocDBElastic service.
@@ -2588,6 +2705,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DrsClient]:
         """
         Create client for Drs service.
@@ -2606,6 +2724,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DirectoryServiceClient]:
         """
         Create client for DirectoryService service.
@@ -2624,6 +2743,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DirectoryServiceDataClient]:
         """
         Create client for DirectoryServiceData service.
@@ -2642,6 +2762,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AuroraDSQLClient]:
         """
         Create client for AuroraDSQL service.
@@ -2660,6 +2781,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DynamoDBClient]:
         """
         Create client for DynamoDB service.
@@ -2678,6 +2800,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[DynamoDBStreamsClient]:
         """
         Create client for DynamoDBStreams service.
@@ -2696,6 +2819,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EBSClient]:
         """
         Create client for EBS service.
@@ -2714,6 +2838,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EC2Client]:
         """
         Create client for EC2 service.
@@ -2732,6 +2857,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EC2InstanceConnectClient]:
         """
         Create client for EC2InstanceConnect service.
@@ -2750,6 +2876,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ECRClient]:
         """
         Create client for ECR service.
@@ -2768,6 +2895,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ECRPublicClient]:
         """
         Create client for ECRPublic service.
@@ -2786,6 +2914,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ECSClient]:
         """
         Create client for ECS service.
@@ -2804,6 +2933,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EFSClient]:
         """
         Create client for EFS service.
@@ -2822,6 +2952,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EKSClient]:
         """
         Create client for EKS service.
@@ -2840,6 +2971,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EKSAuthClient]:
         """
         Create client for EKSAuth service.
@@ -2858,6 +2990,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ElastiCacheClient]:
         """
         Create client for ElastiCache service.
@@ -2876,6 +3009,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ElasticBeanstalkClient]:
         """
         Create client for ElasticBeanstalk service.
@@ -2894,6 +3028,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ElasticTranscoderClient]:
         """
         Create client for ElasticTranscoder service.
@@ -2912,6 +3047,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ElasticLoadBalancingClient]:
         """
         Create client for ElasticLoadBalancing service.
@@ -2930,6 +3066,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ElasticLoadBalancingv2Client]:
         """
         Create client for ElasticLoadBalancingv2 service.
@@ -2948,6 +3085,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EMRClient]:
         """
         Create client for EMR service.
@@ -2966,6 +3104,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EMRContainersClient]:
         """
         Create client for EMRContainers service.
@@ -2984,6 +3123,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EMRServerlessClient]:
         """
         Create client for EMRServerless service.
@@ -3002,6 +3142,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EntityResolutionClient]:
         """
         Create client for EntityResolution service.
@@ -3020,6 +3161,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ElasticsearchServiceClient]:
         """
         Create client for ElasticsearchService service.
@@ -3038,6 +3180,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EventBridgeClient]:
         """
         Create client for EventBridge service.
@@ -3056,6 +3199,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchEvidentlyClient]:
         """
         Create client for CloudWatchEvidently service.
@@ -3074,6 +3218,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FinspaceClient]:
         """
         Create client for Finspace service.
@@ -3092,6 +3237,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FinSpaceDataClient]:
         """
         Create client for FinSpaceData service.
@@ -3110,6 +3256,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FirehoseClient]:
         """
         Create client for Firehose service.
@@ -3128,6 +3275,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FISClient]:
         """
         Create client for FIS service.
@@ -3146,6 +3294,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FMSClient]:
         """
         Create client for FMS service.
@@ -3164,6 +3313,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ForecastServiceClient]:
         """
         Create client for ForecastService service.
@@ -3182,6 +3332,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ForecastQueryServiceClient]:
         """
         Create client for ForecastQueryService service.
@@ -3200,6 +3351,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FraudDetectorClient]:
         """
         Create client for FraudDetector service.
@@ -3218,6 +3370,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FreeTierClient]:
         """
         Create client for FreeTier service.
@@ -3236,6 +3389,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[FSxClient]:
         """
         Create client for FSx service.
@@ -3254,6 +3408,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GameLiftClient]:
         """
         Create client for GameLift service.
@@ -3272,6 +3427,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LocationServiceMapsV2Client]:
         """
         Create client for LocationServiceMapsV2 service.
@@ -3290,6 +3446,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LocationServicePlacesV2Client]:
         """
         Create client for LocationServicePlacesV2 service.
@@ -3308,6 +3465,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LocationServiceRoutesV2Client]:
         """
         Create client for LocationServiceRoutesV2 service.
@@ -3326,6 +3484,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GlacierClient]:
         """
         Create client for Glacier service.
@@ -3344,6 +3503,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GlobalAcceleratorClient]:
         """
         Create client for GlobalAccelerator service.
@@ -3362,6 +3522,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GlueClient]:
         """
         Create client for Glue service.
@@ -3380,6 +3541,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ManagedGrafanaClient]:
         """
         Create client for ManagedGrafana service.
@@ -3398,6 +3560,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GreengrassClient]:
         """
         Create client for Greengrass service.
@@ -3416,6 +3579,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GreengrassV2Client]:
         """
         Create client for GreengrassV2 service.
@@ -3434,6 +3598,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GroundStationClient]:
         """
         Create client for GroundStation service.
@@ -3452,6 +3617,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[GuardDutyClient]:
         """
         Create client for GuardDuty service.
@@ -3470,6 +3636,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[HealthClient]:
         """
         Create client for Health service.
@@ -3488,6 +3655,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[HealthLakeClient]:
         """
         Create client for HealthLake service.
@@ -3506,6 +3674,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IAMClient]:
         """
         Create client for IAM service.
@@ -3524,6 +3693,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IdentityStoreClient]:
         """
         Create client for IdentityStore service.
@@ -3542,6 +3712,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ImagebuilderClient]:
         """
         Create client for Imagebuilder service.
@@ -3560,6 +3731,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ImportExportClient]:
         """
         Create client for ImportExport service.
@@ -3578,6 +3750,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[InspectorClient]:
         """
         Create client for Inspector service.
@@ -3596,6 +3769,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[InspectorscanClient]:
         """
         Create client for Inspectorscan service.
@@ -3614,6 +3788,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Inspector2Client]:
         """
         Create client for Inspector2 service.
@@ -3632,6 +3807,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchInternetMonitorClient]:
         """
         Create client for CloudWatchInternetMonitor service.
@@ -3650,6 +3826,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[InvoicingClient]:
         """
         Create client for Invoicing service.
@@ -3668,6 +3845,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTClient]:
         """
         Create client for IoT service.
@@ -3686,6 +3864,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTDataPlaneClient]:
         """
         Create client for IoTDataPlane service.
@@ -3704,6 +3883,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTJobsDataPlaneClient]:
         """
         Create client for IoTJobsDataPlane service.
@@ -3722,6 +3902,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTAnalyticsClient]:
         """
         Create client for IoTAnalytics service.
@@ -3740,6 +3921,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTDeviceAdvisorClient]:
         """
         Create client for IoTDeviceAdvisor service.
@@ -3758,6 +3940,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTEventsClient]:
         """
         Create client for IoTEvents service.
@@ -3776,6 +3959,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTEventsDataClient]:
         """
         Create client for IoTEventsData service.
@@ -3794,6 +3978,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTFleetHubClient]:
         """
         Create client for IoTFleetHub service.
@@ -3812,6 +3997,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTFleetWiseClient]:
         """
         Create client for IoTFleetWise service.
@@ -3830,6 +4016,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTSecureTunnelingClient]:
         """
         Create client for IoTSecureTunneling service.
@@ -3848,6 +4035,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTSiteWiseClient]:
         """
         Create client for IoTSiteWise service.
@@ -3866,6 +4054,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTThingsGraphClient]:
         """
         Create client for IoTThingsGraph service.
@@ -3884,6 +4073,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTTwinMakerClient]:
         """
         Create client for IoTTwinMaker service.
@@ -3902,6 +4092,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IoTWirelessClient]:
         """
         Create client for IoTWireless service.
@@ -3920,6 +4111,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IVSClient]:
         """
         Create client for IVS service.
@@ -3938,6 +4130,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IvsrealtimeClient]:
         """
         Create client for Ivsrealtime service.
@@ -3956,6 +4149,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IvschatClient]:
         """
         Create client for Ivschat service.
@@ -3974,6 +4168,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KafkaClient]:
         """
         Create client for Kafka service.
@@ -3992,6 +4187,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KafkaConnectClient]:
         """
         Create client for KafkaConnect service.
@@ -4010,6 +4206,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KendraClient]:
         """
         Create client for Kendra service.
@@ -4028,6 +4225,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KendraRankingClient]:
         """
         Create client for KendraRanking service.
@@ -4046,6 +4244,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KeyspacesClient]:
         """
         Create client for Keyspaces service.
@@ -4064,6 +4263,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisClient]:
         """
         Create client for Kinesis service.
@@ -4082,6 +4282,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisVideoArchivedMediaClient]:
         """
         Create client for KinesisVideoArchivedMedia service.
@@ -4100,6 +4301,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisVideoMediaClient]:
         """
         Create client for KinesisVideoMedia service.
@@ -4118,6 +4320,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisVideoSignalingChannelsClient]:
         """
         Create client for KinesisVideoSignalingChannels service.
@@ -4136,6 +4339,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisVideoWebRTCStorageClient]:
         """
         Create client for KinesisVideoWebRTCStorage service.
@@ -4154,6 +4358,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisAnalyticsClient]:
         """
         Create client for KinesisAnalytics service.
@@ -4172,6 +4377,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisAnalyticsV2Client]:
         """
         Create client for KinesisAnalyticsV2 service.
@@ -4190,6 +4396,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KinesisVideoClient]:
         """
         Create client for KinesisVideo service.
@@ -4208,6 +4415,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[KMSClient]:
         """
         Create client for KMS service.
@@ -4226,6 +4434,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LakeFormationClient]:
         """
         Create client for LakeFormation service.
@@ -4244,6 +4453,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LambdaClient]:
         """
         Create client for Lambda service.
@@ -4262,6 +4472,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LaunchWizardClient]:
         """
         Create client for LaunchWizard service.
@@ -4280,6 +4491,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LexModelBuildingServiceClient]:
         """
         Create client for LexModelBuildingService service.
@@ -4298,6 +4510,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LexRuntimeServiceClient]:
         """
         Create client for LexRuntimeService service.
@@ -4316,6 +4529,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LexModelsV2Client]:
         """
         Create client for LexModelsV2 service.
@@ -4334,6 +4548,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LexRuntimeV2Client]:
         """
         Create client for LexRuntimeV2 service.
@@ -4352,6 +4567,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LicenseManagerClient]:
         """
         Create client for LicenseManager service.
@@ -4370,6 +4586,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LicenseManagerLinuxSubscriptionsClient]:
         """
         Create client for LicenseManagerLinuxSubscriptions service.
@@ -4388,6 +4605,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LicenseManagerUserSubscriptionsClient]:
         """
         Create client for LicenseManagerUserSubscriptions service.
@@ -4406,6 +4624,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LightsailClient]:
         """
         Create client for Lightsail service.
@@ -4424,6 +4643,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LocationServiceClient]:
         """
         Create client for LocationService service.
@@ -4442,6 +4662,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchLogsClient]:
         """
         Create client for CloudWatchLogs service.
@@ -4460,6 +4681,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LookoutEquipmentClient]:
         """
         Create client for LookoutEquipment service.
@@ -4478,6 +4700,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LookoutMetricsClient]:
         """
         Create client for LookoutMetrics service.
@@ -4496,6 +4719,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[LookoutforVisionClient]:
         """
         Create client for LookoutforVision service.
@@ -4514,6 +4738,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MainframeModernizationClient]:
         """
         Create client for MainframeModernization service.
@@ -4532,6 +4757,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MachineLearningClient]:
         """
         Create client for MachineLearning service.
@@ -4550,6 +4776,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Macie2Client]:
         """
         Create client for Macie2 service.
@@ -4568,6 +4795,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MailManagerClient]:
         """
         Create client for MailManager service.
@@ -4586,6 +4814,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ManagedBlockchainClient]:
         """
         Create client for ManagedBlockchain service.
@@ -4604,6 +4833,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ManagedBlockchainQueryClient]:
         """
         Create client for ManagedBlockchainQuery service.
@@ -4622,6 +4852,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AgreementServiceClient]:
         """
         Create client for AgreementService service.
@@ -4640,6 +4871,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MarketplaceCatalogClient]:
         """
         Create client for MarketplaceCatalog service.
@@ -4658,6 +4890,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MarketplaceDeploymentServiceClient]:
         """
         Create client for MarketplaceDeploymentService service.
@@ -4676,6 +4909,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MarketplaceEntitlementServiceClient]:
         """
         Create client for MarketplaceEntitlementService service.
@@ -4694,6 +4928,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MarketplaceReportingServiceClient]:
         """
         Create client for MarketplaceReportingService service.
@@ -4712,6 +4947,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MarketplaceCommerceAnalyticsClient]:
         """
         Create client for MarketplaceCommerceAnalytics service.
@@ -4730,6 +4966,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaConnectClient]:
         """
         Create client for MediaConnect service.
@@ -4748,6 +4985,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaConvertClient]:
         """
         Create client for MediaConvert service.
@@ -4766,6 +5004,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaLiveClient]:
         """
         Create client for MediaLive service.
@@ -4784,6 +5023,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaPackageClient]:
         """
         Create client for MediaPackage service.
@@ -4802,6 +5042,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaPackageVodClient]:
         """
         Create client for MediaPackageVod service.
@@ -4820,6 +5061,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Mediapackagev2Client]:
         """
         Create client for Mediapackagev2 service.
@@ -4838,6 +5080,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaStoreClient]:
         """
         Create client for MediaStore service.
@@ -4856,6 +5099,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaStoreDataClient]:
         """
         Create client for MediaStoreData service.
@@ -4874,6 +5118,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MediaTailorClient]:
         """
         Create client for MediaTailor service.
@@ -4892,6 +5137,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[HealthImagingClient]:
         """
         Create client for HealthImaging service.
@@ -4910,6 +5156,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MemoryDBClient]:
         """
         Create client for MemoryDB service.
@@ -4928,6 +5175,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MarketplaceMeteringClient]:
         """
         Create client for MarketplaceMetering service.
@@ -4946,6 +5194,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MigrationHubClient]:
         """
         Create client for MigrationHub service.
@@ -4964,6 +5213,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MgnClient]:
         """
         Create client for Mgn service.
@@ -4982,6 +5232,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MigrationHubRefactorSpacesClient]:
         """
         Create client for MigrationHubRefactorSpaces service.
@@ -5000,6 +5251,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MigrationHubConfigClient]:
         """
         Create client for MigrationHubConfig service.
@@ -5018,6 +5270,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MigrationHubOrchestratorClient]:
         """
         Create client for MigrationHubOrchestrator service.
@@ -5036,6 +5289,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MigrationHubStrategyRecommendationsClient]:
         """
         Create client for MigrationHubStrategyRecommendations service.
@@ -5054,6 +5308,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MQClient]:
         """
         Create client for MQ service.
@@ -5072,6 +5327,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MTurkClient]:
         """
         Create client for MTurk service.
@@ -5090,6 +5346,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[MWAAClient]:
         """
         Create client for MWAA service.
@@ -5108,6 +5365,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[NeptuneClient]:
         """
         Create client for Neptune service.
@@ -5126,6 +5384,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[NeptuneGraphClient]:
         """
         Create client for NeptuneGraph service.
@@ -5144,6 +5403,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[NeptuneDataClient]:
         """
         Create client for NeptuneData service.
@@ -5162,6 +5422,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[NetworkFirewallClient]:
         """
         Create client for NetworkFirewall service.
@@ -5180,6 +5441,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[NetworkFlowMonitorClient]:
         """
         Create client for NetworkFlowMonitor service.
@@ -5198,6 +5460,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[NetworkManagerClient]:
         """
         Create client for NetworkManager service.
@@ -5216,6 +5479,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchNetworkMonitorClient]:
         """
         Create client for CloudWatchNetworkMonitor service.
@@ -5234,6 +5498,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[UserNotificationsClient]:
         """
         Create client for UserNotifications service.
@@ -5252,6 +5517,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[UserNotificationsContactsClient]:
         """
         Create client for UserNotificationsContacts service.
@@ -5270,6 +5536,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchObservabilityAccessManagerClient]:
         """
         Create client for CloudWatchObservabilityAccessManager service.
@@ -5288,6 +5555,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchObservabilityAdminServiceClient]:
         """
         Create client for CloudWatchObservabilityAdminService service.
@@ -5306,6 +5574,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OmicsClient]:
         """
         Create client for Omics service.
@@ -5324,6 +5593,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OpenSearchServiceClient]:
         """
         Create client for OpenSearchService service.
@@ -5342,6 +5612,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OpenSearchServiceServerlessClient]:
         """
         Create client for OpenSearchServiceServerless service.
@@ -5360,6 +5631,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OpsWorksClient]:
         """
         Create client for OpsWorks service.
@@ -5378,6 +5650,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OpsWorksCMClient]:
         """
         Create client for OpsWorksCM service.
@@ -5396,6 +5669,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OrganizationsClient]:
         """
         Create client for Organizations service.
@@ -5414,6 +5688,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OpenSearchIngestionClient]:
         """
         Create client for OpenSearchIngestion service.
@@ -5432,6 +5707,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[OutpostsClient]:
         """
         Create client for Outposts service.
@@ -5450,6 +5726,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PanoramaClient]:
         """
         Create client for Panorama service.
@@ -5468,6 +5745,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PartnerCentralSellingAPIClient]:
         """
         Create client for PartnerCentralSellingAPI service.
@@ -5486,6 +5764,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PaymentCryptographyControlPlaneClient]:
         """
         Create client for PaymentCryptographyControlPlane service.
@@ -5504,6 +5783,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PaymentCryptographyDataPlaneClient]:
         """
         Create client for PaymentCryptographyDataPlane service.
@@ -5522,6 +5802,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PcaConnectorAdClient]:
         """
         Create client for PcaConnectorAd service.
@@ -5540,6 +5821,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PrivateCAConnectorforSCEPClient]:
         """
         Create client for PrivateCAConnectorforSCEP service.
@@ -5558,6 +5840,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ParallelComputingServiceClient]:
         """
         Create client for ParallelComputingService service.
@@ -5576,6 +5859,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PersonalizeClient]:
         """
         Create client for Personalize service.
@@ -5594,6 +5878,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PersonalizeEventsClient]:
         """
         Create client for PersonalizeEvents service.
@@ -5612,6 +5897,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PersonalizeRuntimeClient]:
         """
         Create client for PersonalizeRuntime service.
@@ -5630,6 +5916,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PIClient]:
         """
         Create client for PI service.
@@ -5648,6 +5935,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PinpointClient]:
         """
         Create client for Pinpoint service.
@@ -5666,6 +5954,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PinpointEmailClient]:
         """
         Create client for PinpointEmail service.
@@ -5684,6 +5973,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PinpointSMSVoiceClient]:
         """
         Create client for PinpointSMSVoice service.
@@ -5702,6 +5992,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PinpointSMSVoiceV2Client]:
         """
         Create client for PinpointSMSVoiceV2 service.
@@ -5720,6 +6011,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EventBridgePipesClient]:
         """
         Create client for EventBridgePipes service.
@@ -5738,6 +6030,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PollyClient]:
         """
         Create client for Polly service.
@@ -5756,6 +6049,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[PricingClient]:
         """
         Create client for Pricing service.
@@ -5774,6 +6068,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Private5GClient]:
         """
         Create client for Private5G service.
@@ -5792,6 +6087,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ProtonClient]:
         """
         Create client for Proton service.
@@ -5810,6 +6106,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[QAppsClient]:
         """
         Create client for QApps service.
@@ -5828,6 +6125,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[QBusinessClient]:
         """
         Create client for QBusiness service.
@@ -5846,6 +6144,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[QConnectClient]:
         """
         Create client for QConnect service.
@@ -5864,6 +6163,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[QLDBClient]:
         """
         Create client for QLDB service.
@@ -5882,6 +6182,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[QLDBSessionClient]:
         """
         Create client for QLDBSession service.
@@ -5900,6 +6201,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[QuickSightClient]:
         """
         Create client for QuickSight service.
@@ -5918,6 +6220,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RAMClient]:
         """
         Create client for RAM service.
@@ -5936,6 +6239,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RecycleBinClient]:
         """
         Create client for RecycleBin service.
@@ -5954,6 +6258,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RDSClient]:
         """
         Create client for RDS service.
@@ -5972,6 +6277,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RDSDataServiceClient]:
         """
         Create client for RDSDataService service.
@@ -5990,6 +6296,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RedshiftClient]:
         """
         Create client for Redshift service.
@@ -6008,6 +6315,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RedshiftDataAPIServiceClient]:
         """
         Create client for RedshiftDataAPIService service.
@@ -6026,6 +6334,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RedshiftServerlessClient]:
         """
         Create client for RedshiftServerless service.
@@ -6044,6 +6353,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RekognitionClient]:
         """
         Create client for Rekognition service.
@@ -6062,6 +6372,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RePostPrivateClient]:
         """
         Create client for RePostPrivate service.
@@ -6080,6 +6391,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ResilienceHubClient]:
         """
         Create client for ResilienceHub service.
@@ -6098,6 +6410,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ResourceExplorerClient]:
         """
         Create client for ResourceExplorer service.
@@ -6116,6 +6429,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ResourceGroupsClient]:
         """
         Create client for ResourceGroups service.
@@ -6134,6 +6448,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ResourceGroupsTaggingAPIClient]:
         """
         Create client for ResourceGroupsTaggingAPI service.
@@ -6152,6 +6467,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[RoboMakerClient]:
         """
         Create client for RoboMaker service.
@@ -6170,6 +6486,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[IAMRolesAnywhereClient]:
         """
         Create client for IAMRolesAnywhere service.
@@ -6188,6 +6505,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53Client]:
         """
         Create client for Route53 service.
@@ -6206,6 +6524,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53RecoveryClusterClient]:
         """
         Create client for Route53RecoveryCluster service.
@@ -6224,6 +6543,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53RecoveryControlConfigClient]:
         """
         Create client for Route53RecoveryControlConfig service.
@@ -6242,6 +6562,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53RecoveryReadinessClient]:
         """
         Create client for Route53RecoveryReadiness service.
@@ -6260,6 +6581,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53DomainsClient]:
         """
         Create client for Route53Domains service.
@@ -6278,6 +6600,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53ProfilesClient]:
         """
         Create client for Route53Profiles service.
@@ -6296,6 +6619,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[Route53ResolverClient]:
         """
         Create client for Route53Resolver service.
@@ -6314,6 +6638,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[CloudWatchRUMClient]:
         """
         Create client for CloudWatchRUM service.
@@ -6332,6 +6657,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[S3Client]:
         """
         Create client for S3 service.
@@ -6350,6 +6676,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[S3ControlClient]:
         """
         Create client for S3Control service.
@@ -6368,6 +6695,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[S3OutpostsClient]:
         """
         Create client for S3Outposts service.
@@ -6386,6 +6714,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[S3TablesClient]:
         """
         Create client for S3Tables service.
@@ -6404,6 +6733,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SageMakerClient]:
         """
         Create client for SageMaker service.
@@ -6422,6 +6752,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AugmentedAIRuntimeClient]:
         """
         Create client for AugmentedAIRuntime service.
@@ -6440,6 +6771,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SagemakerEdgeManagerClient]:
         """
         Create client for SagemakerEdgeManager service.
@@ -6458,6 +6790,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SageMakerFeatureStoreRuntimeClient]:
         """
         Create client for SageMakerFeatureStoreRuntime service.
@@ -6476,6 +6809,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SageMakergeospatialcapabilitiesClient]:
         """
         Create client for SageMakergeospatialcapabilities service.
@@ -6494,6 +6828,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SageMakerMetricsClient]:
         """
         Create client for SageMakerMetrics service.
@@ -6512,6 +6847,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SageMakerRuntimeClient]:
         """
         Create client for SageMakerRuntime service.
@@ -6530,6 +6866,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SavingsPlansClient]:
         """
         Create client for SavingsPlans service.
@@ -6548,6 +6885,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EventBridgeSchedulerClient]:
         """
         Create client for EventBridgeScheduler service.
@@ -6566,6 +6904,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SchemasClient]:
         """
         Create client for Schemas service.
@@ -6584,6 +6923,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SimpleDBClient]:
         """
         Create client for SimpleDB service.
@@ -6602,6 +6942,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SecretsManagerClient]:
         """
         Create client for SecretsManager service.
@@ -6620,6 +6961,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SecurityIncidentResponseClient]:
         """
         Create client for SecurityIncidentResponse service.
@@ -6638,6 +6980,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SecurityHubClient]:
         """
         Create client for SecurityHub service.
@@ -6656,6 +6999,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SecurityLakeClient]:
         """
         Create client for SecurityLake service.
@@ -6674,6 +7018,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ServerlessApplicationRepositoryClient]:
         """
         Create client for ServerlessApplicationRepository service.
@@ -6692,6 +7037,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ServiceQuotasClient]:
         """
         Create client for ServiceQuotas service.
@@ -6710,6 +7056,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ServiceCatalogClient]:
         """
         Create client for ServiceCatalog service.
@@ -6728,6 +7075,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[AppRegistryClient]:
         """
         Create client for AppRegistry service.
@@ -6746,6 +7094,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ServiceDiscoveryClient]:
         """
         Create client for ServiceDiscovery service.
@@ -6764,6 +7113,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SESClient]:
         """
         Create client for SES service.
@@ -6782,6 +7132,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SESV2Client]:
         """
         Create client for SESV2 service.
@@ -6800,6 +7151,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ShieldClient]:
         """
         Create client for Shield service.
@@ -6818,6 +7170,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SignerClient]:
         """
         Create client for Signer service.
@@ -6836,6 +7189,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SimSpaceWeaverClient]:
         """
         Create client for SimSpaceWeaver service.
@@ -6854,6 +7208,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SMSClient]:
         """
         Create client for SMS service.
@@ -6872,6 +7227,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SMSVoiceClient]:
         """
         Create client for SMSVoice service.
@@ -6890,6 +7246,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SnowDeviceManagementClient]:
         """
         Create client for SnowDeviceManagement service.
@@ -6908,6 +7265,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SnowballClient]:
         """
         Create client for Snowball service.
@@ -6926,6 +7284,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SNSClient]:
         """
         Create client for SNS service.
@@ -6944,6 +7303,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[EndUserMessagingSocialClient]:
         """
         Create client for EndUserMessagingSocial service.
@@ -6962,6 +7322,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SQSClient]:
         """
         Create client for SQS service.
@@ -6980,6 +7341,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SSMClient]:
         """
         Create client for SSM service.
@@ -6998,6 +7360,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SSMContactsClient]:
         """
         Create client for SSMContacts service.
@@ -7016,6 +7379,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SSMIncidentsClient]:
         """
         Create client for SSMIncidents service.
@@ -7034,6 +7398,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SystemsManagerQuickSetupClient]:
         """
         Create client for SystemsManagerQuickSetup service.
@@ -7052,6 +7417,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SsmSapClient]:
         """
         Create client for SsmSap service.
@@ -7070,6 +7436,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SSOClient]:
         """
         Create client for SSO service.
@@ -7088,6 +7455,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SSOAdminClient]:
         """
         Create client for SSOAdmin service.
@@ -7106,6 +7474,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SSOOIDCClient]:
         """
         Create client for SSOOIDC service.
@@ -7124,6 +7493,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SFNClient]:
         """
         Create client for SFN service.
@@ -7142,6 +7512,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[StorageGatewayClient]:
         """
         Create client for StorageGateway service.
@@ -7160,6 +7531,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[STSClient]:
         """
         Create client for STS service.
@@ -7178,6 +7550,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SupplyChainClient]:
         """
         Create client for SupplyChain service.
@@ -7196,6 +7569,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SupportClient]:
         """
         Create client for Support service.
@@ -7214,6 +7588,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SupportAppClient]:
         """
         Create client for SupportApp service.
@@ -7232,6 +7607,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SWFClient]:
         """
         Create client for SWF service.
@@ -7250,6 +7626,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[SyntheticsClient]:
         """
         Create client for Synthetics service.
@@ -7268,6 +7645,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TaxSettingsClient]:
         """
         Create client for TaxSettings service.
@@ -7286,6 +7664,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TextractClient]:
         """
         Create client for Textract service.
@@ -7304,6 +7683,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TimestreamInfluxDBClient]:
         """
         Create client for TimestreamInfluxDB service.
@@ -7322,6 +7702,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TimestreamQueryClient]:
         """
         Create client for TimestreamQuery service.
@@ -7340,6 +7721,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TimestreamWriteClient]:
         """
         Create client for TimestreamWrite service.
@@ -7358,6 +7740,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TelcoNetworkBuilderClient]:
         """
         Create client for TelcoNetworkBuilder service.
@@ -7376,6 +7759,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TranscribeServiceClient]:
         """
         Create client for TranscribeService service.
@@ -7394,6 +7778,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TransferClient]:
         """
         Create client for Transfer service.
@@ -7412,6 +7797,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TranslateClient]:
         """
         Create client for Translate service.
@@ -7430,6 +7816,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[TrustedAdvisorPublicAPIClient]:
         """
         Create client for TrustedAdvisorPublicAPI service.
@@ -7448,6 +7835,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[VerifiedPermissionsClient]:
         """
         Create client for VerifiedPermissions service.
@@ -7466,6 +7854,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[VoiceIDClient]:
         """
         Create client for VoiceID service.
@@ -7484,6 +7873,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[VPCLatticeClient]:
         """
         Create client for VPCLattice service.
@@ -7502,6 +7892,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WAFClient]:
         """
         Create client for WAF service.
@@ -7520,6 +7911,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WAFRegionalClient]:
         """
         Create client for WAFRegional service.
@@ -7538,6 +7930,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WAFV2Client]:
         """
         Create client for WAFV2 service.
@@ -7556,6 +7949,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WellArchitectedClient]:
         """
         Create client for WellArchitected service.
@@ -7574,6 +7968,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[ConnectWisdomServiceClient]:
         """
         Create client for ConnectWisdomService service.
@@ -7592,6 +7987,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WorkDocsClient]:
         """
         Create client for WorkDocs service.
@@ -7610,6 +8006,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WorkMailClient]:
         """
         Create client for WorkMail service.
@@ -7628,6 +8025,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WorkMailMessageFlowClient]:
         """
         Create client for WorkMailMessageFlow service.
@@ -7646,6 +8044,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WorkSpacesClient]:
         """
         Create client for WorkSpaces service.
@@ -7664,6 +8063,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WorkSpacesThinClientClient]:
         """
         Create client for WorkSpacesThinClient service.
@@ -7682,6 +8082,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[WorkSpacesWebClient]:
         """
         Create client for WorkSpacesWeb service.
@@ -7700,6 +8101,7 @@ class AioSession(BotocoreSession):
         aws_secret_access_key: str | None = ...,
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
     ) -> ClientCreatorContext[XRayClient]:
         """
         Create client for XRay service.

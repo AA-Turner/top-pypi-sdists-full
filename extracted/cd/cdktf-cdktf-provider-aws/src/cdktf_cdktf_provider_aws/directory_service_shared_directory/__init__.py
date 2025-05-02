@@ -1,7 +1,7 @@
 r'''
 # `aws_directory_service_shared_directory`
 
-Refer to the Terraform Registry for docs: [`aws_directory_service_shared_directory`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory).
+Refer to the Terraform Registry for docs: [`aws_directory_service_shared_directory`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DirectoryServiceSharedDirectory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.directoryServiceSharedDirectory.DirectoryServiceSharedDirectory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory aws_directory_service_shared_directory}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory aws_directory_service_shared_directory}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DirectoryServiceSharedDirectory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory aws_directory_service_shared_directory} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory aws_directory_service_shared_directory} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#directory_id DirectoryServiceSharedDirectory#directory_id}.
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#target DirectoryServiceSharedDirectory#target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#method DirectoryServiceSharedDirectory#method}.
-        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#notes DirectoryServiceSharedDirectory#notes}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#timeouts DirectoryServiceSharedDirectory#timeouts}
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#directory_id DirectoryServiceSharedDirectory#directory_id}.
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#target DirectoryServiceSharedDirectory#target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#method DirectoryServiceSharedDirectory#method}.
+        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#notes DirectoryServiceSharedDirectory#notes}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#timeouts DirectoryServiceSharedDirectory#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DirectoryServiceSharedDirectory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DirectoryServiceSharedDirectory to import.
-        :param import_from_id: The id of the existing DirectoryServiceSharedDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DirectoryServiceSharedDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DirectoryServiceSharedDirectory to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class DirectoryServiceSharedDirectory(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#type DirectoryServiceSharedDirectory#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#type DirectoryServiceSharedDirectory#type}.
         '''
         value = DirectoryServiceSharedDirectoryTarget(id=id, type=type)
 
@@ -147,7 +147,7 @@ class DirectoryServiceSharedDirectory(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#delete DirectoryServiceSharedDirectory#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#delete DirectoryServiceSharedDirectory#delete}.
         '''
         value = DirectoryServiceSharedDirectoryTimeouts(delete=delete)
 
@@ -323,12 +323,12 @@ class DirectoryServiceSharedDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#directory_id DirectoryServiceSharedDirectory#directory_id}.
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#target DirectoryServiceSharedDirectory#target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#method DirectoryServiceSharedDirectory#method}.
-        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#notes DirectoryServiceSharedDirectory#notes}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#timeouts DirectoryServiceSharedDirectory#timeouts}
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#directory_id DirectoryServiceSharedDirectory#directory_id}.
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#target DirectoryServiceSharedDirectory#target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#method DirectoryServiceSharedDirectory#method}.
+        :param notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#notes DirectoryServiceSharedDirectory#notes}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#timeouts DirectoryServiceSharedDirectory#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -444,7 +444,7 @@ class DirectoryServiceSharedDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def directory_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#directory_id DirectoryServiceSharedDirectory#directory_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#directory_id DirectoryServiceSharedDirectory#directory_id}.'''
         result = self._values.get("directory_id")
         assert result is not None, "Required property 'directory_id' is missing"
         return typing.cast(builtins.str, result)
@@ -453,7 +453,7 @@ class DirectoryServiceSharedDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def target(self) -> "DirectoryServiceSharedDirectoryTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#target DirectoryServiceSharedDirectory#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#target DirectoryServiceSharedDirectory#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -461,7 +461,7 @@ class DirectoryServiceSharedDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -471,13 +471,13 @@ class DirectoryServiceSharedDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#method DirectoryServiceSharedDirectory#method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#method DirectoryServiceSharedDirectory#method}.'''
         result = self._values.get("method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def notes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#notes DirectoryServiceSharedDirectory#notes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#notes DirectoryServiceSharedDirectory#notes}.'''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -485,7 +485,7 @@ class DirectoryServiceSharedDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["DirectoryServiceSharedDirectoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#timeouts DirectoryServiceSharedDirectory#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#timeouts DirectoryServiceSharedDirectory#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DirectoryServiceSharedDirectoryTimeouts"], result)
@@ -515,8 +515,8 @@ class DirectoryServiceSharedDirectoryTarget:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#type DirectoryServiceSharedDirectory#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#type DirectoryServiceSharedDirectory#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b217d8877e98a91dd09e8e4fd8fa3d51460f7a0a085745197e092c98cf93905)
@@ -530,7 +530,7 @@ class DirectoryServiceSharedDirectoryTarget:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#id DirectoryServiceSharedDirectory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -541,7 +541,7 @@ class DirectoryServiceSharedDirectoryTarget:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#type DirectoryServiceSharedDirectory#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#type DirectoryServiceSharedDirectory#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -639,7 +639,7 @@ class DirectoryServiceSharedDirectoryTargetOutputReference(
 class DirectoryServiceSharedDirectoryTimeouts:
     def __init__(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#delete DirectoryServiceSharedDirectory#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#delete DirectoryServiceSharedDirectory#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22ef984293f549d2136f3ce02250b22fb224146125e6f9b6eec4724cb356ed48)
@@ -650,7 +650,7 @@ class DirectoryServiceSharedDirectoryTimeouts:
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_shared_directory#delete DirectoryServiceSharedDirectory#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_shared_directory#delete DirectoryServiceSharedDirectory#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_devopsguru_event_sources_config`
 
-Refer to the Terraform Registry for docs: [`aws_devopsguru_event_sources_config`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config).
+Refer to the Terraform Registry for docs: [`aws_devopsguru_event_sources_config`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DevopsguruEventSourcesConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.devopsguruEventSourcesConfig.DevopsguruEventSourcesConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config aws_devopsguru_event_sources_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config aws_devopsguru_event_sources_config}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DevopsguruEventSourcesConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config aws_devopsguru_event_sources_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config aws_devopsguru_event_sources_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event_sources: event_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#event_sources DevopsguruEventSourcesConfig#event_sources}
+        :param event_sources: event_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#event_sources DevopsguruEventSourcesConfig#event_sources}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DevopsguruEventSourcesConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DevopsguruEventSourcesConfig to import.
-        :param import_from_id: The id of the existing DevopsguruEventSourcesConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DevopsguruEventSourcesConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DevopsguruEventSourcesConfig to import is found.
         '''
         if __debug__:
@@ -197,7 +197,7 @@ class DevopsguruEventSourcesConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event_sources: event_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#event_sources DevopsguruEventSourcesConfig#event_sources}
+        :param event_sources: event_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#event_sources DevopsguruEventSourcesConfig#event_sources}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -299,7 +299,7 @@ class DevopsguruEventSourcesConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruEventSourcesConfigEventSources"]]]:
         '''event_sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#event_sources DevopsguruEventSourcesConfig#event_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#event_sources DevopsguruEventSourcesConfig#event_sources}
         '''
         result = self._values.get("event_sources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruEventSourcesConfigEventSources"]]], result)
@@ -328,7 +328,7 @@ class DevopsguruEventSourcesConfigEventSources:
         amazon_code_guru_profiler: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DevopsguruEventSourcesConfigEventSourcesAmazonCodeGuruProfiler", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param amazon_code_guru_profiler: amazon_code_guru_profiler block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#amazon_code_guru_profiler DevopsguruEventSourcesConfig#amazon_code_guru_profiler}
+        :param amazon_code_guru_profiler: amazon_code_guru_profiler block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#amazon_code_guru_profiler DevopsguruEventSourcesConfig#amazon_code_guru_profiler}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5998c6b3871d94f00857418721c4caee6d5aa2ae69a73416dc7703ca904e6c8e)
@@ -343,7 +343,7 @@ class DevopsguruEventSourcesConfigEventSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruEventSourcesConfigEventSourcesAmazonCodeGuruProfiler"]]]:
         '''amazon_code_guru_profiler block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#amazon_code_guru_profiler DevopsguruEventSourcesConfig#amazon_code_guru_profiler}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#amazon_code_guru_profiler DevopsguruEventSourcesConfig#amazon_code_guru_profiler}
         '''
         result = self._values.get("amazon_code_guru_profiler")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruEventSourcesConfigEventSourcesAmazonCodeGuruProfiler"]]], result)
@@ -368,7 +368,7 @@ class DevopsguruEventSourcesConfigEventSources:
 class DevopsguruEventSourcesConfigEventSourcesAmazonCodeGuruProfiler:
     def __init__(self, *, status: builtins.str) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#status DevopsguruEventSourcesConfig#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#status DevopsguruEventSourcesConfig#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5096a4d13df5ad43aea83e926d1d602ef8f2890f18350ee53eb761c64d65ff7)
@@ -379,7 +379,7 @@ class DevopsguruEventSourcesConfigEventSourcesAmazonCodeGuruProfiler:
 
     @builtins.property
     def status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_event_sources_config#status DevopsguruEventSourcesConfig#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_event_sources_config#status DevopsguruEventSourcesConfig#status}.'''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
         return typing.cast(builtins.str, result)

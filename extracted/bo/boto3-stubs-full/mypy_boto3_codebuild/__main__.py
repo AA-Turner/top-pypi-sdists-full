@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 CodeBuild 1.38.6\n"
-        "Version:         1.38.6\n"
+        "Type annotations for boto3 CodeBuild 1.38.7\n"
+        "Version:         1.38.7\n"
         "Builder version: 8.10.1\n"
         "Docs:            https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codebuild//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codebuild.html#codebuild\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.38.6\n")
+    sys.stdout.write("1.38.7\n")
 
 
 def main() -> None:

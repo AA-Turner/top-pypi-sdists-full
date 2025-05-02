@@ -1,7 +1,7 @@
 r'''
 # `aws_opsworks_user_profile`
 
-Refer to the Terraform Registry for docs: [`aws_opsworks_user_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile).
+Refer to the Terraform Registry for docs: [`aws_opsworks_user_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpsworksUserProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.opsworksUserProfile.OpsworksUserProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile aws_opsworks_user_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile aws_opsworks_user_profile}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class OpsworksUserProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile aws_opsworks_user_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile aws_opsworks_user_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param ssh_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#ssh_username OpsworksUserProfile#ssh_username}.
-        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#user_arn OpsworksUserProfile#user_arn}.
-        :param allow_self_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#allow_self_management OpsworksUserProfile#allow_self_management}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#id OpsworksUserProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ssh_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#ssh_public_key OpsworksUserProfile#ssh_public_key}.
+        :param ssh_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#ssh_username OpsworksUserProfile#ssh_username}.
+        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#user_arn OpsworksUserProfile#user_arn}.
+        :param allow_self_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#allow_self_management OpsworksUserProfile#allow_self_management}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#id OpsworksUserProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ssh_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#ssh_public_key OpsworksUserProfile#ssh_public_key}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class OpsworksUserProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpsworksUserProfile to import.
-        :param import_from_id: The id of the existing OpsworksUserProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpsworksUserProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpsworksUserProfile to import is found.
         '''
         if __debug__:
@@ -287,11 +287,11 @@ class OpsworksUserProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param ssh_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#ssh_username OpsworksUserProfile#ssh_username}.
-        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#user_arn OpsworksUserProfile#user_arn}.
-        :param allow_self_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#allow_self_management OpsworksUserProfile#allow_self_management}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#id OpsworksUserProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ssh_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#ssh_public_key OpsworksUserProfile#ssh_public_key}.
+        :param ssh_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#ssh_username OpsworksUserProfile#ssh_username}.
+        :param user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#user_arn OpsworksUserProfile#user_arn}.
+        :param allow_self_management: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#allow_self_management OpsworksUserProfile#allow_self_management}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#id OpsworksUserProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ssh_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#ssh_public_key OpsworksUserProfile#ssh_public_key}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,14 +400,14 @@ class OpsworksUserProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ssh_username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#ssh_username OpsworksUserProfile#ssh_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#ssh_username OpsworksUserProfile#ssh_username}.'''
         result = self._values.get("ssh_username")
         assert result is not None, "Required property 'ssh_username' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#user_arn OpsworksUserProfile#user_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#user_arn OpsworksUserProfile#user_arn}.'''
         result = self._values.get("user_arn")
         assert result is not None, "Required property 'user_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -416,13 +416,13 @@ class OpsworksUserProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_self_management(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#allow_self_management OpsworksUserProfile#allow_self_management}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#allow_self_management OpsworksUserProfile#allow_self_management}.'''
         result = self._values.get("allow_self_management")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#id OpsworksUserProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#id OpsworksUserProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -432,7 +432,7 @@ class OpsworksUserProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ssh_public_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/opsworks_user_profile#ssh_public_key OpsworksUserProfile#ssh_public_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/opsworks_user_profile#ssh_public_key OpsworksUserProfile#ssh_public_key}.'''
         result = self._values.get("ssh_public_key")
         return typing.cast(typing.Optional[builtins.str], result)
 

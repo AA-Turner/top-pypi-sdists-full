@@ -1,7 +1,7 @@
 r'''
 # `aws_route53_cidr_location`
 
-Refer to the Terraform Registry for docs: [`aws_route53_cidr_location`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location).
+Refer to the Terraform Registry for docs: [`aws_route53_cidr_location`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Route53CidrLocation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.route53CidrLocation.Route53CidrLocation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location aws_route53_cidr_location}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location aws_route53_cidr_location}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Route53CidrLocation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location aws_route53_cidr_location} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location aws_route53_cidr_location} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#cidr_blocks Route53CidrLocation#cidr_blocks}.
-        :param cidr_collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#cidr_collection_id Route53CidrLocation#cidr_collection_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#name Route53CidrLocation#name}.
+        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#cidr_blocks Route53CidrLocation#cidr_blocks}.
+        :param cidr_collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#cidr_collection_id Route53CidrLocation#cidr_collection_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#name Route53CidrLocation#name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Route53CidrLocation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Route53CidrLocation to import.
-        :param import_from_id: The id of the existing Route53CidrLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Route53CidrLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Route53CidrLocation to import is found.
         '''
         if __debug__:
@@ -229,9 +229,9 @@ class Route53CidrLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#cidr_blocks Route53CidrLocation#cidr_blocks}.
-        :param cidr_collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#cidr_collection_id Route53CidrLocation#cidr_collection_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#name Route53CidrLocation#name}.
+        :param cidr_blocks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#cidr_blocks Route53CidrLocation#cidr_blocks}.
+        :param cidr_collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#cidr_collection_id Route53CidrLocation#cidr_collection_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#name Route53CidrLocation#name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -333,21 +333,21 @@ class Route53CidrLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cidr_blocks(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#cidr_blocks Route53CidrLocation#cidr_blocks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#cidr_blocks Route53CidrLocation#cidr_blocks}.'''
         result = self._values.get("cidr_blocks")
         assert result is not None, "Required property 'cidr_blocks' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def cidr_collection_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#cidr_collection_id Route53CidrLocation#cidr_collection_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#cidr_collection_id Route53CidrLocation#cidr_collection_id}.'''
         result = self._values.get("cidr_collection_id")
         assert result is not None, "Required property 'cidr_collection_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_cidr_location#name Route53CidrLocation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_cidr_location#name Route53CidrLocation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)

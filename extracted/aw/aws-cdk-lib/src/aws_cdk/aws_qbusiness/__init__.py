@@ -3510,7 +3510,7 @@ class CfnDataSource(
             For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
 
             :param invocation_condition: The condition used for when a Lambda function should be invoked. For example, you can specify a condition that if there are empty date-time values, then Amazon Q Business should invoke a function that inserts the current date-time.
-            :param lambda_arn: The Amazon Resource Name (ARN) of the Lambda function sduring ingestion. For more information, see `Using Lambda functions for Amazon Q Business document enrichment <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/cde-lambda-operations.html>`_ .
+            :param lambda_arn: The Amazon Resource Name (ARN) of the Lambda function during ingestion. For more information, see `Using Lambda functions for Amazon Q Business document enrichment <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/cde-lambda-operations.html>`_ .
             :param role_arn: The Amazon Resource Name (ARN) of a role with permission to run ``PreExtractionHookConfiguration`` and ``PostExtractionHookConfiguration`` for altering document metadata and content during the document ingestion process.
             :param s3_bucket_name: Stores the original, raw documents or the structured, parsed documents before and after altering them. For more information, see `Data contracts for Lambda functions <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/cde-lambda-operations.html#cde-lambda-operations-data-contracts>`_ .
 
@@ -3572,7 +3572,7 @@ class CfnDataSource(
 
         @builtins.property
         def lambda_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the Lambda function sduring ingestion.
+            '''The Amazon Resource Name (ARN) of the Lambda function during ingestion.
 
             For more information, see `Using Lambda functions for Amazon Q Business document enrichment <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/cde-lambda-operations.html>`_ .
 

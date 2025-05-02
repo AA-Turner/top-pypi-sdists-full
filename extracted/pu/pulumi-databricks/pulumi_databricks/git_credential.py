@@ -161,6 +161,9 @@ class _GitCredentialState:
 
 
 class GitCredential(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/gitCredential:GitCredential"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -172,6 +175,8 @@ class GitCredential(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage credentials for [Databricks Repos](https://docs.databricks.com/repos.html) using [Git Credentials API](https://docs.databricks.com/dev-tools/api/latest/gitcredentials.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -218,6 +223,8 @@ class GitCredential(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage credentials for [Databricks Repos](https://docs.databricks.com/repos.html) using [Git Credentials API](https://docs.databricks.com/dev-tools/api/latest/gitcredentials.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

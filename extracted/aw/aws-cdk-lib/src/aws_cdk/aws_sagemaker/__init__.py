@@ -1882,7 +1882,7 @@ class CfnCluster(
             :param current_count: The number of instances that are currently in the instance group of a SageMaker HyperPod cluster.
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
-            :param override_vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC.
+            :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
             :param threads_per_core: The number of threads per CPU core you specified under ``CreateCluster`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html
@@ -2038,9 +2038,7 @@ class CfnCluster(
         def override_vpc_config(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.VpcConfigProperty"]]:
-            '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
-
-            You can control access to and from your resources by configuring a VPC.
+            '''The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-overridevpcconfig
             '''

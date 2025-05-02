@@ -1,7 +1,7 @@
 r'''
 # `aws_ram_resource_share_accepter`
 
-Refer to the Terraform Registry for docs: [`aws_ram_resource_share_accepter`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter).
+Refer to the Terraform Registry for docs: [`aws_ram_resource_share_accepter`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RamResourceShareAccepter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ramResourceShareAccepter.RamResourceShareAccepter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter aws_ram_resource_share_accepter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter aws_ram_resource_share_accepter}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class RamResourceShareAccepter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter aws_ram_resource_share_accepter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter aws_ram_resource_share_accepter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#share_arn RamResourceShareAccepter#share_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#id RamResourceShareAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#timeouts RamResourceShareAccepter#timeouts}
+        :param share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#share_arn RamResourceShareAccepter#share_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#id RamResourceShareAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#timeouts RamResourceShareAccepter#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class RamResourceShareAccepter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RamResourceShareAccepter to import.
-        :param import_from_id: The id of the existing RamResourceShareAccepter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RamResourceShareAccepter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RamResourceShareAccepter to import is found.
         '''
         if __debug__:
@@ -128,8 +128,8 @@ class RamResourceShareAccepter(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#create RamResourceShareAccepter#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#delete RamResourceShareAccepter#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#create RamResourceShareAccepter#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#delete RamResourceShareAccepter#delete}.
         '''
         value = RamResourceShareAccepterTimeouts(create=create, delete=delete)
 
@@ -277,9 +277,9 @@ class RamResourceShareAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#share_arn RamResourceShareAccepter#share_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#id RamResourceShareAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#timeouts RamResourceShareAccepter#timeouts}
+        :param share_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#share_arn RamResourceShareAccepter#share_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#id RamResourceShareAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#timeouts RamResourceShareAccepter#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -385,14 +385,14 @@ class RamResourceShareAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def share_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#share_arn RamResourceShareAccepter#share_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#share_arn RamResourceShareAccepter#share_arn}.'''
         result = self._values.get("share_arn")
         assert result is not None, "Required property 'share_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#id RamResourceShareAccepter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#id RamResourceShareAccepter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -404,7 +404,7 @@ class RamResourceShareAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RamResourceShareAccepterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#timeouts RamResourceShareAccepter#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#timeouts RamResourceShareAccepter#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RamResourceShareAccepterTimeouts"], result)
@@ -434,8 +434,8 @@ class RamResourceShareAccepterTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#create RamResourceShareAccepter#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#delete RamResourceShareAccepter#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#create RamResourceShareAccepter#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#delete RamResourceShareAccepter#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__370f4d3dbe23ec035f1164c78cc312b7ed89f59e307872c73541b3bf55d3d84a)
@@ -449,13 +449,13 @@ class RamResourceShareAccepterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#create RamResourceShareAccepter#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#create RamResourceShareAccepter#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ram_resource_share_accepter#delete RamResourceShareAccepter#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ram_resource_share_accepter#delete RamResourceShareAccepter#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

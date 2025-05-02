@@ -1,7 +1,7 @@
 r'''
 # `aws_directory_service_directory`
 
-Refer to the Terraform Registry for docs: [`aws_directory_service_directory`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory).
+Refer to the Terraform Registry for docs: [`aws_directory_service_directory`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DirectoryServiceDirectory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.directoryServiceDirectory.DirectoryServiceDirectory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory aws_directory_service_directory}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory aws_directory_service_directory}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class DirectoryServiceDirectory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory aws_directory_service_directory} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory aws_directory_service_directory} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#name DirectoryServiceDirectory#name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#password DirectoryServiceDirectory#password}.
-        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#alias DirectoryServiceDirectory#alias}.
-        :param connect_settings: connect_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#connect_settings DirectoryServiceDirectory#connect_settings}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#description DirectoryServiceDirectory#description}.
-        :param desired_number_of_domain_controllers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#desired_number_of_domain_controllers DirectoryServiceDirectory#desired_number_of_domain_controllers}.
-        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#edition DirectoryServiceDirectory#edition}.
-        :param enable_sso: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#enable_sso DirectoryServiceDirectory#enable_sso}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#id DirectoryServiceDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#short_name DirectoryServiceDirectory#short_name}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#size DirectoryServiceDirectory#size}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#tags DirectoryServiceDirectory#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#tags_all DirectoryServiceDirectory#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#timeouts DirectoryServiceDirectory#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#type DirectoryServiceDirectory#type}.
-        :param vpc_settings: vpc_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_settings DirectoryServiceDirectory#vpc_settings}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#name DirectoryServiceDirectory#name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#password DirectoryServiceDirectory#password}.
+        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#alias DirectoryServiceDirectory#alias}.
+        :param connect_settings: connect_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#connect_settings DirectoryServiceDirectory#connect_settings}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#description DirectoryServiceDirectory#description}.
+        :param desired_number_of_domain_controllers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#desired_number_of_domain_controllers DirectoryServiceDirectory#desired_number_of_domain_controllers}.
+        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#edition DirectoryServiceDirectory#edition}.
+        :param enable_sso: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#enable_sso DirectoryServiceDirectory#enable_sso}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#id DirectoryServiceDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#short_name DirectoryServiceDirectory#short_name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#size DirectoryServiceDirectory#size}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#tags DirectoryServiceDirectory#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#tags_all DirectoryServiceDirectory#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#timeouts DirectoryServiceDirectory#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#type DirectoryServiceDirectory#type}.
+        :param vpc_settings: vpc_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_settings DirectoryServiceDirectory#vpc_settings}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class DirectoryServiceDirectory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DirectoryServiceDirectory to import.
-        :param import_from_id: The id of the existing DirectoryServiceDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DirectoryServiceDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DirectoryServiceDirectory to import is found.
         '''
         if __debug__:
@@ -169,10 +169,10 @@ class DirectoryServiceDirectory(
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param customer_dns_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#customer_dns_ips DirectoryServiceDirectory#customer_dns_ips}.
-        :param customer_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#customer_username DirectoryServiceDirectory#customer_username}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
+        :param customer_dns_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#customer_dns_ips DirectoryServiceDirectory#customer_dns_ips}.
+        :param customer_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#customer_username DirectoryServiceDirectory#customer_username}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
         '''
         value = DirectoryServiceDirectoryConnectSettings(
             customer_dns_ips=customer_dns_ips,
@@ -192,9 +192,9 @@ class DirectoryServiceDirectory(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#create DirectoryServiceDirectory#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#delete DirectoryServiceDirectory#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#update DirectoryServiceDirectory#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#create DirectoryServiceDirectory#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#delete DirectoryServiceDirectory#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#update DirectoryServiceDirectory#update}.
         '''
         value = DirectoryServiceDirectoryTimeouts(
             create=create, delete=delete, update=update
@@ -210,8 +210,8 @@ class DirectoryServiceDirectory(
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
         '''
         value = DirectoryServiceDirectoryVpcSettings(
             subnet_ids=subnet_ids, vpc_id=vpc_id
@@ -637,22 +637,22 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#name DirectoryServiceDirectory#name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#password DirectoryServiceDirectory#password}.
-        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#alias DirectoryServiceDirectory#alias}.
-        :param connect_settings: connect_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#connect_settings DirectoryServiceDirectory#connect_settings}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#description DirectoryServiceDirectory#description}.
-        :param desired_number_of_domain_controllers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#desired_number_of_domain_controllers DirectoryServiceDirectory#desired_number_of_domain_controllers}.
-        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#edition DirectoryServiceDirectory#edition}.
-        :param enable_sso: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#enable_sso DirectoryServiceDirectory#enable_sso}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#id DirectoryServiceDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#short_name DirectoryServiceDirectory#short_name}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#size DirectoryServiceDirectory#size}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#tags DirectoryServiceDirectory#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#tags_all DirectoryServiceDirectory#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#timeouts DirectoryServiceDirectory#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#type DirectoryServiceDirectory#type}.
-        :param vpc_settings: vpc_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_settings DirectoryServiceDirectory#vpc_settings}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#name DirectoryServiceDirectory#name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#password DirectoryServiceDirectory#password}.
+        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#alias DirectoryServiceDirectory#alias}.
+        :param connect_settings: connect_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#connect_settings DirectoryServiceDirectory#connect_settings}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#description DirectoryServiceDirectory#description}.
+        :param desired_number_of_domain_controllers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#desired_number_of_domain_controllers DirectoryServiceDirectory#desired_number_of_domain_controllers}.
+        :param edition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#edition DirectoryServiceDirectory#edition}.
+        :param enable_sso: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#enable_sso DirectoryServiceDirectory#enable_sso}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#id DirectoryServiceDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#short_name DirectoryServiceDirectory#short_name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#size DirectoryServiceDirectory#size}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#tags DirectoryServiceDirectory#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#tags_all DirectoryServiceDirectory#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#timeouts DirectoryServiceDirectory#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#type DirectoryServiceDirectory#type}.
+        :param vpc_settings: vpc_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_settings DirectoryServiceDirectory#vpc_settings}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -800,21 +800,21 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#name DirectoryServiceDirectory#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#name DirectoryServiceDirectory#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#password DirectoryServiceDirectory#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#password DirectoryServiceDirectory#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#alias DirectoryServiceDirectory#alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#alias DirectoryServiceDirectory#alias}.'''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -824,26 +824,26 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DirectoryServiceDirectoryConnectSettings"]:
         '''connect_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#connect_settings DirectoryServiceDirectory#connect_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#connect_settings DirectoryServiceDirectory#connect_settings}
         '''
         result = self._values.get("connect_settings")
         return typing.cast(typing.Optional["DirectoryServiceDirectoryConnectSettings"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#description DirectoryServiceDirectory#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#description DirectoryServiceDirectory#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def desired_number_of_domain_controllers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#desired_number_of_domain_controllers DirectoryServiceDirectory#desired_number_of_domain_controllers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#desired_number_of_domain_controllers DirectoryServiceDirectory#desired_number_of_domain_controllers}.'''
         result = self._values.get("desired_number_of_domain_controllers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def edition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#edition DirectoryServiceDirectory#edition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#edition DirectoryServiceDirectory#edition}.'''
         result = self._values.get("edition")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -851,13 +851,13 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_sso(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#enable_sso DirectoryServiceDirectory#enable_sso}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#enable_sso DirectoryServiceDirectory#enable_sso}.'''
         result = self._values.get("enable_sso")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#id DirectoryServiceDirectory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#id DirectoryServiceDirectory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -867,25 +867,25 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def short_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#short_name DirectoryServiceDirectory#short_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#short_name DirectoryServiceDirectory#short_name}.'''
         result = self._values.get("short_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def size(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#size DirectoryServiceDirectory#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#size DirectoryServiceDirectory#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#tags DirectoryServiceDirectory#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#tags DirectoryServiceDirectory#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#tags_all DirectoryServiceDirectory#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#tags_all DirectoryServiceDirectory#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -893,14 +893,14 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DirectoryServiceDirectoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#timeouts DirectoryServiceDirectory#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#timeouts DirectoryServiceDirectory#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DirectoryServiceDirectoryTimeouts"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#type DirectoryServiceDirectory#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#type DirectoryServiceDirectory#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -908,7 +908,7 @@ class DirectoryServiceDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_settings(self) -> typing.Optional["DirectoryServiceDirectoryVpcSettings"]:
         '''vpc_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_settings DirectoryServiceDirectory#vpc_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_settings DirectoryServiceDirectory#vpc_settings}
         '''
         result = self._values.get("vpc_settings")
         return typing.cast(typing.Optional["DirectoryServiceDirectoryVpcSettings"], result)
@@ -945,10 +945,10 @@ class DirectoryServiceDirectoryConnectSettings:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param customer_dns_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#customer_dns_ips DirectoryServiceDirectory#customer_dns_ips}.
-        :param customer_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#customer_username DirectoryServiceDirectory#customer_username}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
+        :param customer_dns_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#customer_dns_ips DirectoryServiceDirectory#customer_dns_ips}.
+        :param customer_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#customer_username DirectoryServiceDirectory#customer_username}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b291720312455065ae92dfcb67d4ce1ca5543803cbd26c33929d0a730f0b369e)
@@ -965,28 +965,28 @@ class DirectoryServiceDirectoryConnectSettings:
 
     @builtins.property
     def customer_dns_ips(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#customer_dns_ips DirectoryServiceDirectory#customer_dns_ips}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#customer_dns_ips DirectoryServiceDirectory#customer_dns_ips}.'''
         result = self._values.get("customer_dns_ips")
         assert result is not None, "Required property 'customer_dns_ips' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def customer_username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#customer_username DirectoryServiceDirectory#customer_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#customer_username DirectoryServiceDirectory#customer_username}.'''
         result = self._values.get("customer_username")
         assert result is not None, "Required property 'customer_username' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1133,9 +1133,9 @@ class DirectoryServiceDirectoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#create DirectoryServiceDirectory#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#delete DirectoryServiceDirectory#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#update DirectoryServiceDirectory#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#create DirectoryServiceDirectory#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#delete DirectoryServiceDirectory#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#update DirectoryServiceDirectory#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37823a785c3ebda8e85e22f98c9811cfc3748f9eb818e776e232b64375698555)
@@ -1152,19 +1152,19 @@ class DirectoryServiceDirectoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#create DirectoryServiceDirectory#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#create DirectoryServiceDirectory#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#delete DirectoryServiceDirectory#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#delete DirectoryServiceDirectory#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#update DirectoryServiceDirectory#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#update DirectoryServiceDirectory#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1294,8 +1294,8 @@ class DirectoryServiceDirectoryVpcSettings:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b72a633924dec26874c21945da75cc77750f46d2ed569d1daec47098b78f2d1c)
@@ -1308,14 +1308,14 @@ class DirectoryServiceDirectoryVpcSettings:
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#subnet_ids DirectoryServiceDirectory#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/directory_service_directory#vpc_id DirectoryServiceDirectory#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)

@@ -1,7 +1,7 @@
 r'''
 # `aws_kms_grant`
 
-Refer to the Terraform Registry for docs: [`aws_kms_grant`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant).
+Refer to the Terraform Registry for docs: [`aws_kms_grant`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KmsGrant(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kmsGrant.KmsGrant",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant aws_kms_grant}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant aws_kms_grant}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class KmsGrant(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant aws_kms_grant} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant aws_kms_grant} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param grantee_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#grantee_principal KmsGrant#grantee_principal}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#key_id KmsGrant#key_id}.
-        :param operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#operations KmsGrant#operations}.
-        :param constraints: constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#constraints KmsGrant#constraints}
-        :param grant_creation_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#grant_creation_tokens KmsGrant#grant_creation_tokens}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#id KmsGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#name KmsGrant#name}.
-        :param retire_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#retire_on_delete KmsGrant#retire_on_delete}.
-        :param retiring_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#retiring_principal KmsGrant#retiring_principal}.
+        :param grantee_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#grantee_principal KmsGrant#grantee_principal}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#key_id KmsGrant#key_id}.
+        :param operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#operations KmsGrant#operations}.
+        :param constraints: constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#constraints KmsGrant#constraints}
+        :param grant_creation_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#grant_creation_tokens KmsGrant#grant_creation_tokens}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#id KmsGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#name KmsGrant#name}.
+        :param retire_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#retire_on_delete KmsGrant#retire_on_delete}.
+        :param retiring_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#retiring_principal KmsGrant#retiring_principal}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class KmsGrant(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KmsGrant to import.
-        :param import_from_id: The id of the existing KmsGrant that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KmsGrant that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KmsGrant to import is found.
         '''
         if __debug__:
@@ -405,15 +405,15 @@ class KmsGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param grantee_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#grantee_principal KmsGrant#grantee_principal}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#key_id KmsGrant#key_id}.
-        :param operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#operations KmsGrant#operations}.
-        :param constraints: constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#constraints KmsGrant#constraints}
-        :param grant_creation_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#grant_creation_tokens KmsGrant#grant_creation_tokens}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#id KmsGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#name KmsGrant#name}.
-        :param retire_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#retire_on_delete KmsGrant#retire_on_delete}.
-        :param retiring_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#retiring_principal KmsGrant#retiring_principal}.
+        :param grantee_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#grantee_principal KmsGrant#grantee_principal}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#key_id KmsGrant#key_id}.
+        :param operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#operations KmsGrant#operations}.
+        :param constraints: constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#constraints KmsGrant#constraints}
+        :param grant_creation_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#grant_creation_tokens KmsGrant#grant_creation_tokens}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#id KmsGrant#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#name KmsGrant#name}.
+        :param retire_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#retire_on_delete KmsGrant#retire_on_delete}.
+        :param retiring_principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#retiring_principal KmsGrant#retiring_principal}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -533,21 +533,21 @@ class KmsGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def grantee_principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#grantee_principal KmsGrant#grantee_principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#grantee_principal KmsGrant#grantee_principal}.'''
         result = self._values.get("grantee_principal")
         assert result is not None, "Required property 'grantee_principal' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#key_id KmsGrant#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#key_id KmsGrant#key_id}.'''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operations(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#operations KmsGrant#operations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#operations KmsGrant#operations}.'''
         result = self._values.get("operations")
         assert result is not None, "Required property 'operations' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -558,20 +558,20 @@ class KmsGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KmsGrantConstraints"]]]:
         '''constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#constraints KmsGrant#constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#constraints KmsGrant#constraints}
         '''
         result = self._values.get("constraints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KmsGrantConstraints"]]], result)
 
     @builtins.property
     def grant_creation_tokens(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#grant_creation_tokens KmsGrant#grant_creation_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#grant_creation_tokens KmsGrant#grant_creation_tokens}.'''
         result = self._values.get("grant_creation_tokens")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#id KmsGrant#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#id KmsGrant#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -581,7 +581,7 @@ class KmsGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#name KmsGrant#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#name KmsGrant#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -589,13 +589,13 @@ class KmsGrantConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retire_on_delete(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#retire_on_delete KmsGrant#retire_on_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#retire_on_delete KmsGrant#retire_on_delete}.'''
         result = self._values.get("retire_on_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def retiring_principal(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#retiring_principal KmsGrant#retiring_principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#retiring_principal KmsGrant#retiring_principal}.'''
         result = self._values.get("retiring_principal")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -627,8 +627,8 @@ class KmsGrantConstraints:
         encryption_context_subset: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param encryption_context_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#encryption_context_equals KmsGrant#encryption_context_equals}.
-        :param encryption_context_subset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#encryption_context_subset KmsGrant#encryption_context_subset}.
+        :param encryption_context_equals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#encryption_context_equals KmsGrant#encryption_context_equals}.
+        :param encryption_context_subset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#encryption_context_subset KmsGrant#encryption_context_subset}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f948be40916e134879d63676a60dd5d297d84563bdbc7ac47c861296c91556ff)
@@ -644,7 +644,7 @@ class KmsGrantConstraints:
     def encryption_context_equals(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#encryption_context_equals KmsGrant#encryption_context_equals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#encryption_context_equals KmsGrant#encryption_context_equals}.'''
         result = self._values.get("encryption_context_equals")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -652,7 +652,7 @@ class KmsGrantConstraints:
     def encryption_context_subset(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kms_grant#encryption_context_subset KmsGrant#encryption_context_subset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_grant#encryption_context_subset KmsGrant#encryption_context_subset}.'''
         result = self._values.get("encryption_context_subset")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

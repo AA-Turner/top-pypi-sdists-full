@@ -1,7 +1,7 @@
 r'''
 # `aws_transfer_server`
 
-Refer to the Terraform Registry for docs: [`aws_transfer_server`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server).
+Refer to the Terraform Registry for docs: [`aws_transfer_server`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TransferServer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transferServer.TransferServer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server aws_transfer_server}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server aws_transfer_server}.'''
 
     def __init__(
         self,
@@ -83,34 +83,34 @@ class TransferServer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server aws_transfer_server} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server aws_transfer_server} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#certificate TransferServer#certificate}.
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#directory_id TransferServer#directory_id}.
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#domain TransferServer#domain}.
-        :param endpoint_details: endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#endpoint_details TransferServer#endpoint_details}
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#endpoint_type TransferServer#endpoint_type}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#force_destroy TransferServer#force_destroy}.
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#function TransferServer#function}.
-        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#host_key TransferServer#host_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#id TransferServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity_provider_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#identity_provider_type TransferServer#identity_provider_type}.
-        :param invocation_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#invocation_role TransferServer#invocation_role}.
-        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#logging_role TransferServer#logging_role}.
-        :param post_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#post_authentication_login_banner TransferServer#post_authentication_login_banner}.
-        :param pre_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#pre_authentication_login_banner TransferServer#pre_authentication_login_banner}.
-        :param protocol_details: protocol_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#protocol_details TransferServer#protocol_details}
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#protocols TransferServer#protocols}.
-        :param s3_storage_options: s3_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#s3_storage_options TransferServer#s3_storage_options}
-        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#security_policy_name TransferServer#security_policy_name}.
-        :param sftp_authentication_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#sftp_authentication_methods TransferServer#sftp_authentication_methods}.
-        :param structured_log_destinations: This is a set of arns of destinations that will receive structured logs from the transfer server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#structured_log_destinations TransferServer#structured_log_destinations}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tags TransferServer#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tags_all TransferServer#tags_all}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#url TransferServer#url}.
-        :param workflow_details: workflow_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_details TransferServer#workflow_details}
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#certificate TransferServer#certificate}.
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#directory_id TransferServer#directory_id}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#domain TransferServer#domain}.
+        :param endpoint_details: endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#endpoint_details TransferServer#endpoint_details}
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#endpoint_type TransferServer#endpoint_type}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#force_destroy TransferServer#force_destroy}.
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#function TransferServer#function}.
+        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#host_key TransferServer#host_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#id TransferServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_provider_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#identity_provider_type TransferServer#identity_provider_type}.
+        :param invocation_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#invocation_role TransferServer#invocation_role}.
+        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#logging_role TransferServer#logging_role}.
+        :param post_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#post_authentication_login_banner TransferServer#post_authentication_login_banner}.
+        :param pre_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#pre_authentication_login_banner TransferServer#pre_authentication_login_banner}.
+        :param protocol_details: protocol_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#protocol_details TransferServer#protocol_details}
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#protocols TransferServer#protocols}.
+        :param s3_storage_options: s3_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#s3_storage_options TransferServer#s3_storage_options}
+        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#security_policy_name TransferServer#security_policy_name}.
+        :param sftp_authentication_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#sftp_authentication_methods TransferServer#sftp_authentication_methods}.
+        :param structured_log_destinations: This is a set of arns of destinations that will receive structured logs from the transfer server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#structured_log_destinations TransferServer#structured_log_destinations}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tags TransferServer#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tags_all TransferServer#tags_all}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#url TransferServer#url}.
+        :param workflow_details: workflow_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_details TransferServer#workflow_details}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -172,7 +172,7 @@ class TransferServer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TransferServer to import.
-        :param import_from_id: The id of the existing TransferServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TransferServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TransferServer to import is found.
         '''
         if __debug__:
@@ -194,11 +194,11 @@ class TransferServer(
         vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#address_allocation_ids TransferServer#address_allocation_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#security_group_ids TransferServer#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#subnet_ids TransferServer#subnet_ids}.
-        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#vpc_endpoint_id TransferServer#vpc_endpoint_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#vpc_id TransferServer#vpc_id}.
+        :param address_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#address_allocation_ids TransferServer#address_allocation_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#security_group_ids TransferServer#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#subnet_ids TransferServer#subnet_ids}.
+        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#vpc_endpoint_id TransferServer#vpc_endpoint_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#vpc_id TransferServer#vpc_id}.
         '''
         value = TransferServerEndpointDetails(
             address_allocation_ids=address_allocation_ids,
@@ -220,10 +220,10 @@ class TransferServer(
         tls_session_resumption_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param as2_transports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#as2_transports TransferServer#as2_transports}.
-        :param passive_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#passive_ip TransferServer#passive_ip}.
-        :param set_stat_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#set_stat_option TransferServer#set_stat_option}.
-        :param tls_session_resumption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tls_session_resumption_mode TransferServer#tls_session_resumption_mode}.
+        :param as2_transports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#as2_transports TransferServer#as2_transports}.
+        :param passive_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#passive_ip TransferServer#passive_ip}.
+        :param set_stat_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#set_stat_option TransferServer#set_stat_option}.
+        :param tls_session_resumption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tls_session_resumption_mode TransferServer#tls_session_resumption_mode}.
         '''
         value = TransferServerProtocolDetails(
             as2_transports=as2_transports,
@@ -241,7 +241,7 @@ class TransferServer(
         directory_listing_optimization: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param directory_listing_optimization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#directory_listing_optimization TransferServer#directory_listing_optimization}.
+        :param directory_listing_optimization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#directory_listing_optimization TransferServer#directory_listing_optimization}.
         '''
         value = TransferServerS3StorageOptions(
             directory_listing_optimization=directory_listing_optimization
@@ -257,8 +257,8 @@ class TransferServer(
         on_upload: typing.Optional[typing.Union["TransferServerWorkflowDetailsOnUpload", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param on_partial_upload: on_partial_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#on_partial_upload TransferServer#on_partial_upload}
-        :param on_upload: on_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#on_upload TransferServer#on_upload}
+        :param on_partial_upload: on_partial_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#on_partial_upload TransferServer#on_partial_upload}
+        :param on_upload: on_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#on_upload TransferServer#on_upload}
         '''
         value = TransferServerWorkflowDetails(
             on_partial_upload=on_partial_upload, on_upload=on_upload
@@ -869,30 +869,30 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#certificate TransferServer#certificate}.
-        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#directory_id TransferServer#directory_id}.
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#domain TransferServer#domain}.
-        :param endpoint_details: endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#endpoint_details TransferServer#endpoint_details}
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#endpoint_type TransferServer#endpoint_type}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#force_destroy TransferServer#force_destroy}.
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#function TransferServer#function}.
-        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#host_key TransferServer#host_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#id TransferServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity_provider_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#identity_provider_type TransferServer#identity_provider_type}.
-        :param invocation_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#invocation_role TransferServer#invocation_role}.
-        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#logging_role TransferServer#logging_role}.
-        :param post_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#post_authentication_login_banner TransferServer#post_authentication_login_banner}.
-        :param pre_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#pre_authentication_login_banner TransferServer#pre_authentication_login_banner}.
-        :param protocol_details: protocol_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#protocol_details TransferServer#protocol_details}
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#protocols TransferServer#protocols}.
-        :param s3_storage_options: s3_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#s3_storage_options TransferServer#s3_storage_options}
-        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#security_policy_name TransferServer#security_policy_name}.
-        :param sftp_authentication_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#sftp_authentication_methods TransferServer#sftp_authentication_methods}.
-        :param structured_log_destinations: This is a set of arns of destinations that will receive structured logs from the transfer server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#structured_log_destinations TransferServer#structured_log_destinations}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tags TransferServer#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tags_all TransferServer#tags_all}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#url TransferServer#url}.
-        :param workflow_details: workflow_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_details TransferServer#workflow_details}
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#certificate TransferServer#certificate}.
+        :param directory_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#directory_id TransferServer#directory_id}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#domain TransferServer#domain}.
+        :param endpoint_details: endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#endpoint_details TransferServer#endpoint_details}
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#endpoint_type TransferServer#endpoint_type}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#force_destroy TransferServer#force_destroy}.
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#function TransferServer#function}.
+        :param host_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#host_key TransferServer#host_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#id TransferServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity_provider_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#identity_provider_type TransferServer#identity_provider_type}.
+        :param invocation_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#invocation_role TransferServer#invocation_role}.
+        :param logging_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#logging_role TransferServer#logging_role}.
+        :param post_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#post_authentication_login_banner TransferServer#post_authentication_login_banner}.
+        :param pre_authentication_login_banner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#pre_authentication_login_banner TransferServer#pre_authentication_login_banner}.
+        :param protocol_details: protocol_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#protocol_details TransferServer#protocol_details}
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#protocols TransferServer#protocols}.
+        :param s3_storage_options: s3_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#s3_storage_options TransferServer#s3_storage_options}
+        :param security_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#security_policy_name TransferServer#security_policy_name}.
+        :param sftp_authentication_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#sftp_authentication_methods TransferServer#sftp_authentication_methods}.
+        :param structured_log_destinations: This is a set of arns of destinations that will receive structured logs from the transfer server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#structured_log_destinations TransferServer#structured_log_destinations}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tags TransferServer#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tags_all TransferServer#tags_all}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#url TransferServer#url}.
+        :param workflow_details: workflow_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_details TransferServer#workflow_details}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1067,19 +1067,19 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def certificate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#certificate TransferServer#certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#certificate TransferServer#certificate}.'''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def directory_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#directory_id TransferServer#directory_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#directory_id TransferServer#directory_id}.'''
         result = self._values.get("directory_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#domain TransferServer#domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#domain TransferServer#domain}.'''
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1087,14 +1087,14 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def endpoint_details(self) -> typing.Optional["TransferServerEndpointDetails"]:
         '''endpoint_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#endpoint_details TransferServer#endpoint_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#endpoint_details TransferServer#endpoint_details}
         '''
         result = self._values.get("endpoint_details")
         return typing.cast(typing.Optional["TransferServerEndpointDetails"], result)
 
     @builtins.property
     def endpoint_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#endpoint_type TransferServer#endpoint_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#endpoint_type TransferServer#endpoint_type}.'''
         result = self._values.get("endpoint_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1102,25 +1102,25 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#force_destroy TransferServer#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#force_destroy TransferServer#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def function(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#function TransferServer#function}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#function TransferServer#function}.'''
         result = self._values.get("function")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#host_key TransferServer#host_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#host_key TransferServer#host_key}.'''
         result = self._values.get("host_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#id TransferServer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#id TransferServer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1130,31 +1130,31 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def identity_provider_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#identity_provider_type TransferServer#identity_provider_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#identity_provider_type TransferServer#identity_provider_type}.'''
         result = self._values.get("identity_provider_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def invocation_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#invocation_role TransferServer#invocation_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#invocation_role TransferServer#invocation_role}.'''
         result = self._values.get("invocation_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def logging_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#logging_role TransferServer#logging_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#logging_role TransferServer#logging_role}.'''
         result = self._values.get("logging_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_authentication_login_banner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#post_authentication_login_banner TransferServer#post_authentication_login_banner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#post_authentication_login_banner TransferServer#post_authentication_login_banner}.'''
         result = self._values.get("post_authentication_login_banner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pre_authentication_login_banner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#pre_authentication_login_banner TransferServer#pre_authentication_login_banner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#pre_authentication_login_banner TransferServer#pre_authentication_login_banner}.'''
         result = self._values.get("pre_authentication_login_banner")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1162,14 +1162,14 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def protocol_details(self) -> typing.Optional["TransferServerProtocolDetails"]:
         '''protocol_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#protocol_details TransferServer#protocol_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#protocol_details TransferServer#protocol_details}
         '''
         result = self._values.get("protocol_details")
         return typing.cast(typing.Optional["TransferServerProtocolDetails"], result)
 
     @builtins.property
     def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#protocols TransferServer#protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#protocols TransferServer#protocols}.'''
         result = self._values.get("protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1177,20 +1177,20 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def s3_storage_options(self) -> typing.Optional["TransferServerS3StorageOptions"]:
         '''s3_storage_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#s3_storage_options TransferServer#s3_storage_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#s3_storage_options TransferServer#s3_storage_options}
         '''
         result = self._values.get("s3_storage_options")
         return typing.cast(typing.Optional["TransferServerS3StorageOptions"], result)
 
     @builtins.property
     def security_policy_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#security_policy_name TransferServer#security_policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#security_policy_name TransferServer#security_policy_name}.'''
         result = self._values.get("security_policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sftp_authentication_methods(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#sftp_authentication_methods TransferServer#sftp_authentication_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#sftp_authentication_methods TransferServer#sftp_authentication_methods}.'''
         result = self._values.get("sftp_authentication_methods")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1198,26 +1198,26 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def structured_log_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
         '''This is a set of arns of destinations that will receive structured logs from the transfer server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#structured_log_destinations TransferServer#structured_log_destinations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#structured_log_destinations TransferServer#structured_log_destinations}
         '''
         result = self._values.get("structured_log_destinations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tags TransferServer#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tags TransferServer#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tags_all TransferServer#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tags_all TransferServer#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#url TransferServer#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#url TransferServer#url}.'''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1225,7 +1225,7 @@ class TransferServerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def workflow_details(self) -> typing.Optional["TransferServerWorkflowDetails"]:
         '''workflow_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_details TransferServer#workflow_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_details TransferServer#workflow_details}
         '''
         result = self._values.get("workflow_details")
         return typing.cast(typing.Optional["TransferServerWorkflowDetails"], result)
@@ -1264,11 +1264,11 @@ class TransferServerEndpointDetails:
         vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#address_allocation_ids TransferServer#address_allocation_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#security_group_ids TransferServer#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#subnet_ids TransferServer#subnet_ids}.
-        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#vpc_endpoint_id TransferServer#vpc_endpoint_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#vpc_id TransferServer#vpc_id}.
+        :param address_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#address_allocation_ids TransferServer#address_allocation_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#security_group_ids TransferServer#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#subnet_ids TransferServer#subnet_ids}.
+        :param vpc_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#vpc_endpoint_id TransferServer#vpc_endpoint_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#vpc_id TransferServer#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82c597ed77adab247cd8735ee04acebb0981437360493db53be5f1d1a80d7c47)
@@ -1291,31 +1291,31 @@ class TransferServerEndpointDetails:
 
     @builtins.property
     def address_allocation_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#address_allocation_ids TransferServer#address_allocation_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#address_allocation_ids TransferServer#address_allocation_ids}.'''
         result = self._values.get("address_allocation_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#security_group_ids TransferServer#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#security_group_ids TransferServer#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#subnet_ids TransferServer#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#subnet_ids TransferServer#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#vpc_endpoint_id TransferServer#vpc_endpoint_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#vpc_endpoint_id TransferServer#vpc_endpoint_id}.'''
         result = self._values.get("vpc_endpoint_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#vpc_id TransferServer#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#vpc_id TransferServer#vpc_id}.'''
         result = self._values.get("vpc_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1494,10 +1494,10 @@ class TransferServerProtocolDetails:
         tls_session_resumption_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param as2_transports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#as2_transports TransferServer#as2_transports}.
-        :param passive_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#passive_ip TransferServer#passive_ip}.
-        :param set_stat_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#set_stat_option TransferServer#set_stat_option}.
-        :param tls_session_resumption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tls_session_resumption_mode TransferServer#tls_session_resumption_mode}.
+        :param as2_transports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#as2_transports TransferServer#as2_transports}.
+        :param passive_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#passive_ip TransferServer#passive_ip}.
+        :param set_stat_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#set_stat_option TransferServer#set_stat_option}.
+        :param tls_session_resumption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tls_session_resumption_mode TransferServer#tls_session_resumption_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3a07613f3328d68e7110f4aa12c11601830e690e1aae20ed28849f63f76de0d)
@@ -1517,25 +1517,25 @@ class TransferServerProtocolDetails:
 
     @builtins.property
     def as2_transports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#as2_transports TransferServer#as2_transports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#as2_transports TransferServer#as2_transports}.'''
         result = self._values.get("as2_transports")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def passive_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#passive_ip TransferServer#passive_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#passive_ip TransferServer#passive_ip}.'''
         result = self._values.get("passive_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def set_stat_option(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#set_stat_option TransferServer#set_stat_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#set_stat_option TransferServer#set_stat_option}.'''
         result = self._values.get("set_stat_option")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tls_session_resumption_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#tls_session_resumption_mode TransferServer#tls_session_resumption_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#tls_session_resumption_mode TransferServer#tls_session_resumption_mode}.'''
         result = self._values.get("tls_session_resumption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1683,7 +1683,7 @@ class TransferServerS3StorageOptions:
         directory_listing_optimization: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param directory_listing_optimization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#directory_listing_optimization TransferServer#directory_listing_optimization}.
+        :param directory_listing_optimization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#directory_listing_optimization TransferServer#directory_listing_optimization}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8ebd2f1dac25bb5c27c92dd2d9d309f27860f57db123bf5a6002f1c8f053535)
@@ -1694,7 +1694,7 @@ class TransferServerS3StorageOptions:
 
     @builtins.property
     def directory_listing_optimization(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#directory_listing_optimization TransferServer#directory_listing_optimization}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#directory_listing_optimization TransferServer#directory_listing_optimization}.'''
         result = self._values.get("directory_listing_optimization")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1780,8 +1780,8 @@ class TransferServerWorkflowDetails:
         on_upload: typing.Optional[typing.Union["TransferServerWorkflowDetailsOnUpload", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param on_partial_upload: on_partial_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#on_partial_upload TransferServer#on_partial_upload}
-        :param on_upload: on_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#on_upload TransferServer#on_upload}
+        :param on_partial_upload: on_partial_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#on_partial_upload TransferServer#on_partial_upload}
+        :param on_upload: on_upload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#on_upload TransferServer#on_upload}
         '''
         if isinstance(on_partial_upload, dict):
             on_partial_upload = TransferServerWorkflowDetailsOnPartialUpload(**on_partial_upload)
@@ -1803,7 +1803,7 @@ class TransferServerWorkflowDetails:
     ) -> typing.Optional["TransferServerWorkflowDetailsOnPartialUpload"]:
         '''on_partial_upload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#on_partial_upload TransferServer#on_partial_upload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#on_partial_upload TransferServer#on_partial_upload}
         '''
         result = self._values.get("on_partial_upload")
         return typing.cast(typing.Optional["TransferServerWorkflowDetailsOnPartialUpload"], result)
@@ -1812,7 +1812,7 @@ class TransferServerWorkflowDetails:
     def on_upload(self) -> typing.Optional["TransferServerWorkflowDetailsOnUpload"]:
         '''on_upload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#on_upload TransferServer#on_upload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#on_upload TransferServer#on_upload}
         '''
         result = self._values.get("on_upload")
         return typing.cast(typing.Optional["TransferServerWorkflowDetailsOnUpload"], result)
@@ -1842,8 +1842,8 @@ class TransferServerWorkflowDetailsOnPartialUpload:
         workflow_id: builtins.str,
     ) -> None:
         '''
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
-        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
+        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6b781127652775a6a7e61102d968ff18ffdfff0f3948b2815c03abd5f524fca)
@@ -1856,14 +1856,14 @@ class TransferServerWorkflowDetailsOnPartialUpload:
 
     @builtins.property
     def execution_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.'''
         result = self._values.get("execution_role")
         assert result is not None, "Required property 'execution_role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workflow_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.'''
         result = self._values.get("workflow_id")
         assert result is not None, "Required property 'workflow_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1965,8 +1965,8 @@ class TransferServerWorkflowDetailsOnUpload:
         workflow_id: builtins.str,
     ) -> None:
         '''
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
-        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
+        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab6cb67c4a835ef3f7fa1951ce4593b10f2b795610fcea1f9f8ecfe1f129af15)
@@ -1979,14 +1979,14 @@ class TransferServerWorkflowDetailsOnUpload:
 
     @builtins.property
     def execution_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.'''
         result = self._values.get("execution_role")
         assert result is not None, "Required property 'execution_role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workflow_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.'''
         result = self._values.get("workflow_id")
         assert result is not None, "Required property 'workflow_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2101,8 +2101,8 @@ class TransferServerWorkflowDetailsOutputReference(
         workflow_id: builtins.str,
     ) -> None:
         '''
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
-        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
+        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
         '''
         value = TransferServerWorkflowDetailsOnPartialUpload(
             execution_role=execution_role, workflow_id=workflow_id
@@ -2118,8 +2118,8 @@ class TransferServerWorkflowDetailsOutputReference(
         workflow_id: builtins.str,
     ) -> None:
         '''
-        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
-        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
+        :param execution_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#execution_role TransferServer#execution_role}.
+        :param workflow_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_server#workflow_id TransferServer#workflow_id}.
         '''
         value = TransferServerWorkflowDetailsOnUpload(
             execution_role=execution_role, workflow_id=workflow_id

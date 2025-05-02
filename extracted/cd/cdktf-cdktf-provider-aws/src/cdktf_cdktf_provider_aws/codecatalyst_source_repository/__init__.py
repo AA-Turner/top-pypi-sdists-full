@@ -1,7 +1,7 @@
 r'''
 # `aws_codecatalyst_source_repository`
 
-Refer to the Terraform Registry for docs: [`aws_codecatalyst_source_repository`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository).
+Refer to the Terraform Registry for docs: [`aws_codecatalyst_source_repository`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodecatalystSourceRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codecatalystSourceRepository.CodecatalystSourceRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository aws_codecatalyst_source_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository aws_codecatalyst_source_repository}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CodecatalystSourceRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository aws_codecatalyst_source_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository aws_codecatalyst_source_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#name CodecatalystSourceRepository#name}.
-        :param project_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#project_name CodecatalystSourceRepository#project_name}.
-        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#space_name CodecatalystSourceRepository#space_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#description CodecatalystSourceRepository#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#id CodecatalystSourceRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#timeouts CodecatalystSourceRepository#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#name CodecatalystSourceRepository#name}.
+        :param project_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#project_name CodecatalystSourceRepository#project_name}.
+        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#space_name CodecatalystSourceRepository#space_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#description CodecatalystSourceRepository#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#id CodecatalystSourceRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#timeouts CodecatalystSourceRepository#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CodecatalystSourceRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodecatalystSourceRepository to import.
-        :param import_from_id: The id of the existing CodecatalystSourceRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodecatalystSourceRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodecatalystSourceRepository to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class CodecatalystSourceRepository(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#create CodecatalystSourceRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#delete CodecatalystSourceRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#update CodecatalystSourceRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#create CodecatalystSourceRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#delete CodecatalystSourceRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#update CodecatalystSourceRepository#update}.
         '''
         value = CodecatalystSourceRepositoryTimeouts(
             create=create, delete=delete, update=update
@@ -316,12 +316,12 @@ class CodecatalystSourceRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#name CodecatalystSourceRepository#name}.
-        :param project_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#project_name CodecatalystSourceRepository#project_name}.
-        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#space_name CodecatalystSourceRepository#space_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#description CodecatalystSourceRepository#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#id CodecatalystSourceRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#timeouts CodecatalystSourceRepository#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#name CodecatalystSourceRepository#name}.
+        :param project_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#project_name CodecatalystSourceRepository#project_name}.
+        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#space_name CodecatalystSourceRepository#space_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#description CodecatalystSourceRepository#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#id CodecatalystSourceRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#timeouts CodecatalystSourceRepository#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -434,34 +434,34 @@ class CodecatalystSourceRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#name CodecatalystSourceRepository#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#name CodecatalystSourceRepository#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def project_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#project_name CodecatalystSourceRepository#project_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#project_name CodecatalystSourceRepository#project_name}.'''
         result = self._values.get("project_name")
         assert result is not None, "Required property 'project_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def space_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#space_name CodecatalystSourceRepository#space_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#space_name CodecatalystSourceRepository#space_name}.'''
         result = self._values.get("space_name")
         assert result is not None, "Required property 'space_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#description CodecatalystSourceRepository#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#description CodecatalystSourceRepository#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#id CodecatalystSourceRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#id CodecatalystSourceRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -473,7 +473,7 @@ class CodecatalystSourceRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["CodecatalystSourceRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#timeouts CodecatalystSourceRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#timeouts CodecatalystSourceRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CodecatalystSourceRepositoryTimeouts"], result)
@@ -504,9 +504,9 @@ class CodecatalystSourceRepositoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#create CodecatalystSourceRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#delete CodecatalystSourceRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#update CodecatalystSourceRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#create CodecatalystSourceRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#delete CodecatalystSourceRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#update CodecatalystSourceRepository#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__864d81607e226ebe3bdcc4834b975b6fbcfa57b6800d54c0a4fe4c04c8dcf8e0)
@@ -523,19 +523,19 @@ class CodecatalystSourceRepositoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#create CodecatalystSourceRepository#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#create CodecatalystSourceRepository#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#delete CodecatalystSourceRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#delete CodecatalystSourceRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/codecatalyst_source_repository#update CodecatalystSourceRepository#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/codecatalyst_source_repository#update CodecatalystSourceRepository#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

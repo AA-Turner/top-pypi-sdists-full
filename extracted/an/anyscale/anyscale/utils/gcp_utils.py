@@ -248,10 +248,26 @@ def get_gcp_filestore_config(
     filestore_instance_id: str,
     logger: CloudSetupLogger,
 ):
-    client = factory.filestore_v1.CloudFilestoreManagerClient()
     instance_name = "projects/{}/locations/{}/instances/{}".format(
         project_id, filestore_location, filestore_instance_id
     )
+    return get_gcp_filestore_config_from_full_name(
+        factory=factory, vpc_name=vpc_name, instance_name=instance_name, logger=logger,
+    )
+
+
+def get_gcp_filestore_config_from_full_name(
+    factory: GoogleCloudClientFactory,
+    vpc_name: str,
+    instance_name: str,
+    logger: CloudSetupLogger,
+):
+    if not re.search("projects/.+/locations/.+/instances/.+", instance_name):
+        raise ValueError(
+            "Please provide the full filestore instance name. Example: projects/<project number>/locations/<location>/instances/<instance id>"
+        )
+
+    client = factory.filestore_v1.CloudFilestoreManagerClient()
     try:
         file_store = client.get_instance(name=instance_name)
     except NotFound as e:
@@ -260,7 +276,7 @@ def get_gcp_filestore_config(
             CloudSetupError.RESOURCE_NOT_FOUND,
         )
         raise ClickException(
-            f"Could not find Filestore with id {filestore_instance_id} in project {project_id}. Please validate that you're using the correct GCP project and that the resource values are correct. Error details: {e}"
+            f"Could not find Filestore with id {instance_name}. Please validate that you're using the correct GCP project and that the resource values are correct. Error details: {e}"
         )
     root_dir = file_store.file_shares[0].name
     for v in file_store.networks:
@@ -271,7 +287,7 @@ def get_gcp_filestore_config(
             break
     else:
         logger.error(
-            f"Filestore {filestore_instance_id} is not connected to {vpc_name}, but to {[v.network for v in file_store.networks]}. "
+            f"Filestore {instance_name} is not connected to {vpc_name}, but to {[v.network for v in file_store.networks]}. "
             f"This cannot be edited on an existing Filestore instance. Please recreate the filestore and connect it to {vpc_name}."
         )
         logger.log_resource_error(
@@ -279,7 +295,7 @@ def get_gcp_filestore_config(
             CloudSetupError.FILESTORE_NOT_CONNECTED_TO_VPC,
         )
         raise ClickException(
-            f"Filestore {filestore_instance_id} is not connected to {vpc_name}."
+            f"Filestore {instance_name} is not connected to {vpc_name}."
         )
     return GCPFileStoreConfig(
         instance_name=instance_name, root_dir=root_dir, mount_target_ip=mount_target_ip,

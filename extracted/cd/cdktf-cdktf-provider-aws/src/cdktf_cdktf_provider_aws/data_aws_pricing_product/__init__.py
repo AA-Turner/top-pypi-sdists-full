@@ -1,7 +1,7 @@
 r'''
 # `data_aws_pricing_product`
 
-Refer to the Terraform Registry for docs: [`data_aws_pricing_product`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product).
+Refer to the Terraform Registry for docs: [`data_aws_pricing_product`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsPricingProduct(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsPricingProduct.DataAwsPricingProduct",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product aws_pricing_product}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product aws_pricing_product}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAwsPricingProduct(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product aws_pricing_product} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product aws_pricing_product} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#filters DataAwsPricingProduct#filters}
-        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#service_code DataAwsPricingProduct#service_code}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#id DataAwsPricingProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#filters DataAwsPricingProduct#filters}
+        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#service_code DataAwsPricingProduct#service_code}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#id DataAwsPricingProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAwsPricingProduct(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsPricingProduct to import.
-        :param import_from_id: The id of the existing DataAwsPricingProduct that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsPricingProduct that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsPricingProduct to import is found.
         '''
         if __debug__:
@@ -241,9 +241,9 @@ class DataAwsPricingProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#filters DataAwsPricingProduct#filters}
-        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#service_code DataAwsPricingProduct#service_code}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#id DataAwsPricingProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#filters DataAwsPricingProduct#filters}
+        :param service_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#service_code DataAwsPricingProduct#service_code}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#id DataAwsPricingProduct#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -350,7 +350,7 @@ class DataAwsPricingProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsPricingProductFilters"]]:
         '''filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#filters DataAwsPricingProduct#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#filters DataAwsPricingProduct#filters}
         '''
         result = self._values.get("filters")
         assert result is not None, "Required property 'filters' is missing"
@@ -358,14 +358,14 @@ class DataAwsPricingProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def service_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#service_code DataAwsPricingProduct#service_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#service_code DataAwsPricingProduct#service_code}.'''
         result = self._values.get("service_code")
         assert result is not None, "Required property 'service_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#id DataAwsPricingProduct#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#id DataAwsPricingProduct#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -393,8 +393,8 @@ class DataAwsPricingProductConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataAwsPricingProductFilters:
     def __init__(self, *, field: builtins.str, value: builtins.str) -> None:
         '''
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#field DataAwsPricingProduct#field}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#value DataAwsPricingProduct#value}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#field DataAwsPricingProduct#field}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#value DataAwsPricingProduct#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__592bb3fc870d9f5b4b2148ab262e322e5f24f82d1038245d247a5ef6c493b72e)
@@ -407,14 +407,14 @@ class DataAwsPricingProductFilters:
 
     @builtins.property
     def field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#field DataAwsPricingProduct#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#field DataAwsPricingProduct#field}.'''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/pricing_product#value DataAwsPricingProduct#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/pricing_product#value DataAwsPricingProduct#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

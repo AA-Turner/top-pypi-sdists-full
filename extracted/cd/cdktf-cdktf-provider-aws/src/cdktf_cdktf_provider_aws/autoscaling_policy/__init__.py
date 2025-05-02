@@ -1,7 +1,7 @@
 r'''
 # `aws_autoscaling_policy`
 
-Refer to the Terraform Registry for docs: [`aws_autoscaling_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy).
+Refer to the Terraform Registry for docs: [`aws_autoscaling_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AutoscalingPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.autoscalingPolicy.AutoscalingPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy aws_autoscaling_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy aws_autoscaling_policy}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class AutoscalingPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy aws_autoscaling_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy aws_autoscaling_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#autoscaling_group_name AutoscalingPolicy#autoscaling_group_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param adjustment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#adjustment_type AutoscalingPolicy#adjustment_type}.
-        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#cooldown AutoscalingPolicy#cooldown}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#enabled AutoscalingPolicy#enabled}.
-        :param estimated_instance_warmup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#estimated_instance_warmup AutoscalingPolicy#estimated_instance_warmup}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metric_aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_aggregation_type AutoscalingPolicy#metric_aggregation_type}.
-        :param min_adjustment_magnitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#min_adjustment_magnitude AutoscalingPolicy#min_adjustment_magnitude}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#policy_type AutoscalingPolicy#policy_type}.
-        :param predictive_scaling_configuration: predictive_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predictive_scaling_configuration AutoscalingPolicy#predictive_scaling_configuration}
-        :param scaling_adjustment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.
-        :param step_adjustment: step_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#step_adjustment AutoscalingPolicy#step_adjustment}
-        :param target_tracking_configuration: target_tracking_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_tracking_configuration AutoscalingPolicy#target_tracking_configuration}
+        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#autoscaling_group_name AutoscalingPolicy#autoscaling_group_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param adjustment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#adjustment_type AutoscalingPolicy#adjustment_type}.
+        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#cooldown AutoscalingPolicy#cooldown}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#enabled AutoscalingPolicy#enabled}.
+        :param estimated_instance_warmup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#estimated_instance_warmup AutoscalingPolicy#estimated_instance_warmup}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metric_aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_aggregation_type AutoscalingPolicy#metric_aggregation_type}.
+        :param min_adjustment_magnitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#min_adjustment_magnitude AutoscalingPolicy#min_adjustment_magnitude}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#policy_type AutoscalingPolicy#policy_type}.
+        :param predictive_scaling_configuration: predictive_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predictive_scaling_configuration AutoscalingPolicy#predictive_scaling_configuration}
+        :param scaling_adjustment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.
+        :param step_adjustment: step_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#step_adjustment AutoscalingPolicy#step_adjustment}
+        :param target_tracking_configuration: target_tracking_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_tracking_configuration AutoscalingPolicy#target_tracking_configuration}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class AutoscalingPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AutoscalingPolicy to import.
-        :param import_from_id: The id of the existing AutoscalingPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AutoscalingPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AutoscalingPolicy to import is found.
         '''
         if __debug__:
@@ -164,11 +164,11 @@ class AutoscalingPolicy(
         scheduling_buffer_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_specification: metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_specification AutoscalingPolicy#metric_specification}
-        :param max_capacity_breach_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#max_capacity_breach_behavior AutoscalingPolicy#max_capacity_breach_behavior}.
-        :param max_capacity_buffer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#max_capacity_buffer AutoscalingPolicy#max_capacity_buffer}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#mode AutoscalingPolicy#mode}.
-        :param scheduling_buffer_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scheduling_buffer_time AutoscalingPolicy#scheduling_buffer_time}.
+        :param metric_specification: metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_specification AutoscalingPolicy#metric_specification}
+        :param max_capacity_breach_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#max_capacity_breach_behavior AutoscalingPolicy#max_capacity_breach_behavior}.
+        :param max_capacity_buffer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#max_capacity_buffer AutoscalingPolicy#max_capacity_buffer}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#mode AutoscalingPolicy#mode}.
+        :param scheduling_buffer_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scheduling_buffer_time AutoscalingPolicy#scheduling_buffer_time}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfiguration(
             metric_specification=metric_specification,
@@ -203,10 +203,10 @@ class AutoscalingPolicy(
         predefined_metric_specification: typing.Optional[typing.Union["AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
-        :param customized_metric_specification: customized_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_metric_specification AutoscalingPolicy#customized_metric_specification}
-        :param disable_scale_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#disable_scale_in AutoscalingPolicy#disable_scale_in}.
-        :param predefined_metric_specification: predefined_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_specification AutoscalingPolicy#predefined_metric_specification}
+        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
+        :param customized_metric_specification: customized_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_metric_specification AutoscalingPolicy#customized_metric_specification}
+        :param disable_scale_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#disable_scale_in AutoscalingPolicy#disable_scale_in}.
+        :param predefined_metric_specification: predefined_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_specification AutoscalingPolicy#predefined_metric_specification}
         '''
         value = AutoscalingPolicyTargetTrackingConfiguration(
             target_value=target_value,
@@ -577,20 +577,20 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#autoscaling_group_name AutoscalingPolicy#autoscaling_group_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param adjustment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#adjustment_type AutoscalingPolicy#adjustment_type}.
-        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#cooldown AutoscalingPolicy#cooldown}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#enabled AutoscalingPolicy#enabled}.
-        :param estimated_instance_warmup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#estimated_instance_warmup AutoscalingPolicy#estimated_instance_warmup}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metric_aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_aggregation_type AutoscalingPolicy#metric_aggregation_type}.
-        :param min_adjustment_magnitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#min_adjustment_magnitude AutoscalingPolicy#min_adjustment_magnitude}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#policy_type AutoscalingPolicy#policy_type}.
-        :param predictive_scaling_configuration: predictive_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predictive_scaling_configuration AutoscalingPolicy#predictive_scaling_configuration}
-        :param scaling_adjustment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.
-        :param step_adjustment: step_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#step_adjustment AutoscalingPolicy#step_adjustment}
-        :param target_tracking_configuration: target_tracking_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_tracking_configuration AutoscalingPolicy#target_tracking_configuration}
+        :param autoscaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#autoscaling_group_name AutoscalingPolicy#autoscaling_group_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param adjustment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#adjustment_type AutoscalingPolicy#adjustment_type}.
+        :param cooldown: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#cooldown AutoscalingPolicy#cooldown}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#enabled AutoscalingPolicy#enabled}.
+        :param estimated_instance_warmup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#estimated_instance_warmup AutoscalingPolicy#estimated_instance_warmup}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metric_aggregation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_aggregation_type AutoscalingPolicy#metric_aggregation_type}.
+        :param min_adjustment_magnitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#min_adjustment_magnitude AutoscalingPolicy#min_adjustment_magnitude}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#policy_type AutoscalingPolicy#policy_type}.
+        :param predictive_scaling_configuration: predictive_scaling_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predictive_scaling_configuration AutoscalingPolicy#predictive_scaling_configuration}
+        :param scaling_adjustment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.
+        :param step_adjustment: step_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#step_adjustment AutoscalingPolicy#step_adjustment}
+        :param target_tracking_configuration: target_tracking_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_tracking_configuration AutoscalingPolicy#target_tracking_configuration}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -730,27 +730,27 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def autoscaling_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#autoscaling_group_name AutoscalingPolicy#autoscaling_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#autoscaling_group_name AutoscalingPolicy#autoscaling_group_name}.'''
         result = self._values.get("autoscaling_group_name")
         assert result is not None, "Required property 'autoscaling_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def adjustment_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#adjustment_type AutoscalingPolicy#adjustment_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#adjustment_type AutoscalingPolicy#adjustment_type}.'''
         result = self._values.get("adjustment_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cooldown(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#cooldown AutoscalingPolicy#cooldown}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#cooldown AutoscalingPolicy#cooldown}.'''
         result = self._values.get("cooldown")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -758,19 +758,19 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#enabled AutoscalingPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#enabled AutoscalingPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def estimated_instance_warmup(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#estimated_instance_warmup AutoscalingPolicy#estimated_instance_warmup}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#estimated_instance_warmup AutoscalingPolicy#estimated_instance_warmup}.'''
         result = self._values.get("estimated_instance_warmup")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -780,19 +780,19 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def metric_aggregation_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_aggregation_type AutoscalingPolicy#metric_aggregation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_aggregation_type AutoscalingPolicy#metric_aggregation_type}.'''
         result = self._values.get("metric_aggregation_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_adjustment_magnitude(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#min_adjustment_magnitude AutoscalingPolicy#min_adjustment_magnitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#min_adjustment_magnitude AutoscalingPolicy#min_adjustment_magnitude}.'''
         result = self._values.get("min_adjustment_magnitude")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#policy_type AutoscalingPolicy#policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#policy_type AutoscalingPolicy#policy_type}.'''
         result = self._values.get("policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -802,14 +802,14 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfiguration"]:
         '''predictive_scaling_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predictive_scaling_configuration AutoscalingPolicy#predictive_scaling_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predictive_scaling_configuration AutoscalingPolicy#predictive_scaling_configuration}
         '''
         result = self._values.get("predictive_scaling_configuration")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfiguration"], result)
 
     @builtins.property
     def scaling_adjustment(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.'''
         result = self._values.get("scaling_adjustment")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -819,7 +819,7 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyStepAdjustment"]]]:
         '''step_adjustment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#step_adjustment AutoscalingPolicy#step_adjustment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#step_adjustment AutoscalingPolicy#step_adjustment}
         '''
         result = self._values.get("step_adjustment")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyStepAdjustment"]]], result)
@@ -830,7 +830,7 @@ class AutoscalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AutoscalingPolicyTargetTrackingConfiguration"]:
         '''target_tracking_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_tracking_configuration AutoscalingPolicy#target_tracking_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_tracking_configuration AutoscalingPolicy#target_tracking_configuration}
         '''
         result = self._values.get("target_tracking_configuration")
         return typing.cast(typing.Optional["AutoscalingPolicyTargetTrackingConfiguration"], result)
@@ -869,11 +869,11 @@ class AutoscalingPolicyPredictiveScalingConfiguration:
         scheduling_buffer_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_specification: metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_specification AutoscalingPolicy#metric_specification}
-        :param max_capacity_breach_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#max_capacity_breach_behavior AutoscalingPolicy#max_capacity_breach_behavior}.
-        :param max_capacity_buffer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#max_capacity_buffer AutoscalingPolicy#max_capacity_buffer}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#mode AutoscalingPolicy#mode}.
-        :param scheduling_buffer_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scheduling_buffer_time AutoscalingPolicy#scheduling_buffer_time}.
+        :param metric_specification: metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_specification AutoscalingPolicy#metric_specification}
+        :param max_capacity_breach_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#max_capacity_breach_behavior AutoscalingPolicy#max_capacity_breach_behavior}.
+        :param max_capacity_buffer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#max_capacity_buffer AutoscalingPolicy#max_capacity_buffer}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#mode AutoscalingPolicy#mode}.
+        :param scheduling_buffer_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scheduling_buffer_time AutoscalingPolicy#scheduling_buffer_time}.
         '''
         if isinstance(metric_specification, dict):
             metric_specification = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification(**metric_specification)
@@ -902,7 +902,7 @@ class AutoscalingPolicyPredictiveScalingConfiguration:
     ) -> "AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification":
         '''metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_specification AutoscalingPolicy#metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_specification AutoscalingPolicy#metric_specification}
         '''
         result = self._values.get("metric_specification")
         assert result is not None, "Required property 'metric_specification' is missing"
@@ -910,25 +910,25 @@ class AutoscalingPolicyPredictiveScalingConfiguration:
 
     @builtins.property
     def max_capacity_breach_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#max_capacity_breach_behavior AutoscalingPolicy#max_capacity_breach_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#max_capacity_breach_behavior AutoscalingPolicy#max_capacity_breach_behavior}.'''
         result = self._values.get("max_capacity_breach_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_capacity_buffer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#max_capacity_buffer AutoscalingPolicy#max_capacity_buffer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#max_capacity_buffer AutoscalingPolicy#max_capacity_buffer}.'''
         result = self._values.get("max_capacity_buffer")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#mode AutoscalingPolicy#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#mode AutoscalingPolicy#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scheduling_buffer_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scheduling_buffer_time AutoscalingPolicy#scheduling_buffer_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scheduling_buffer_time AutoscalingPolicy#scheduling_buffer_time}.'''
         result = self._values.get("scheduling_buffer_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -970,13 +970,13 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
         predefined_scaling_metric_specification: typing.Optional[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedScalingMetricSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
-        :param customized_capacity_metric_specification: customized_capacity_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_capacity_metric_specification AutoscalingPolicy#customized_capacity_metric_specification}
-        :param customized_load_metric_specification: customized_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_load_metric_specification AutoscalingPolicy#customized_load_metric_specification}
-        :param customized_scaling_metric_specification: customized_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_scaling_metric_specification AutoscalingPolicy#customized_scaling_metric_specification}
-        :param predefined_load_metric_specification: predefined_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_load_metric_specification AutoscalingPolicy#predefined_load_metric_specification}
-        :param predefined_metric_pair_specification: predefined_metric_pair_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_pair_specification AutoscalingPolicy#predefined_metric_pair_specification}
-        :param predefined_scaling_metric_specification: predefined_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_scaling_metric_specification AutoscalingPolicy#predefined_scaling_metric_specification}
+        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
+        :param customized_capacity_metric_specification: customized_capacity_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_capacity_metric_specification AutoscalingPolicy#customized_capacity_metric_specification}
+        :param customized_load_metric_specification: customized_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_load_metric_specification AutoscalingPolicy#customized_load_metric_specification}
+        :param customized_scaling_metric_specification: customized_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_scaling_metric_specification AutoscalingPolicy#customized_scaling_metric_specification}
+        :param predefined_load_metric_specification: predefined_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_load_metric_specification AutoscalingPolicy#predefined_load_metric_specification}
+        :param predefined_metric_pair_specification: predefined_metric_pair_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_pair_specification AutoscalingPolicy#predefined_metric_pair_specification}
+        :param predefined_scaling_metric_specification: predefined_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_scaling_metric_specification AutoscalingPolicy#predefined_scaling_metric_specification}
         '''
         if isinstance(customized_capacity_metric_specification, dict):
             customized_capacity_metric_specification = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecification(**customized_capacity_metric_specification)
@@ -1017,7 +1017,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
 
     @builtins.property
     def target_value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.'''
         result = self._values.get("target_value")
         assert result is not None, "Required property 'target_value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1028,7 +1028,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecification"]:
         '''customized_capacity_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_capacity_metric_specification AutoscalingPolicy#customized_capacity_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_capacity_metric_specification AutoscalingPolicy#customized_capacity_metric_specification}
         '''
         result = self._values.get("customized_capacity_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecification"], result)
@@ -1039,7 +1039,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecification"]:
         '''customized_load_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_load_metric_specification AutoscalingPolicy#customized_load_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_load_metric_specification AutoscalingPolicy#customized_load_metric_specification}
         '''
         result = self._values.get("customized_load_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecification"], result)
@@ -1050,7 +1050,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecification"]:
         '''customized_scaling_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_scaling_metric_specification AutoscalingPolicy#customized_scaling_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_scaling_metric_specification AutoscalingPolicy#customized_scaling_metric_specification}
         '''
         result = self._values.get("customized_scaling_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecification"], result)
@@ -1061,7 +1061,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedLoadMetricSpecification"]:
         '''predefined_load_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_load_metric_specification AutoscalingPolicy#predefined_load_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_load_metric_specification AutoscalingPolicy#predefined_load_metric_specification}
         '''
         result = self._values.get("predefined_load_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedLoadMetricSpecification"], result)
@@ -1072,7 +1072,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedMetricPairSpecification"]:
         '''predefined_metric_pair_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_pair_specification AutoscalingPolicy#predefined_metric_pair_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_pair_specification AutoscalingPolicy#predefined_metric_pair_specification}
         '''
         result = self._values.get("predefined_metric_pair_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedMetricPairSpecification"], result)
@@ -1083,7 +1083,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification:
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedScalingMetricSpecification"]:
         '''predefined_scaling_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_scaling_metric_specification AutoscalingPolicy#predefined_scaling_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_scaling_metric_specification AutoscalingPolicy#predefined_scaling_metric_specification}
         '''
         result = self._values.get("predefined_scaling_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedScalingMetricSpecification"], result)
@@ -1112,7 +1112,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         metric_data_queries: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueries", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d55fa7134dd400eae19f754c5711c00e5de755b61f0e8d7c94e2fa09e7b4c83c)
@@ -1127,7 +1127,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueries"]]:
         '''metric_data_queries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         result = self._values.get("metric_data_queries")
         assert result is not None, "Required property 'metric_data_queries' is missing"
@@ -1167,11 +1167,11 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         return_data: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
-        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
-        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
+        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
         '''
         if isinstance(metric_stat, dict):
             metric_stat = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStat(**metric_stat)
@@ -1196,7 +1196,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1207,13 +1207,13 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1223,7 +1223,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStat"]:
         '''metric_stat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
         '''
         result = self._values.get("metric_stat")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStat"], result)
@@ -1232,7 +1232,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     def return_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
         result = self._values.get("return_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1355,9 +1355,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         if isinstance(metric, dict):
             metric = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetric(**metric)
@@ -1379,7 +1379,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> "AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetric":
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -1387,14 +1387,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def stat(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
         result = self._values.get("stat")
         assert result is not None, "Required property 'stat' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1428,9 +1428,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetricDimensions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__157aa8e3004c044db65084be8af4fcf0b17bde1487d015f21dcc796bf9e7b1b8)
@@ -1446,14 +1446,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
@@ -1464,7 +1464,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetricDimensions"]]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         result = self._values.get("dimensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetricDimensions"]]], result)
@@ -1489,8 +1489,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetricDimensions:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__839708f346e65eea8664198ce05d53929aca3e54e6d7533f98135bd3f5780f9b)
@@ -1503,14 +1503,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1830,9 +1830,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetricDimensions, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStatMetric(
             metric_name=metric_name, namespace=namespace, dimensions=dimensions
@@ -1945,9 +1945,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueriesMetricStat(
             metric=metric, stat=stat, unit=unit
@@ -2153,7 +2153,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         metric_data_queries: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueries", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39589b1bd11346b300ca2cd2900f7ef42ad8c2bcd0f61696c70e90d2433fa9ff)
@@ -2168,7 +2168,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueries"]]:
         '''metric_data_queries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         result = self._values.get("metric_data_queries")
         assert result is not None, "Required property 'metric_data_queries' is missing"
@@ -2208,11 +2208,11 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         return_data: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
-        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
-        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
+        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
         '''
         if isinstance(metric_stat, dict):
             metric_stat = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStat(**metric_stat)
@@ -2237,7 +2237,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2248,13 +2248,13 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2264,7 +2264,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStat"]:
         '''metric_stat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
         '''
         result = self._values.get("metric_stat")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStat"], result)
@@ -2273,7 +2273,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     def return_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
         result = self._values.get("return_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2396,9 +2396,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         if isinstance(metric, dict):
             metric = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetric(**metric)
@@ -2420,7 +2420,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> "AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetric":
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -2428,14 +2428,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def stat(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
         result = self._values.get("stat")
         assert result is not None, "Required property 'stat' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2469,9 +2469,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetricDimensions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__837c11d8d1916837d28c639fc28bd3e62a37275515a427d4414d4b1db8e468eb)
@@ -2487,14 +2487,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
@@ -2505,7 +2505,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetricDimensions"]]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         result = self._values.get("dimensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetricDimensions"]]], result)
@@ -2530,8 +2530,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetricDimensions:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47cc48c1480ba34df855067ec65d9b720ade27000aaeff9b998963d2dcb897a7)
@@ -2544,14 +2544,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2871,9 +2871,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetricDimensions, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStatMetric(
             metric_name=metric_name, namespace=namespace, dimensions=dimensions
@@ -2986,9 +2986,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueriesMetricStat(
             metric=metric, stat=stat, unit=unit
@@ -3194,7 +3194,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         metric_data_queries: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueries", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a899ce8ceef9e53740c7e60e7fbbe4777808dbc13530d2939c926eff8ca73b4b)
@@ -3209,7 +3209,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueries"]]:
         '''metric_data_queries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         result = self._values.get("metric_data_queries")
         assert result is not None, "Required property 'metric_data_queries' is missing"
@@ -3249,11 +3249,11 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         return_data: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
-        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
-        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
+        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
         '''
         if isinstance(metric_stat, dict):
             metric_stat = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStat(**metric_stat)
@@ -3278,7 +3278,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3289,13 +3289,13 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3305,7 +3305,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStat"]:
         '''metric_stat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
         '''
         result = self._values.get("metric_stat")
         return typing.cast(typing.Optional["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStat"], result)
@@ -3314,7 +3314,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     def return_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
         result = self._values.get("return_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3437,9 +3437,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         if isinstance(metric, dict):
             metric = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetric(**metric)
@@ -3461,7 +3461,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> "AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetric":
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -3469,14 +3469,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def stat(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
         result = self._values.get("stat")
         assert result is not None, "Required property 'stat' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3510,9 +3510,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetricDimensions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__210c375effc49cedcb1cf2b5bc62e3440fe20730e23dd2e990f86db92640ea43)
@@ -3528,14 +3528,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
@@ -3546,7 +3546,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetricDimensions"]]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         result = self._values.get("dimensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetricDimensions"]]], result)
@@ -3571,8 +3571,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetricDimensions:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2bb3f4e0a87d928eb850db1a7936af12dee7f53fb0be86933bc5802d5f613db)
@@ -3585,14 +3585,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3912,9 +3912,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetricDimensions, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStatMetric(
             metric_name=metric_name, namespace=namespace, dimensions=dimensions
@@ -4027,9 +4027,9 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomiz
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueriesMetricStat(
             metric=metric, stat=stat, unit=unit
@@ -4250,7 +4250,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationOutputRe
         metric_data_queries: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecificationMetricDataQueries, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedCapacityMetricSpecification(
             metric_data_queries=metric_data_queries
@@ -4265,7 +4265,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationOutputRe
         metric_data_queries: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecificationMetricDataQueries, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedLoadMetricSpecification(
             metric_data_queries=metric_data_queries
@@ -4280,7 +4280,7 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationOutputRe
         metric_data_queries: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecificationMetricDataQueries, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
+        :param metric_data_queries: metric_data_queries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_data_queries AutoscalingPolicy#metric_data_queries}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationCustomizedScalingMetricSpecification(
             metric_data_queries=metric_data_queries
@@ -4296,8 +4296,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationOutputRe
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedLoadMetricSpecification(
             predefined_metric_type=predefined_metric_type,
@@ -4314,8 +4314,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationOutputRe
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedMetricPairSpecification(
             predefined_metric_type=predefined_metric_type,
@@ -4332,8 +4332,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationOutputRe
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedScalingMetricSpecification(
             predefined_metric_type=predefined_metric_type,
@@ -4501,8 +4501,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefin
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82760aa0d557dc03a2ee3e4522d146a5ea20f40ba91e7529acc0758527745f23)
@@ -4516,14 +4516,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefin
 
     @builtins.property
     def predefined_metric_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
         result = self._values.get("predefined_metric_type")
         assert result is not None, "Required property 'predefined_metric_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
         result = self._values.get("resource_label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4631,8 +4631,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefin
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4b26b3eb5925525b50f2bb1d1414ea48320ff38ee3bdac7e5888674ef8bcc78)
@@ -4646,14 +4646,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefin
 
     @builtins.property
     def predefined_metric_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
         result = self._values.get("predefined_metric_type")
         assert result is not None, "Required property 'predefined_metric_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
         result = self._values.get("resource_label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4761,8 +4761,8 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefin
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeeec44cf316f26de88782fb39a4e4741770080235a14233e0137a2306a3df63)
@@ -4776,14 +4776,14 @@ class AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefin
 
     @builtins.property
     def predefined_metric_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
         result = self._values.get("predefined_metric_type")
         assert result is not None, "Required property 'predefined_metric_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
         result = self._values.get("resource_label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4908,13 +4908,13 @@ class AutoscalingPolicyPredictiveScalingConfigurationOutputReference(
         predefined_scaling_metric_specification: typing.Optional[typing.Union[AutoscalingPolicyPredictiveScalingConfigurationMetricSpecificationPredefinedScalingMetricSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
-        :param customized_capacity_metric_specification: customized_capacity_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_capacity_metric_specification AutoscalingPolicy#customized_capacity_metric_specification}
-        :param customized_load_metric_specification: customized_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_load_metric_specification AutoscalingPolicy#customized_load_metric_specification}
-        :param customized_scaling_metric_specification: customized_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_scaling_metric_specification AutoscalingPolicy#customized_scaling_metric_specification}
-        :param predefined_load_metric_specification: predefined_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_load_metric_specification AutoscalingPolicy#predefined_load_metric_specification}
-        :param predefined_metric_pair_specification: predefined_metric_pair_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_pair_specification AutoscalingPolicy#predefined_metric_pair_specification}
-        :param predefined_scaling_metric_specification: predefined_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_scaling_metric_specification AutoscalingPolicy#predefined_scaling_metric_specification}
+        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
+        :param customized_capacity_metric_specification: customized_capacity_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_capacity_metric_specification AutoscalingPolicy#customized_capacity_metric_specification}
+        :param customized_load_metric_specification: customized_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_load_metric_specification AutoscalingPolicy#customized_load_metric_specification}
+        :param customized_scaling_metric_specification: customized_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_scaling_metric_specification AutoscalingPolicy#customized_scaling_metric_specification}
+        :param predefined_load_metric_specification: predefined_load_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_load_metric_specification AutoscalingPolicy#predefined_load_metric_specification}
+        :param predefined_metric_pair_specification: predefined_metric_pair_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_pair_specification AutoscalingPolicy#predefined_metric_pair_specification}
+        :param predefined_scaling_metric_specification: predefined_scaling_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_scaling_metric_specification AutoscalingPolicy#predefined_scaling_metric_specification}
         '''
         value = AutoscalingPolicyPredictiveScalingConfigurationMetricSpecification(
             target_value=target_value,
@@ -5062,9 +5062,9 @@ class AutoscalingPolicyStepAdjustment:
         metric_interval_upper_bound: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scaling_adjustment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.
-        :param metric_interval_lower_bound: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_interval_lower_bound AutoscalingPolicy#metric_interval_lower_bound}.
-        :param metric_interval_upper_bound: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_interval_upper_bound AutoscalingPolicy#metric_interval_upper_bound}.
+        :param scaling_adjustment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.
+        :param metric_interval_lower_bound: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_interval_lower_bound AutoscalingPolicy#metric_interval_lower_bound}.
+        :param metric_interval_upper_bound: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_interval_upper_bound AutoscalingPolicy#metric_interval_upper_bound}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1075412b975cfab178720fb9c9ef384d5a620273753a8c10d18d1b04c6d5326)
@@ -5081,20 +5081,20 @@ class AutoscalingPolicyStepAdjustment:
 
     @builtins.property
     def scaling_adjustment(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#scaling_adjustment AutoscalingPolicy#scaling_adjustment}.'''
         result = self._values.get("scaling_adjustment")
         assert result is not None, "Required property 'scaling_adjustment' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def metric_interval_lower_bound(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_interval_lower_bound AutoscalingPolicy#metric_interval_lower_bound}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_interval_lower_bound AutoscalingPolicy#metric_interval_lower_bound}.'''
         result = self._values.get("metric_interval_lower_bound")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def metric_interval_upper_bound(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_interval_upper_bound AutoscalingPolicy#metric_interval_upper_bound}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_interval_upper_bound AutoscalingPolicy#metric_interval_upper_bound}.'''
         result = self._values.get("metric_interval_upper_bound")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5326,10 +5326,10 @@ class AutoscalingPolicyTargetTrackingConfiguration:
         predefined_metric_specification: typing.Optional[typing.Union["AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
-        :param customized_metric_specification: customized_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_metric_specification AutoscalingPolicy#customized_metric_specification}
-        :param disable_scale_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#disable_scale_in AutoscalingPolicy#disable_scale_in}.
-        :param predefined_metric_specification: predefined_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_specification AutoscalingPolicy#predefined_metric_specification}
+        :param target_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.
+        :param customized_metric_specification: customized_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_metric_specification AutoscalingPolicy#customized_metric_specification}
+        :param disable_scale_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#disable_scale_in AutoscalingPolicy#disable_scale_in}.
+        :param predefined_metric_specification: predefined_metric_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_specification AutoscalingPolicy#predefined_metric_specification}
         '''
         if isinstance(customized_metric_specification, dict):
             customized_metric_specification = AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification(**customized_metric_specification)
@@ -5353,7 +5353,7 @@ class AutoscalingPolicyTargetTrackingConfiguration:
 
     @builtins.property
     def target_value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#target_value AutoscalingPolicy#target_value}.'''
         result = self._values.get("target_value")
         assert result is not None, "Required property 'target_value' is missing"
         return typing.cast(jsii.Number, result)
@@ -5364,7 +5364,7 @@ class AutoscalingPolicyTargetTrackingConfiguration:
     ) -> typing.Optional["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification"]:
         '''customized_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#customized_metric_specification AutoscalingPolicy#customized_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#customized_metric_specification AutoscalingPolicy#customized_metric_specification}
         '''
         result = self._values.get("customized_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification"], result)
@@ -5373,7 +5373,7 @@ class AutoscalingPolicyTargetTrackingConfiguration:
     def disable_scale_in(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#disable_scale_in AutoscalingPolicy#disable_scale_in}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#disable_scale_in AutoscalingPolicy#disable_scale_in}.'''
         result = self._values.get("disable_scale_in")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5383,7 +5383,7 @@ class AutoscalingPolicyTargetTrackingConfiguration:
     ) -> typing.Optional["AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification"]:
         '''predefined_metric_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_specification AutoscalingPolicy#predefined_metric_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_specification AutoscalingPolicy#predefined_metric_specification}
         '''
         result = self._values.get("predefined_metric_specification")
         return typing.cast(typing.Optional["AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification"], result)
@@ -5426,13 +5426,13 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_dimension: metric_dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_dimension AutoscalingPolicy#metric_dimension}
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metrics AutoscalingPolicy#metrics}
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
-        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#statistic AutoscalingPolicy#statistic}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric_dimension: metric_dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_dimension AutoscalingPolicy#metric_dimension}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metrics AutoscalingPolicy#metrics}
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
+        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#statistic AutoscalingPolicy#statistic}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ef4541249a79ef5adde100e5bbe1eb9ef123072ba7f6ad70e819b5aa1694e4a)
@@ -5465,14 +5465,14 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricDimension"]]]:
         '''metric_dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_dimension AutoscalingPolicy#metric_dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_dimension AutoscalingPolicy#metric_dimension}
         '''
         result = self._values.get("metric_dimension")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricDimension"]]], result)
 
     @builtins.property
     def metric_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
         result = self._values.get("metric_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5482,32 +5482,32 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetrics"]]]:
         '''metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metrics AutoscalingPolicy#metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metrics AutoscalingPolicy#metrics}
         '''
         result = self._values.get("metrics")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetrics"]]], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.'''
         result = self._values.get("period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def statistic(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#statistic AutoscalingPolicy#statistic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#statistic AutoscalingPolicy#statistic}.'''
         result = self._values.get("statistic")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5531,8 +5531,8 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification:
 class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricDimension:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7057713788b490c711592bb3c3804ff7116ed1aea20e4cba9184b03908d8fd68)
@@ -5545,14 +5545,14 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5762,11 +5762,11 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
         return_data: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
-        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
-        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.
+        :param metric_stat: metric_stat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        :param return_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.
         '''
         if isinstance(metric_stat, dict):
             metric_stat = AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStat(**metric_stat)
@@ -5791,7 +5791,7 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#id AutoscalingPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -5802,13 +5802,13 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#expression AutoscalingPolicy#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#label AutoscalingPolicy#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5818,7 +5818,7 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
     ) -> typing.Optional["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStat"]:
         '''metric_stat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_stat AutoscalingPolicy#metric_stat}
         '''
         result = self._values.get("metric_stat")
         return typing.cast(typing.Optional["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStat"], result)
@@ -5827,7 +5827,7 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
     def return_data(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#return_data AutoscalingPolicy#return_data}.'''
         result = self._values.get("return_data")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5956,10 +5956,10 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         if isinstance(metric, dict):
             metric = AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetric(**metric)
@@ -5984,7 +5984,7 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
     ) -> "AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetric":
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -5992,20 +5992,20 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 
     @builtins.property
     def stat(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.'''
         result = self._values.get("stat")
         assert result is not None, "Required property 'stat' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.'''
         result = self._values.get("period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6039,9 +6039,9 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetricDimensions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc9c44793352c35bb59746eb2ac7cb7b43a57fcc3bce88ed22ccd5a22d4f85ae)
@@ -6057,14 +6057,14 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
@@ -6075,7 +6075,7 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetricDimensions"]]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         result = self._values.get("dimensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetricDimensions"]]], result)
@@ -6100,8 +6100,8 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetricDimensions:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71ebd83c0923e4e961d34cf6fb70173cabbe5ca1bded30a3da23a6eb7bad0a09)
@@ -6114,14 +6114,14 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#name AutoscalingPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#value AutoscalingPolicy#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6441,9 +6441,9 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetricDimensions, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#dimensions AutoscalingPolicy#dimensions}
         '''
         value = AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStatMetric(
             metric_name=metric_name, namespace=namespace, dimensions=dimensions
@@ -6578,10 +6578,10 @@ class AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationM
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
-        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric AutoscalingPolicy#metric}
+        :param stat: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#stat AutoscalingPolicy#stat}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         value = AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecificationMetricsMetricStat(
             metric=metric, stat=stat, period=period, unit=unit
@@ -6948,13 +6948,13 @@ class AutoscalingPolicyTargetTrackingConfigurationOutputReference(
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metric_dimension: metric_dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_dimension AutoscalingPolicy#metric_dimension}
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
-        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#metrics AutoscalingPolicy#metrics}
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
-        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#statistic AutoscalingPolicy#statistic}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
+        :param metric_dimension: metric_dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_dimension AutoscalingPolicy#metric_dimension}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metric_name AutoscalingPolicy#metric_name}.
+        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#metrics AutoscalingPolicy#metrics}
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#namespace AutoscalingPolicy#namespace}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#period AutoscalingPolicy#period}.
+        :param statistic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#statistic AutoscalingPolicy#statistic}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#unit AutoscalingPolicy#unit}.
         '''
         value = AutoscalingPolicyTargetTrackingConfigurationCustomizedMetricSpecification(
             metric_dimension=metric_dimension,
@@ -6976,8 +6976,8 @@ class AutoscalingPolicyTargetTrackingConfigurationOutputReference(
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         value = AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification(
             predefined_metric_type=predefined_metric_type,
@@ -7101,8 +7101,8 @@ class AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification:
         resource_label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
-        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
+        :param predefined_metric_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.
+        :param resource_label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3fcaab254b10de9fb0551ebf9f0e8d041d385fd49f74695d582b283f2ae9c413)
@@ -7116,14 +7116,14 @@ class AutoscalingPolicyTargetTrackingConfigurationPredefinedMetricSpecification:
 
     @builtins.property
     def predefined_metric_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#predefined_metric_type AutoscalingPolicy#predefined_metric_type}.'''
         result = self._values.get("predefined_metric_type")
         assert result is not None, "Required property 'predefined_metric_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/autoscaling_policy#resource_label AutoscalingPolicy#resource_label}.'''
         result = self._values.get("resource_label")
         return typing.cast(typing.Optional[builtins.str], result)
 

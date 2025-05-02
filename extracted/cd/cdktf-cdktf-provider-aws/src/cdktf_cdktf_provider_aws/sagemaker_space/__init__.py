@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_space`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_space`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_space`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerSpace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerSpace.SagemakerSpace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space aws_sagemaker_space}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space aws_sagemaker_space}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class SagemakerSpace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space aws_sagemaker_space} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space aws_sagemaker_space} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#domain_id SagemakerSpace#domain_id}.
-        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_name SagemakerSpace#space_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#id SagemakerSpace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ownership_settings: ownership_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ownership_settings SagemakerSpace#ownership_settings}
-        :param space_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_display_name SagemakerSpace#space_display_name}.
-        :param space_settings: space_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_settings SagemakerSpace#space_settings}
-        :param space_sharing_settings: space_sharing_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_sharing_settings SagemakerSpace#space_sharing_settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#tags SagemakerSpace#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#tags_all SagemakerSpace#tags_all}.
+        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#domain_id SagemakerSpace#domain_id}.
+        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_name SagemakerSpace#space_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#id SagemakerSpace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ownership_settings: ownership_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ownership_settings SagemakerSpace#ownership_settings}
+        :param space_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_display_name SagemakerSpace#space_display_name}.
+        :param space_settings: space_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_settings SagemakerSpace#space_settings}
+        :param space_sharing_settings: space_sharing_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_sharing_settings SagemakerSpace#space_sharing_settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#tags SagemakerSpace#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#tags_all SagemakerSpace#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class SagemakerSpace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerSpace to import.
-        :param import_from_id: The id of the existing SagemakerSpace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerSpace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerSpace to import is found.
         '''
         if __debug__:
@@ -141,7 +141,7 @@ class SagemakerSpace(
     @jsii.member(jsii_name="putOwnershipSettings")
     def put_ownership_settings(self, *, owner_user_profile_name: builtins.str) -> None:
         '''
-        :param owner_user_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#owner_user_profile_name SagemakerSpace#owner_user_profile_name}.
+        :param owner_user_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#owner_user_profile_name SagemakerSpace#owner_user_profile_name}.
         '''
         value = SagemakerSpaceOwnershipSettings(
             owner_user_profile_name=owner_user_profile_name
@@ -162,13 +162,13 @@ class SagemakerSpace(
         space_storage_settings: typing.Optional[typing.Union["SagemakerSpaceSpaceSettingsSpaceStorageSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param app_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_type SagemakerSpace#app_type}.
-        :param code_editor_app_settings: code_editor_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_editor_app_settings SagemakerSpace#code_editor_app_settings}
-        :param custom_file_system: custom_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#custom_file_system SagemakerSpace#custom_file_system}
-        :param jupyter_lab_app_settings: jupyter_lab_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#jupyter_lab_app_settings SagemakerSpace#jupyter_lab_app_settings}
-        :param jupyter_server_app_settings: jupyter_server_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#jupyter_server_app_settings SagemakerSpace#jupyter_server_app_settings}
-        :param kernel_gateway_app_settings: kernel_gateway_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#kernel_gateway_app_settings SagemakerSpace#kernel_gateway_app_settings}
-        :param space_storage_settings: space_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_storage_settings SagemakerSpace#space_storage_settings}
+        :param app_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_type SagemakerSpace#app_type}.
+        :param code_editor_app_settings: code_editor_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_editor_app_settings SagemakerSpace#code_editor_app_settings}
+        :param custom_file_system: custom_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#custom_file_system SagemakerSpace#custom_file_system}
+        :param jupyter_lab_app_settings: jupyter_lab_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#jupyter_lab_app_settings SagemakerSpace#jupyter_lab_app_settings}
+        :param jupyter_server_app_settings: jupyter_server_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#jupyter_server_app_settings SagemakerSpace#jupyter_server_app_settings}
+        :param kernel_gateway_app_settings: kernel_gateway_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#kernel_gateway_app_settings SagemakerSpace#kernel_gateway_app_settings}
+        :param space_storage_settings: space_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_storage_settings SagemakerSpace#space_storage_settings}
         '''
         value = SagemakerSpaceSpaceSettings(
             app_type=app_type,
@@ -185,7 +185,7 @@ class SagemakerSpace(
     @jsii.member(jsii_name="putSpaceSharingSettings")
     def put_space_sharing_settings(self, *, sharing_type: builtins.str) -> None:
         '''
-        :param sharing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sharing_type SagemakerSpace#sharing_type}.
+        :param sharing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sharing_type SagemakerSpace#sharing_type}.
         '''
         value = SagemakerSpaceSpaceSharingSettings(sharing_type=sharing_type)
 
@@ -439,15 +439,15 @@ class SagemakerSpaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#domain_id SagemakerSpace#domain_id}.
-        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_name SagemakerSpace#space_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#id SagemakerSpace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ownership_settings: ownership_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ownership_settings SagemakerSpace#ownership_settings}
-        :param space_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_display_name SagemakerSpace#space_display_name}.
-        :param space_settings: space_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_settings SagemakerSpace#space_settings}
-        :param space_sharing_settings: space_sharing_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_sharing_settings SagemakerSpace#space_sharing_settings}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#tags SagemakerSpace#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#tags_all SagemakerSpace#tags_all}.
+        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#domain_id SagemakerSpace#domain_id}.
+        :param space_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_name SagemakerSpace#space_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#id SagemakerSpace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ownership_settings: ownership_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ownership_settings SagemakerSpace#ownership_settings}
+        :param space_display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_display_name SagemakerSpace#space_display_name}.
+        :param space_settings: space_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_settings SagemakerSpace#space_settings}
+        :param space_sharing_settings: space_sharing_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_sharing_settings SagemakerSpace#space_sharing_settings}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#tags SagemakerSpace#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#tags_all SagemakerSpace#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -574,21 +574,21 @@ class SagemakerSpaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#domain_id SagemakerSpace#domain_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#domain_id SagemakerSpace#domain_id}.'''
         result = self._values.get("domain_id")
         assert result is not None, "Required property 'domain_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def space_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_name SagemakerSpace#space_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_name SagemakerSpace#space_name}.'''
         result = self._values.get("space_name")
         assert result is not None, "Required property 'space_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#id SagemakerSpace#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#id SagemakerSpace#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -600,14 +600,14 @@ class SagemakerSpaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ownership_settings(self) -> typing.Optional["SagemakerSpaceOwnershipSettings"]:
         '''ownership_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ownership_settings SagemakerSpace#ownership_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ownership_settings SagemakerSpace#ownership_settings}
         '''
         result = self._values.get("ownership_settings")
         return typing.cast(typing.Optional["SagemakerSpaceOwnershipSettings"], result)
 
     @builtins.property
     def space_display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_display_name SagemakerSpace#space_display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_display_name SagemakerSpace#space_display_name}.'''
         result = self._values.get("space_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -615,7 +615,7 @@ class SagemakerSpaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def space_settings(self) -> typing.Optional["SagemakerSpaceSpaceSettings"]:
         '''space_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_settings SagemakerSpace#space_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_settings SagemakerSpace#space_settings}
         '''
         result = self._values.get("space_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettings"], result)
@@ -626,20 +626,20 @@ class SagemakerSpaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerSpaceSpaceSharingSettings"]:
         '''space_sharing_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_sharing_settings SagemakerSpace#space_sharing_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_sharing_settings SagemakerSpace#space_sharing_settings}
         '''
         result = self._values.get("space_sharing_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSharingSettings"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#tags SagemakerSpace#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#tags SagemakerSpace#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#tags_all SagemakerSpace#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#tags_all SagemakerSpace#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -663,7 +663,7 @@ class SagemakerSpaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SagemakerSpaceOwnershipSettings:
     def __init__(self, *, owner_user_profile_name: builtins.str) -> None:
         '''
-        :param owner_user_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#owner_user_profile_name SagemakerSpace#owner_user_profile_name}.
+        :param owner_user_profile_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#owner_user_profile_name SagemakerSpace#owner_user_profile_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3f978b9164ddc2efcfb027495642a868cbf5f4e5cfdb7929c22ccec5b3d0698)
@@ -674,7 +674,7 @@ class SagemakerSpaceOwnershipSettings:
 
     @builtins.property
     def owner_user_profile_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#owner_user_profile_name SagemakerSpace#owner_user_profile_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#owner_user_profile_name SagemakerSpace#owner_user_profile_name}.'''
         result = self._values.get("owner_user_profile_name")
         assert result is not None, "Required property 'owner_user_profile_name' is missing"
         return typing.cast(builtins.str, result)
@@ -770,13 +770,13 @@ class SagemakerSpaceSpaceSettings:
         space_storage_settings: typing.Optional[typing.Union["SagemakerSpaceSpaceSettingsSpaceStorageSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param app_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_type SagemakerSpace#app_type}.
-        :param code_editor_app_settings: code_editor_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_editor_app_settings SagemakerSpace#code_editor_app_settings}
-        :param custom_file_system: custom_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#custom_file_system SagemakerSpace#custom_file_system}
-        :param jupyter_lab_app_settings: jupyter_lab_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#jupyter_lab_app_settings SagemakerSpace#jupyter_lab_app_settings}
-        :param jupyter_server_app_settings: jupyter_server_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#jupyter_server_app_settings SagemakerSpace#jupyter_server_app_settings}
-        :param kernel_gateway_app_settings: kernel_gateway_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#kernel_gateway_app_settings SagemakerSpace#kernel_gateway_app_settings}
-        :param space_storage_settings: space_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_storage_settings SagemakerSpace#space_storage_settings}
+        :param app_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_type SagemakerSpace#app_type}.
+        :param code_editor_app_settings: code_editor_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_editor_app_settings SagemakerSpace#code_editor_app_settings}
+        :param custom_file_system: custom_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#custom_file_system SagemakerSpace#custom_file_system}
+        :param jupyter_lab_app_settings: jupyter_lab_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#jupyter_lab_app_settings SagemakerSpace#jupyter_lab_app_settings}
+        :param jupyter_server_app_settings: jupyter_server_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#jupyter_server_app_settings SagemakerSpace#jupyter_server_app_settings}
+        :param kernel_gateway_app_settings: kernel_gateway_app_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#kernel_gateway_app_settings SagemakerSpace#kernel_gateway_app_settings}
+        :param space_storage_settings: space_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_storage_settings SagemakerSpace#space_storage_settings}
         '''
         if isinstance(code_editor_app_settings, dict):
             code_editor_app_settings = SagemakerSpaceSpaceSettingsCodeEditorAppSettings(**code_editor_app_settings)
@@ -815,7 +815,7 @@ class SagemakerSpaceSpaceSettings:
 
     @builtins.property
     def app_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_type SagemakerSpace#app_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_type SagemakerSpace#app_type}.'''
         result = self._values.get("app_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -825,7 +825,7 @@ class SagemakerSpaceSpaceSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsCodeEditorAppSettings"]:
         '''code_editor_app_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_editor_app_settings SagemakerSpace#code_editor_app_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_editor_app_settings SagemakerSpace#code_editor_app_settings}
         '''
         result = self._values.get("code_editor_app_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsCodeEditorAppSettings"], result)
@@ -836,7 +836,7 @@ class SagemakerSpaceSpaceSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsCustomFileSystem"]]]:
         '''custom_file_system block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#custom_file_system SagemakerSpace#custom_file_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#custom_file_system SagemakerSpace#custom_file_system}
         '''
         result = self._values.get("custom_file_system")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsCustomFileSystem"]]], result)
@@ -847,7 +847,7 @@ class SagemakerSpaceSpaceSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsJupyterLabAppSettings"]:
         '''jupyter_lab_app_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#jupyter_lab_app_settings SagemakerSpace#jupyter_lab_app_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#jupyter_lab_app_settings SagemakerSpace#jupyter_lab_app_settings}
         '''
         result = self._values.get("jupyter_lab_app_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsJupyterLabAppSettings"], result)
@@ -858,7 +858,7 @@ class SagemakerSpaceSpaceSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsJupyterServerAppSettings"]:
         '''jupyter_server_app_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#jupyter_server_app_settings SagemakerSpace#jupyter_server_app_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#jupyter_server_app_settings SagemakerSpace#jupyter_server_app_settings}
         '''
         result = self._values.get("jupyter_server_app_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsJupyterServerAppSettings"], result)
@@ -869,7 +869,7 @@ class SagemakerSpaceSpaceSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsKernelGatewayAppSettings"]:
         '''kernel_gateway_app_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#kernel_gateway_app_settings SagemakerSpace#kernel_gateway_app_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#kernel_gateway_app_settings SagemakerSpace#kernel_gateway_app_settings}
         '''
         result = self._values.get("kernel_gateway_app_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsKernelGatewayAppSettings"], result)
@@ -880,7 +880,7 @@ class SagemakerSpaceSpaceSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsSpaceStorageSettings"]:
         '''space_storage_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#space_storage_settings SagemakerSpace#space_storage_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#space_storage_settings SagemakerSpace#space_storage_settings}
         '''
         result = self._values.get("space_storage_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsSpaceStorageSettings"], result)
@@ -913,8 +913,8 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettings:
         app_lifecycle_management: typing.Optional[typing.Union["SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
         '''
         if isinstance(default_resource_spec, dict):
             default_resource_spec = SagemakerSpaceSpaceSettingsCodeEditorAppSettingsDefaultResourceSpec(**default_resource_spec)
@@ -936,7 +936,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettings:
     ) -> "SagemakerSpaceSpaceSettingsCodeEditorAppSettingsDefaultResourceSpec":
         '''default_resource_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
         '''
         result = self._values.get("default_resource_spec")
         assert result is not None, "Required property 'default_resource_spec' is missing"
@@ -948,7 +948,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement"]:
         '''app_lifecycle_management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
         '''
         result = self._values.get("app_lifecycle_management")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement"], result)
@@ -977,7 +977,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement:
         idle_settings: typing.Optional[typing.Union["SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdleSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
+        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
         '''
         if isinstance(idle_settings, dict):
             idle_settings = SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdleSettings(**idle_settings)
@@ -994,7 +994,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdleSettings"]:
         '''idle_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
         '''
         result = self._values.get("idle_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdleSettings"], result)
@@ -1023,7 +1023,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdle
         idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__776abf28bbdac33ae4e109888b150b523fcbad3117d9385cd86b9d1cf7ee18bb)
@@ -1034,7 +1034,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdle
 
     @builtins.property
     def idle_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.'''
         result = self._values.get("idle_timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1136,7 +1136,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementOutp
         idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
         '''
         value = SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdleSettings(
             idle_timeout_in_minutes=idle_timeout_in_minutes
@@ -1202,11 +1202,11 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsDefaultResourceSpec:
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb80ef6a4b0d16f5919b448528377009e978db3a97c7b5a8a2ecb77c914346ae)
@@ -1229,31 +1229,31 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsDefaultResourceSpec:
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lifecycle_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
         result = self._values.get("lifecycle_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
         result = self._values.get("sagemaker_image_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
         result = self._values.get("sagemaker_image_version_alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
         result = self._values.get("sagemaker_image_version_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1439,7 +1439,7 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsOutputReference(
         idle_settings: typing.Optional[typing.Union[SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagementIdleSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
+        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
         '''
         value = SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement(
             idle_settings=idle_settings
@@ -1458,11 +1458,11 @@ class SagemakerSpaceSpaceSettingsCodeEditorAppSettingsOutputReference(
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         value = SagemakerSpaceSpaceSettingsCodeEditorAppSettingsDefaultResourceSpec(
             instance_type=instance_type,
@@ -1536,7 +1536,7 @@ class SagemakerSpaceSpaceSettingsCustomFileSystem:
         efs_file_system: typing.Union["SagemakerSpaceSpaceSettingsCustomFileSystemEfsFileSystem", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param efs_file_system: efs_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#efs_file_system SagemakerSpace#efs_file_system}
+        :param efs_file_system: efs_file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#efs_file_system SagemakerSpace#efs_file_system}
         '''
         if isinstance(efs_file_system, dict):
             efs_file_system = SagemakerSpaceSpaceSettingsCustomFileSystemEfsFileSystem(**efs_file_system)
@@ -1553,7 +1553,7 @@ class SagemakerSpaceSpaceSettingsCustomFileSystem:
     ) -> "SagemakerSpaceSpaceSettingsCustomFileSystemEfsFileSystem":
         '''efs_file_system block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#efs_file_system SagemakerSpace#efs_file_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#efs_file_system SagemakerSpace#efs_file_system}
         '''
         result = self._values.get("efs_file_system")
         assert result is not None, "Required property 'efs_file_system' is missing"
@@ -1579,7 +1579,7 @@ class SagemakerSpaceSpaceSettingsCustomFileSystem:
 class SagemakerSpaceSpaceSettingsCustomFileSystemEfsFileSystem:
     def __init__(self, *, file_system_id: builtins.str) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#file_system_id SagemakerSpace#file_system_id}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#file_system_id SagemakerSpace#file_system_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1eb49fda22169c71b0ffe65482b867e770bfa11a2aeb23cb1e608cae8f7b6e87)
@@ -1590,7 +1590,7 @@ class SagemakerSpaceSpaceSettingsCustomFileSystemEfsFileSystem:
 
     @builtins.property
     def file_system_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#file_system_id SagemakerSpace#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#file_system_id SagemakerSpace#file_system_id}.'''
         result = self._values.get("file_system_id")
         assert result is not None, "Required property 'file_system_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1784,7 +1784,7 @@ class SagemakerSpaceSpaceSettingsCustomFileSystemOutputReference(
     @jsii.member(jsii_name="putEfsFileSystem")
     def put_efs_file_system(self, *, file_system_id: builtins.str) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#file_system_id SagemakerSpace#file_system_id}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#file_system_id SagemakerSpace#file_system_id}.
         '''
         value = SagemakerSpaceSpaceSettingsCustomFileSystemEfsFileSystem(
             file_system_id=file_system_id
@@ -1842,9 +1842,9 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettings:
         code_repository: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsCodeRepository", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
-        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
+        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
         '''
         if isinstance(default_resource_spec, dict):
             default_resource_spec = SagemakerSpaceSpaceSettingsJupyterLabAppSettingsDefaultResourceSpec(**default_resource_spec)
@@ -1869,7 +1869,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettings:
     ) -> "SagemakerSpaceSpaceSettingsJupyterLabAppSettingsDefaultResourceSpec":
         '''default_resource_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
         '''
         result = self._values.get("default_resource_spec")
         assert result is not None, "Required property 'default_resource_spec' is missing"
@@ -1881,7 +1881,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettings:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagement"]:
         '''app_lifecycle_management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
         '''
         result = self._values.get("app_lifecycle_management")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagement"], result)
@@ -1892,7 +1892,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsCodeRepository"]]]:
         '''code_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
         '''
         result = self._values.get("code_repository")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsCodeRepository"]]], result)
@@ -1921,7 +1921,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagement:
         idle_settings: typing.Optional[typing.Union["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdleSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
+        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
         '''
         if isinstance(idle_settings, dict):
             idle_settings = SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdleSettings(**idle_settings)
@@ -1938,7 +1938,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagement:
     ) -> typing.Optional["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdleSettings"]:
         '''idle_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
         '''
         result = self._values.get("idle_settings")
         return typing.cast(typing.Optional["SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdleSettings"], result)
@@ -1967,7 +1967,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdle
         idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6237e54c2e63802cb6e227c95ad19c4b6c51b30d722c91908b06f9279c4c480e)
@@ -1978,7 +1978,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdle
 
     @builtins.property
     def idle_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.'''
         result = self._values.get("idle_timeout_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2080,7 +2080,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementOutp
         idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
+        :param idle_timeout_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_timeout_in_minutes SagemakerSpace#idle_timeout_in_minutes}.
         '''
         value = SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdleSettings(
             idle_timeout_in_minutes=idle_timeout_in_minutes
@@ -2132,7 +2132,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementOutp
 class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsCodeRepository:
     def __init__(self, *, repository_url: builtins.str) -> None:
         '''
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7eaf4572e18834987277a5f88c5481be0a4fc0ce6eaa1eaf923de661953bb4ea)
@@ -2143,7 +2143,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsCodeRepository:
 
     @builtins.property
     def repository_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.'''
         result = self._values.get("repository_url")
         assert result is not None, "Required property 'repository_url' is missing"
         return typing.cast(builtins.str, result)
@@ -2336,11 +2336,11 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsDefaultResourceSpec:
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08ffa6c6fcc0aa4a4f3fd3cde20cff8ba895758267abe39ee5dab7d9695006b3)
@@ -2363,31 +2363,31 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsDefaultResourceSpec:
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lifecycle_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
         result = self._values.get("lifecycle_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
         result = self._values.get("sagemaker_image_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
         result = self._values.get("sagemaker_image_version_alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
         result = self._values.get("sagemaker_image_version_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2573,7 +2573,7 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsOutputReference(
         idle_settings: typing.Optional[typing.Union[SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagementIdleSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
+        :param idle_settings: idle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#idle_settings SagemakerSpace#idle_settings}
         '''
         value = SagemakerSpaceSpaceSettingsJupyterLabAppSettingsAppLifecycleManagement(
             idle_settings=idle_settings
@@ -2605,11 +2605,11 @@ class SagemakerSpaceSpaceSettingsJupyterLabAppSettingsOutputReference(
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         value = SagemakerSpaceSpaceSettingsJupyterLabAppSettingsDefaultResourceSpec(
             instance_type=instance_type,
@@ -2707,9 +2707,9 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettings:
         lifecycle_config_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
-        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
+        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
         '''
         if isinstance(default_resource_spec, dict):
             default_resource_spec = SagemakerSpaceSpaceSettingsJupyterServerAppSettingsDefaultResourceSpec(**default_resource_spec)
@@ -2732,7 +2732,7 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettings:
     ) -> "SagemakerSpaceSpaceSettingsJupyterServerAppSettingsDefaultResourceSpec":
         '''default_resource_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
         '''
         result = self._values.get("default_resource_spec")
         assert result is not None, "Required property 'default_resource_spec' is missing"
@@ -2744,14 +2744,14 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsJupyterServerAppSettingsCodeRepository"]]]:
         '''code_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
         '''
         result = self._values.get("code_repository")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsJupyterServerAppSettingsCodeRepository"]]], result)
 
     @builtins.property
     def lifecycle_config_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.'''
         result = self._values.get("lifecycle_config_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2775,7 +2775,7 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettings:
 class SagemakerSpaceSpaceSettingsJupyterServerAppSettingsCodeRepository:
     def __init__(self, *, repository_url: builtins.str) -> None:
         '''
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b82c6130dc75373611c201962b28bce84954ffb1ee9932f9dd18b3ffd760c3a3)
@@ -2786,7 +2786,7 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettingsCodeRepository:
 
     @builtins.property
     def repository_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#repository_url SagemakerSpace#repository_url}.'''
         result = self._values.get("repository_url")
         assert result is not None, "Required property 'repository_url' is missing"
         return typing.cast(builtins.str, result)
@@ -2979,11 +2979,11 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettingsDefaultResourceSpec:
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa59c016048284310ebc1f1fd0f42017840d586385e759dd66a8c52e44257da7)
@@ -3006,31 +3006,31 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettingsDefaultResourceSpec:
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lifecycle_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
         result = self._values.get("lifecycle_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
         result = self._values.get("sagemaker_image_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
         result = self._values.get("sagemaker_image_version_alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
         result = self._values.get("sagemaker_image_version_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3233,11 +3233,11 @@ class SagemakerSpaceSpaceSettingsJupyterServerAppSettingsOutputReference(
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         value = SagemakerSpaceSpaceSettingsJupyterServerAppSettingsDefaultResourceSpec(
             instance_type=instance_type,
@@ -3338,9 +3338,9 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettings:
         lifecycle_config_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param custom_image: custom_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#custom_image SagemakerSpace#custom_image}
-        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param custom_image: custom_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#custom_image SagemakerSpace#custom_image}
+        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
         '''
         if isinstance(default_resource_spec, dict):
             default_resource_spec = SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsDefaultResourceSpec(**default_resource_spec)
@@ -3363,7 +3363,7 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettings:
     ) -> "SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsDefaultResourceSpec":
         '''default_resource_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
         '''
         result = self._values.get("default_resource_spec")
         assert result is not None, "Required property 'default_resource_spec' is missing"
@@ -3375,14 +3375,14 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsCustomImage"]]]:
         '''custom_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#custom_image SagemakerSpace#custom_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#custom_image SagemakerSpace#custom_image}
         '''
         result = self._values.get("custom_image")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsCustomImage"]]], result)
 
     @builtins.property
     def lifecycle_config_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.'''
         result = self._values.get("lifecycle_config_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3416,9 +3416,9 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsCustomImage:
         image_version_number: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param app_image_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_image_config_name SagemakerSpace#app_image_config_name}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#image_name SagemakerSpace#image_name}.
-        :param image_version_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#image_version_number SagemakerSpace#image_version_number}.
+        :param app_image_config_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_image_config_name SagemakerSpace#app_image_config_name}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#image_name SagemakerSpace#image_name}.
+        :param image_version_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#image_version_number SagemakerSpace#image_version_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75f69f60c449429d2644f1a406f11b6b4bbae66f62f7fa01011c9583f2bb650f)
@@ -3434,21 +3434,21 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsCustomImage:
 
     @builtins.property
     def app_image_config_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_image_config_name SagemakerSpace#app_image_config_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_image_config_name SagemakerSpace#app_image_config_name}.'''
         result = self._values.get("app_image_config_name")
         assert result is not None, "Required property 'app_image_config_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def image_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#image_name SagemakerSpace#image_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#image_name SagemakerSpace#image_name}.'''
         result = self._values.get("image_name")
         assert result is not None, "Required property 'image_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def image_version_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#image_version_number SagemakerSpace#image_version_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#image_version_number SagemakerSpace#image_version_number}.'''
         result = self._values.get("image_version_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3678,11 +3678,11 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsDefaultResourceSpec:
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f84be4b2358ff03b3268efd074933de4d45e4e7a4b981c924f0d5d7d8d8bf6d)
@@ -3705,31 +3705,31 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsDefaultResourceSpec:
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lifecycle_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.'''
         result = self._values.get("lifecycle_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.'''
         result = self._values.get("sagemaker_image_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.'''
         result = self._values.get("sagemaker_image_version_alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sagemaker_image_version_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.'''
         result = self._values.get("sagemaker_image_version_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3932,11 +3932,11 @@ class SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsOutputReference(
         sagemaker_image_version_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
-        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
-        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
-        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
-        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#instance_type SagemakerSpace#instance_type}.
+        :param lifecycle_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arn SagemakerSpace#lifecycle_config_arn}.
+        :param sagemaker_image_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_arn SagemakerSpace#sagemaker_image_arn}.
+        :param sagemaker_image_version_alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_alias SagemakerSpace#sagemaker_image_version_alias}.
+        :param sagemaker_image_version_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sagemaker_image_version_arn SagemakerSpace#sagemaker_image_version_arn}.
         '''
         value = SagemakerSpaceSpaceSettingsKernelGatewayAppSettingsDefaultResourceSpec(
             instance_type=instance_type,
@@ -4047,8 +4047,8 @@ class SagemakerSpaceSpaceSettingsOutputReference(
         app_lifecycle_management: typing.Optional[typing.Union[SagemakerSpaceSpaceSettingsCodeEditorAppSettingsAppLifecycleManagement, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
         '''
         value = SagemakerSpaceSpaceSettingsCodeEditorAppSettings(
             default_resource_spec=default_resource_spec,
@@ -4079,9 +4079,9 @@ class SagemakerSpaceSpaceSettingsOutputReference(
         code_repository: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerSpaceSpaceSettingsJupyterLabAppSettingsCodeRepository, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
-        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param app_lifecycle_management: app_lifecycle_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#app_lifecycle_management SagemakerSpace#app_lifecycle_management}
+        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
         '''
         value = SagemakerSpaceSpaceSettingsJupyterLabAppSettings(
             default_resource_spec=default_resource_spec,
@@ -4100,9 +4100,9 @@ class SagemakerSpaceSpaceSettingsOutputReference(
         lifecycle_config_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
-        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param code_repository: code_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#code_repository SagemakerSpace#code_repository}
+        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
         '''
         value = SagemakerSpaceSpaceSettingsJupyterServerAppSettings(
             default_resource_spec=default_resource_spec,
@@ -4121,9 +4121,9 @@ class SagemakerSpaceSpaceSettingsOutputReference(
         lifecycle_config_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
-        :param custom_image: custom_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#custom_image SagemakerSpace#custom_image}
-        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
+        :param default_resource_spec: default_resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#default_resource_spec SagemakerSpace#default_resource_spec}
+        :param custom_image: custom_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#custom_image SagemakerSpace#custom_image}
+        :param lifecycle_config_arns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#lifecycle_config_arns SagemakerSpace#lifecycle_config_arns}.
         '''
         value = SagemakerSpaceSpaceSettingsKernelGatewayAppSettings(
             default_resource_spec=default_resource_spec,
@@ -4140,7 +4140,7 @@ class SagemakerSpaceSpaceSettingsOutputReference(
         ebs_storage_settings: typing.Union["SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param ebs_storage_settings: ebs_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ebs_storage_settings SagemakerSpace#ebs_storage_settings}
+        :param ebs_storage_settings: ebs_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ebs_storage_settings SagemakerSpace#ebs_storage_settings}
         '''
         value = SagemakerSpaceSpaceSettingsSpaceStorageSettings(
             ebs_storage_settings=ebs_storage_settings
@@ -4303,7 +4303,7 @@ class SagemakerSpaceSpaceSettingsSpaceStorageSettings:
         ebs_storage_settings: typing.Union["SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param ebs_storage_settings: ebs_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ebs_storage_settings SagemakerSpace#ebs_storage_settings}
+        :param ebs_storage_settings: ebs_storage_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ebs_storage_settings SagemakerSpace#ebs_storage_settings}
         '''
         if isinstance(ebs_storage_settings, dict):
             ebs_storage_settings = SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings(**ebs_storage_settings)
@@ -4320,7 +4320,7 @@ class SagemakerSpaceSpaceSettingsSpaceStorageSettings:
     ) -> "SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings":
         '''ebs_storage_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ebs_storage_settings SagemakerSpace#ebs_storage_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ebs_storage_settings SagemakerSpace#ebs_storage_settings}
         '''
         result = self._values.get("ebs_storage_settings")
         assert result is not None, "Required property 'ebs_storage_settings' is missing"
@@ -4346,7 +4346,7 @@ class SagemakerSpaceSpaceSettingsSpaceStorageSettings:
 class SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings:
     def __init__(self, *, ebs_volume_size_in_gb: jsii.Number) -> None:
         '''
-        :param ebs_volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ebs_volume_size_in_gb SagemakerSpace#ebs_volume_size_in_gb}.
+        :param ebs_volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ebs_volume_size_in_gb SagemakerSpace#ebs_volume_size_in_gb}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d84d69ef58fb1b9fcaedd088c616c58073492604bf92f530ec5fd3d788be573)
@@ -4357,7 +4357,7 @@ class SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings:
 
     @builtins.property
     def ebs_volume_size_in_gb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ebs_volume_size_in_gb SagemakerSpace#ebs_volume_size_in_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ebs_volume_size_in_gb SagemakerSpace#ebs_volume_size_in_gb}.'''
         result = self._values.get("ebs_volume_size_in_gb")
         assert result is not None, "Required property 'ebs_volume_size_in_gb' is missing"
         return typing.cast(jsii.Number, result)
@@ -4452,7 +4452,7 @@ class SagemakerSpaceSpaceSettingsSpaceStorageSettingsOutputReference(
     @jsii.member(jsii_name="putEbsStorageSettings")
     def put_ebs_storage_settings(self, *, ebs_volume_size_in_gb: jsii.Number) -> None:
         '''
-        :param ebs_volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#ebs_volume_size_in_gb SagemakerSpace#ebs_volume_size_in_gb}.
+        :param ebs_volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#ebs_volume_size_in_gb SagemakerSpace#ebs_volume_size_in_gb}.
         '''
         value = SagemakerSpaceSpaceSettingsSpaceStorageSettingsEbsStorageSettings(
             ebs_volume_size_in_gb=ebs_volume_size_in_gb
@@ -4500,7 +4500,7 @@ class SagemakerSpaceSpaceSettingsSpaceStorageSettingsOutputReference(
 class SagemakerSpaceSpaceSharingSettings:
     def __init__(self, *, sharing_type: builtins.str) -> None:
         '''
-        :param sharing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sharing_type SagemakerSpace#sharing_type}.
+        :param sharing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sharing_type SagemakerSpace#sharing_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5675e79b208a5bdb84c3d340cb5562687ca31d6ac5b19e703d3848dec455dcf)
@@ -4511,7 +4511,7 @@ class SagemakerSpaceSpaceSharingSettings:
 
     @builtins.property
     def sharing_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_space#sharing_type SagemakerSpace#sharing_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_space#sharing_type SagemakerSpace#sharing_type}.'''
         result = self._values.get("sharing_type")
         assert result is not None, "Required property 'sharing_type' is missing"
         return typing.cast(builtins.str, result)

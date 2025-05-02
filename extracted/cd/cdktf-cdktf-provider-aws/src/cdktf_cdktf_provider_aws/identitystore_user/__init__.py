@@ -1,7 +1,7 @@
 r'''
 # `aws_identitystore_user`
 
-Refer to the Terraform Registry for docs: [`aws_identitystore_user`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user).
+Refer to the Terraform Registry for docs: [`aws_identitystore_user`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IdentitystoreUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.identitystoreUser.IdentitystoreUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user aws_identitystore_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user aws_identitystore_user}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class IdentitystoreUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user aws_identitystore_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user aws_identitystore_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#display_name IdentitystoreUser#display_name}.
-        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#identity_store_id IdentitystoreUser#identity_store_id}.
-        :param name: name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#name IdentitystoreUser#name}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#user_name IdentitystoreUser#user_name}.
-        :param addresses: addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#addresses IdentitystoreUser#addresses}
-        :param emails: emails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#emails IdentitystoreUser#emails}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#id IdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#locale IdentitystoreUser#locale}.
-        :param nickname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#nickname IdentitystoreUser#nickname}.
-        :param phone_numbers: phone_numbers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#phone_numbers IdentitystoreUser#phone_numbers}
-        :param preferred_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#preferred_language IdentitystoreUser#preferred_language}.
-        :param profile_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#profile_url IdentitystoreUser#profile_url}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#timezone IdentitystoreUser#timezone}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#title IdentitystoreUser#title}.
-        :param user_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#user_type IdentitystoreUser#user_type}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#display_name IdentitystoreUser#display_name}.
+        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#identity_store_id IdentitystoreUser#identity_store_id}.
+        :param name: name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#name IdentitystoreUser#name}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#user_name IdentitystoreUser#user_name}.
+        :param addresses: addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#addresses IdentitystoreUser#addresses}
+        :param emails: emails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#emails IdentitystoreUser#emails}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#id IdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#locale IdentitystoreUser#locale}.
+        :param nickname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#nickname IdentitystoreUser#nickname}.
+        :param phone_numbers: phone_numbers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#phone_numbers IdentitystoreUser#phone_numbers}
+        :param preferred_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#preferred_language IdentitystoreUser#preferred_language}.
+        :param profile_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#profile_url IdentitystoreUser#profile_url}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#timezone IdentitystoreUser#timezone}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#title IdentitystoreUser#title}.
+        :param user_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#user_type IdentitystoreUser#user_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class IdentitystoreUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IdentitystoreUser to import.
-        :param import_from_id: The id of the existing IdentitystoreUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IdentitystoreUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IdentitystoreUser to import is found.
         '''
         if __debug__:
@@ -170,14 +170,14 @@ class IdentitystoreUser(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#country IdentitystoreUser#country}.
-        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
-        :param locality: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#locality IdentitystoreUser#locality}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#postal_code IdentitystoreUser#postal_code}.
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#region IdentitystoreUser#region}.
-        :param street_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#street_address IdentitystoreUser#street_address}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#country IdentitystoreUser#country}.
+        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
+        :param locality: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#locality IdentitystoreUser#locality}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#postal_code IdentitystoreUser#postal_code}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#region IdentitystoreUser#region}.
+        :param street_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#street_address IdentitystoreUser#street_address}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
         '''
         value = IdentitystoreUserAddresses(
             country=country,
@@ -201,9 +201,9 @@ class IdentitystoreUser(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
         '''
         value_ = IdentitystoreUserEmails(primary=primary, type=type, value=value)
 
@@ -221,12 +221,12 @@ class IdentitystoreUser(
         middle_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param family_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#family_name IdentitystoreUser#family_name}.
-        :param given_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#given_name IdentitystoreUser#given_name}.
-        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
-        :param honorific_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#honorific_prefix IdentitystoreUser#honorific_prefix}.
-        :param honorific_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#honorific_suffix IdentitystoreUser#honorific_suffix}.
-        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#middle_name IdentitystoreUser#middle_name}.
+        :param family_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#family_name IdentitystoreUser#family_name}.
+        :param given_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#given_name IdentitystoreUser#given_name}.
+        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
+        :param honorific_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#honorific_prefix IdentitystoreUser#honorific_prefix}.
+        :param honorific_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#honorific_suffix IdentitystoreUser#honorific_suffix}.
+        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#middle_name IdentitystoreUser#middle_name}.
         '''
         value = IdentitystoreUserName(
             family_name=family_name,
@@ -248,9 +248,9 @@ class IdentitystoreUser(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
         '''
         value_ = IdentitystoreUserPhoneNumbers(primary=primary, type=type, value=value)
 
@@ -579,14 +579,14 @@ class IdentitystoreUserAddresses:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#country IdentitystoreUser#country}.
-        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
-        :param locality: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#locality IdentitystoreUser#locality}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#postal_code IdentitystoreUser#postal_code}.
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#region IdentitystoreUser#region}.
-        :param street_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#street_address IdentitystoreUser#street_address}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#country IdentitystoreUser#country}.
+        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
+        :param locality: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#locality IdentitystoreUser#locality}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#postal_code IdentitystoreUser#postal_code}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#region IdentitystoreUser#region}.
+        :param street_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#street_address IdentitystoreUser#street_address}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e151928775b31deb71d88f4097c165047660189be59c3cd5100e871ffd9971d)
@@ -618,25 +618,25 @@ class IdentitystoreUserAddresses:
 
     @builtins.property
     def country(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#country IdentitystoreUser#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#country IdentitystoreUser#country}.'''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def formatted(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.'''
         result = self._values.get("formatted")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def locality(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#locality IdentitystoreUser#locality}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#locality IdentitystoreUser#locality}.'''
         result = self._values.get("locality")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postal_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#postal_code IdentitystoreUser#postal_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#postal_code IdentitystoreUser#postal_code}.'''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -644,25 +644,25 @@ class IdentitystoreUserAddresses:
     def primary(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.'''
         result = self._values.get("primary")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#region IdentitystoreUser#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#region IdentitystoreUser#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def street_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#street_address IdentitystoreUser#street_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#street_address IdentitystoreUser#street_address}.'''
         result = self._values.get("street_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -950,21 +950,21 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#display_name IdentitystoreUser#display_name}.
-        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#identity_store_id IdentitystoreUser#identity_store_id}.
-        :param name: name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#name IdentitystoreUser#name}
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#user_name IdentitystoreUser#user_name}.
-        :param addresses: addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#addresses IdentitystoreUser#addresses}
-        :param emails: emails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#emails IdentitystoreUser#emails}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#id IdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#locale IdentitystoreUser#locale}.
-        :param nickname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#nickname IdentitystoreUser#nickname}.
-        :param phone_numbers: phone_numbers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#phone_numbers IdentitystoreUser#phone_numbers}
-        :param preferred_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#preferred_language IdentitystoreUser#preferred_language}.
-        :param profile_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#profile_url IdentitystoreUser#profile_url}.
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#timezone IdentitystoreUser#timezone}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#title IdentitystoreUser#title}.
-        :param user_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#user_type IdentitystoreUser#user_type}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#display_name IdentitystoreUser#display_name}.
+        :param identity_store_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#identity_store_id IdentitystoreUser#identity_store_id}.
+        :param name: name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#name IdentitystoreUser#name}
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#user_name IdentitystoreUser#user_name}.
+        :param addresses: addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#addresses IdentitystoreUser#addresses}
+        :param emails: emails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#emails IdentitystoreUser#emails}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#id IdentitystoreUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param locale: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#locale IdentitystoreUser#locale}.
+        :param nickname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#nickname IdentitystoreUser#nickname}.
+        :param phone_numbers: phone_numbers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#phone_numbers IdentitystoreUser#phone_numbers}
+        :param preferred_language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#preferred_language IdentitystoreUser#preferred_language}.
+        :param profile_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#profile_url IdentitystoreUser#profile_url}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#timezone IdentitystoreUser#timezone}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#title IdentitystoreUser#title}.
+        :param user_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#user_type IdentitystoreUser#user_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1109,14 +1109,14 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#display_name IdentitystoreUser#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#display_name IdentitystoreUser#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_store_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#identity_store_id IdentitystoreUser#identity_store_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#identity_store_id IdentitystoreUser#identity_store_id}.'''
         result = self._values.get("identity_store_id")
         assert result is not None, "Required property 'identity_store_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1125,7 +1125,7 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> "IdentitystoreUserName":
         '''name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#name IdentitystoreUser#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#name IdentitystoreUser#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1133,7 +1133,7 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#user_name IdentitystoreUser#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#user_name IdentitystoreUser#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1142,7 +1142,7 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def addresses(self) -> typing.Optional[IdentitystoreUserAddresses]:
         '''addresses block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#addresses IdentitystoreUser#addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#addresses IdentitystoreUser#addresses}
         '''
         result = self._values.get("addresses")
         return typing.cast(typing.Optional[IdentitystoreUserAddresses], result)
@@ -1151,14 +1151,14 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def emails(self) -> typing.Optional["IdentitystoreUserEmails"]:
         '''emails block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#emails IdentitystoreUser#emails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#emails IdentitystoreUser#emails}
         '''
         result = self._values.get("emails")
         return typing.cast(typing.Optional["IdentitystoreUserEmails"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#id IdentitystoreUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#id IdentitystoreUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1168,13 +1168,13 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def locale(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#locale IdentitystoreUser#locale}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#locale IdentitystoreUser#locale}.'''
         result = self._values.get("locale")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def nickname(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#nickname IdentitystoreUser#nickname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#nickname IdentitystoreUser#nickname}.'''
         result = self._values.get("nickname")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1182,38 +1182,38 @@ class IdentitystoreUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def phone_numbers(self) -> typing.Optional["IdentitystoreUserPhoneNumbers"]:
         '''phone_numbers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#phone_numbers IdentitystoreUser#phone_numbers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#phone_numbers IdentitystoreUser#phone_numbers}
         '''
         result = self._values.get("phone_numbers")
         return typing.cast(typing.Optional["IdentitystoreUserPhoneNumbers"], result)
 
     @builtins.property
     def preferred_language(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#preferred_language IdentitystoreUser#preferred_language}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#preferred_language IdentitystoreUser#preferred_language}.'''
         result = self._values.get("preferred_language")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def profile_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#profile_url IdentitystoreUser#profile_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#profile_url IdentitystoreUser#profile_url}.'''
         result = self._values.get("profile_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#timezone IdentitystoreUser#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#timezone IdentitystoreUser#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def title(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#title IdentitystoreUser#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#title IdentitystoreUser#title}.'''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def user_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#user_type IdentitystoreUser#user_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#user_type IdentitystoreUser#user_type}.'''
         result = self._values.get("user_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1243,9 +1243,9 @@ class IdentitystoreUserEmails:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2644f9377659c4afa79a82af019c7e7aea660d531e657fa8da7b41a8ccdaeefc)
@@ -1264,19 +1264,19 @@ class IdentitystoreUserEmails:
     def primary(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.'''
         result = self._values.get("primary")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1563,12 +1563,12 @@ class IdentitystoreUserName:
         middle_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param family_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#family_name IdentitystoreUser#family_name}.
-        :param given_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#given_name IdentitystoreUser#given_name}.
-        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
-        :param honorific_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#honorific_prefix IdentitystoreUser#honorific_prefix}.
-        :param honorific_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#honorific_suffix IdentitystoreUser#honorific_suffix}.
-        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#middle_name IdentitystoreUser#middle_name}.
+        :param family_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#family_name IdentitystoreUser#family_name}.
+        :param given_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#given_name IdentitystoreUser#given_name}.
+        :param formatted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.
+        :param honorific_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#honorific_prefix IdentitystoreUser#honorific_prefix}.
+        :param honorific_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#honorific_suffix IdentitystoreUser#honorific_suffix}.
+        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#middle_name IdentitystoreUser#middle_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5c4268b4d0a01d3c09ff23c3bdd11aa3562995164013b07b605f50496e889f7)
@@ -1593,39 +1593,39 @@ class IdentitystoreUserName:
 
     @builtins.property
     def family_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#family_name IdentitystoreUser#family_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#family_name IdentitystoreUser#family_name}.'''
         result = self._values.get("family_name")
         assert result is not None, "Required property 'family_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def given_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#given_name IdentitystoreUser#given_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#given_name IdentitystoreUser#given_name}.'''
         result = self._values.get("given_name")
         assert result is not None, "Required property 'given_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def formatted(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#formatted IdentitystoreUser#formatted}.'''
         result = self._values.get("formatted")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def honorific_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#honorific_prefix IdentitystoreUser#honorific_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#honorific_prefix IdentitystoreUser#honorific_prefix}.'''
         result = self._values.get("honorific_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def honorific_suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#honorific_suffix IdentitystoreUser#honorific_suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#honorific_suffix IdentitystoreUser#honorific_suffix}.'''
         result = self._values.get("honorific_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def middle_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#middle_name IdentitystoreUser#middle_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#middle_name IdentitystoreUser#middle_name}.'''
         result = self._values.get("middle_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1806,9 +1806,9 @@ class IdentitystoreUserPhoneNumbers:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__410b75981e69ff454f6d0308298171b6d161174a70b4d53f58ea7bc37ab70279)
@@ -1827,19 +1827,19 @@ class IdentitystoreUserPhoneNumbers:
     def primary(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#primary IdentitystoreUser#primary}.'''
         result = self._values.get("primary")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#type IdentitystoreUser#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/identitystore_user#value IdentitystoreUser#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 

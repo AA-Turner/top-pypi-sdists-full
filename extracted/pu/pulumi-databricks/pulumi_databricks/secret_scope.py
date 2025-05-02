@@ -156,6 +156,9 @@ class _SecretScopeState:
 
 
 class SecretScope(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/secretScope:SecretScope"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -167,6 +170,8 @@ class SecretScope(pulumi.CustomResource):
                  __props__=None):
         """
         Sometimes accessing data requires that you authenticate to external data sources through JDBC. Instead of directly entering your credentials into a notebook, use Databricks secrets to store your credentials and reference them in notebooks and jobs. Please consult [Secrets User Guide](https://docs.databricks.com/security/secrets/index.html#secrets-user-guide) for more details.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -211,6 +216,8 @@ class SecretScope(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Sometimes accessing data requires that you authenticate to external data sources through JDBC. Instead of directly entering your credentials into a notebook, use Databricks secrets to store your credentials and reference them in notebooks and jobs. Please consult [Secrets User Guide](https://docs.databricks.com/security/secrets/index.html#secrets-user-guide) for more details.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

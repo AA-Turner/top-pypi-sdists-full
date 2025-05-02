@@ -1,7 +1,7 @@
 r'''
 # `data_aws_iam_openid_connect_provider`
 
-Refer to the Terraform Registry for docs: [`data_aws_iam_openid_connect_provider`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider).
+Refer to the Terraform Registry for docs: [`data_aws_iam_openid_connect_provider`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsIamOpenidConnectProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsIamOpenidConnectProvider.DataAwsIamOpenidConnectProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider aws_iam_openid_connect_provider}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider aws_iam_openid_connect_provider}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataAwsIamOpenidConnectProvider(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider aws_iam_openid_connect_provider} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider aws_iam_openid_connect_provider} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#arn DataAwsIamOpenidConnectProvider#arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#id DataAwsIamOpenidConnectProvider#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#tags DataAwsIamOpenidConnectProvider#tags}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#url DataAwsIamOpenidConnectProvider#url}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#arn DataAwsIamOpenidConnectProvider#arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#id DataAwsIamOpenidConnectProvider#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#tags DataAwsIamOpenidConnectProvider#tags}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#url DataAwsIamOpenidConnectProvider#url}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataAwsIamOpenidConnectProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsIamOpenidConnectProvider to import.
-        :param import_from_id: The id of the existing DataAwsIamOpenidConnectProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsIamOpenidConnectProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsIamOpenidConnectProvider to import is found.
         '''
         if __debug__:
@@ -272,10 +272,10 @@ class DataAwsIamOpenidConnectProviderConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#arn DataAwsIamOpenidConnectProvider#arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#id DataAwsIamOpenidConnectProvider#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#tags DataAwsIamOpenidConnectProvider#tags}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#url DataAwsIamOpenidConnectProvider#url}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#arn DataAwsIamOpenidConnectProvider#arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#id DataAwsIamOpenidConnectProvider#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#tags DataAwsIamOpenidConnectProvider#tags}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#url DataAwsIamOpenidConnectProvider#url}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -382,13 +382,13 @@ class DataAwsIamOpenidConnectProviderConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#arn DataAwsIamOpenidConnectProvider#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#arn DataAwsIamOpenidConnectProvider#arn}.'''
         result = self._values.get("arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#id DataAwsIamOpenidConnectProvider#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#id DataAwsIamOpenidConnectProvider#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -398,13 +398,13 @@ class DataAwsIamOpenidConnectProviderConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#tags DataAwsIamOpenidConnectProvider#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#tags DataAwsIamOpenidConnectProvider#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_openid_connect_provider#url DataAwsIamOpenidConnectProvider#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_openid_connect_provider#url DataAwsIamOpenidConnectProvider#url}.'''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
 

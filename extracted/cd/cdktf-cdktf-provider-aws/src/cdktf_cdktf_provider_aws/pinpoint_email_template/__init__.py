@@ -1,7 +1,7 @@
 r'''
 # `aws_pinpoint_email_template`
 
-Refer to the Terraform Registry for docs: [`aws_pinpoint_email_template`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template).
+Refer to the Terraform Registry for docs: [`aws_pinpoint_email_template`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PinpointEmailTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.pinpointEmailTemplate.PinpointEmailTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template aws_pinpoint_email_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template aws_pinpoint_email_template}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class PinpointEmailTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template aws_pinpoint_email_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template aws_pinpoint_email_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#template_name PinpointEmailTemplate#template_name}.
-        :param email_template: email_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#email_template PinpointEmailTemplate#email_template}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#tags PinpointEmailTemplate#tags}.
+        :param template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#template_name PinpointEmailTemplate#template_name}.
+        :param email_template: email_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#email_template PinpointEmailTemplate#email_template}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#tags PinpointEmailTemplate#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class PinpointEmailTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PinpointEmailTemplate to import.
-        :param import_from_id: The id of the existing PinpointEmailTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PinpointEmailTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PinpointEmailTemplate to import is found.
         '''
         if __debug__:
@@ -250,9 +250,9 @@ class PinpointEmailTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#template_name PinpointEmailTemplate#template_name}.
-        :param email_template: email_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#email_template PinpointEmailTemplate#email_template}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#tags PinpointEmailTemplate#tags}.
+        :param template_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#template_name PinpointEmailTemplate#template_name}.
+        :param email_template: email_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#email_template PinpointEmailTemplate#email_template}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#tags PinpointEmailTemplate#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -356,7 +356,7 @@ class PinpointEmailTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def template_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#template_name PinpointEmailTemplate#template_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#template_name PinpointEmailTemplate#template_name}.'''
         result = self._values.get("template_name")
         assert result is not None, "Required property 'template_name' is missing"
         return typing.cast(builtins.str, result)
@@ -367,14 +367,14 @@ class PinpointEmailTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PinpointEmailTemplateEmailTemplate"]]]:
         '''email_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#email_template PinpointEmailTemplate#email_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#email_template PinpointEmailTemplate#email_template}
         '''
         result = self._values.get("email_template")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PinpointEmailTemplateEmailTemplate"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#tags PinpointEmailTemplate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#tags PinpointEmailTemplate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -416,13 +416,13 @@ class PinpointEmailTemplateEmailTemplate:
         text_part: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_substitutions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#default_substitutions PinpointEmailTemplate#default_substitutions}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#description PinpointEmailTemplate#description}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#header PinpointEmailTemplate#header}
-        :param html_part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#html_part PinpointEmailTemplate#html_part}.
-        :param recommender_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#recommender_id PinpointEmailTemplate#recommender_id}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#subject PinpointEmailTemplate#subject}.
-        :param text_part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#text_part PinpointEmailTemplate#text_part}.
+        :param default_substitutions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#default_substitutions PinpointEmailTemplate#default_substitutions}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#description PinpointEmailTemplate#description}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#header PinpointEmailTemplate#header}
+        :param html_part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#html_part PinpointEmailTemplate#html_part}.
+        :param recommender_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#recommender_id PinpointEmailTemplate#recommender_id}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#subject PinpointEmailTemplate#subject}.
+        :param text_part: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#text_part PinpointEmailTemplate#text_part}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28a85399d9dd5e9f1f1d6d89c239ba2353c4062d96c735bacd8961f2fbe86df8)
@@ -451,13 +451,13 @@ class PinpointEmailTemplateEmailTemplate:
 
     @builtins.property
     def default_substitutions(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#default_substitutions PinpointEmailTemplate#default_substitutions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#default_substitutions PinpointEmailTemplate#default_substitutions}.'''
         result = self._values.get("default_substitutions")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#description PinpointEmailTemplate#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#description PinpointEmailTemplate#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -467,32 +467,32 @@ class PinpointEmailTemplateEmailTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PinpointEmailTemplateEmailTemplateHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#header PinpointEmailTemplate#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#header PinpointEmailTemplate#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PinpointEmailTemplateEmailTemplateHeader"]]], result)
 
     @builtins.property
     def html_part(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#html_part PinpointEmailTemplate#html_part}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#html_part PinpointEmailTemplate#html_part}.'''
         result = self._values.get("html_part")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def recommender_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#recommender_id PinpointEmailTemplate#recommender_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#recommender_id PinpointEmailTemplate#recommender_id}.'''
         result = self._values.get("recommender_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subject(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#subject PinpointEmailTemplate#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#subject PinpointEmailTemplate#subject}.'''
         result = self._values.get("subject")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def text_part(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#text_part PinpointEmailTemplate#text_part}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#text_part PinpointEmailTemplate#text_part}.'''
         result = self._values.get("text_part")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -521,8 +521,8 @@ class PinpointEmailTemplateEmailTemplateHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#name PinpointEmailTemplate#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#value PinpointEmailTemplate#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#name PinpointEmailTemplate#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#value PinpointEmailTemplate#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42144183934526bc7a0e8245fa32f0b68b34ffe3b52ea3efa82a2405509008d9)
@@ -536,13 +536,13 @@ class PinpointEmailTemplateEmailTemplateHeader:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#name PinpointEmailTemplate#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#name PinpointEmailTemplate#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/pinpoint_email_template#value PinpointEmailTemplate#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/pinpoint_email_template#value PinpointEmailTemplate#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 

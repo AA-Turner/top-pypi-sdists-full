@@ -1,7 +1,7 @@
 r'''
 # `aws_securityhub_insight`
 
-Refer to the Terraform Registry for docs: [`aws_securityhub_insight`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight).
+Refer to the Terraform Registry for docs: [`aws_securityhub_insight`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityhubInsight(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securityhubInsight.SecurityhubInsight",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight aws_securityhub_insight}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight aws_securityhub_insight}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SecurityhubInsight(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight aws_securityhub_insight} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight aws_securityhub_insight} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#filters SecurityhubInsight#filters}
-        :param group_by_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#group_by_attribute SecurityhubInsight#group_by_attribute}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#name SecurityhubInsight#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#filters SecurityhubInsight#filters}
+        :param group_by_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#group_by_attribute SecurityhubInsight#group_by_attribute}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#name SecurityhubInsight#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SecurityhubInsight(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityhubInsight to import.
-        :param import_from_id: The id of the existing SecurityhubInsight that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityhubInsight that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityhubInsight to import is found.
         '''
         if __debug__:
@@ -217,94 +217,94 @@ class SecurityhubInsight(
         workflow_status: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityhubInsightFiltersWorkflowStatus", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#aws_account_id SecurityhubInsight#aws_account_id}
-        :param company_name: company_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#company_name SecurityhubInsight#company_name}
-        :param compliance_status: compliance_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#compliance_status SecurityhubInsight#compliance_status}
-        :param confidence: confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#confidence SecurityhubInsight#confidence}
-        :param created_at: created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#created_at SecurityhubInsight#created_at}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#criticality SecurityhubInsight#criticality}
-        :param description: description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#description SecurityhubInsight#description}
-        :param finding_provider_fields_confidence: finding_provider_fields_confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_confidence SecurityhubInsight#finding_provider_fields_confidence}
-        :param finding_provider_fields_criticality: finding_provider_fields_criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_criticality SecurityhubInsight#finding_provider_fields_criticality}
-        :param finding_provider_fields_related_findings_id: finding_provider_fields_related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_id SecurityhubInsight#finding_provider_fields_related_findings_id}
-        :param finding_provider_fields_related_findings_product_arn: finding_provider_fields_related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_product_arn SecurityhubInsight#finding_provider_fields_related_findings_product_arn}
-        :param finding_provider_fields_severity_label: finding_provider_fields_severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_severity_label SecurityhubInsight#finding_provider_fields_severity_label}
-        :param finding_provider_fields_severity_original: finding_provider_fields_severity_original block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_severity_original SecurityhubInsight#finding_provider_fields_severity_original}
-        :param finding_provider_fields_types: finding_provider_fields_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_types SecurityhubInsight#finding_provider_fields_types}
-        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#first_observed_at SecurityhubInsight#first_observed_at}
-        :param generator_id: generator_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#generator_id SecurityhubInsight#generator_id}
-        :param id: id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#id SecurityhubInsight#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keyword: keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#keyword SecurityhubInsight#keyword}
-        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#last_observed_at SecurityhubInsight#last_observed_at}
-        :param malware_name: malware_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_name SecurityhubInsight#malware_name}
-        :param malware_path: malware_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_path SecurityhubInsight#malware_path}
-        :param malware_state: malware_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_state SecurityhubInsight#malware_state}
-        :param malware_type: malware_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_type SecurityhubInsight#malware_type}
-        :param network_destination_domain: network_destination_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_domain SecurityhubInsight#network_destination_domain}
-        :param network_destination_ipv4: network_destination_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_ipv4 SecurityhubInsight#network_destination_ipv4}
-        :param network_destination_ipv6: network_destination_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_ipv6 SecurityhubInsight#network_destination_ipv6}
-        :param network_destination_port: network_destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_port SecurityhubInsight#network_destination_port}
-        :param network_direction: network_direction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_direction SecurityhubInsight#network_direction}
-        :param network_protocol: network_protocol block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_protocol SecurityhubInsight#network_protocol}
-        :param network_source_domain: network_source_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_domain SecurityhubInsight#network_source_domain}
-        :param network_source_ipv4: network_source_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_ipv4 SecurityhubInsight#network_source_ipv4}
-        :param network_source_ipv6: network_source_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_ipv6 SecurityhubInsight#network_source_ipv6}
-        :param network_source_mac: network_source_mac block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_mac SecurityhubInsight#network_source_mac}
-        :param network_source_port: network_source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_port SecurityhubInsight#network_source_port}
-        :param note_text: note_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_text SecurityhubInsight#note_text}
-        :param note_updated_at: note_updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_updated_at SecurityhubInsight#note_updated_at}
-        :param note_updated_by: note_updated_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_updated_by SecurityhubInsight#note_updated_by}
-        :param process_launched_at: process_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_launched_at SecurityhubInsight#process_launched_at}
-        :param process_name: process_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_name SecurityhubInsight#process_name}
-        :param process_parent_pid: process_parent_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_parent_pid SecurityhubInsight#process_parent_pid}
-        :param process_path: process_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_path SecurityhubInsight#process_path}
-        :param process_pid: process_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_pid SecurityhubInsight#process_pid}
-        :param process_terminated_at: process_terminated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_terminated_at SecurityhubInsight#process_terminated_at}
-        :param product_arn: product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_arn SecurityhubInsight#product_arn}
-        :param product_fields: product_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_fields SecurityhubInsight#product_fields}
-        :param product_name: product_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_name SecurityhubInsight#product_name}
-        :param recommendation_text: recommendation_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#recommendation_text SecurityhubInsight#recommendation_text}
-        :param record_state: record_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#record_state SecurityhubInsight#record_state}
-        :param related_findings_id: related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#related_findings_id SecurityhubInsight#related_findings_id}
-        :param related_findings_product_arn: related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#related_findings_product_arn SecurityhubInsight#related_findings_product_arn}
-        :param resource_aws_ec2_instance_iam_instance_profile_arn: resource_aws_ec2_instance_iam_instance_profile_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_iam_instance_profile_arn SecurityhubInsight#resource_aws_ec2_instance_iam_instance_profile_arn}
-        :param resource_aws_ec2_instance_image_id: resource_aws_ec2_instance_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_image_id SecurityhubInsight#resource_aws_ec2_instance_image_id}
-        :param resource_aws_ec2_instance_ipv4_addresses: resource_aws_ec2_instance_ipv4_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv4_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv4_addresses}
-        :param resource_aws_ec2_instance_ipv6_addresses: resource_aws_ec2_instance_ipv6_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv6_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv6_addresses}
-        :param resource_aws_ec2_instance_key_name: resource_aws_ec2_instance_key_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_key_name SecurityhubInsight#resource_aws_ec2_instance_key_name}
-        :param resource_aws_ec2_instance_launched_at: resource_aws_ec2_instance_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_launched_at SecurityhubInsight#resource_aws_ec2_instance_launched_at}
-        :param resource_aws_ec2_instance_subnet_id: resource_aws_ec2_instance_subnet_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_subnet_id SecurityhubInsight#resource_aws_ec2_instance_subnet_id}
-        :param resource_aws_ec2_instance_type: resource_aws_ec2_instance_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_type SecurityhubInsight#resource_aws_ec2_instance_type}
-        :param resource_aws_ec2_instance_vpc_id: resource_aws_ec2_instance_vpc_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_vpc_id SecurityhubInsight#resource_aws_ec2_instance_vpc_id}
-        :param resource_aws_iam_access_key_created_at: resource_aws_iam_access_key_created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_created_at SecurityhubInsight#resource_aws_iam_access_key_created_at}
-        :param resource_aws_iam_access_key_status: resource_aws_iam_access_key_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_status SecurityhubInsight#resource_aws_iam_access_key_status}
-        :param resource_aws_iam_access_key_user_name: resource_aws_iam_access_key_user_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_user_name SecurityhubInsight#resource_aws_iam_access_key_user_name}
-        :param resource_aws_s3_bucket_owner_id: resource_aws_s3_bucket_owner_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_id SecurityhubInsight#resource_aws_s3_bucket_owner_id}
-        :param resource_aws_s3_bucket_owner_name: resource_aws_s3_bucket_owner_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_name SecurityhubInsight#resource_aws_s3_bucket_owner_name}
-        :param resource_container_image_id: resource_container_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_image_id SecurityhubInsight#resource_container_image_id}
-        :param resource_container_image_name: resource_container_image_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_image_name SecurityhubInsight#resource_container_image_name}
-        :param resource_container_launched_at: resource_container_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_launched_at SecurityhubInsight#resource_container_launched_at}
-        :param resource_container_name: resource_container_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_name SecurityhubInsight#resource_container_name}
-        :param resource_details_other: resource_details_other block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_details_other SecurityhubInsight#resource_details_other}
-        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_id SecurityhubInsight#resource_id}
-        :param resource_partition: resource_partition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_partition SecurityhubInsight#resource_partition}
-        :param resource_region: resource_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_region SecurityhubInsight#resource_region}
-        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_tags SecurityhubInsight#resource_tags}
-        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_type SecurityhubInsight#resource_type}
-        :param severity_label: severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#severity_label SecurityhubInsight#severity_label}
-        :param source_url: source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#source_url SecurityhubInsight#source_url}
-        :param threat_intel_indicator_category: threat_intel_indicator_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_category SecurityhubInsight#threat_intel_indicator_category}
-        :param threat_intel_indicator_last_observed_at: threat_intel_indicator_last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_last_observed_at SecurityhubInsight#threat_intel_indicator_last_observed_at}
-        :param threat_intel_indicator_source: threat_intel_indicator_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_source SecurityhubInsight#threat_intel_indicator_source}
-        :param threat_intel_indicator_source_url: threat_intel_indicator_source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_source_url SecurityhubInsight#threat_intel_indicator_source_url}
-        :param threat_intel_indicator_type: threat_intel_indicator_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_type SecurityhubInsight#threat_intel_indicator_type}
-        :param threat_intel_indicator_value: threat_intel_indicator_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_value SecurityhubInsight#threat_intel_indicator_value}
-        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#title SecurityhubInsight#title}
-        :param type: type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#type SecurityhubInsight#type}
-        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#updated_at SecurityhubInsight#updated_at}
-        :param user_defined_values: user_defined_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#user_defined_values SecurityhubInsight#user_defined_values}
-        :param verification_state: verification_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#verification_state SecurityhubInsight#verification_state}
-        :param workflow_status: workflow_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#workflow_status SecurityhubInsight#workflow_status}
+        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#aws_account_id SecurityhubInsight#aws_account_id}
+        :param company_name: company_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#company_name SecurityhubInsight#company_name}
+        :param compliance_status: compliance_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#compliance_status SecurityhubInsight#compliance_status}
+        :param confidence: confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#confidence SecurityhubInsight#confidence}
+        :param created_at: created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#created_at SecurityhubInsight#created_at}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#criticality SecurityhubInsight#criticality}
+        :param description: description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#description SecurityhubInsight#description}
+        :param finding_provider_fields_confidence: finding_provider_fields_confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_confidence SecurityhubInsight#finding_provider_fields_confidence}
+        :param finding_provider_fields_criticality: finding_provider_fields_criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_criticality SecurityhubInsight#finding_provider_fields_criticality}
+        :param finding_provider_fields_related_findings_id: finding_provider_fields_related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_id SecurityhubInsight#finding_provider_fields_related_findings_id}
+        :param finding_provider_fields_related_findings_product_arn: finding_provider_fields_related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_product_arn SecurityhubInsight#finding_provider_fields_related_findings_product_arn}
+        :param finding_provider_fields_severity_label: finding_provider_fields_severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_severity_label SecurityhubInsight#finding_provider_fields_severity_label}
+        :param finding_provider_fields_severity_original: finding_provider_fields_severity_original block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_severity_original SecurityhubInsight#finding_provider_fields_severity_original}
+        :param finding_provider_fields_types: finding_provider_fields_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_types SecurityhubInsight#finding_provider_fields_types}
+        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#first_observed_at SecurityhubInsight#first_observed_at}
+        :param generator_id: generator_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#generator_id SecurityhubInsight#generator_id}
+        :param id: id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#id SecurityhubInsight#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keyword: keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#keyword SecurityhubInsight#keyword}
+        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#last_observed_at SecurityhubInsight#last_observed_at}
+        :param malware_name: malware_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_name SecurityhubInsight#malware_name}
+        :param malware_path: malware_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_path SecurityhubInsight#malware_path}
+        :param malware_state: malware_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_state SecurityhubInsight#malware_state}
+        :param malware_type: malware_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_type SecurityhubInsight#malware_type}
+        :param network_destination_domain: network_destination_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_domain SecurityhubInsight#network_destination_domain}
+        :param network_destination_ipv4: network_destination_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_ipv4 SecurityhubInsight#network_destination_ipv4}
+        :param network_destination_ipv6: network_destination_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_ipv6 SecurityhubInsight#network_destination_ipv6}
+        :param network_destination_port: network_destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_port SecurityhubInsight#network_destination_port}
+        :param network_direction: network_direction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_direction SecurityhubInsight#network_direction}
+        :param network_protocol: network_protocol block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_protocol SecurityhubInsight#network_protocol}
+        :param network_source_domain: network_source_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_domain SecurityhubInsight#network_source_domain}
+        :param network_source_ipv4: network_source_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_ipv4 SecurityhubInsight#network_source_ipv4}
+        :param network_source_ipv6: network_source_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_ipv6 SecurityhubInsight#network_source_ipv6}
+        :param network_source_mac: network_source_mac block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_mac SecurityhubInsight#network_source_mac}
+        :param network_source_port: network_source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_port SecurityhubInsight#network_source_port}
+        :param note_text: note_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_text SecurityhubInsight#note_text}
+        :param note_updated_at: note_updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_updated_at SecurityhubInsight#note_updated_at}
+        :param note_updated_by: note_updated_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_updated_by SecurityhubInsight#note_updated_by}
+        :param process_launched_at: process_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_launched_at SecurityhubInsight#process_launched_at}
+        :param process_name: process_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_name SecurityhubInsight#process_name}
+        :param process_parent_pid: process_parent_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_parent_pid SecurityhubInsight#process_parent_pid}
+        :param process_path: process_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_path SecurityhubInsight#process_path}
+        :param process_pid: process_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_pid SecurityhubInsight#process_pid}
+        :param process_terminated_at: process_terminated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_terminated_at SecurityhubInsight#process_terminated_at}
+        :param product_arn: product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_arn SecurityhubInsight#product_arn}
+        :param product_fields: product_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_fields SecurityhubInsight#product_fields}
+        :param product_name: product_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_name SecurityhubInsight#product_name}
+        :param recommendation_text: recommendation_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#recommendation_text SecurityhubInsight#recommendation_text}
+        :param record_state: record_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#record_state SecurityhubInsight#record_state}
+        :param related_findings_id: related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#related_findings_id SecurityhubInsight#related_findings_id}
+        :param related_findings_product_arn: related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#related_findings_product_arn SecurityhubInsight#related_findings_product_arn}
+        :param resource_aws_ec2_instance_iam_instance_profile_arn: resource_aws_ec2_instance_iam_instance_profile_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_iam_instance_profile_arn SecurityhubInsight#resource_aws_ec2_instance_iam_instance_profile_arn}
+        :param resource_aws_ec2_instance_image_id: resource_aws_ec2_instance_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_image_id SecurityhubInsight#resource_aws_ec2_instance_image_id}
+        :param resource_aws_ec2_instance_ipv4_addresses: resource_aws_ec2_instance_ipv4_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv4_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv4_addresses}
+        :param resource_aws_ec2_instance_ipv6_addresses: resource_aws_ec2_instance_ipv6_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv6_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv6_addresses}
+        :param resource_aws_ec2_instance_key_name: resource_aws_ec2_instance_key_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_key_name SecurityhubInsight#resource_aws_ec2_instance_key_name}
+        :param resource_aws_ec2_instance_launched_at: resource_aws_ec2_instance_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_launched_at SecurityhubInsight#resource_aws_ec2_instance_launched_at}
+        :param resource_aws_ec2_instance_subnet_id: resource_aws_ec2_instance_subnet_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_subnet_id SecurityhubInsight#resource_aws_ec2_instance_subnet_id}
+        :param resource_aws_ec2_instance_type: resource_aws_ec2_instance_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_type SecurityhubInsight#resource_aws_ec2_instance_type}
+        :param resource_aws_ec2_instance_vpc_id: resource_aws_ec2_instance_vpc_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_vpc_id SecurityhubInsight#resource_aws_ec2_instance_vpc_id}
+        :param resource_aws_iam_access_key_created_at: resource_aws_iam_access_key_created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_created_at SecurityhubInsight#resource_aws_iam_access_key_created_at}
+        :param resource_aws_iam_access_key_status: resource_aws_iam_access_key_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_status SecurityhubInsight#resource_aws_iam_access_key_status}
+        :param resource_aws_iam_access_key_user_name: resource_aws_iam_access_key_user_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_user_name SecurityhubInsight#resource_aws_iam_access_key_user_name}
+        :param resource_aws_s3_bucket_owner_id: resource_aws_s3_bucket_owner_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_id SecurityhubInsight#resource_aws_s3_bucket_owner_id}
+        :param resource_aws_s3_bucket_owner_name: resource_aws_s3_bucket_owner_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_name SecurityhubInsight#resource_aws_s3_bucket_owner_name}
+        :param resource_container_image_id: resource_container_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_image_id SecurityhubInsight#resource_container_image_id}
+        :param resource_container_image_name: resource_container_image_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_image_name SecurityhubInsight#resource_container_image_name}
+        :param resource_container_launched_at: resource_container_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_launched_at SecurityhubInsight#resource_container_launched_at}
+        :param resource_container_name: resource_container_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_name SecurityhubInsight#resource_container_name}
+        :param resource_details_other: resource_details_other block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_details_other SecurityhubInsight#resource_details_other}
+        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_id SecurityhubInsight#resource_id}
+        :param resource_partition: resource_partition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_partition SecurityhubInsight#resource_partition}
+        :param resource_region: resource_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_region SecurityhubInsight#resource_region}
+        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_tags SecurityhubInsight#resource_tags}
+        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_type SecurityhubInsight#resource_type}
+        :param severity_label: severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#severity_label SecurityhubInsight#severity_label}
+        :param source_url: source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#source_url SecurityhubInsight#source_url}
+        :param threat_intel_indicator_category: threat_intel_indicator_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_category SecurityhubInsight#threat_intel_indicator_category}
+        :param threat_intel_indicator_last_observed_at: threat_intel_indicator_last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_last_observed_at SecurityhubInsight#threat_intel_indicator_last_observed_at}
+        :param threat_intel_indicator_source: threat_intel_indicator_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_source SecurityhubInsight#threat_intel_indicator_source}
+        :param threat_intel_indicator_source_url: threat_intel_indicator_source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_source_url SecurityhubInsight#threat_intel_indicator_source_url}
+        :param threat_intel_indicator_type: threat_intel_indicator_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_type SecurityhubInsight#threat_intel_indicator_type}
+        :param threat_intel_indicator_value: threat_intel_indicator_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_value SecurityhubInsight#threat_intel_indicator_value}
+        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#title SecurityhubInsight#title}
+        :param type: type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#type SecurityhubInsight#type}
+        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#updated_at SecurityhubInsight#updated_at}
+        :param user_defined_values: user_defined_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#user_defined_values SecurityhubInsight#user_defined_values}
+        :param verification_state: verification_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#verification_state SecurityhubInsight#verification_state}
+        :param workflow_status: workflow_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#workflow_status SecurityhubInsight#workflow_status}
         '''
         value = SecurityhubInsightFilters(
             aws_account_id=aws_account_id,
@@ -524,10 +524,10 @@ class SecurityhubInsightConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#filters SecurityhubInsight#filters}
-        :param group_by_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#group_by_attribute SecurityhubInsight#group_by_attribute}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#name SecurityhubInsight#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#filters SecurityhubInsight#filters}
+        :param group_by_attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#group_by_attribute SecurityhubInsight#group_by_attribute}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#name SecurityhubInsight#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -636,7 +636,7 @@ class SecurityhubInsightConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filters(self) -> "SecurityhubInsightFilters":
         '''filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#filters SecurityhubInsight#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#filters SecurityhubInsight#filters}
         '''
         result = self._values.get("filters")
         assert result is not None, "Required property 'filters' is missing"
@@ -644,21 +644,21 @@ class SecurityhubInsightConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def group_by_attribute(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#group_by_attribute SecurityhubInsight#group_by_attribute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#group_by_attribute SecurityhubInsight#group_by_attribute}.'''
         result = self._values.get("group_by_attribute")
         assert result is not None, "Required property 'group_by_attribute' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#name SecurityhubInsight#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#name SecurityhubInsight#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -866,94 +866,94 @@ class SecurityhubInsightFilters:
         workflow_status: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityhubInsightFiltersWorkflowStatus", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#aws_account_id SecurityhubInsight#aws_account_id}
-        :param company_name: company_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#company_name SecurityhubInsight#company_name}
-        :param compliance_status: compliance_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#compliance_status SecurityhubInsight#compliance_status}
-        :param confidence: confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#confidence SecurityhubInsight#confidence}
-        :param created_at: created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#created_at SecurityhubInsight#created_at}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#criticality SecurityhubInsight#criticality}
-        :param description: description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#description SecurityhubInsight#description}
-        :param finding_provider_fields_confidence: finding_provider_fields_confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_confidence SecurityhubInsight#finding_provider_fields_confidence}
-        :param finding_provider_fields_criticality: finding_provider_fields_criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_criticality SecurityhubInsight#finding_provider_fields_criticality}
-        :param finding_provider_fields_related_findings_id: finding_provider_fields_related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_id SecurityhubInsight#finding_provider_fields_related_findings_id}
-        :param finding_provider_fields_related_findings_product_arn: finding_provider_fields_related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_product_arn SecurityhubInsight#finding_provider_fields_related_findings_product_arn}
-        :param finding_provider_fields_severity_label: finding_provider_fields_severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_severity_label SecurityhubInsight#finding_provider_fields_severity_label}
-        :param finding_provider_fields_severity_original: finding_provider_fields_severity_original block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_severity_original SecurityhubInsight#finding_provider_fields_severity_original}
-        :param finding_provider_fields_types: finding_provider_fields_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_types SecurityhubInsight#finding_provider_fields_types}
-        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#first_observed_at SecurityhubInsight#first_observed_at}
-        :param generator_id: generator_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#generator_id SecurityhubInsight#generator_id}
-        :param id: id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#id SecurityhubInsight#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keyword: keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#keyword SecurityhubInsight#keyword}
-        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#last_observed_at SecurityhubInsight#last_observed_at}
-        :param malware_name: malware_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_name SecurityhubInsight#malware_name}
-        :param malware_path: malware_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_path SecurityhubInsight#malware_path}
-        :param malware_state: malware_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_state SecurityhubInsight#malware_state}
-        :param malware_type: malware_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_type SecurityhubInsight#malware_type}
-        :param network_destination_domain: network_destination_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_domain SecurityhubInsight#network_destination_domain}
-        :param network_destination_ipv4: network_destination_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_ipv4 SecurityhubInsight#network_destination_ipv4}
-        :param network_destination_ipv6: network_destination_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_ipv6 SecurityhubInsight#network_destination_ipv6}
-        :param network_destination_port: network_destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_port SecurityhubInsight#network_destination_port}
-        :param network_direction: network_direction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_direction SecurityhubInsight#network_direction}
-        :param network_protocol: network_protocol block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_protocol SecurityhubInsight#network_protocol}
-        :param network_source_domain: network_source_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_domain SecurityhubInsight#network_source_domain}
-        :param network_source_ipv4: network_source_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_ipv4 SecurityhubInsight#network_source_ipv4}
-        :param network_source_ipv6: network_source_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_ipv6 SecurityhubInsight#network_source_ipv6}
-        :param network_source_mac: network_source_mac block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_mac SecurityhubInsight#network_source_mac}
-        :param network_source_port: network_source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_port SecurityhubInsight#network_source_port}
-        :param note_text: note_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_text SecurityhubInsight#note_text}
-        :param note_updated_at: note_updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_updated_at SecurityhubInsight#note_updated_at}
-        :param note_updated_by: note_updated_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_updated_by SecurityhubInsight#note_updated_by}
-        :param process_launched_at: process_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_launched_at SecurityhubInsight#process_launched_at}
-        :param process_name: process_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_name SecurityhubInsight#process_name}
-        :param process_parent_pid: process_parent_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_parent_pid SecurityhubInsight#process_parent_pid}
-        :param process_path: process_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_path SecurityhubInsight#process_path}
-        :param process_pid: process_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_pid SecurityhubInsight#process_pid}
-        :param process_terminated_at: process_terminated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_terminated_at SecurityhubInsight#process_terminated_at}
-        :param product_arn: product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_arn SecurityhubInsight#product_arn}
-        :param product_fields: product_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_fields SecurityhubInsight#product_fields}
-        :param product_name: product_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_name SecurityhubInsight#product_name}
-        :param recommendation_text: recommendation_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#recommendation_text SecurityhubInsight#recommendation_text}
-        :param record_state: record_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#record_state SecurityhubInsight#record_state}
-        :param related_findings_id: related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#related_findings_id SecurityhubInsight#related_findings_id}
-        :param related_findings_product_arn: related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#related_findings_product_arn SecurityhubInsight#related_findings_product_arn}
-        :param resource_aws_ec2_instance_iam_instance_profile_arn: resource_aws_ec2_instance_iam_instance_profile_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_iam_instance_profile_arn SecurityhubInsight#resource_aws_ec2_instance_iam_instance_profile_arn}
-        :param resource_aws_ec2_instance_image_id: resource_aws_ec2_instance_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_image_id SecurityhubInsight#resource_aws_ec2_instance_image_id}
-        :param resource_aws_ec2_instance_ipv4_addresses: resource_aws_ec2_instance_ipv4_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv4_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv4_addresses}
-        :param resource_aws_ec2_instance_ipv6_addresses: resource_aws_ec2_instance_ipv6_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv6_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv6_addresses}
-        :param resource_aws_ec2_instance_key_name: resource_aws_ec2_instance_key_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_key_name SecurityhubInsight#resource_aws_ec2_instance_key_name}
-        :param resource_aws_ec2_instance_launched_at: resource_aws_ec2_instance_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_launched_at SecurityhubInsight#resource_aws_ec2_instance_launched_at}
-        :param resource_aws_ec2_instance_subnet_id: resource_aws_ec2_instance_subnet_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_subnet_id SecurityhubInsight#resource_aws_ec2_instance_subnet_id}
-        :param resource_aws_ec2_instance_type: resource_aws_ec2_instance_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_type SecurityhubInsight#resource_aws_ec2_instance_type}
-        :param resource_aws_ec2_instance_vpc_id: resource_aws_ec2_instance_vpc_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_vpc_id SecurityhubInsight#resource_aws_ec2_instance_vpc_id}
-        :param resource_aws_iam_access_key_created_at: resource_aws_iam_access_key_created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_created_at SecurityhubInsight#resource_aws_iam_access_key_created_at}
-        :param resource_aws_iam_access_key_status: resource_aws_iam_access_key_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_status SecurityhubInsight#resource_aws_iam_access_key_status}
-        :param resource_aws_iam_access_key_user_name: resource_aws_iam_access_key_user_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_user_name SecurityhubInsight#resource_aws_iam_access_key_user_name}
-        :param resource_aws_s3_bucket_owner_id: resource_aws_s3_bucket_owner_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_id SecurityhubInsight#resource_aws_s3_bucket_owner_id}
-        :param resource_aws_s3_bucket_owner_name: resource_aws_s3_bucket_owner_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_name SecurityhubInsight#resource_aws_s3_bucket_owner_name}
-        :param resource_container_image_id: resource_container_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_image_id SecurityhubInsight#resource_container_image_id}
-        :param resource_container_image_name: resource_container_image_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_image_name SecurityhubInsight#resource_container_image_name}
-        :param resource_container_launched_at: resource_container_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_launched_at SecurityhubInsight#resource_container_launched_at}
-        :param resource_container_name: resource_container_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_name SecurityhubInsight#resource_container_name}
-        :param resource_details_other: resource_details_other block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_details_other SecurityhubInsight#resource_details_other}
-        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_id SecurityhubInsight#resource_id}
-        :param resource_partition: resource_partition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_partition SecurityhubInsight#resource_partition}
-        :param resource_region: resource_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_region SecurityhubInsight#resource_region}
-        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_tags SecurityhubInsight#resource_tags}
-        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_type SecurityhubInsight#resource_type}
-        :param severity_label: severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#severity_label SecurityhubInsight#severity_label}
-        :param source_url: source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#source_url SecurityhubInsight#source_url}
-        :param threat_intel_indicator_category: threat_intel_indicator_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_category SecurityhubInsight#threat_intel_indicator_category}
-        :param threat_intel_indicator_last_observed_at: threat_intel_indicator_last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_last_observed_at SecurityhubInsight#threat_intel_indicator_last_observed_at}
-        :param threat_intel_indicator_source: threat_intel_indicator_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_source SecurityhubInsight#threat_intel_indicator_source}
-        :param threat_intel_indicator_source_url: threat_intel_indicator_source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_source_url SecurityhubInsight#threat_intel_indicator_source_url}
-        :param threat_intel_indicator_type: threat_intel_indicator_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_type SecurityhubInsight#threat_intel_indicator_type}
-        :param threat_intel_indicator_value: threat_intel_indicator_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_value SecurityhubInsight#threat_intel_indicator_value}
-        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#title SecurityhubInsight#title}
-        :param type: type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#type SecurityhubInsight#type}
-        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#updated_at SecurityhubInsight#updated_at}
-        :param user_defined_values: user_defined_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#user_defined_values SecurityhubInsight#user_defined_values}
-        :param verification_state: verification_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#verification_state SecurityhubInsight#verification_state}
-        :param workflow_status: workflow_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#workflow_status SecurityhubInsight#workflow_status}
+        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#aws_account_id SecurityhubInsight#aws_account_id}
+        :param company_name: company_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#company_name SecurityhubInsight#company_name}
+        :param compliance_status: compliance_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#compliance_status SecurityhubInsight#compliance_status}
+        :param confidence: confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#confidence SecurityhubInsight#confidence}
+        :param created_at: created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#created_at SecurityhubInsight#created_at}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#criticality SecurityhubInsight#criticality}
+        :param description: description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#description SecurityhubInsight#description}
+        :param finding_provider_fields_confidence: finding_provider_fields_confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_confidence SecurityhubInsight#finding_provider_fields_confidence}
+        :param finding_provider_fields_criticality: finding_provider_fields_criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_criticality SecurityhubInsight#finding_provider_fields_criticality}
+        :param finding_provider_fields_related_findings_id: finding_provider_fields_related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_id SecurityhubInsight#finding_provider_fields_related_findings_id}
+        :param finding_provider_fields_related_findings_product_arn: finding_provider_fields_related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_product_arn SecurityhubInsight#finding_provider_fields_related_findings_product_arn}
+        :param finding_provider_fields_severity_label: finding_provider_fields_severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_severity_label SecurityhubInsight#finding_provider_fields_severity_label}
+        :param finding_provider_fields_severity_original: finding_provider_fields_severity_original block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_severity_original SecurityhubInsight#finding_provider_fields_severity_original}
+        :param finding_provider_fields_types: finding_provider_fields_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_types SecurityhubInsight#finding_provider_fields_types}
+        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#first_observed_at SecurityhubInsight#first_observed_at}
+        :param generator_id: generator_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#generator_id SecurityhubInsight#generator_id}
+        :param id: id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#id SecurityhubInsight#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keyword: keyword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#keyword SecurityhubInsight#keyword}
+        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#last_observed_at SecurityhubInsight#last_observed_at}
+        :param malware_name: malware_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_name SecurityhubInsight#malware_name}
+        :param malware_path: malware_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_path SecurityhubInsight#malware_path}
+        :param malware_state: malware_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_state SecurityhubInsight#malware_state}
+        :param malware_type: malware_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_type SecurityhubInsight#malware_type}
+        :param network_destination_domain: network_destination_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_domain SecurityhubInsight#network_destination_domain}
+        :param network_destination_ipv4: network_destination_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_ipv4 SecurityhubInsight#network_destination_ipv4}
+        :param network_destination_ipv6: network_destination_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_ipv6 SecurityhubInsight#network_destination_ipv6}
+        :param network_destination_port: network_destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_port SecurityhubInsight#network_destination_port}
+        :param network_direction: network_direction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_direction SecurityhubInsight#network_direction}
+        :param network_protocol: network_protocol block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_protocol SecurityhubInsight#network_protocol}
+        :param network_source_domain: network_source_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_domain SecurityhubInsight#network_source_domain}
+        :param network_source_ipv4: network_source_ipv4 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_ipv4 SecurityhubInsight#network_source_ipv4}
+        :param network_source_ipv6: network_source_ipv6 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_ipv6 SecurityhubInsight#network_source_ipv6}
+        :param network_source_mac: network_source_mac block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_mac SecurityhubInsight#network_source_mac}
+        :param network_source_port: network_source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_port SecurityhubInsight#network_source_port}
+        :param note_text: note_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_text SecurityhubInsight#note_text}
+        :param note_updated_at: note_updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_updated_at SecurityhubInsight#note_updated_at}
+        :param note_updated_by: note_updated_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_updated_by SecurityhubInsight#note_updated_by}
+        :param process_launched_at: process_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_launched_at SecurityhubInsight#process_launched_at}
+        :param process_name: process_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_name SecurityhubInsight#process_name}
+        :param process_parent_pid: process_parent_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_parent_pid SecurityhubInsight#process_parent_pid}
+        :param process_path: process_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_path SecurityhubInsight#process_path}
+        :param process_pid: process_pid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_pid SecurityhubInsight#process_pid}
+        :param process_terminated_at: process_terminated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_terminated_at SecurityhubInsight#process_terminated_at}
+        :param product_arn: product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_arn SecurityhubInsight#product_arn}
+        :param product_fields: product_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_fields SecurityhubInsight#product_fields}
+        :param product_name: product_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_name SecurityhubInsight#product_name}
+        :param recommendation_text: recommendation_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#recommendation_text SecurityhubInsight#recommendation_text}
+        :param record_state: record_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#record_state SecurityhubInsight#record_state}
+        :param related_findings_id: related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#related_findings_id SecurityhubInsight#related_findings_id}
+        :param related_findings_product_arn: related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#related_findings_product_arn SecurityhubInsight#related_findings_product_arn}
+        :param resource_aws_ec2_instance_iam_instance_profile_arn: resource_aws_ec2_instance_iam_instance_profile_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_iam_instance_profile_arn SecurityhubInsight#resource_aws_ec2_instance_iam_instance_profile_arn}
+        :param resource_aws_ec2_instance_image_id: resource_aws_ec2_instance_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_image_id SecurityhubInsight#resource_aws_ec2_instance_image_id}
+        :param resource_aws_ec2_instance_ipv4_addresses: resource_aws_ec2_instance_ipv4_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv4_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv4_addresses}
+        :param resource_aws_ec2_instance_ipv6_addresses: resource_aws_ec2_instance_ipv6_addresses block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv6_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv6_addresses}
+        :param resource_aws_ec2_instance_key_name: resource_aws_ec2_instance_key_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_key_name SecurityhubInsight#resource_aws_ec2_instance_key_name}
+        :param resource_aws_ec2_instance_launched_at: resource_aws_ec2_instance_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_launched_at SecurityhubInsight#resource_aws_ec2_instance_launched_at}
+        :param resource_aws_ec2_instance_subnet_id: resource_aws_ec2_instance_subnet_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_subnet_id SecurityhubInsight#resource_aws_ec2_instance_subnet_id}
+        :param resource_aws_ec2_instance_type: resource_aws_ec2_instance_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_type SecurityhubInsight#resource_aws_ec2_instance_type}
+        :param resource_aws_ec2_instance_vpc_id: resource_aws_ec2_instance_vpc_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_vpc_id SecurityhubInsight#resource_aws_ec2_instance_vpc_id}
+        :param resource_aws_iam_access_key_created_at: resource_aws_iam_access_key_created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_created_at SecurityhubInsight#resource_aws_iam_access_key_created_at}
+        :param resource_aws_iam_access_key_status: resource_aws_iam_access_key_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_status SecurityhubInsight#resource_aws_iam_access_key_status}
+        :param resource_aws_iam_access_key_user_name: resource_aws_iam_access_key_user_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_user_name SecurityhubInsight#resource_aws_iam_access_key_user_name}
+        :param resource_aws_s3_bucket_owner_id: resource_aws_s3_bucket_owner_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_id SecurityhubInsight#resource_aws_s3_bucket_owner_id}
+        :param resource_aws_s3_bucket_owner_name: resource_aws_s3_bucket_owner_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_name SecurityhubInsight#resource_aws_s3_bucket_owner_name}
+        :param resource_container_image_id: resource_container_image_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_image_id SecurityhubInsight#resource_container_image_id}
+        :param resource_container_image_name: resource_container_image_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_image_name SecurityhubInsight#resource_container_image_name}
+        :param resource_container_launched_at: resource_container_launched_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_launched_at SecurityhubInsight#resource_container_launched_at}
+        :param resource_container_name: resource_container_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_name SecurityhubInsight#resource_container_name}
+        :param resource_details_other: resource_details_other block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_details_other SecurityhubInsight#resource_details_other}
+        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_id SecurityhubInsight#resource_id}
+        :param resource_partition: resource_partition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_partition SecurityhubInsight#resource_partition}
+        :param resource_region: resource_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_region SecurityhubInsight#resource_region}
+        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_tags SecurityhubInsight#resource_tags}
+        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_type SecurityhubInsight#resource_type}
+        :param severity_label: severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#severity_label SecurityhubInsight#severity_label}
+        :param source_url: source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#source_url SecurityhubInsight#source_url}
+        :param threat_intel_indicator_category: threat_intel_indicator_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_category SecurityhubInsight#threat_intel_indicator_category}
+        :param threat_intel_indicator_last_observed_at: threat_intel_indicator_last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_last_observed_at SecurityhubInsight#threat_intel_indicator_last_observed_at}
+        :param threat_intel_indicator_source: threat_intel_indicator_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_source SecurityhubInsight#threat_intel_indicator_source}
+        :param threat_intel_indicator_source_url: threat_intel_indicator_source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_source_url SecurityhubInsight#threat_intel_indicator_source_url}
+        :param threat_intel_indicator_type: threat_intel_indicator_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_type SecurityhubInsight#threat_intel_indicator_type}
+        :param threat_intel_indicator_value: threat_intel_indicator_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_value SecurityhubInsight#threat_intel_indicator_value}
+        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#title SecurityhubInsight#title}
+        :param type: type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#type SecurityhubInsight#type}
+        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#updated_at SecurityhubInsight#updated_at}
+        :param user_defined_values: user_defined_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#user_defined_values SecurityhubInsight#user_defined_values}
+        :param verification_state: verification_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#verification_state SecurityhubInsight#verification_state}
+        :param workflow_status: workflow_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#workflow_status SecurityhubInsight#workflow_status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85cc2c638631da77c81c0e61ddf855aa96a67861124b55e4b34aff2f8a86db19)
@@ -1229,7 +1229,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersAwsAccountId"]]]:
         '''aws_account_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#aws_account_id SecurityhubInsight#aws_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#aws_account_id SecurityhubInsight#aws_account_id}
         '''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersAwsAccountId"]]], result)
@@ -1240,7 +1240,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersCompanyName"]]]:
         '''company_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#company_name SecurityhubInsight#company_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#company_name SecurityhubInsight#company_name}
         '''
         result = self._values.get("company_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersCompanyName"]]], result)
@@ -1251,7 +1251,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersComplianceStatus"]]]:
         '''compliance_status block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#compliance_status SecurityhubInsight#compliance_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#compliance_status SecurityhubInsight#compliance_status}
         '''
         result = self._values.get("compliance_status")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersComplianceStatus"]]], result)
@@ -1262,7 +1262,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersConfidence"]]]:
         '''confidence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#confidence SecurityhubInsight#confidence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#confidence SecurityhubInsight#confidence}
         '''
         result = self._values.get("confidence")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersConfidence"]]], result)
@@ -1273,7 +1273,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersCreatedAt"]]]:
         '''created_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#created_at SecurityhubInsight#created_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#created_at SecurityhubInsight#created_at}
         '''
         result = self._values.get("created_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersCreatedAt"]]], result)
@@ -1284,7 +1284,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersCriticality"]]]:
         '''criticality block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#criticality SecurityhubInsight#criticality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#criticality SecurityhubInsight#criticality}
         '''
         result = self._values.get("criticality")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersCriticality"]]], result)
@@ -1295,7 +1295,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersDescription"]]]:
         '''description block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#description SecurityhubInsight#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#description SecurityhubInsight#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersDescription"]]], result)
@@ -1306,7 +1306,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsConfidence"]]]:
         '''finding_provider_fields_confidence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_confidence SecurityhubInsight#finding_provider_fields_confidence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_confidence SecurityhubInsight#finding_provider_fields_confidence}
         '''
         result = self._values.get("finding_provider_fields_confidence")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsConfidence"]]], result)
@@ -1317,7 +1317,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsCriticality"]]]:
         '''finding_provider_fields_criticality block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_criticality SecurityhubInsight#finding_provider_fields_criticality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_criticality SecurityhubInsight#finding_provider_fields_criticality}
         '''
         result = self._values.get("finding_provider_fields_criticality")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsCriticality"]]], result)
@@ -1328,7 +1328,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsId"]]]:
         '''finding_provider_fields_related_findings_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_id SecurityhubInsight#finding_provider_fields_related_findings_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_id SecurityhubInsight#finding_provider_fields_related_findings_id}
         '''
         result = self._values.get("finding_provider_fields_related_findings_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsId"]]], result)
@@ -1339,7 +1339,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsProductArn"]]]:
         '''finding_provider_fields_related_findings_product_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_product_arn SecurityhubInsight#finding_provider_fields_related_findings_product_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_related_findings_product_arn SecurityhubInsight#finding_provider_fields_related_findings_product_arn}
         '''
         result = self._values.get("finding_provider_fields_related_findings_product_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsProductArn"]]], result)
@@ -1350,7 +1350,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsSeverityLabel"]]]:
         '''finding_provider_fields_severity_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_severity_label SecurityhubInsight#finding_provider_fields_severity_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_severity_label SecurityhubInsight#finding_provider_fields_severity_label}
         '''
         result = self._values.get("finding_provider_fields_severity_label")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsSeverityLabel"]]], result)
@@ -1361,7 +1361,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsSeverityOriginal"]]]:
         '''finding_provider_fields_severity_original block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_severity_original SecurityhubInsight#finding_provider_fields_severity_original}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_severity_original SecurityhubInsight#finding_provider_fields_severity_original}
         '''
         result = self._values.get("finding_provider_fields_severity_original")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsSeverityOriginal"]]], result)
@@ -1372,7 +1372,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsTypes"]]]:
         '''finding_provider_fields_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#finding_provider_fields_types SecurityhubInsight#finding_provider_fields_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#finding_provider_fields_types SecurityhubInsight#finding_provider_fields_types}
         '''
         result = self._values.get("finding_provider_fields_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFindingProviderFieldsTypes"]]], result)
@@ -1383,7 +1383,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFirstObservedAt"]]]:
         '''first_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#first_observed_at SecurityhubInsight#first_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#first_observed_at SecurityhubInsight#first_observed_at}
         '''
         result = self._values.get("first_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersFirstObservedAt"]]], result)
@@ -1394,7 +1394,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersGeneratorId"]]]:
         '''generator_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#generator_id SecurityhubInsight#generator_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#generator_id SecurityhubInsight#generator_id}
         '''
         result = self._values.get("generator_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersGeneratorId"]]], result)
@@ -1405,7 +1405,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersId"]]]:
         '''id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#id SecurityhubInsight#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1419,7 +1419,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersKeyword"]]]:
         '''keyword block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#keyword SecurityhubInsight#keyword}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#keyword SecurityhubInsight#keyword}
         '''
         result = self._values.get("keyword")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersKeyword"]]], result)
@@ -1430,7 +1430,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersLastObservedAt"]]]:
         '''last_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#last_observed_at SecurityhubInsight#last_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#last_observed_at SecurityhubInsight#last_observed_at}
         '''
         result = self._values.get("last_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersLastObservedAt"]]], result)
@@ -1441,7 +1441,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwareName"]]]:
         '''malware_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_name SecurityhubInsight#malware_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_name SecurityhubInsight#malware_name}
         '''
         result = self._values.get("malware_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwareName"]]], result)
@@ -1452,7 +1452,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwarePath"]]]:
         '''malware_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_path SecurityhubInsight#malware_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_path SecurityhubInsight#malware_path}
         '''
         result = self._values.get("malware_path")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwarePath"]]], result)
@@ -1463,7 +1463,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwareState"]]]:
         '''malware_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_state SecurityhubInsight#malware_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_state SecurityhubInsight#malware_state}
         '''
         result = self._values.get("malware_state")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwareState"]]], result)
@@ -1474,7 +1474,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwareType"]]]:
         '''malware_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#malware_type SecurityhubInsight#malware_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#malware_type SecurityhubInsight#malware_type}
         '''
         result = self._values.get("malware_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersMalwareType"]]], result)
@@ -1485,7 +1485,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationDomain"]]]:
         '''network_destination_domain block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_domain SecurityhubInsight#network_destination_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_domain SecurityhubInsight#network_destination_domain}
         '''
         result = self._values.get("network_destination_domain")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationDomain"]]], result)
@@ -1496,7 +1496,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationIpv4"]]]:
         '''network_destination_ipv4 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_ipv4 SecurityhubInsight#network_destination_ipv4}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_ipv4 SecurityhubInsight#network_destination_ipv4}
         '''
         result = self._values.get("network_destination_ipv4")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationIpv4"]]], result)
@@ -1507,7 +1507,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationIpv6"]]]:
         '''network_destination_ipv6 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_ipv6 SecurityhubInsight#network_destination_ipv6}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_ipv6 SecurityhubInsight#network_destination_ipv6}
         '''
         result = self._values.get("network_destination_ipv6")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationIpv6"]]], result)
@@ -1518,7 +1518,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationPort"]]]:
         '''network_destination_port block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_destination_port SecurityhubInsight#network_destination_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_destination_port SecurityhubInsight#network_destination_port}
         '''
         result = self._values.get("network_destination_port")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDestinationPort"]]], result)
@@ -1529,7 +1529,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDirection"]]]:
         '''network_direction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_direction SecurityhubInsight#network_direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_direction SecurityhubInsight#network_direction}
         '''
         result = self._values.get("network_direction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkDirection"]]], result)
@@ -1540,7 +1540,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkProtocol"]]]:
         '''network_protocol block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_protocol SecurityhubInsight#network_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_protocol SecurityhubInsight#network_protocol}
         '''
         result = self._values.get("network_protocol")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkProtocol"]]], result)
@@ -1551,7 +1551,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceDomain"]]]:
         '''network_source_domain block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_domain SecurityhubInsight#network_source_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_domain SecurityhubInsight#network_source_domain}
         '''
         result = self._values.get("network_source_domain")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceDomain"]]], result)
@@ -1562,7 +1562,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceIpv4"]]]:
         '''network_source_ipv4 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_ipv4 SecurityhubInsight#network_source_ipv4}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_ipv4 SecurityhubInsight#network_source_ipv4}
         '''
         result = self._values.get("network_source_ipv4")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceIpv4"]]], result)
@@ -1573,7 +1573,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceIpv6"]]]:
         '''network_source_ipv6 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_ipv6 SecurityhubInsight#network_source_ipv6}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_ipv6 SecurityhubInsight#network_source_ipv6}
         '''
         result = self._values.get("network_source_ipv6")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceIpv6"]]], result)
@@ -1584,7 +1584,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceMac"]]]:
         '''network_source_mac block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_mac SecurityhubInsight#network_source_mac}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_mac SecurityhubInsight#network_source_mac}
         '''
         result = self._values.get("network_source_mac")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourceMac"]]], result)
@@ -1595,7 +1595,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourcePort"]]]:
         '''network_source_port block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#network_source_port SecurityhubInsight#network_source_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#network_source_port SecurityhubInsight#network_source_port}
         '''
         result = self._values.get("network_source_port")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNetworkSourcePort"]]], result)
@@ -1606,7 +1606,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNoteText"]]]:
         '''note_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_text SecurityhubInsight#note_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_text SecurityhubInsight#note_text}
         '''
         result = self._values.get("note_text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNoteText"]]], result)
@@ -1617,7 +1617,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNoteUpdatedAt"]]]:
         '''note_updated_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_updated_at SecurityhubInsight#note_updated_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_updated_at SecurityhubInsight#note_updated_at}
         '''
         result = self._values.get("note_updated_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNoteUpdatedAt"]]], result)
@@ -1628,7 +1628,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNoteUpdatedBy"]]]:
         '''note_updated_by block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#note_updated_by SecurityhubInsight#note_updated_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#note_updated_by SecurityhubInsight#note_updated_by}
         '''
         result = self._values.get("note_updated_by")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersNoteUpdatedBy"]]], result)
@@ -1639,7 +1639,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessLaunchedAt"]]]:
         '''process_launched_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_launched_at SecurityhubInsight#process_launched_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_launched_at SecurityhubInsight#process_launched_at}
         '''
         result = self._values.get("process_launched_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessLaunchedAt"]]], result)
@@ -1650,7 +1650,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessName"]]]:
         '''process_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_name SecurityhubInsight#process_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_name SecurityhubInsight#process_name}
         '''
         result = self._values.get("process_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessName"]]], result)
@@ -1661,7 +1661,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessParentPid"]]]:
         '''process_parent_pid block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_parent_pid SecurityhubInsight#process_parent_pid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_parent_pid SecurityhubInsight#process_parent_pid}
         '''
         result = self._values.get("process_parent_pid")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessParentPid"]]], result)
@@ -1672,7 +1672,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessPath"]]]:
         '''process_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_path SecurityhubInsight#process_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_path SecurityhubInsight#process_path}
         '''
         result = self._values.get("process_path")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessPath"]]], result)
@@ -1683,7 +1683,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessPid"]]]:
         '''process_pid block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_pid SecurityhubInsight#process_pid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_pid SecurityhubInsight#process_pid}
         '''
         result = self._values.get("process_pid")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessPid"]]], result)
@@ -1694,7 +1694,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessTerminatedAt"]]]:
         '''process_terminated_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#process_terminated_at SecurityhubInsight#process_terminated_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#process_terminated_at SecurityhubInsight#process_terminated_at}
         '''
         result = self._values.get("process_terminated_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProcessTerminatedAt"]]], result)
@@ -1705,7 +1705,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProductArn"]]]:
         '''product_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_arn SecurityhubInsight#product_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_arn SecurityhubInsight#product_arn}
         '''
         result = self._values.get("product_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProductArn"]]], result)
@@ -1716,7 +1716,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProductFields"]]]:
         '''product_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_fields SecurityhubInsight#product_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_fields SecurityhubInsight#product_fields}
         '''
         result = self._values.get("product_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProductFields"]]], result)
@@ -1727,7 +1727,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProductName"]]]:
         '''product_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#product_name SecurityhubInsight#product_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#product_name SecurityhubInsight#product_name}
         '''
         result = self._values.get("product_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersProductName"]]], result)
@@ -1738,7 +1738,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRecommendationText"]]]:
         '''recommendation_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#recommendation_text SecurityhubInsight#recommendation_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#recommendation_text SecurityhubInsight#recommendation_text}
         '''
         result = self._values.get("recommendation_text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRecommendationText"]]], result)
@@ -1749,7 +1749,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRecordState"]]]:
         '''record_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#record_state SecurityhubInsight#record_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#record_state SecurityhubInsight#record_state}
         '''
         result = self._values.get("record_state")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRecordState"]]], result)
@@ -1760,7 +1760,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRelatedFindingsId"]]]:
         '''related_findings_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#related_findings_id SecurityhubInsight#related_findings_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#related_findings_id SecurityhubInsight#related_findings_id}
         '''
         result = self._values.get("related_findings_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRelatedFindingsId"]]], result)
@@ -1771,7 +1771,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRelatedFindingsProductArn"]]]:
         '''related_findings_product_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#related_findings_product_arn SecurityhubInsight#related_findings_product_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#related_findings_product_arn SecurityhubInsight#related_findings_product_arn}
         '''
         result = self._values.get("related_findings_product_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersRelatedFindingsProductArn"]]], result)
@@ -1782,7 +1782,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceIamInstanceProfileArn"]]]:
         '''resource_aws_ec2_instance_iam_instance_profile_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_iam_instance_profile_arn SecurityhubInsight#resource_aws_ec2_instance_iam_instance_profile_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_iam_instance_profile_arn SecurityhubInsight#resource_aws_ec2_instance_iam_instance_profile_arn}
         '''
         result = self._values.get("resource_aws_ec2_instance_iam_instance_profile_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceIamInstanceProfileArn"]]], result)
@@ -1793,7 +1793,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceImageId"]]]:
         '''resource_aws_ec2_instance_image_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_image_id SecurityhubInsight#resource_aws_ec2_instance_image_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_image_id SecurityhubInsight#resource_aws_ec2_instance_image_id}
         '''
         result = self._values.get("resource_aws_ec2_instance_image_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceImageId"]]], result)
@@ -1804,7 +1804,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceIpv4Addresses"]]]:
         '''resource_aws_ec2_instance_ipv4_addresses block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv4_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv4_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv4_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv4_addresses}
         '''
         result = self._values.get("resource_aws_ec2_instance_ipv4_addresses")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceIpv4Addresses"]]], result)
@@ -1815,7 +1815,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceIpv6Addresses"]]]:
         '''resource_aws_ec2_instance_ipv6_addresses block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv6_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv6_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_ipv6_addresses SecurityhubInsight#resource_aws_ec2_instance_ipv6_addresses}
         '''
         result = self._values.get("resource_aws_ec2_instance_ipv6_addresses")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceIpv6Addresses"]]], result)
@@ -1826,7 +1826,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceKeyName"]]]:
         '''resource_aws_ec2_instance_key_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_key_name SecurityhubInsight#resource_aws_ec2_instance_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_key_name SecurityhubInsight#resource_aws_ec2_instance_key_name}
         '''
         result = self._values.get("resource_aws_ec2_instance_key_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceKeyName"]]], result)
@@ -1837,7 +1837,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAt"]]]:
         '''resource_aws_ec2_instance_launched_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_launched_at SecurityhubInsight#resource_aws_ec2_instance_launched_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_launched_at SecurityhubInsight#resource_aws_ec2_instance_launched_at}
         '''
         result = self._values.get("resource_aws_ec2_instance_launched_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAt"]]], result)
@@ -1848,7 +1848,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceSubnetId"]]]:
         '''resource_aws_ec2_instance_subnet_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_subnet_id SecurityhubInsight#resource_aws_ec2_instance_subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_subnet_id SecurityhubInsight#resource_aws_ec2_instance_subnet_id}
         '''
         result = self._values.get("resource_aws_ec2_instance_subnet_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceSubnetId"]]], result)
@@ -1859,7 +1859,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceType"]]]:
         '''resource_aws_ec2_instance_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_type SecurityhubInsight#resource_aws_ec2_instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_type SecurityhubInsight#resource_aws_ec2_instance_type}
         '''
         result = self._values.get("resource_aws_ec2_instance_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceType"]]], result)
@@ -1870,7 +1870,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceVpcId"]]]:
         '''resource_aws_ec2_instance_vpc_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_vpc_id SecurityhubInsight#resource_aws_ec2_instance_vpc_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_ec2_instance_vpc_id SecurityhubInsight#resource_aws_ec2_instance_vpc_id}
         '''
         result = self._values.get("resource_aws_ec2_instance_vpc_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsEc2InstanceVpcId"]]], result)
@@ -1881,7 +1881,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAt"]]]:
         '''resource_aws_iam_access_key_created_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_created_at SecurityhubInsight#resource_aws_iam_access_key_created_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_created_at SecurityhubInsight#resource_aws_iam_access_key_created_at}
         '''
         result = self._values.get("resource_aws_iam_access_key_created_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAt"]]], result)
@@ -1892,7 +1892,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsIamAccessKeyStatus"]]]:
         '''resource_aws_iam_access_key_status block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_status SecurityhubInsight#resource_aws_iam_access_key_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_status SecurityhubInsight#resource_aws_iam_access_key_status}
         '''
         result = self._values.get("resource_aws_iam_access_key_status")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsIamAccessKeyStatus"]]], result)
@@ -1903,7 +1903,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsIamAccessKeyUserName"]]]:
         '''resource_aws_iam_access_key_user_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_user_name SecurityhubInsight#resource_aws_iam_access_key_user_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_iam_access_key_user_name SecurityhubInsight#resource_aws_iam_access_key_user_name}
         '''
         result = self._values.get("resource_aws_iam_access_key_user_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsIamAccessKeyUserName"]]], result)
@@ -1914,7 +1914,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsS3BucketOwnerId"]]]:
         '''resource_aws_s3_bucket_owner_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_id SecurityhubInsight#resource_aws_s3_bucket_owner_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_id SecurityhubInsight#resource_aws_s3_bucket_owner_id}
         '''
         result = self._values.get("resource_aws_s3_bucket_owner_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsS3BucketOwnerId"]]], result)
@@ -1925,7 +1925,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsS3BucketOwnerName"]]]:
         '''resource_aws_s3_bucket_owner_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_name SecurityhubInsight#resource_aws_s3_bucket_owner_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_aws_s3_bucket_owner_name SecurityhubInsight#resource_aws_s3_bucket_owner_name}
         '''
         result = self._values.get("resource_aws_s3_bucket_owner_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceAwsS3BucketOwnerName"]]], result)
@@ -1936,7 +1936,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerImageId"]]]:
         '''resource_container_image_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_image_id SecurityhubInsight#resource_container_image_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_image_id SecurityhubInsight#resource_container_image_id}
         '''
         result = self._values.get("resource_container_image_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerImageId"]]], result)
@@ -1947,7 +1947,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerImageName"]]]:
         '''resource_container_image_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_image_name SecurityhubInsight#resource_container_image_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_image_name SecurityhubInsight#resource_container_image_name}
         '''
         result = self._values.get("resource_container_image_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerImageName"]]], result)
@@ -1958,7 +1958,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerLaunchedAt"]]]:
         '''resource_container_launched_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_launched_at SecurityhubInsight#resource_container_launched_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_launched_at SecurityhubInsight#resource_container_launched_at}
         '''
         result = self._values.get("resource_container_launched_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerLaunchedAt"]]], result)
@@ -1969,7 +1969,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerName"]]]:
         '''resource_container_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_container_name SecurityhubInsight#resource_container_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_container_name SecurityhubInsight#resource_container_name}
         '''
         result = self._values.get("resource_container_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceContainerName"]]], result)
@@ -1980,7 +1980,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceDetailsOther"]]]:
         '''resource_details_other block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_details_other SecurityhubInsight#resource_details_other}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_details_other SecurityhubInsight#resource_details_other}
         '''
         result = self._values.get("resource_details_other")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceDetailsOther"]]], result)
@@ -1991,7 +1991,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceId"]]]:
         '''resource_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_id SecurityhubInsight#resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_id SecurityhubInsight#resource_id}
         '''
         result = self._values.get("resource_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceId"]]], result)
@@ -2002,7 +2002,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourcePartition"]]]:
         '''resource_partition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_partition SecurityhubInsight#resource_partition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_partition SecurityhubInsight#resource_partition}
         '''
         result = self._values.get("resource_partition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourcePartition"]]], result)
@@ -2013,7 +2013,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceRegion"]]]:
         '''resource_region block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_region SecurityhubInsight#resource_region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_region SecurityhubInsight#resource_region}
         '''
         result = self._values.get("resource_region")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceRegion"]]], result)
@@ -2024,7 +2024,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceTags"]]]:
         '''resource_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_tags SecurityhubInsight#resource_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_tags SecurityhubInsight#resource_tags}
         '''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceTags"]]], result)
@@ -2035,7 +2035,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceType"]]]:
         '''resource_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#resource_type SecurityhubInsight#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#resource_type SecurityhubInsight#resource_type}
         '''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersResourceType"]]], result)
@@ -2046,7 +2046,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersSeverityLabel"]]]:
         '''severity_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#severity_label SecurityhubInsight#severity_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#severity_label SecurityhubInsight#severity_label}
         '''
         result = self._values.get("severity_label")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersSeverityLabel"]]], result)
@@ -2057,7 +2057,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersSourceUrl"]]]:
         '''source_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#source_url SecurityhubInsight#source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#source_url SecurityhubInsight#source_url}
         '''
         result = self._values.get("source_url")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersSourceUrl"]]], result)
@@ -2068,7 +2068,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorCategory"]]]:
         '''threat_intel_indicator_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_category SecurityhubInsight#threat_intel_indicator_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_category SecurityhubInsight#threat_intel_indicator_category}
         '''
         result = self._values.get("threat_intel_indicator_category")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorCategory"]]], result)
@@ -2079,7 +2079,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAt"]]]:
         '''threat_intel_indicator_last_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_last_observed_at SecurityhubInsight#threat_intel_indicator_last_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_last_observed_at SecurityhubInsight#threat_intel_indicator_last_observed_at}
         '''
         result = self._values.get("threat_intel_indicator_last_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAt"]]], result)
@@ -2090,7 +2090,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorSource"]]]:
         '''threat_intel_indicator_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_source SecurityhubInsight#threat_intel_indicator_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_source SecurityhubInsight#threat_intel_indicator_source}
         '''
         result = self._values.get("threat_intel_indicator_source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorSource"]]], result)
@@ -2101,7 +2101,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorSourceUrl"]]]:
         '''threat_intel_indicator_source_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_source_url SecurityhubInsight#threat_intel_indicator_source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_source_url SecurityhubInsight#threat_intel_indicator_source_url}
         '''
         result = self._values.get("threat_intel_indicator_source_url")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorSourceUrl"]]], result)
@@ -2112,7 +2112,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorType"]]]:
         '''threat_intel_indicator_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_type SecurityhubInsight#threat_intel_indicator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_type SecurityhubInsight#threat_intel_indicator_type}
         '''
         result = self._values.get("threat_intel_indicator_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorType"]]], result)
@@ -2123,7 +2123,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorValue"]]]:
         '''threat_intel_indicator_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#threat_intel_indicator_value SecurityhubInsight#threat_intel_indicator_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#threat_intel_indicator_value SecurityhubInsight#threat_intel_indicator_value}
         '''
         result = self._values.get("threat_intel_indicator_value")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersThreatIntelIndicatorValue"]]], result)
@@ -2134,7 +2134,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersTitle"]]]:
         '''title block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#title SecurityhubInsight#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#title SecurityhubInsight#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersTitle"]]], result)
@@ -2145,7 +2145,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersType"]]]:
         '''type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#type SecurityhubInsight#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#type SecurityhubInsight#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersType"]]], result)
@@ -2156,7 +2156,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersUpdatedAt"]]]:
         '''updated_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#updated_at SecurityhubInsight#updated_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#updated_at SecurityhubInsight#updated_at}
         '''
         result = self._values.get("updated_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersUpdatedAt"]]], result)
@@ -2167,7 +2167,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersUserDefinedValues"]]]:
         '''user_defined_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#user_defined_values SecurityhubInsight#user_defined_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#user_defined_values SecurityhubInsight#user_defined_values}
         '''
         result = self._values.get("user_defined_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersUserDefinedValues"]]], result)
@@ -2178,7 +2178,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersVerificationState"]]]:
         '''verification_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#verification_state SecurityhubInsight#verification_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#verification_state SecurityhubInsight#verification_state}
         '''
         result = self._values.get("verification_state")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersVerificationState"]]], result)
@@ -2189,7 +2189,7 @@ class SecurityhubInsightFilters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersWorkflowStatus"]]]:
         '''workflow_status block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#workflow_status SecurityhubInsight#workflow_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#workflow_status SecurityhubInsight#workflow_status}
         '''
         result = self._values.get("workflow_status")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubInsightFiltersWorkflowStatus"]]], result)
@@ -2214,8 +2214,8 @@ class SecurityhubInsightFilters:
 class SecurityhubInsightFiltersAwsAccountId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86d3115ae45d3f8f7a540c2365543fda3d697d405f7f73def54e2e9a33202347)
@@ -2228,14 +2228,14 @@ class SecurityhubInsightFiltersAwsAccountId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2431,8 +2431,8 @@ class SecurityhubInsightFiltersAwsAccountIdOutputReference(
 class SecurityhubInsightFiltersCompanyName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e75402506414fb5df3348c85c605fc053a8ab50aa6d5c4f235c96b31e2fbe1fd)
@@ -2445,14 +2445,14 @@ class SecurityhubInsightFiltersCompanyName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2648,8 +2648,8 @@ class SecurityhubInsightFiltersCompanyNameOutputReference(
 class SecurityhubInsightFiltersComplianceStatus:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3db57a9e1ea6e51f829ce8d586f91c038389653dd6db746d5f70f80f4e6de955)
@@ -2662,14 +2662,14 @@ class SecurityhubInsightFiltersComplianceStatus:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2871,9 +2871,9 @@ class SecurityhubInsightFiltersConfidence:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71d5bc106123b1cfc8508513e2c81926760d5276c1d78835703359bc60697993)
@@ -2890,19 +2890,19 @@ class SecurityhubInsightFiltersConfidence:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3132,9 +3132,9 @@ class SecurityhubInsightFiltersCreatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersCreatedAtDateRange(**date_range)
@@ -3157,20 +3157,20 @@ class SecurityhubInsightFiltersCreatedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersCreatedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersCreatedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3194,8 +3194,8 @@ class SecurityhubInsightFiltersCreatedAt:
 class SecurityhubInsightFiltersCreatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7464716ccb02e8a4a568339d6d046a1d0942caa368facaf90b1dcf6fe7973859)
@@ -3208,14 +3208,14 @@ class SecurityhubInsightFiltersCreatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -3426,8 +3426,8 @@ class SecurityhubInsightFiltersCreatedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersCreatedAtDateRange(unit=unit, value=value)
 
@@ -3523,9 +3523,9 @@ class SecurityhubInsightFiltersCriticality:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43591c7672cf71c5dea672fd7b7b780da45196cccd7f5bdeac8c1e51b2d789d3)
@@ -3542,19 +3542,19 @@ class SecurityhubInsightFiltersCriticality:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3778,8 +3778,8 @@ class SecurityhubInsightFiltersCriticalityOutputReference(
 class SecurityhubInsightFiltersDescription:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a2b3987e246c18c3972ee1d25be9262e6844214b743cdb72f0494323dbbc664)
@@ -3792,14 +3792,14 @@ class SecurityhubInsightFiltersDescription:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4001,9 +4001,9 @@ class SecurityhubInsightFiltersFindingProviderFieldsConfidence:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01ab2ad3285e177acc11d090f63ffd91d3710636e7f3c8980db305d57b943d05)
@@ -4020,19 +4020,19 @@ class SecurityhubInsightFiltersFindingProviderFieldsConfidence:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4262,9 +4262,9 @@ class SecurityhubInsightFiltersFindingProviderFieldsCriticality:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a425e26bf8b9cdf67a96b3bcde04daed6330ff530987551a9e7f1e4f1224a8e)
@@ -4281,19 +4281,19 @@ class SecurityhubInsightFiltersFindingProviderFieldsCriticality:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4517,8 +4517,8 @@ class SecurityhubInsightFiltersFindingProviderFieldsCriticalityOutputReference(
 class SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcc286bd902c2a9942551d8a70d58bac2c226d320bfa46f42c405a07fd07c68d)
@@ -4531,14 +4531,14 @@ class SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4734,8 +4734,8 @@ class SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsIdOutputRefer
 class SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsProductArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a567bd2b1086da480bfde5b2c85c5fd1992d037769a8fb28b613505e745e53c)
@@ -4748,14 +4748,14 @@ class SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsProductArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4951,8 +4951,8 @@ class SecurityhubInsightFiltersFindingProviderFieldsRelatedFindingsProductArnOut
 class SecurityhubInsightFiltersFindingProviderFieldsSeverityLabel:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d790bf324bb270d2bc759fc8d69939ee96ace4165ebf290616bf929bbce5c865)
@@ -4965,14 +4965,14 @@ class SecurityhubInsightFiltersFindingProviderFieldsSeverityLabel:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5168,8 +5168,8 @@ class SecurityhubInsightFiltersFindingProviderFieldsSeverityLabelOutputReference
 class SecurityhubInsightFiltersFindingProviderFieldsSeverityOriginal:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d9784c5ecf5c8316b886b35d115cdced041705f741a942e4aff924e1b9de848)
@@ -5182,14 +5182,14 @@ class SecurityhubInsightFiltersFindingProviderFieldsSeverityOriginal:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5385,8 +5385,8 @@ class SecurityhubInsightFiltersFindingProviderFieldsSeverityOriginalOutputRefere
 class SecurityhubInsightFiltersFindingProviderFieldsTypes:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d042b3ea7a8cb712dc8750558461c317f73b94684a5d49bb70f1d71b002f3ea4)
@@ -5399,14 +5399,14 @@ class SecurityhubInsightFiltersFindingProviderFieldsTypes:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5608,9 +5608,9 @@ class SecurityhubInsightFiltersFirstObservedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersFirstObservedAtDateRange(**date_range)
@@ -5633,20 +5633,20 @@ class SecurityhubInsightFiltersFirstObservedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersFirstObservedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersFirstObservedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5670,8 +5670,8 @@ class SecurityhubInsightFiltersFirstObservedAt:
 class SecurityhubInsightFiltersFirstObservedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c1220e77a498875fdc3ce4c2336354eca3398f9c4d55794f43deed412ecc7d6)
@@ -5684,14 +5684,14 @@ class SecurityhubInsightFiltersFirstObservedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -5902,8 +5902,8 @@ class SecurityhubInsightFiltersFirstObservedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersFirstObservedAtDateRange(
             unit=unit, value=value
@@ -5997,8 +5997,8 @@ class SecurityhubInsightFiltersFirstObservedAtOutputReference(
 class SecurityhubInsightFiltersGeneratorId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e328a6be9ed9f82a34a8c4c7de559ed550e0bdd5196a03e2c1f35c984ade2267)
@@ -6011,14 +6011,14 @@ class SecurityhubInsightFiltersGeneratorId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6214,8 +6214,8 @@ class SecurityhubInsightFiltersGeneratorIdOutputReference(
 class SecurityhubInsightFiltersId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22961cbf4cabe45151f05eca756af85991f1818ad3e8140d19d20fc78730e759)
@@ -6228,14 +6228,14 @@ class SecurityhubInsightFiltersId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6428,7 +6428,7 @@ class SecurityhubInsightFiltersIdOutputReference(
 class SecurityhubInsightFiltersKeyword:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c57ac5c4e78d387a6bc1affc2c5a32b37a668c7c76181fd42f00920df7c5af8)
@@ -6439,7 +6439,7 @@ class SecurityhubInsightFiltersKeyword:
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6624,9 +6624,9 @@ class SecurityhubInsightFiltersLastObservedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersLastObservedAtDateRange(**date_range)
@@ -6649,20 +6649,20 @@ class SecurityhubInsightFiltersLastObservedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersLastObservedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersLastObservedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6686,8 +6686,8 @@ class SecurityhubInsightFiltersLastObservedAt:
 class SecurityhubInsightFiltersLastObservedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b18a6a3b1c2eed020c41350f4719ab8456b09a00e8c2e1614e181cbd2ea4b5ce)
@@ -6700,14 +6700,14 @@ class SecurityhubInsightFiltersLastObservedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -6918,8 +6918,8 @@ class SecurityhubInsightFiltersLastObservedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersLastObservedAtDateRange(
             unit=unit, value=value
@@ -7013,8 +7013,8 @@ class SecurityhubInsightFiltersLastObservedAtOutputReference(
 class SecurityhubInsightFiltersMalwareName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6ed8055f78ef1785d434b754bf35fc045f0bf28655da9ec49294c08b28654d8)
@@ -7027,14 +7027,14 @@ class SecurityhubInsightFiltersMalwareName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7230,8 +7230,8 @@ class SecurityhubInsightFiltersMalwareNameOutputReference(
 class SecurityhubInsightFiltersMalwarePath:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6603a8af56171113f259b93dd87b2a4f7bdd0ecb088d52a66fdd053b8c79fee9)
@@ -7244,14 +7244,14 @@ class SecurityhubInsightFiltersMalwarePath:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7447,8 +7447,8 @@ class SecurityhubInsightFiltersMalwarePathOutputReference(
 class SecurityhubInsightFiltersMalwareState:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12d83c5fc962144027fa5b98db1b974b0dfddf308efe9594f2ff6b6385119d28)
@@ -7461,14 +7461,14 @@ class SecurityhubInsightFiltersMalwareState:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7664,8 +7664,8 @@ class SecurityhubInsightFiltersMalwareStateOutputReference(
 class SecurityhubInsightFiltersMalwareType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df023f2c3b4af6993a789beaf161a7193a2ab3c2bebe472dc119f8c71bab70dd)
@@ -7678,14 +7678,14 @@ class SecurityhubInsightFiltersMalwareType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7881,8 +7881,8 @@ class SecurityhubInsightFiltersMalwareTypeOutputReference(
 class SecurityhubInsightFiltersNetworkDestinationDomain:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f417b39892ee62185d57775d09f4cc06d29bee3e2f92a40218bfea02b966eeb7)
@@ -7895,14 +7895,14 @@ class SecurityhubInsightFiltersNetworkDestinationDomain:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -8098,7 +8098,7 @@ class SecurityhubInsightFiltersNetworkDestinationDomainOutputReference(
 class SecurityhubInsightFiltersNetworkDestinationIpv4:
     def __init__(self, *, cidr: builtins.str) -> None:
         '''
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6effa5c3e28a851d731efaf4d49b22222d768ef14f7286202f05be1656551be4)
@@ -8109,7 +8109,7 @@ class SecurityhubInsightFiltersNetworkDestinationIpv4:
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
@@ -8288,7 +8288,7 @@ class SecurityhubInsightFiltersNetworkDestinationIpv4OutputReference(
 class SecurityhubInsightFiltersNetworkDestinationIpv6:
     def __init__(self, *, cidr: builtins.str) -> None:
         '''
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17b79286d8f5da44cd008496a594d82a7b737956cc940a1970ab574813ac8645)
@@ -8299,7 +8299,7 @@ class SecurityhubInsightFiltersNetworkDestinationIpv6:
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
@@ -8484,9 +8484,9 @@ class SecurityhubInsightFiltersNetworkDestinationPort:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f5357c90cae77f154a9c15b27ed4724b1bffe07b4b0c9f07e46b750f3a347bc)
@@ -8503,19 +8503,19 @@ class SecurityhubInsightFiltersNetworkDestinationPort:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8739,8 +8739,8 @@ class SecurityhubInsightFiltersNetworkDestinationPortOutputReference(
 class SecurityhubInsightFiltersNetworkDirection:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1792d4d27446654ea97e310eee16e3d2db7b28b3b27a18f78515961154e96d7)
@@ -8753,14 +8753,14 @@ class SecurityhubInsightFiltersNetworkDirection:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -8956,8 +8956,8 @@ class SecurityhubInsightFiltersNetworkDirectionOutputReference(
 class SecurityhubInsightFiltersNetworkProtocol:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc0e7a22085ec233b93e395e603cf53c8303c0828e5a8d789cb2ead80a09379b)
@@ -8970,14 +8970,14 @@ class SecurityhubInsightFiltersNetworkProtocol:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9173,8 +9173,8 @@ class SecurityhubInsightFiltersNetworkProtocolOutputReference(
 class SecurityhubInsightFiltersNetworkSourceDomain:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86ebb54d4cf26f74c72e90336c67b207b199deff3c9e08a7ba836a04df1665ff)
@@ -9187,14 +9187,14 @@ class SecurityhubInsightFiltersNetworkSourceDomain:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9390,7 +9390,7 @@ class SecurityhubInsightFiltersNetworkSourceDomainOutputReference(
 class SecurityhubInsightFiltersNetworkSourceIpv4:
     def __init__(self, *, cidr: builtins.str) -> None:
         '''
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05895358f366a53d2cfcedafffdd21cab58296862a0fbf55e40325734e207e92)
@@ -9401,7 +9401,7 @@ class SecurityhubInsightFiltersNetworkSourceIpv4:
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
@@ -9580,7 +9580,7 @@ class SecurityhubInsightFiltersNetworkSourceIpv4OutputReference(
 class SecurityhubInsightFiltersNetworkSourceIpv6:
     def __init__(self, *, cidr: builtins.str) -> None:
         '''
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e276f56690363b34e9fc4836d6fa08e75c0a8e9aa3d866a38d91f9d29b00b0f5)
@@ -9591,7 +9591,7 @@ class SecurityhubInsightFiltersNetworkSourceIpv6:
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
@@ -9770,8 +9770,8 @@ class SecurityhubInsightFiltersNetworkSourceIpv6OutputReference(
 class SecurityhubInsightFiltersNetworkSourceMac:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65d3aa3180c62fef10e66ef48f75ef9e845e4affa5e62d09642a26ef0eadf521)
@@ -9784,14 +9784,14 @@ class SecurityhubInsightFiltersNetworkSourceMac:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9993,9 +9993,9 @@ class SecurityhubInsightFiltersNetworkSourcePort:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad19c6fe4c052989d468e8cf5e3f4ee48b459982ca5c0dba4d198449c3a49d34)
@@ -10012,19 +10012,19 @@ class SecurityhubInsightFiltersNetworkSourcePort:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10248,8 +10248,8 @@ class SecurityhubInsightFiltersNetworkSourcePortOutputReference(
 class SecurityhubInsightFiltersNoteText:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1c92c32d2e3e3265fd5178f8e791e3fb2de59a38fb72456c0e36893e6531ab3)
@@ -10262,14 +10262,14 @@ class SecurityhubInsightFiltersNoteText:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10471,9 +10471,9 @@ class SecurityhubInsightFiltersNoteUpdatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersNoteUpdatedAtDateRange(**date_range)
@@ -10496,20 +10496,20 @@ class SecurityhubInsightFiltersNoteUpdatedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersNoteUpdatedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersNoteUpdatedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10533,8 +10533,8 @@ class SecurityhubInsightFiltersNoteUpdatedAt:
 class SecurityhubInsightFiltersNoteUpdatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6fb1a90917f4e33ae42a6a8e03b88e4901e9585d02e237c05787882e410414e)
@@ -10547,14 +10547,14 @@ class SecurityhubInsightFiltersNoteUpdatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -10765,8 +10765,8 @@ class SecurityhubInsightFiltersNoteUpdatedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersNoteUpdatedAtDateRange(
             unit=unit, value=value
@@ -10860,8 +10860,8 @@ class SecurityhubInsightFiltersNoteUpdatedAtOutputReference(
 class SecurityhubInsightFiltersNoteUpdatedBy:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb8c96b2d4e0ae5476a073c7bdff49e55dc372595a1c137a9581d0b5272b24a2)
@@ -10874,14 +10874,14 @@ class SecurityhubInsightFiltersNoteUpdatedBy:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13744,9 +13744,9 @@ class SecurityhubInsightFiltersProcessLaunchedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersProcessLaunchedAtDateRange(**date_range)
@@ -13769,20 +13769,20 @@ class SecurityhubInsightFiltersProcessLaunchedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersProcessLaunchedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersProcessLaunchedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -13806,8 +13806,8 @@ class SecurityhubInsightFiltersProcessLaunchedAt:
 class SecurityhubInsightFiltersProcessLaunchedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e0e2ec423458e2a5bf3406d6d4c7d2588a308affef3b776c6c6df13b6ce0f66)
@@ -13820,14 +13820,14 @@ class SecurityhubInsightFiltersProcessLaunchedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -14038,8 +14038,8 @@ class SecurityhubInsightFiltersProcessLaunchedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersProcessLaunchedAtDateRange(
             unit=unit, value=value
@@ -14133,8 +14133,8 @@ class SecurityhubInsightFiltersProcessLaunchedAtOutputReference(
 class SecurityhubInsightFiltersProcessName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__caf6d9b9f7c1cb1799f802b645962e631244461f16591697f3675774cc2ca648)
@@ -14147,14 +14147,14 @@ class SecurityhubInsightFiltersProcessName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -14356,9 +14356,9 @@ class SecurityhubInsightFiltersProcessParentPid:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff78e1de7b395e7682733b631b358a9815dedc785961b8ed846c12100990b471)
@@ -14375,19 +14375,19 @@ class SecurityhubInsightFiltersProcessParentPid:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -14611,8 +14611,8 @@ class SecurityhubInsightFiltersProcessParentPidOutputReference(
 class SecurityhubInsightFiltersProcessPath:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab0ac82d52e0aa93a56aaa97f160cb5d75f8f1cdb52af049aaf25d3ba5e44071)
@@ -14625,14 +14625,14 @@ class SecurityhubInsightFiltersProcessPath:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -14834,9 +14834,9 @@ class SecurityhubInsightFiltersProcessPid:
         lte: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37147b775e20eea1af9e6f86284303e4c001f35047bf27991f11a676b96270c8)
@@ -14853,19 +14853,19 @@ class SecurityhubInsightFiltersProcessPid:
 
     @builtins.property
     def eq(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#eq SecurityhubInsight#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#gte SecurityhubInsight#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#lte SecurityhubInsight#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -15095,9 +15095,9 @@ class SecurityhubInsightFiltersProcessTerminatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersProcessTerminatedAtDateRange(**date_range)
@@ -15120,20 +15120,20 @@ class SecurityhubInsightFiltersProcessTerminatedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersProcessTerminatedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersProcessTerminatedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -15157,8 +15157,8 @@ class SecurityhubInsightFiltersProcessTerminatedAt:
 class SecurityhubInsightFiltersProcessTerminatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01bcd48d8cd131442e0b9272b54f363eeddf919345c2c91f2eb1e52c39e8eb1a)
@@ -15171,14 +15171,14 @@ class SecurityhubInsightFiltersProcessTerminatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -15389,8 +15389,8 @@ class SecurityhubInsightFiltersProcessTerminatedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersProcessTerminatedAtDateRange(
             unit=unit, value=value
@@ -15484,8 +15484,8 @@ class SecurityhubInsightFiltersProcessTerminatedAtOutputReference(
 class SecurityhubInsightFiltersProductArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d92455fbc74b58478f2dbf577265be702242e72f28487275439c4ab667b4fb55)
@@ -15498,14 +15498,14 @@ class SecurityhubInsightFiltersProductArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -15707,9 +15707,9 @@ class SecurityhubInsightFiltersProductFields:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cbcff82a90e2a49ee840bf2080e450ad9a019e544ae8da928c98e7c1ff2327f)
@@ -15724,21 +15724,21 @@ class SecurityhubInsightFiltersProductFields:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -15951,8 +15951,8 @@ class SecurityhubInsightFiltersProductFieldsOutputReference(
 class SecurityhubInsightFiltersProductName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96e0337b83247453ebd0f8d07dff8e2b987b4ba66ab29bbd76e89091571e720e)
@@ -15965,14 +15965,14 @@ class SecurityhubInsightFiltersProductName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16168,8 +16168,8 @@ class SecurityhubInsightFiltersProductNameOutputReference(
 class SecurityhubInsightFiltersRecommendationText:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__492843e3e54a7f7bb441193ae4b3b34850d983d455a068788896ea8bcc2b061b)
@@ -16182,14 +16182,14 @@ class SecurityhubInsightFiltersRecommendationText:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16385,8 +16385,8 @@ class SecurityhubInsightFiltersRecommendationTextOutputReference(
 class SecurityhubInsightFiltersRecordState:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3601f9596734dbc95b96c574d96416ee37e7691c90cd155e472d59aa73c32176)
@@ -16399,14 +16399,14 @@ class SecurityhubInsightFiltersRecordState:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16602,8 +16602,8 @@ class SecurityhubInsightFiltersRecordStateOutputReference(
 class SecurityhubInsightFiltersRelatedFindingsId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90e00eed6c9818d99cf8aa75a788b209157d5505d89fe8350c7c245c352a0c12)
@@ -16616,14 +16616,14 @@ class SecurityhubInsightFiltersRelatedFindingsId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -16819,8 +16819,8 @@ class SecurityhubInsightFiltersRelatedFindingsIdOutputReference(
 class SecurityhubInsightFiltersRelatedFindingsProductArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0a348a27dd72756428589fcf4a87c84280f445f77b8e3265e019ec740155ab6)
@@ -16833,14 +16833,14 @@ class SecurityhubInsightFiltersRelatedFindingsProductArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -17036,8 +17036,8 @@ class SecurityhubInsightFiltersRelatedFindingsProductArnOutputReference(
 class SecurityhubInsightFiltersResourceAwsEc2InstanceIamInstanceProfileArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50ee49c42c7846e75fa83d7bbabb7bd50ceb335e44f228154c62a9ac69dd1b88)
@@ -17050,14 +17050,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceIamInstanceProfileArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -17253,8 +17253,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceIamInstanceProfileArnOutput
 class SecurityhubInsightFiltersResourceAwsEc2InstanceImageId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__381f6d6881413e41c455830a8ddd84414d02a073f0463b454fc46aeca1320f6e)
@@ -17267,14 +17267,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceImageId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -17470,7 +17470,7 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceImageIdOutputReference(
 class SecurityhubInsightFiltersResourceAwsEc2InstanceIpv4Addresses:
     def __init__(self, *, cidr: builtins.str) -> None:
         '''
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef887e0c6016ec5e28e9f26deb0336d0db39163fad470e565dcc9a0f90d34384)
@@ -17481,7 +17481,7 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceIpv4Addresses:
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
@@ -17660,7 +17660,7 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceIpv4AddressesOutputReferenc
 class SecurityhubInsightFiltersResourceAwsEc2InstanceIpv6Addresses:
     def __init__(self, *, cidr: builtins.str) -> None:
         '''
-        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
+        :param cidr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d566fc1bfcca300fbd37fa5b7f1051bcfae05c80e4f8f8383c9e5dc93e16db8)
@@ -17671,7 +17671,7 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceIpv6Addresses:
 
     @builtins.property
     def cidr(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#cidr SecurityhubInsight#cidr}.'''
         result = self._values.get("cidr")
         assert result is not None, "Required property 'cidr' is missing"
         return typing.cast(builtins.str, result)
@@ -17850,8 +17850,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceIpv6AddressesOutputReferenc
 class SecurityhubInsightFiltersResourceAwsEc2InstanceKeyName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae44470467a71b5346238d713e0b98a9de8442b4782e0859ae6c346cb7c75917)
@@ -17864,14 +17864,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceKeyName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -18073,9 +18073,9 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtDateRange(**date_range)
@@ -18098,20 +18098,20 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -18135,8 +18135,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAt:
 class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a20bc636875d078ffc7dfb0930ef2466c51f875b9395be5db935e76fc8f42b8)
@@ -18149,14 +18149,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -18367,8 +18367,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtDateRange(
             unit=unit, value=value
@@ -18462,8 +18462,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceLaunchedAtOutputReference(
 class SecurityhubInsightFiltersResourceAwsEc2InstanceSubnetId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1064daa0f4e4c2a68620a9056faef98b4e440bc29daa00d0c26ab3446ae98e6)
@@ -18476,14 +18476,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceSubnetId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -18679,8 +18679,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceSubnetIdOutputReference(
 class SecurityhubInsightFiltersResourceAwsEc2InstanceType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a65cd82d02a2d5e434a183403a9827c44f1b8fa4bd5f3df538c8dc589e47b493)
@@ -18693,14 +18693,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -18896,8 +18896,8 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceTypeOutputReference(
 class SecurityhubInsightFiltersResourceAwsEc2InstanceVpcId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cc51959c7e250a6d45a34a7eaf8ddabe56bcc59c883a20a533b57d2f8c92121)
@@ -18910,14 +18910,14 @@ class SecurityhubInsightFiltersResourceAwsEc2InstanceVpcId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -19119,9 +19119,9 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtDateRange(**date_range)
@@ -19144,20 +19144,20 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -19181,8 +19181,8 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAt:
 class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c030d81ab1a37eb079c2446c1d970846009c08629b9d1cbf26dce08964b6e40)
@@ -19195,14 +19195,14 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -19413,8 +19413,8 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtDateRange(
             unit=unit, value=value
@@ -19508,8 +19508,8 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyCreatedAtOutputReference(
 class SecurityhubInsightFiltersResourceAwsIamAccessKeyStatus:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcd5418f49cc08890a704b458f562cf6b9359e77cd6932568181b719cbe96055)
@@ -19522,14 +19522,14 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyStatus:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -19725,8 +19725,8 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyStatusOutputReference(
 class SecurityhubInsightFiltersResourceAwsIamAccessKeyUserName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03edcc537b34a5304620a789ca2070f50361063313003bebfc3f8f619d461c93)
@@ -19739,14 +19739,14 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyUserName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -19942,8 +19942,8 @@ class SecurityhubInsightFiltersResourceAwsIamAccessKeyUserNameOutputReference(
 class SecurityhubInsightFiltersResourceAwsS3BucketOwnerId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10608d8b6502a6bf8344828a009644c3794060e683b13a4f455704decf27b7e7)
@@ -19956,14 +19956,14 @@ class SecurityhubInsightFiltersResourceAwsS3BucketOwnerId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -20159,8 +20159,8 @@ class SecurityhubInsightFiltersResourceAwsS3BucketOwnerIdOutputReference(
 class SecurityhubInsightFiltersResourceAwsS3BucketOwnerName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__217594152fe16e74b2eba5cc990695581525badc5ecc7a7735e9bd5ab9b0c3de)
@@ -20173,14 +20173,14 @@ class SecurityhubInsightFiltersResourceAwsS3BucketOwnerName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -20376,8 +20376,8 @@ class SecurityhubInsightFiltersResourceAwsS3BucketOwnerNameOutputReference(
 class SecurityhubInsightFiltersResourceContainerImageId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3061006a85ef61f73b7c391778207cda7d8ab28d4be38fb4b0309d0ae1a25d6c)
@@ -20390,14 +20390,14 @@ class SecurityhubInsightFiltersResourceContainerImageId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -20593,8 +20593,8 @@ class SecurityhubInsightFiltersResourceContainerImageIdOutputReference(
 class SecurityhubInsightFiltersResourceContainerImageName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed92e06a52004a228dab3574aa7b8062b0ba07e672927ca939f28bfb3deb51e9)
@@ -20607,14 +20607,14 @@ class SecurityhubInsightFiltersResourceContainerImageName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -20816,9 +20816,9 @@ class SecurityhubInsightFiltersResourceContainerLaunchedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersResourceContainerLaunchedAtDateRange(**date_range)
@@ -20841,20 +20841,20 @@ class SecurityhubInsightFiltersResourceContainerLaunchedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersResourceContainerLaunchedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersResourceContainerLaunchedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -20878,8 +20878,8 @@ class SecurityhubInsightFiltersResourceContainerLaunchedAt:
 class SecurityhubInsightFiltersResourceContainerLaunchedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d93ae032e21730b012dbc31501eb3df952331caec55bc4fb46485b409f00d36)
@@ -20892,14 +20892,14 @@ class SecurityhubInsightFiltersResourceContainerLaunchedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -21110,8 +21110,8 @@ class SecurityhubInsightFiltersResourceContainerLaunchedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersResourceContainerLaunchedAtDateRange(
             unit=unit, value=value
@@ -21205,8 +21205,8 @@ class SecurityhubInsightFiltersResourceContainerLaunchedAtOutputReference(
 class SecurityhubInsightFiltersResourceContainerName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18896a2cfbdb7d7a5a80bb67f460229c7a91a5a4144d60a0ece3eb568178a4b7)
@@ -21219,14 +21219,14 @@ class SecurityhubInsightFiltersResourceContainerName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -21428,9 +21428,9 @@ class SecurityhubInsightFiltersResourceDetailsOther:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__184a612b11b6dd6dbaf485a8736d8f7de55d79710638f77925a98657530eb02f)
@@ -21445,21 +21445,21 @@ class SecurityhubInsightFiltersResourceDetailsOther:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -21672,8 +21672,8 @@ class SecurityhubInsightFiltersResourceDetailsOtherOutputReference(
 class SecurityhubInsightFiltersResourceId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dafa262f554d917cbcbc711fcbe35ba8c1522b5fccdd3a5b35e9b2deab46536)
@@ -21686,14 +21686,14 @@ class SecurityhubInsightFiltersResourceId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -21889,8 +21889,8 @@ class SecurityhubInsightFiltersResourceIdOutputReference(
 class SecurityhubInsightFiltersResourcePartition:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8af49714fcc0f5c30d63649f665842fb2cf9076449eb2c059e1a65985295d821)
@@ -21903,14 +21903,14 @@ class SecurityhubInsightFiltersResourcePartition:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -22106,8 +22106,8 @@ class SecurityhubInsightFiltersResourcePartitionOutputReference(
 class SecurityhubInsightFiltersResourceRegion:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e9b9cd28e5d533de5137c8916245a9aef5d645c948e7a03bcec63405d24a5ea)
@@ -22120,14 +22120,14 @@ class SecurityhubInsightFiltersResourceRegion:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -22329,9 +22329,9 @@ class SecurityhubInsightFiltersResourceTags:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94590d6701db205d3ccf5b15a0464304d6418c9f933fab74a18dddbe0da02d63)
@@ -22346,21 +22346,21 @@ class SecurityhubInsightFiltersResourceTags:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -22573,8 +22573,8 @@ class SecurityhubInsightFiltersResourceTagsOutputReference(
 class SecurityhubInsightFiltersResourceType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9478ea220d14458a7e4323901df1323077c853ce1c0f441e07d526bce937d48f)
@@ -22587,14 +22587,14 @@ class SecurityhubInsightFiltersResourceType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -22790,8 +22790,8 @@ class SecurityhubInsightFiltersResourceTypeOutputReference(
 class SecurityhubInsightFiltersSeverityLabel:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__160bc6a6eadeb89f848cceea0d1fb8902352b2c840f5ead409b98df02b532b53)
@@ -22804,14 +22804,14 @@ class SecurityhubInsightFiltersSeverityLabel:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -23007,8 +23007,8 @@ class SecurityhubInsightFiltersSeverityLabelOutputReference(
 class SecurityhubInsightFiltersSourceUrl:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4069d8fd9c37b69f1d470361d896a2c8294b26e3c5e33a3696d4bf9949a6727c)
@@ -23021,14 +23021,14 @@ class SecurityhubInsightFiltersSourceUrl:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -23224,8 +23224,8 @@ class SecurityhubInsightFiltersSourceUrlOutputReference(
 class SecurityhubInsightFiltersThreatIntelIndicatorCategory:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd0c699d9bf2a9949b0cab271a13c35639e19218263f20552e74f9e7df6914ee)
@@ -23238,14 +23238,14 @@ class SecurityhubInsightFiltersThreatIntelIndicatorCategory:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -23447,9 +23447,9 @@ class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtDateRange(**date_range)
@@ -23472,20 +23472,20 @@ class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -23509,8 +23509,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAt:
 class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__626fdd8cec41941f7d22634e3c3a48733cc181ed190a7fb0e2d5b80616e69ff0)
@@ -23523,14 +23523,14 @@ class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -23741,8 +23741,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtOutputReference
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtDateRange(
             unit=unit, value=value
@@ -23836,8 +23836,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorLastObservedAtOutputReference
 class SecurityhubInsightFiltersThreatIntelIndicatorSource:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe4a1b61b765eb935185c75d74a40d3c1f7834e453b13c9fc9576bb47c2b5d03)
@@ -23850,14 +23850,14 @@ class SecurityhubInsightFiltersThreatIntelIndicatorSource:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -24053,8 +24053,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorSourceOutputReference(
 class SecurityhubInsightFiltersThreatIntelIndicatorSourceUrl:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b99147022d198dbe138dc67ad0c7e6020f2ba2c6391cc38bbf68b58e57d1dd17)
@@ -24067,14 +24067,14 @@ class SecurityhubInsightFiltersThreatIntelIndicatorSourceUrl:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -24270,8 +24270,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorSourceUrlOutputReference(
 class SecurityhubInsightFiltersThreatIntelIndicatorType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__779058aa7de19db340369dea1a6fef0f31cd462ba034215a02bb684e765ce9dd)
@@ -24284,14 +24284,14 @@ class SecurityhubInsightFiltersThreatIntelIndicatorType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -24487,8 +24487,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorTypeOutputReference(
 class SecurityhubInsightFiltersThreatIntelIndicatorValue:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f32a6cc5f8cf790a2e1f2390fb3105796bf7c3754c552183143f27e06f105d6)
@@ -24501,14 +24501,14 @@ class SecurityhubInsightFiltersThreatIntelIndicatorValue:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -24704,8 +24704,8 @@ class SecurityhubInsightFiltersThreatIntelIndicatorValueOutputReference(
 class SecurityhubInsightFiltersTitle:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db0c23060f37d93b06947179b7667f3f5033425841f88b2f56844e21cc2fc811)
@@ -24718,14 +24718,14 @@ class SecurityhubInsightFiltersTitle:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -24921,8 +24921,8 @@ class SecurityhubInsightFiltersTitleOutputReference(
 class SecurityhubInsightFiltersType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a1673a77ba85c19fff70391833412c364af97ecf1c382020f3b7337925cae98)
@@ -24935,14 +24935,14 @@ class SecurityhubInsightFiltersType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -25141,9 +25141,9 @@ class SecurityhubInsightFiltersUpdatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.
         '''
         if isinstance(date_range, dict):
             date_range = SecurityhubInsightFiltersUpdatedAtDateRange(**date_range)
@@ -25166,20 +25166,20 @@ class SecurityhubInsightFiltersUpdatedAt:
     ) -> typing.Optional["SecurityhubInsightFiltersUpdatedAtDateRange"]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#date_range SecurityhubInsight#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional["SecurityhubInsightFiltersUpdatedAtDateRange"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#end SecurityhubInsight#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#start SecurityhubInsight#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -25203,8 +25203,8 @@ class SecurityhubInsightFiltersUpdatedAt:
 class SecurityhubInsightFiltersUpdatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18efa9f3073cce098fad445ecca9f077e3c5aae468bfc52bfa1fafaa741d4d92)
@@ -25217,14 +25217,14 @@ class SecurityhubInsightFiltersUpdatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -25435,8 +25435,8 @@ class SecurityhubInsightFiltersUpdatedAtOutputReference(
     @jsii.member(jsii_name="putDateRange")
     def put_date_range(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#unit SecurityhubInsight#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         value_ = SecurityhubInsightFiltersUpdatedAtDateRange(unit=unit, value=value)
 
@@ -25532,9 +25532,9 @@ class SecurityhubInsightFiltersUserDefinedValues:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b05dc94bb0ae981c6b702dc0793a3b9186158baeb29e73598f8518e7c00b1995)
@@ -25549,21 +25549,21 @@ class SecurityhubInsightFiltersUserDefinedValues:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#key SecurityhubInsight#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -25776,8 +25776,8 @@ class SecurityhubInsightFiltersUserDefinedValuesOutputReference(
 class SecurityhubInsightFiltersVerificationState:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__356cf9f85a3d77d268f039e0e1fcebd6854bd7e34fab562b438013bb7aaa2b97)
@@ -25790,14 +25790,14 @@ class SecurityhubInsightFiltersVerificationState:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -25993,8 +25993,8 @@ class SecurityhubInsightFiltersVerificationStateOutputReference(
 class SecurityhubInsightFiltersWorkflowStatus:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a254bf20833e5bfe395fb70507bcb8b02009469a77bfc5d46bd5c2357451aae4)
@@ -26007,14 +26007,14 @@ class SecurityhubInsightFiltersWorkflowStatus:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#comparison SecurityhubInsight#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_insight#value SecurityhubInsight#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

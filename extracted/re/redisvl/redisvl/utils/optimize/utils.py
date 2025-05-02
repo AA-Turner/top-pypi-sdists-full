@@ -1,5 +1,8 @@
 from typing import List
 
+from redisvl.utils.utils import lazy_import
+
+np = lazy_import("numpy")
 from ranx import Qrels
 
 from redisvl.utils.optimize.schema import LabeledData
@@ -13,10 +16,10 @@ def _format_qrels(test_data: List[LabeledData]) -> Qrels:
 
     for td in test_data:
         if td.query_match:
-            qrels_dict[td.id] = {td.query_match: 1}
+            qrels_dict[td.id] = {td.query_match: np.int64(1)}
         else:
             # This is for capturing true negatives from test set
-            qrels_dict[td.id] = {NULL_RESPONSE_KEY: 1}
+            qrels_dict[td.id] = {NULL_RESPONSE_KEY: np.int64(1)}
 
     return Qrels(qrels_dict)
 

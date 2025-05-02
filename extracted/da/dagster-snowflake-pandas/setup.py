@@ -35,13 +35,15 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.13",
     install_requires=[
-        "dagster==1.10.12",
-        "dagster-snowflake==0.26.12",
+        "dagster==1.10.13",
+        "dagster-snowflake==0.26.13",
         "pandas",
         "requests",
         "snowflake-connector-python[pandas]>=3.4.0",
         "sqlalchemy!=1.4.42",  # workaround for https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
         "snowflake-sqlalchemy>=1.2",
     ],
+    # https://status.snowflake.com/incidents/txclg2cyzq32
+    extras_require={"test": ["certifi==2025.1.31"]},
     zip_safe=False,
 )

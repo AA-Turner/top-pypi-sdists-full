@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudfront_origin_request_policy`
 
-Refer to the Terraform Registry for docs: [`aws_cloudfront_origin_request_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy).
+Refer to the Terraform Registry for docs: [`aws_cloudfront_origin_request_policy`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudfrontOriginRequestPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudfrontOriginRequestPolicy.CloudfrontOriginRequestPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy aws_cloudfront_origin_request_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy aws_cloudfront_origin_request_policy}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CloudfrontOriginRequestPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy aws_cloudfront_origin_request_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy aws_cloudfront_origin_request_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookies_config CloudfrontOriginRequestPolicy#cookies_config}
-        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#headers_config CloudfrontOriginRequestPolicy#headers_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#name CloudfrontOriginRequestPolicy#name}.
-        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_strings_config CloudfrontOriginRequestPolicy#query_strings_config}
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#comment CloudfrontOriginRequestPolicy#comment}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#id CloudfrontOriginRequestPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookies_config CloudfrontOriginRequestPolicy#cookies_config}
+        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#headers_config CloudfrontOriginRequestPolicy#headers_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#name CloudfrontOriginRequestPolicy#name}.
+        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_strings_config CloudfrontOriginRequestPolicy#query_strings_config}
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#comment CloudfrontOriginRequestPolicy#comment}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#id CloudfrontOriginRequestPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CloudfrontOriginRequestPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudfrontOriginRequestPolicy to import.
-        :param import_from_id: The id of the existing CloudfrontOriginRequestPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudfrontOriginRequestPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudfrontOriginRequestPolicy to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class CloudfrontOriginRequestPolicy(
         cookies: typing.Optional[typing.Union["CloudfrontOriginRequestPolicyCookiesConfigCookies", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookie_behavior CloudfrontOriginRequestPolicy#cookie_behavior}.
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookies CloudfrontOriginRequestPolicy#cookies}
+        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookie_behavior CloudfrontOriginRequestPolicy#cookie_behavior}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookies CloudfrontOriginRequestPolicy#cookies}
         '''
         value = CloudfrontOriginRequestPolicyCookiesConfig(
             cookie_behavior=cookie_behavior, cookies=cookies
@@ -154,8 +154,8 @@ class CloudfrontOriginRequestPolicy(
         headers: typing.Optional[typing.Union["CloudfrontOriginRequestPolicyHeadersConfigHeaders", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#header_behavior CloudfrontOriginRequestPolicy#header_behavior}.
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#headers CloudfrontOriginRequestPolicy#headers}
+        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#header_behavior CloudfrontOriginRequestPolicy#header_behavior}.
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#headers CloudfrontOriginRequestPolicy#headers}
         '''
         value = CloudfrontOriginRequestPolicyHeadersConfig(
             header_behavior=header_behavior, headers=headers
@@ -171,8 +171,8 @@ class CloudfrontOriginRequestPolicy(
         query_strings: typing.Optional[typing.Union["CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_string_behavior CloudfrontOriginRequestPolicy#query_string_behavior}.
-        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_strings CloudfrontOriginRequestPolicy#query_strings}
+        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_string_behavior CloudfrontOriginRequestPolicy#query_string_behavior}.
+        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_strings CloudfrontOriginRequestPolicy#query_strings}
         '''
         value = CloudfrontOriginRequestPolicyQueryStringsConfig(
             query_string_behavior=query_string_behavior, query_strings=query_strings
@@ -350,12 +350,12 @@ class CloudfrontOriginRequestPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookies_config CloudfrontOriginRequestPolicy#cookies_config}
-        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#headers_config CloudfrontOriginRequestPolicy#headers_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#name CloudfrontOriginRequestPolicy#name}.
-        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_strings_config CloudfrontOriginRequestPolicy#query_strings_config}
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#comment CloudfrontOriginRequestPolicy#comment}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#id CloudfrontOriginRequestPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param cookies_config: cookies_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookies_config CloudfrontOriginRequestPolicy#cookies_config}
+        :param headers_config: headers_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#headers_config CloudfrontOriginRequestPolicy#headers_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#name CloudfrontOriginRequestPolicy#name}.
+        :param query_strings_config: query_strings_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_strings_config CloudfrontOriginRequestPolicy#query_strings_config}
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#comment CloudfrontOriginRequestPolicy#comment}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#id CloudfrontOriginRequestPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -473,7 +473,7 @@ class CloudfrontOriginRequestPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def cookies_config(self) -> "CloudfrontOriginRequestPolicyCookiesConfig":
         '''cookies_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookies_config CloudfrontOriginRequestPolicy#cookies_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookies_config CloudfrontOriginRequestPolicy#cookies_config}
         '''
         result = self._values.get("cookies_config")
         assert result is not None, "Required property 'cookies_config' is missing"
@@ -483,7 +483,7 @@ class CloudfrontOriginRequestPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def headers_config(self) -> "CloudfrontOriginRequestPolicyHeadersConfig":
         '''headers_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#headers_config CloudfrontOriginRequestPolicy#headers_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#headers_config CloudfrontOriginRequestPolicy#headers_config}
         '''
         result = self._values.get("headers_config")
         assert result is not None, "Required property 'headers_config' is missing"
@@ -491,7 +491,7 @@ class CloudfrontOriginRequestPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#name CloudfrontOriginRequestPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#name CloudfrontOriginRequestPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -500,7 +500,7 @@ class CloudfrontOriginRequestPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def query_strings_config(self) -> "CloudfrontOriginRequestPolicyQueryStringsConfig":
         '''query_strings_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_strings_config CloudfrontOriginRequestPolicy#query_strings_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_strings_config CloudfrontOriginRequestPolicy#query_strings_config}
         '''
         result = self._values.get("query_strings_config")
         assert result is not None, "Required property 'query_strings_config' is missing"
@@ -508,13 +508,13 @@ class CloudfrontOriginRequestPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#comment CloudfrontOriginRequestPolicy#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#comment CloudfrontOriginRequestPolicy#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#id CloudfrontOriginRequestPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#id CloudfrontOriginRequestPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -547,8 +547,8 @@ class CloudfrontOriginRequestPolicyCookiesConfig:
         cookies: typing.Optional[typing.Union["CloudfrontOriginRequestPolicyCookiesConfigCookies", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookie_behavior CloudfrontOriginRequestPolicy#cookie_behavior}.
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookies CloudfrontOriginRequestPolicy#cookies}
+        :param cookie_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookie_behavior CloudfrontOriginRequestPolicy#cookie_behavior}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookies CloudfrontOriginRequestPolicy#cookies}
         '''
         if isinstance(cookies, dict):
             cookies = CloudfrontOriginRequestPolicyCookiesConfigCookies(**cookies)
@@ -564,7 +564,7 @@ class CloudfrontOriginRequestPolicyCookiesConfig:
 
     @builtins.property
     def cookie_behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookie_behavior CloudfrontOriginRequestPolicy#cookie_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookie_behavior CloudfrontOriginRequestPolicy#cookie_behavior}.'''
         result = self._values.get("cookie_behavior")
         assert result is not None, "Required property 'cookie_behavior' is missing"
         return typing.cast(builtins.str, result)
@@ -575,7 +575,7 @@ class CloudfrontOriginRequestPolicyCookiesConfig:
     ) -> typing.Optional["CloudfrontOriginRequestPolicyCookiesConfigCookies"]:
         '''cookies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#cookies CloudfrontOriginRequestPolicy#cookies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#cookies CloudfrontOriginRequestPolicy#cookies}
         '''
         result = self._values.get("cookies")
         return typing.cast(typing.Optional["CloudfrontOriginRequestPolicyCookiesConfigCookies"], result)
@@ -604,7 +604,7 @@ class CloudfrontOriginRequestPolicyCookiesConfigCookies:
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3562504b2c6f2c520ea2f250d711b8904aabc233af1910d5406caede80a4ab6c)
@@ -615,7 +615,7 @@ class CloudfrontOriginRequestPolicyCookiesConfigCookies:
 
     @builtins.property
     def items(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.'''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -717,7 +717,7 @@ class CloudfrontOriginRequestPolicyCookiesConfigOutputReference(
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
         '''
         value = CloudfrontOriginRequestPolicyCookiesConfigCookies(items=items)
 
@@ -789,8 +789,8 @@ class CloudfrontOriginRequestPolicyHeadersConfig:
         headers: typing.Optional[typing.Union["CloudfrontOriginRequestPolicyHeadersConfigHeaders", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#header_behavior CloudfrontOriginRequestPolicy#header_behavior}.
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#headers CloudfrontOriginRequestPolicy#headers}
+        :param header_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#header_behavior CloudfrontOriginRequestPolicy#header_behavior}.
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#headers CloudfrontOriginRequestPolicy#headers}
         '''
         if isinstance(headers, dict):
             headers = CloudfrontOriginRequestPolicyHeadersConfigHeaders(**headers)
@@ -806,7 +806,7 @@ class CloudfrontOriginRequestPolicyHeadersConfig:
 
     @builtins.property
     def header_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#header_behavior CloudfrontOriginRequestPolicy#header_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#header_behavior CloudfrontOriginRequestPolicy#header_behavior}.'''
         result = self._values.get("header_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -816,7 +816,7 @@ class CloudfrontOriginRequestPolicyHeadersConfig:
     ) -> typing.Optional["CloudfrontOriginRequestPolicyHeadersConfigHeaders"]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#headers CloudfrontOriginRequestPolicy#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#headers CloudfrontOriginRequestPolicy#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional["CloudfrontOriginRequestPolicyHeadersConfigHeaders"], result)
@@ -845,7 +845,7 @@ class CloudfrontOriginRequestPolicyHeadersConfigHeaders:
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4025287a13ab1020cbcf53cdc0ab241e3bff82e38e2dd59b5251047632e57eb7)
@@ -856,7 +856,7 @@ class CloudfrontOriginRequestPolicyHeadersConfigHeaders:
 
     @builtins.property
     def items(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.'''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -958,7 +958,7 @@ class CloudfrontOriginRequestPolicyHeadersConfigOutputReference(
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
         '''
         value = CloudfrontOriginRequestPolicyHeadersConfigHeaders(items=items)
 
@@ -1037,8 +1037,8 @@ class CloudfrontOriginRequestPolicyQueryStringsConfig:
         query_strings: typing.Optional[typing.Union["CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_string_behavior CloudfrontOriginRequestPolicy#query_string_behavior}.
-        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_strings CloudfrontOriginRequestPolicy#query_strings}
+        :param query_string_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_string_behavior CloudfrontOriginRequestPolicy#query_string_behavior}.
+        :param query_strings: query_strings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_strings CloudfrontOriginRequestPolicy#query_strings}
         '''
         if isinstance(query_strings, dict):
             query_strings = CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings(**query_strings)
@@ -1054,7 +1054,7 @@ class CloudfrontOriginRequestPolicyQueryStringsConfig:
 
     @builtins.property
     def query_string_behavior(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_string_behavior CloudfrontOriginRequestPolicy#query_string_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_string_behavior CloudfrontOriginRequestPolicy#query_string_behavior}.'''
         result = self._values.get("query_string_behavior")
         assert result is not None, "Required property 'query_string_behavior' is missing"
         return typing.cast(builtins.str, result)
@@ -1065,7 +1065,7 @@ class CloudfrontOriginRequestPolicyQueryStringsConfig:
     ) -> typing.Optional["CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings"]:
         '''query_strings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#query_strings CloudfrontOriginRequestPolicy#query_strings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#query_strings CloudfrontOriginRequestPolicy#query_strings}
         '''
         result = self._values.get("query_strings")
         return typing.cast(typing.Optional["CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings"], result)
@@ -1109,7 +1109,7 @@ class CloudfrontOriginRequestPolicyQueryStringsConfigOutputReference(
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
         '''
         value = CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings(
             items=items
@@ -1182,7 +1182,7 @@ class CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings:
         items: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
+        :param items: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__205cc2088a838b5d6d44ddb8e490d758ea8dc9d57278c3fe8d3abc5115181344)
@@ -1193,7 +1193,7 @@ class CloudfrontOriginRequestPolicyQueryStringsConfigQueryStrings:
 
     @builtins.property
     def items(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_origin_request_policy#items CloudfrontOriginRequestPolicy#items}.'''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

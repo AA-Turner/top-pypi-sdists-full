@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "BatchGetPolicyErrorCodeType",
+    "CedarVersionType",
     "DecisionType",
     "DeletionProtectionType",
     "ListIdentitySourcesPaginatorName",
@@ -41,6 +42,7 @@ __all__ = (
 )
 
 BatchGetPolicyErrorCodeType = Literal["POLICY_NOT_FOUND", "POLICY_STORE_NOT_FOUND"]
+CedarVersionType = Literal["CEDAR_2", "CEDAR_4"]
 DecisionType = Literal["ALLOW", "DENY"]
 DeletionProtectionType = Literal["DISABLED", "ENABLED"]
 ListIdentitySourcesPaginatorName = Literal["list_identity_sources"]

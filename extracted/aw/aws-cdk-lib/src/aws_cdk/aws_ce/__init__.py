@@ -68,7 +68,7 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnAnomalyMonitor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -111,7 +111,7 @@ class CfnAnomalyMonitor(
         monitor_type: builtins.str,
         monitor_dimension: typing.Optional[builtins.str] = None,
         monitor_specification: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyMonitor.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnAnomalyMonitor.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -212,6 +212,12 @@ class CfnAnomalyMonitor(
         return typing.cast(builtins.str, jsii.get(self, "attrMonitorArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -272,14 +278,14 @@ class CfnAnomalyMonitor(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyMonitor.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.List["CfnAnomalyMonitor.ResourceTagProperty"]]:
         '''Tags to assign to monitor.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyMonitor.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.List["CfnAnomalyMonitor.ResourceTagProperty"]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyMonitor.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.List["CfnAnomalyMonitor.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba083795f73cd6c7f4640bfcb9887f75331ec7dd734bce22e3485bbd80c7ad10)
@@ -376,7 +382,7 @@ class CfnAnomalyMonitorProps:
         monitor_type: builtins.str,
         monitor_dimension: typing.Optional[builtins.str] = None,
         monitor_specification: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAnomalyMonitor``.
 
@@ -469,13 +475,13 @@ class CfnAnomalyMonitorProps:
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyMonitor.ResourceTagProperty]]]]:
+    ) -> typing.Optional[typing.List[CfnAnomalyMonitor.ResourceTagProperty]]:
         '''Tags to assign to monitor.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyMonitor.ResourceTagProperty]]]], result)
+        return typing.cast(typing.Optional[typing.List[CfnAnomalyMonitor.ResourceTagProperty]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -489,7 +495,7 @@ class CfnAnomalyMonitorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnAnomalySubscription(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -544,7 +550,7 @@ class CfnAnomalySubscription(
         monitor_arn_list: typing.Sequence[builtins.str],
         subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalySubscription.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
         subscription_name: builtins.str,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalySubscription.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnAnomalySubscription.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         threshold: typing.Optional[jsii.Number] = None,
         threshold_expression: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -624,6 +630,12 @@ class CfnAnomalySubscription(
         return typing.cast(builtins.str, jsii.get(self, "attrSubscriptionArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -689,14 +701,14 @@ class CfnAnomalySubscription(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalySubscription.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.List["CfnAnomalySubscription.ResourceTagProperty"]]:
         '''Tags to assign to subscription.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalySubscription.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.List["CfnAnomalySubscription.ResourceTagProperty"]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalySubscription.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.List["CfnAnomalySubscription.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96793ef54afc05012d539871c866a4c4cbe5b328c47be446ea5408e64a1f523a)
@@ -909,7 +921,7 @@ class CfnAnomalySubscriptionProps:
         monitor_arn_list: typing.Sequence[builtins.str],
         subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
         subscription_name: builtins.str,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         threshold: typing.Optional[jsii.Number] = None,
         threshold_expression: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1022,13 +1034,13 @@ class CfnAnomalySubscriptionProps:
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalySubscription.ResourceTagProperty]]]]:
+    ) -> typing.Optional[typing.List[CfnAnomalySubscription.ResourceTagProperty]]:
         '''Tags to assign to subscription.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalySubscription.ResourceTagProperty]]]], result)
+        return typing.cast(typing.Optional[typing.List[CfnAnomalySubscription.ResourceTagProperty]], result)
 
     @builtins.property
     def threshold(self) -> typing.Optional[jsii.Number]:
@@ -1522,7 +1534,7 @@ def _typecheckingstub__1da201141928cd17a5dfa2d08e87045b296530c05640d211ef71adaee
     monitor_type: builtins.str,
     monitor_dimension: typing.Optional[builtins.str] = None,
     monitor_specification: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1564,7 +1576,7 @@ def _typecheckingstub__defe54ffa1f8d0ba42e79c23d33cf33a974c7edb52b847d17428227cd
     pass
 
 def _typecheckingstub__ba083795f73cd6c7f4640bfcb9887f75331ec7dd734bce22e3485bbd80c7ad10(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyMonitor.ResourceTagProperty]]]],
+    value: typing.Optional[typing.List[CfnAnomalyMonitor.ResourceTagProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1583,7 +1595,7 @@ def _typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88
     monitor_type: builtins.str,
     monitor_dimension: typing.Optional[builtins.str] = None,
     monitor_specification: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1596,7 +1608,7 @@ def _typecheckingstub__0a7fbd046e3b9f6f7efea32f7eb528d813f3ccf81de7e59ec417de1ea
     monitor_arn_list: typing.Sequence[builtins.str],
     subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
     subscription_name: builtins.str,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threshold: typing.Optional[jsii.Number] = None,
     threshold_expression: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1640,7 +1652,7 @@ def _typecheckingstub__3f1c77a5656251a1b2332edd8152e7fb9ac370a8031e07485ff8e8b89
     pass
 
 def _typecheckingstub__96793ef54afc05012d539871c866a4c4cbe5b328c47be446ea5408e64a1f523a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalySubscription.ResourceTagProperty]]]],
+    value: typing.Optional[typing.List[CfnAnomalySubscription.ResourceTagProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1680,7 +1692,7 @@ def _typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517
     monitor_arn_list: typing.Sequence[builtins.str],
     subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
     subscription_name: builtins.str,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threshold: typing.Optional[jsii.Number] = None,
     threshold_expression: typing.Optional[builtins.str] = None,
 ) -> None:

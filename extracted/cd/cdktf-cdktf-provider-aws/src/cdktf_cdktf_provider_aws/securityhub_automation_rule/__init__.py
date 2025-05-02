@@ -1,7 +1,7 @@
 r'''
 # `aws_securityhub_automation_rule`
 
-Refer to the Terraform Registry for docs: [`aws_securityhub_automation_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule).
+Refer to the Terraform Registry for docs: [`aws_securityhub_automation_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityhubAutomationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securityhubAutomationRule.SecurityhubAutomationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule aws_securityhub_automation_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule aws_securityhub_automation_rule}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SecurityhubAutomationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule aws_securityhub_automation_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule aws_securityhub_automation_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}.
-        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_name SecurityhubAutomationRule#rule_name}.
-        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_order SecurityhubAutomationRule#rule_order}.
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#actions SecurityhubAutomationRule#actions}
-        :param criteria: criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criteria SecurityhubAutomationRule#criteria}
-        :param is_terminal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#is_terminal SecurityhubAutomationRule#is_terminal}.
-        :param rule_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_status SecurityhubAutomationRule#rule_status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#tags SecurityhubAutomationRule#tags}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}.
+        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_name SecurityhubAutomationRule#rule_name}.
+        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_order SecurityhubAutomationRule#rule_order}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#actions SecurityhubAutomationRule#actions}
+        :param criteria: criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criteria SecurityhubAutomationRule#criteria}
+        :param is_terminal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#is_terminal SecurityhubAutomationRule#is_terminal}.
+        :param rule_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_status SecurityhubAutomationRule#rule_status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#tags SecurityhubAutomationRule#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SecurityhubAutomationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityhubAutomationRule to import.
-        :param import_from_id: The id of the existing SecurityhubAutomationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityhubAutomationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityhubAutomationRule to import is found.
         '''
         if __debug__:
@@ -354,8 +354,8 @@ class SecurityhubAutomationRuleActions:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param finding_fields_update: finding_fields_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#finding_fields_update SecurityhubAutomationRule#finding_fields_update}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}.
+        :param finding_fields_update: finding_fields_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#finding_fields_update SecurityhubAutomationRule#finding_fields_update}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88d3ca2058e92f35f72c57d374ed2f8cb34f71966736c11d2ae9d5ddaf045116)
@@ -373,14 +373,14 @@ class SecurityhubAutomationRuleActions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdate"]]]:
         '''finding_fields_update block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#finding_fields_update SecurityhubAutomationRule#finding_fields_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#finding_fields_update SecurityhubAutomationRule#finding_fields_update}
         '''
         result = self._values.get("finding_fields_update")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdate"]]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -426,15 +426,15 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
         workflow: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityhubAutomationRuleActionsFindingFieldsUpdateWorkflow", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param confidence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}.
-        :param criticality: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}.
-        :param note: note block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note SecurityhubAutomationRule#note}
-        :param related_findings: related_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#related_findings SecurityhubAutomationRule#related_findings}
-        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#severity SecurityhubAutomationRule#severity}
-        :param types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#types SecurityhubAutomationRule#types}.
-        :param user_defined_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}.
-        :param verification_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}.
-        :param workflow: workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#workflow SecurityhubAutomationRule#workflow}
+        :param confidence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}.
+        :param criticality: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}.
+        :param note: note block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note SecurityhubAutomationRule#note}
+        :param related_findings: related_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#related_findings SecurityhubAutomationRule#related_findings}
+        :param severity: severity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#severity SecurityhubAutomationRule#severity}
+        :param types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#types SecurityhubAutomationRule#types}.
+        :param user_defined_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}.
+        :param verification_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}.
+        :param workflow: workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#workflow SecurityhubAutomationRule#workflow}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73daa2fcee0d59e920e5da9d4f82deb9a3af7dadc24b742c44913484512ad422)
@@ -469,13 +469,13 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
 
     @builtins.property
     def confidence(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}.'''
         result = self._values.get("confidence")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def criticality(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}.'''
         result = self._values.get("criticality")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -485,7 +485,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateNote"]]]:
         '''note block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note SecurityhubAutomationRule#note}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note SecurityhubAutomationRule#note}
         '''
         result = self._values.get("note")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateNote"]]], result)
@@ -496,7 +496,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateRelatedFindings"]]]:
         '''related_findings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#related_findings SecurityhubAutomationRule#related_findings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#related_findings SecurityhubAutomationRule#related_findings}
         '''
         result = self._values.get("related_findings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateRelatedFindings"]]], result)
@@ -507,14 +507,14 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateSeverity"]]]:
         '''severity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#severity SecurityhubAutomationRule#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#severity SecurityhubAutomationRule#severity}
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateSeverity"]]], result)
 
     @builtins.property
     def types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#types SecurityhubAutomationRule#types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#types SecurityhubAutomationRule#types}.'''
         result = self._values.get("types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -522,13 +522,13 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
     def user_defined_fields(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}.'''
         result = self._values.get("user_defined_fields")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def verification_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}.'''
         result = self._values.get("verification_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -538,7 +538,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateWorkflow"]]]:
         '''workflow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#workflow SecurityhubAutomationRule#workflow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#workflow SecurityhubAutomationRule#workflow}
         '''
         result = self._values.get("workflow")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleActionsFindingFieldsUpdateWorkflow"]]], result)
@@ -656,8 +656,8 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateList(
 class SecurityhubAutomationRuleActionsFindingFieldsUpdateNote:
     def __init__(self, *, text: builtins.str, updated_by: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#text SecurityhubAutomationRule#text}.
-        :param updated_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#updated_by SecurityhubAutomationRule#updated_by}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#text SecurityhubAutomationRule#text}.
+        :param updated_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#updated_by SecurityhubAutomationRule#updated_by}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed5984c54195ecf2a42ec11b5e63185958ecc42516ddb33f3a4ca65863895c6c)
@@ -670,14 +670,14 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateNote:
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#text SecurityhubAutomationRule#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#text SecurityhubAutomationRule#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def updated_by(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#updated_by SecurityhubAutomationRule#updated_by}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#updated_by SecurityhubAutomationRule#updated_by}.'''
         result = self._values.get("updated_by")
         assert result is not None, "Required property 'updated_by' is missing"
         return typing.cast(builtins.str, result)
@@ -1149,8 +1149,8 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateOutputReference(
 class SecurityhubAutomationRuleActionsFindingFieldsUpdateRelatedFindings:
     def __init__(self, *, id: builtins.str, product_arn: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param product_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param product_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9488d98b61f05e6e761b0317da93c585907987a5669c90595662acfa748d2f08)
@@ -1163,7 +1163,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateRelatedFindings:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1174,7 +1174,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateRelatedFindings:
 
     @builtins.property
     def product_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}.'''
         result = self._values.get("product_arn")
         assert result is not None, "Required property 'product_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1375,8 +1375,8 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateSeverity:
         product: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#label SecurityhubAutomationRule#label}.
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product SecurityhubAutomationRule#product}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#label SecurityhubAutomationRule#label}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product SecurityhubAutomationRule#product}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89acf8e783b7496a665dfbc5dca39f0a3d1beec78504a579b20127d69b2c35a0)
@@ -1390,13 +1390,13 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateSeverity:
 
     @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#label SecurityhubAutomationRule#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#label SecurityhubAutomationRule#label}.'''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def product(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product SecurityhubAutomationRule#product}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product SecurityhubAutomationRule#product}.'''
         result = self._values.get("product")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1599,7 +1599,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateSeverityOutputReference
 class SecurityhubAutomationRuleActionsFindingFieldsUpdateWorkflow:
     def __init__(self, *, status: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#status SecurityhubAutomationRule#status}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#status SecurityhubAutomationRule#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d876c0d21baf130ccc17a871546a65d6fb14c1eae362a1639d674e9764471835)
@@ -1610,7 +1610,7 @@ class SecurityhubAutomationRuleActionsFindingFieldsUpdateWorkflow:
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#status SecurityhubAutomationRule#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#status SecurityhubAutomationRule#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2022,14 +2022,14 @@ class SecurityhubAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}.
-        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_name SecurityhubAutomationRule#rule_name}.
-        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_order SecurityhubAutomationRule#rule_order}.
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#actions SecurityhubAutomationRule#actions}
-        :param criteria: criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criteria SecurityhubAutomationRule#criteria}
-        :param is_terminal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#is_terminal SecurityhubAutomationRule#is_terminal}.
-        :param rule_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_status SecurityhubAutomationRule#rule_status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#tags SecurityhubAutomationRule#tags}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}.
+        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_name SecurityhubAutomationRule#rule_name}.
+        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_order SecurityhubAutomationRule#rule_order}.
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#actions SecurityhubAutomationRule#actions}
+        :param criteria: criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criteria SecurityhubAutomationRule#criteria}
+        :param is_terminal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#is_terminal SecurityhubAutomationRule#is_terminal}.
+        :param rule_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_status SecurityhubAutomationRule#rule_status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#tags SecurityhubAutomationRule#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2146,21 +2146,21 @@ class SecurityhubAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}.'''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_name SecurityhubAutomationRule#rule_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_name SecurityhubAutomationRule#rule_name}.'''
         result = self._values.get("rule_name")
         assert result is not None, "Required property 'rule_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule_order(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_order SecurityhubAutomationRule#rule_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_order SecurityhubAutomationRule#rule_order}.'''
         result = self._values.get("rule_order")
         assert result is not None, "Required property 'rule_order' is missing"
         return typing.cast(jsii.Number, result)
@@ -2171,7 +2171,7 @@ class SecurityhubAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityhubAutomationRuleActions]]]:
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#actions SecurityhubAutomationRule#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#actions SecurityhubAutomationRule#actions}
         '''
         result = self._values.get("actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityhubAutomationRuleActions]]], result)
@@ -2182,7 +2182,7 @@ class SecurityhubAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteria"]]]:
         '''criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criteria SecurityhubAutomationRule#criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criteria SecurityhubAutomationRule#criteria}
         '''
         result = self._values.get("criteria")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteria"]]], result)
@@ -2191,19 +2191,19 @@ class SecurityhubAutomationRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_terminal(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#is_terminal SecurityhubAutomationRule#is_terminal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#is_terminal SecurityhubAutomationRule#is_terminal}.'''
         result = self._values.get("is_terminal")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def rule_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#rule_status SecurityhubAutomationRule#rule_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#rule_status SecurityhubAutomationRule#rule_status}.'''
         result = self._values.get("rule_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#tags SecurityhubAutomationRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#tags SecurityhubAutomationRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2307,44 +2307,44 @@ class SecurityhubAutomationRuleCriteria:
         workflow_status: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityhubAutomationRuleCriteriaWorkflowStatus", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#aws_account_id SecurityhubAutomationRule#aws_account_id}
-        :param aws_account_name: aws_account_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#aws_account_name SecurityhubAutomationRule#aws_account_name}
-        :param company_name: company_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#company_name SecurityhubAutomationRule#company_name}
-        :param compliance_associated_standards_id: compliance_associated_standards_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#compliance_associated_standards_id SecurityhubAutomationRule#compliance_associated_standards_id}
-        :param compliance_security_control_id: compliance_security_control_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#compliance_security_control_id SecurityhubAutomationRule#compliance_security_control_id}
-        :param compliance_status: compliance_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#compliance_status SecurityhubAutomationRule#compliance_status}
-        :param confidence: confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}
-        :param created_at: created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#created_at SecurityhubAutomationRule#created_at}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}
-        :param description: description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}
-        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#first_observed_at SecurityhubAutomationRule#first_observed_at}
-        :param generator_id: generator_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#generator_id SecurityhubAutomationRule#generator_id}
-        :param id: id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#last_observed_at SecurityhubAutomationRule#last_observed_at}
-        :param note_text: note_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note_text SecurityhubAutomationRule#note_text}
-        :param note_updated_at: note_updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note_updated_at SecurityhubAutomationRule#note_updated_at}
-        :param note_updated_by: note_updated_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note_updated_by SecurityhubAutomationRule#note_updated_by}
-        :param product_arn: product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}
-        :param product_name: product_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product_name SecurityhubAutomationRule#product_name}
-        :param record_state: record_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#record_state SecurityhubAutomationRule#record_state}
-        :param related_findings_id: related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#related_findings_id SecurityhubAutomationRule#related_findings_id}
-        :param related_findings_product_arn: related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#related_findings_product_arn SecurityhubAutomationRule#related_findings_product_arn}
-        :param resource_application_arn: resource_application_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_application_arn SecurityhubAutomationRule#resource_application_arn}
-        :param resource_application_name: resource_application_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_application_name SecurityhubAutomationRule#resource_application_name}
-        :param resource_details_other: resource_details_other block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_details_other SecurityhubAutomationRule#resource_details_other}
-        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_id SecurityhubAutomationRule#resource_id}
-        :param resource_partition: resource_partition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_partition SecurityhubAutomationRule#resource_partition}
-        :param resource_region: resource_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_region SecurityhubAutomationRule#resource_region}
-        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_tags SecurityhubAutomationRule#resource_tags}
-        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_type SecurityhubAutomationRule#resource_type}
-        :param severity_label: severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#severity_label SecurityhubAutomationRule#severity_label}
-        :param source_url: source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#source_url SecurityhubAutomationRule#source_url}
-        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#title SecurityhubAutomationRule#title}
-        :param type: type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}
-        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#updated_at SecurityhubAutomationRule#updated_at}
-        :param user_defined_fields: user_defined_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}
-        :param verification_state: verification_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}
-        :param workflow_status: workflow_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#workflow_status SecurityhubAutomationRule#workflow_status}
+        :param aws_account_id: aws_account_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#aws_account_id SecurityhubAutomationRule#aws_account_id}
+        :param aws_account_name: aws_account_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#aws_account_name SecurityhubAutomationRule#aws_account_name}
+        :param company_name: company_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#company_name SecurityhubAutomationRule#company_name}
+        :param compliance_associated_standards_id: compliance_associated_standards_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#compliance_associated_standards_id SecurityhubAutomationRule#compliance_associated_standards_id}
+        :param compliance_security_control_id: compliance_security_control_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#compliance_security_control_id SecurityhubAutomationRule#compliance_security_control_id}
+        :param compliance_status: compliance_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#compliance_status SecurityhubAutomationRule#compliance_status}
+        :param confidence: confidence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}
+        :param created_at: created_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#created_at SecurityhubAutomationRule#created_at}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}
+        :param description: description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}
+        :param first_observed_at: first_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#first_observed_at SecurityhubAutomationRule#first_observed_at}
+        :param generator_id: generator_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#generator_id SecurityhubAutomationRule#generator_id}
+        :param id: id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param last_observed_at: last_observed_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#last_observed_at SecurityhubAutomationRule#last_observed_at}
+        :param note_text: note_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note_text SecurityhubAutomationRule#note_text}
+        :param note_updated_at: note_updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note_updated_at SecurityhubAutomationRule#note_updated_at}
+        :param note_updated_by: note_updated_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note_updated_by SecurityhubAutomationRule#note_updated_by}
+        :param product_arn: product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}
+        :param product_name: product_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product_name SecurityhubAutomationRule#product_name}
+        :param record_state: record_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#record_state SecurityhubAutomationRule#record_state}
+        :param related_findings_id: related_findings_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#related_findings_id SecurityhubAutomationRule#related_findings_id}
+        :param related_findings_product_arn: related_findings_product_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#related_findings_product_arn SecurityhubAutomationRule#related_findings_product_arn}
+        :param resource_application_arn: resource_application_arn block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_application_arn SecurityhubAutomationRule#resource_application_arn}
+        :param resource_application_name: resource_application_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_application_name SecurityhubAutomationRule#resource_application_name}
+        :param resource_details_other: resource_details_other block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_details_other SecurityhubAutomationRule#resource_details_other}
+        :param resource_id: resource_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_id SecurityhubAutomationRule#resource_id}
+        :param resource_partition: resource_partition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_partition SecurityhubAutomationRule#resource_partition}
+        :param resource_region: resource_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_region SecurityhubAutomationRule#resource_region}
+        :param resource_tags: resource_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_tags SecurityhubAutomationRule#resource_tags}
+        :param resource_type: resource_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_type SecurityhubAutomationRule#resource_type}
+        :param severity_label: severity_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#severity_label SecurityhubAutomationRule#severity_label}
+        :param source_url: source_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#source_url SecurityhubAutomationRule#source_url}
+        :param title: title block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#title SecurityhubAutomationRule#title}
+        :param type: type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}
+        :param updated_at: updated_at block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#updated_at SecurityhubAutomationRule#updated_at}
+        :param user_defined_fields: user_defined_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}
+        :param verification_state: verification_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}
+        :param workflow_status: workflow_status block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#workflow_status SecurityhubAutomationRule#workflow_status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__592b092b813df76efeddffce1a124eaa75115f3cd859cfd76c5bd7919021f727)
@@ -2470,7 +2470,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaAwsAccountId"]]]:
         '''aws_account_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#aws_account_id SecurityhubAutomationRule#aws_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#aws_account_id SecurityhubAutomationRule#aws_account_id}
         '''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaAwsAccountId"]]], result)
@@ -2481,7 +2481,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaAwsAccountName"]]]:
         '''aws_account_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#aws_account_name SecurityhubAutomationRule#aws_account_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#aws_account_name SecurityhubAutomationRule#aws_account_name}
         '''
         result = self._values.get("aws_account_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaAwsAccountName"]]], result)
@@ -2492,7 +2492,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCompanyName"]]]:
         '''company_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#company_name SecurityhubAutomationRule#company_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#company_name SecurityhubAutomationRule#company_name}
         '''
         result = self._values.get("company_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCompanyName"]]], result)
@@ -2503,7 +2503,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaComplianceAssociatedStandardsId"]]]:
         '''compliance_associated_standards_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#compliance_associated_standards_id SecurityhubAutomationRule#compliance_associated_standards_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#compliance_associated_standards_id SecurityhubAutomationRule#compliance_associated_standards_id}
         '''
         result = self._values.get("compliance_associated_standards_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaComplianceAssociatedStandardsId"]]], result)
@@ -2514,7 +2514,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaComplianceSecurityControlId"]]]:
         '''compliance_security_control_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#compliance_security_control_id SecurityhubAutomationRule#compliance_security_control_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#compliance_security_control_id SecurityhubAutomationRule#compliance_security_control_id}
         '''
         result = self._values.get("compliance_security_control_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaComplianceSecurityControlId"]]], result)
@@ -2525,7 +2525,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaComplianceStatus"]]]:
         '''compliance_status block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#compliance_status SecurityhubAutomationRule#compliance_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#compliance_status SecurityhubAutomationRule#compliance_status}
         '''
         result = self._values.get("compliance_status")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaComplianceStatus"]]], result)
@@ -2536,7 +2536,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaConfidence"]]]:
         '''confidence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#confidence SecurityhubAutomationRule#confidence}
         '''
         result = self._values.get("confidence")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaConfidence"]]], result)
@@ -2547,7 +2547,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCreatedAt"]]]:
         '''created_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#created_at SecurityhubAutomationRule#created_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#created_at SecurityhubAutomationRule#created_at}
         '''
         result = self._values.get("created_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCreatedAt"]]], result)
@@ -2558,7 +2558,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCriticality"]]]:
         '''criticality block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#criticality SecurityhubAutomationRule#criticality}
         '''
         result = self._values.get("criticality")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCriticality"]]], result)
@@ -2569,7 +2569,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaDescription"]]]:
         '''description block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#description SecurityhubAutomationRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaDescription"]]], result)
@@ -2580,7 +2580,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaFirstObservedAt"]]]:
         '''first_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#first_observed_at SecurityhubAutomationRule#first_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#first_observed_at SecurityhubAutomationRule#first_observed_at}
         '''
         result = self._values.get("first_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaFirstObservedAt"]]], result)
@@ -2591,7 +2591,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaGeneratorId"]]]:
         '''generator_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#generator_id SecurityhubAutomationRule#generator_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#generator_id SecurityhubAutomationRule#generator_id}
         '''
         result = self._values.get("generator_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaGeneratorId"]]], result)
@@ -2602,7 +2602,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaId"]]]:
         '''id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#id SecurityhubAutomationRule#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2616,7 +2616,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaLastObservedAt"]]]:
         '''last_observed_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#last_observed_at SecurityhubAutomationRule#last_observed_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#last_observed_at SecurityhubAutomationRule#last_observed_at}
         '''
         result = self._values.get("last_observed_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaLastObservedAt"]]], result)
@@ -2627,7 +2627,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteText"]]]:
         '''note_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note_text SecurityhubAutomationRule#note_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note_text SecurityhubAutomationRule#note_text}
         '''
         result = self._values.get("note_text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteText"]]], result)
@@ -2638,7 +2638,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteUpdatedAt"]]]:
         '''note_updated_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note_updated_at SecurityhubAutomationRule#note_updated_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note_updated_at SecurityhubAutomationRule#note_updated_at}
         '''
         result = self._values.get("note_updated_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteUpdatedAt"]]], result)
@@ -2649,7 +2649,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteUpdatedBy"]]]:
         '''note_updated_by block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#note_updated_by SecurityhubAutomationRule#note_updated_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#note_updated_by SecurityhubAutomationRule#note_updated_by}
         '''
         result = self._values.get("note_updated_by")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteUpdatedBy"]]], result)
@@ -2660,7 +2660,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaProductArn"]]]:
         '''product_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product_arn SecurityhubAutomationRule#product_arn}
         '''
         result = self._values.get("product_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaProductArn"]]], result)
@@ -2671,7 +2671,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaProductName"]]]:
         '''product_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#product_name SecurityhubAutomationRule#product_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#product_name SecurityhubAutomationRule#product_name}
         '''
         result = self._values.get("product_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaProductName"]]], result)
@@ -2682,7 +2682,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaRecordState"]]]:
         '''record_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#record_state SecurityhubAutomationRule#record_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#record_state SecurityhubAutomationRule#record_state}
         '''
         result = self._values.get("record_state")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaRecordState"]]], result)
@@ -2693,7 +2693,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaRelatedFindingsId"]]]:
         '''related_findings_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#related_findings_id SecurityhubAutomationRule#related_findings_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#related_findings_id SecurityhubAutomationRule#related_findings_id}
         '''
         result = self._values.get("related_findings_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaRelatedFindingsId"]]], result)
@@ -2704,7 +2704,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaRelatedFindingsProductArn"]]]:
         '''related_findings_product_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#related_findings_product_arn SecurityhubAutomationRule#related_findings_product_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#related_findings_product_arn SecurityhubAutomationRule#related_findings_product_arn}
         '''
         result = self._values.get("related_findings_product_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaRelatedFindingsProductArn"]]], result)
@@ -2715,7 +2715,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceApplicationArn"]]]:
         '''resource_application_arn block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_application_arn SecurityhubAutomationRule#resource_application_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_application_arn SecurityhubAutomationRule#resource_application_arn}
         '''
         result = self._values.get("resource_application_arn")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceApplicationArn"]]], result)
@@ -2726,7 +2726,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceApplicationName"]]]:
         '''resource_application_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_application_name SecurityhubAutomationRule#resource_application_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_application_name SecurityhubAutomationRule#resource_application_name}
         '''
         result = self._values.get("resource_application_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceApplicationName"]]], result)
@@ -2737,7 +2737,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceDetailsOther"]]]:
         '''resource_details_other block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_details_other SecurityhubAutomationRule#resource_details_other}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_details_other SecurityhubAutomationRule#resource_details_other}
         '''
         result = self._values.get("resource_details_other")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceDetailsOther"]]], result)
@@ -2748,7 +2748,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceId"]]]:
         '''resource_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_id SecurityhubAutomationRule#resource_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_id SecurityhubAutomationRule#resource_id}
         '''
         result = self._values.get("resource_id")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceId"]]], result)
@@ -2759,7 +2759,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourcePartition"]]]:
         '''resource_partition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_partition SecurityhubAutomationRule#resource_partition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_partition SecurityhubAutomationRule#resource_partition}
         '''
         result = self._values.get("resource_partition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourcePartition"]]], result)
@@ -2770,7 +2770,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceRegion"]]]:
         '''resource_region block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_region SecurityhubAutomationRule#resource_region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_region SecurityhubAutomationRule#resource_region}
         '''
         result = self._values.get("resource_region")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceRegion"]]], result)
@@ -2781,7 +2781,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceTags"]]]:
         '''resource_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_tags SecurityhubAutomationRule#resource_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_tags SecurityhubAutomationRule#resource_tags}
         '''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceTags"]]], result)
@@ -2792,7 +2792,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceType"]]]:
         '''resource_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#resource_type SecurityhubAutomationRule#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#resource_type SecurityhubAutomationRule#resource_type}
         '''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaResourceType"]]], result)
@@ -2803,7 +2803,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaSeverityLabel"]]]:
         '''severity_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#severity_label SecurityhubAutomationRule#severity_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#severity_label SecurityhubAutomationRule#severity_label}
         '''
         result = self._values.get("severity_label")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaSeverityLabel"]]], result)
@@ -2814,7 +2814,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaSourceUrl"]]]:
         '''source_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#source_url SecurityhubAutomationRule#source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#source_url SecurityhubAutomationRule#source_url}
         '''
         result = self._values.get("source_url")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaSourceUrl"]]], result)
@@ -2825,7 +2825,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaTitle"]]]:
         '''title block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#title SecurityhubAutomationRule#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#title SecurityhubAutomationRule#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaTitle"]]], result)
@@ -2836,7 +2836,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaType"]]]:
         '''type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#type SecurityhubAutomationRule#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaType"]]], result)
@@ -2847,7 +2847,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaUpdatedAt"]]]:
         '''updated_at block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#updated_at SecurityhubAutomationRule#updated_at}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#updated_at SecurityhubAutomationRule#updated_at}
         '''
         result = self._values.get("updated_at")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaUpdatedAt"]]], result)
@@ -2858,7 +2858,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaUserDefinedFields"]]]:
         '''user_defined_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#user_defined_fields SecurityhubAutomationRule#user_defined_fields}
         '''
         result = self._values.get("user_defined_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaUserDefinedFields"]]], result)
@@ -2869,7 +2869,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaVerificationState"]]]:
         '''verification_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#verification_state SecurityhubAutomationRule#verification_state}
         '''
         result = self._values.get("verification_state")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaVerificationState"]]], result)
@@ -2880,7 +2880,7 @@ class SecurityhubAutomationRuleCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaWorkflowStatus"]]]:
         '''workflow_status block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#workflow_status SecurityhubAutomationRule#workflow_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#workflow_status SecurityhubAutomationRule#workflow_status}
         '''
         result = self._values.get("workflow_status")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaWorkflowStatus"]]], result)
@@ -2905,8 +2905,8 @@ class SecurityhubAutomationRuleCriteria:
 class SecurityhubAutomationRuleCriteriaAwsAccountId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62e1926a18a6941be9affba6bbb41e37a37b8eff8b8a3816baee12dca3970160)
@@ -2919,14 +2919,14 @@ class SecurityhubAutomationRuleCriteriaAwsAccountId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3122,8 +3122,8 @@ class SecurityhubAutomationRuleCriteriaAwsAccountIdOutputReference(
 class SecurityhubAutomationRuleCriteriaAwsAccountName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__847fe5c9120d7657617a4e054f70da2c407cdacc6d2df6ce62a535363516a041)
@@ -3136,14 +3136,14 @@ class SecurityhubAutomationRuleCriteriaAwsAccountName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3339,8 +3339,8 @@ class SecurityhubAutomationRuleCriteriaAwsAccountNameOutputReference(
 class SecurityhubAutomationRuleCriteriaCompanyName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdf410fbdce340a1e6b05a25cfb52bdc51523f5aa9bc2ffe0d19cf08cf3b0bfc)
@@ -3353,14 +3353,14 @@ class SecurityhubAutomationRuleCriteriaCompanyName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3556,8 +3556,8 @@ class SecurityhubAutomationRuleCriteriaCompanyNameOutputReference(
 class SecurityhubAutomationRuleCriteriaComplianceAssociatedStandardsId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad379277251a62dcffbea8390b581e11f11a64a57b7c2933a45f0952e7f61bc9)
@@ -3570,14 +3570,14 @@ class SecurityhubAutomationRuleCriteriaComplianceAssociatedStandardsId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3773,8 +3773,8 @@ class SecurityhubAutomationRuleCriteriaComplianceAssociatedStandardsIdOutputRefe
 class SecurityhubAutomationRuleCriteriaComplianceSecurityControlId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__700f9c1ec2ce60bab0719680948af08f7ddddf8c38e96f965215af52b98b398a)
@@ -3787,14 +3787,14 @@ class SecurityhubAutomationRuleCriteriaComplianceSecurityControlId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3990,8 +3990,8 @@ class SecurityhubAutomationRuleCriteriaComplianceSecurityControlIdOutputReferenc
 class SecurityhubAutomationRuleCriteriaComplianceStatus:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ca2f674bc6920a7c7f468af351311268192cef82f4f047d4df64114be6811d4)
@@ -4004,14 +4004,14 @@ class SecurityhubAutomationRuleCriteriaComplianceStatus:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4215,11 +4215,11 @@ class SecurityhubAutomationRuleCriteriaConfidence:
         lte: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.
-        :param gt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.
-        :param lt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.
+        :param gt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.
+        :param lt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__afd0a463e0f9eb2b534c7cca86ca209decc93d89c759bb2dfcd3618933a8325f)
@@ -4242,31 +4242,31 @@ class SecurityhubAutomationRuleCriteriaConfidence:
 
     @builtins.property
     def eq(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def gt(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.'''
         result = self._values.get("gt")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def lt(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.'''
         result = self._values.get("lt")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4538,9 +4538,9 @@ class SecurityhubAutomationRuleCriteriaCreatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c99744aba2245ba0ae7f7bc0fcafbed53f6aa0b73e11a905130bf59de333d5a6)
@@ -4561,20 +4561,20 @@ class SecurityhubAutomationRuleCriteriaCreatedAt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCreatedAtDateRange"]]]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaCreatedAtDateRange"]]], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4598,8 +4598,8 @@ class SecurityhubAutomationRuleCriteriaCreatedAt:
 class SecurityhubAutomationRuleCriteriaCreatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__398757083c99acf7103358ff10faa7c253ba83dbb22f1ded0d5c52bea3c888c3)
@@ -4612,14 +4612,14 @@ class SecurityhubAutomationRuleCriteriaCreatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -5031,11 +5031,11 @@ class SecurityhubAutomationRuleCriteriaCriticality:
         lte: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.
-        :param gt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.
-        :param lt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.
+        :param gt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.
+        :param lt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8b909e8274bf6c81df8e039e8788e6c8fd4920e03dbdfae20ea1da668e7fc83)
@@ -5058,31 +5058,31 @@ class SecurityhubAutomationRuleCriteriaCriticality:
 
     @builtins.property
     def eq(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#eq SecurityhubAutomationRule#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def gt(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gt SecurityhubAutomationRule#gt}.'''
         result = self._values.get("gt")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#gte SecurityhubAutomationRule#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def lt(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lt SecurityhubAutomationRule#lt}.'''
         result = self._values.get("lt")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#lte SecurityhubAutomationRule#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5348,8 +5348,8 @@ class SecurityhubAutomationRuleCriteriaCriticalityOutputReference(
 class SecurityhubAutomationRuleCriteriaDescription:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a77b923c5adec0f4da21041f8304389f6e206babd83fb069cad9824d91049e26)
@@ -5362,14 +5362,14 @@ class SecurityhubAutomationRuleCriteriaDescription:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5571,9 +5571,9 @@ class SecurityhubAutomationRuleCriteriaFirstObservedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e9ab96f504e56096ca616fc1ab4d45dff668ce0d78b2102e93ed6b9e393a581)
@@ -5594,20 +5594,20 @@ class SecurityhubAutomationRuleCriteriaFirstObservedAt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaFirstObservedAtDateRange"]]]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaFirstObservedAtDateRange"]]], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5631,8 +5631,8 @@ class SecurityhubAutomationRuleCriteriaFirstObservedAt:
 class SecurityhubAutomationRuleCriteriaFirstObservedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea027212f442f2987b4b9ee6e539727b04f55f2f76b58ba9be1506b12b6aff95)
@@ -5645,14 +5645,14 @@ class SecurityhubAutomationRuleCriteriaFirstObservedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -6058,8 +6058,8 @@ class SecurityhubAutomationRuleCriteriaFirstObservedAtOutputReference(
 class SecurityhubAutomationRuleCriteriaGeneratorId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__206b3831cfee4569758adbebc0fc4e02a98ac72a730400fae0f70a30e85448b7)
@@ -6072,14 +6072,14 @@ class SecurityhubAutomationRuleCriteriaGeneratorId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6275,8 +6275,8 @@ class SecurityhubAutomationRuleCriteriaGeneratorIdOutputReference(
 class SecurityhubAutomationRuleCriteriaId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e4855bf9585a7704c73661097b19fcd2c97fed4db214c090710d1522f60b6b9)
@@ -6289,14 +6289,14 @@ class SecurityhubAutomationRuleCriteriaId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -6498,9 +6498,9 @@ class SecurityhubAutomationRuleCriteriaLastObservedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6485cd4fb7f929324ade40afaa4f231b74d1652c705bb5b828f3e6159d37ca8)
@@ -6521,20 +6521,20 @@ class SecurityhubAutomationRuleCriteriaLastObservedAt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaLastObservedAtDateRange"]]]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaLastObservedAtDateRange"]]], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6558,8 +6558,8 @@ class SecurityhubAutomationRuleCriteriaLastObservedAt:
 class SecurityhubAutomationRuleCriteriaLastObservedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9fee8b5a253c2ff0a819ffefd17e9da44faf32e731becc7bae16dda74b47013b)
@@ -6572,14 +6572,14 @@ class SecurityhubAutomationRuleCriteriaLastObservedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7078,8 +7078,8 @@ class SecurityhubAutomationRuleCriteriaList(
 class SecurityhubAutomationRuleCriteriaNoteText:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e161f33e3784076eec31ea2b53a98dae61860d8fcd9efc80f4ae57cfc0553b9a)
@@ -7092,14 +7092,14 @@ class SecurityhubAutomationRuleCriteriaNoteText:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -7301,9 +7301,9 @@ class SecurityhubAutomationRuleCriteriaNoteUpdatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11327217f157bbd78ca689b12d2e6d4b14484a9e08716845fedee780ac2ce16d)
@@ -7324,20 +7324,20 @@ class SecurityhubAutomationRuleCriteriaNoteUpdatedAt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteUpdatedAtDateRange"]]]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaNoteUpdatedAtDateRange"]]], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7361,8 +7361,8 @@ class SecurityhubAutomationRuleCriteriaNoteUpdatedAt:
 class SecurityhubAutomationRuleCriteriaNoteUpdatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00b0d31296a13ebc5ea2dd7bc6015e3df61e42f79f4f4fbe4d4467053ad7bf7b)
@@ -7375,14 +7375,14 @@ class SecurityhubAutomationRuleCriteriaNoteUpdatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -7786,8 +7786,8 @@ class SecurityhubAutomationRuleCriteriaNoteUpdatedAtOutputReference(
 class SecurityhubAutomationRuleCriteriaNoteUpdatedBy:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c442168f756ba5e2d6269b4ae129d33622bf69ce8c936a49121730a935d685ba)
@@ -7800,14 +7800,14 @@ class SecurityhubAutomationRuleCriteriaNoteUpdatedBy:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9171,8 +9171,8 @@ class SecurityhubAutomationRuleCriteriaOutputReference(
 class SecurityhubAutomationRuleCriteriaProductArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34e37846ac42395cce871f55895dcbcb0deeb1d86cc8dd20bd10dce440c79115)
@@ -9185,14 +9185,14 @@ class SecurityhubAutomationRuleCriteriaProductArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9388,8 +9388,8 @@ class SecurityhubAutomationRuleCriteriaProductArnOutputReference(
 class SecurityhubAutomationRuleCriteriaProductName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6cb025393bc9161bcf8c9556d875a210a300a19a83edf7dc1685fcfcb42e4f4)
@@ -9402,14 +9402,14 @@ class SecurityhubAutomationRuleCriteriaProductName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9605,8 +9605,8 @@ class SecurityhubAutomationRuleCriteriaProductNameOutputReference(
 class SecurityhubAutomationRuleCriteriaRecordState:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__927ff8f1683dbf030fb4edccde84337025e06eb90dde27afeef1d5f739ce1a94)
@@ -9619,14 +9619,14 @@ class SecurityhubAutomationRuleCriteriaRecordState:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -9822,8 +9822,8 @@ class SecurityhubAutomationRuleCriteriaRecordStateOutputReference(
 class SecurityhubAutomationRuleCriteriaRelatedFindingsId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__223833d5deecfe6358fceefe952d7b15b7f7ca4a34604f06c6e854c544d03191)
@@ -9836,14 +9836,14 @@ class SecurityhubAutomationRuleCriteriaRelatedFindingsId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10039,8 +10039,8 @@ class SecurityhubAutomationRuleCriteriaRelatedFindingsIdOutputReference(
 class SecurityhubAutomationRuleCriteriaRelatedFindingsProductArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea334ea4e986a44bf28b488474ba21b6b65ec85a4a1786650f520838dea601bb)
@@ -10053,14 +10053,14 @@ class SecurityhubAutomationRuleCriteriaRelatedFindingsProductArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10256,8 +10256,8 @@ class SecurityhubAutomationRuleCriteriaRelatedFindingsProductArnOutputReference(
 class SecurityhubAutomationRuleCriteriaResourceApplicationArn:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__361f5afd9108cdd09eb17db67ba52f289bffa5af7f08575d9123def134163f9c)
@@ -10270,14 +10270,14 @@ class SecurityhubAutomationRuleCriteriaResourceApplicationArn:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10473,8 +10473,8 @@ class SecurityhubAutomationRuleCriteriaResourceApplicationArnOutputReference(
 class SecurityhubAutomationRuleCriteriaResourceApplicationName:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__62fdda05257c24a987454ec4475bc94ee8f18f6a0dfc3e8630ed53984eb9065e)
@@ -10487,14 +10487,14 @@ class SecurityhubAutomationRuleCriteriaResourceApplicationName:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10696,9 +10696,9 @@ class SecurityhubAutomationRuleCriteriaResourceDetailsOther:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ac4f152f5d74d30334fa46178b2188d1aff1c550c7e44a7b6fbb31bc3d4f156)
@@ -10713,21 +10713,21 @@ class SecurityhubAutomationRuleCriteriaResourceDetailsOther:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -10940,8 +10940,8 @@ class SecurityhubAutomationRuleCriteriaResourceDetailsOtherOutputReference(
 class SecurityhubAutomationRuleCriteriaResourceId:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0b1d6a2a1c575035516e2a4974b6945684c0272259117292642912e1819e9df)
@@ -10954,14 +10954,14 @@ class SecurityhubAutomationRuleCriteriaResourceId:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11157,8 +11157,8 @@ class SecurityhubAutomationRuleCriteriaResourceIdOutputReference(
 class SecurityhubAutomationRuleCriteriaResourcePartition:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23d5a3e3d68123f7ccc77a2a5e3f1cd68a0781d808738d4cf53199a5a7e50ac0)
@@ -11171,14 +11171,14 @@ class SecurityhubAutomationRuleCriteriaResourcePartition:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11374,8 +11374,8 @@ class SecurityhubAutomationRuleCriteriaResourcePartitionOutputReference(
 class SecurityhubAutomationRuleCriteriaResourceRegion:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__028b30571d0652ba041b04af8ea6662696c2e6a14f90fbde3e52df9412b64ec3)
@@ -11388,14 +11388,14 @@ class SecurityhubAutomationRuleCriteriaResourceRegion:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11597,9 +11597,9 @@ class SecurityhubAutomationRuleCriteriaResourceTags:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b96845ea247ff11f5e95c18b08b84689d17f4f9952220d99104f24a8aa781dc)
@@ -11614,21 +11614,21 @@ class SecurityhubAutomationRuleCriteriaResourceTags:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -11841,8 +11841,8 @@ class SecurityhubAutomationRuleCriteriaResourceTagsOutputReference(
 class SecurityhubAutomationRuleCriteriaResourceType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a431475f26017a232b1cce6d0d76a2f637a2068a4da6783d57aef4e3c8966cf)
@@ -11855,14 +11855,14 @@ class SecurityhubAutomationRuleCriteriaResourceType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12058,8 +12058,8 @@ class SecurityhubAutomationRuleCriteriaResourceTypeOutputReference(
 class SecurityhubAutomationRuleCriteriaSeverityLabel:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ffd4080d8434d10fc83055a6221feb87f9c123da95f6220d60c4fd4cc24802a)
@@ -12072,14 +12072,14 @@ class SecurityhubAutomationRuleCriteriaSeverityLabel:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12275,8 +12275,8 @@ class SecurityhubAutomationRuleCriteriaSeverityLabelOutputReference(
 class SecurityhubAutomationRuleCriteriaSourceUrl:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0166c6f3b8b9968db8483aa6fe84fac85900629c02f44302ecc06d10f4af69e7)
@@ -12289,14 +12289,14 @@ class SecurityhubAutomationRuleCriteriaSourceUrl:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12492,8 +12492,8 @@ class SecurityhubAutomationRuleCriteriaSourceUrlOutputReference(
 class SecurityhubAutomationRuleCriteriaTitle:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ca661b0a237ccd466afc21f58e22ee7d9c98c30dc6ab374525e63c56360c333)
@@ -12506,14 +12506,14 @@ class SecurityhubAutomationRuleCriteriaTitle:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12709,8 +12709,8 @@ class SecurityhubAutomationRuleCriteriaTitleOutputReference(
 class SecurityhubAutomationRuleCriteriaType:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f68de18aa2b903d1e516d7f575aa23e8f4bb2de796acb29580bcfda237d0736)
@@ -12723,14 +12723,14 @@ class SecurityhubAutomationRuleCriteriaType:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -12932,9 +12932,9 @@ class SecurityhubAutomationRuleCriteriaUpdatedAt:
         start: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
+        :param date_range: date_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58d7325fdd26857946b5d7b34c66a1cb18c8eee8c0142c321e0e8c153041439d)
@@ -12955,20 +12955,20 @@ class SecurityhubAutomationRuleCriteriaUpdatedAt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaUpdatedAtDateRange"]]]:
         '''date_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#date_range SecurityhubAutomationRule#date_range}
         '''
         result = self._values.get("date_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityhubAutomationRuleCriteriaUpdatedAtDateRange"]]], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#end SecurityhubAutomationRule#end}.'''
         result = self._values.get("end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#start SecurityhubAutomationRule#start}.'''
         result = self._values.get("start")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12992,8 +12992,8 @@ class SecurityhubAutomationRuleCriteriaUpdatedAt:
 class SecurityhubAutomationRuleCriteriaUpdatedAtDateRange:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da513c9a5e71f885f1cd32b3e21b437e096846ccd63bd27f52b2877b2548be8c)
@@ -13006,14 +13006,14 @@ class SecurityhubAutomationRuleCriteriaUpdatedAtDateRange:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#unit SecurityhubAutomationRule#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -13423,9 +13423,9 @@ class SecurityhubAutomationRuleCriteriaUserDefinedFields:
         value: builtins.str,
     ) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ecb56f60c2d227d34e12e3d5da9322a1d7fe4b7533802dc85cc8f68fe51f652)
@@ -13440,21 +13440,21 @@ class SecurityhubAutomationRuleCriteriaUserDefinedFields:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#key SecurityhubAutomationRule#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13667,8 +13667,8 @@ class SecurityhubAutomationRuleCriteriaUserDefinedFieldsOutputReference(
 class SecurityhubAutomationRuleCriteriaVerificationState:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a01b78fb486a2f6c3da4c6f581c472db038033d4bdc2f90032acb01ab7c8c65b)
@@ -13681,14 +13681,14 @@ class SecurityhubAutomationRuleCriteriaVerificationState:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -13884,8 +13884,8 @@ class SecurityhubAutomationRuleCriteriaVerificationStateOutputReference(
 class SecurityhubAutomationRuleCriteriaWorkflowStatus:
     def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
         '''
-        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
+        :param comparison: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d50dbee0417392f27551ad07deb47362660b2cb03ad5529680180a8cd1791e57)
@@ -13898,14 +13898,14 @@ class SecurityhubAutomationRuleCriteriaWorkflowStatus:
 
     @builtins.property
     def comparison(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#comparison SecurityhubAutomationRule#comparison}.'''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securityhub_automation_rule#value SecurityhubAutomationRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

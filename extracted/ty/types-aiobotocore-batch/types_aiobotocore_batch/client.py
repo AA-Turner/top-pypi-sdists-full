@@ -32,6 +32,8 @@ from .paginator import (
     DescribeComputeEnvironmentsPaginator,
     DescribeJobDefinitionsPaginator,
     DescribeJobQueuesPaginator,
+    ListConsumableResourcesPaginator,
+    ListJobsByConsumableResourcePaginator,
     ListJobsPaginator,
     ListSchedulingPoliciesPaginator,
 )
@@ -39,16 +41,21 @@ from .type_defs import (
     CancelJobRequestTypeDef,
     CreateComputeEnvironmentRequestTypeDef,
     CreateComputeEnvironmentResponseTypeDef,
+    CreateConsumableResourceRequestTypeDef,
+    CreateConsumableResourceResponseTypeDef,
     CreateJobQueueRequestTypeDef,
     CreateJobQueueResponseTypeDef,
     CreateSchedulingPolicyRequestTypeDef,
     CreateSchedulingPolicyResponseTypeDef,
     DeleteComputeEnvironmentRequestTypeDef,
+    DeleteConsumableResourceRequestTypeDef,
     DeleteJobQueueRequestTypeDef,
     DeleteSchedulingPolicyRequestTypeDef,
     DeregisterJobDefinitionRequestTypeDef,
     DescribeComputeEnvironmentsRequestTypeDef,
     DescribeComputeEnvironmentsResponseTypeDef,
+    DescribeConsumableResourceRequestTypeDef,
+    DescribeConsumableResourceResponseTypeDef,
     DescribeJobDefinitionsRequestTypeDef,
     DescribeJobDefinitionsResponseTypeDef,
     DescribeJobQueuesRequestTypeDef,
@@ -59,6 +66,10 @@ from .type_defs import (
     DescribeSchedulingPoliciesResponseTypeDef,
     GetJobQueueSnapshotRequestTypeDef,
     GetJobQueueSnapshotResponseTypeDef,
+    ListConsumableResourcesRequestTypeDef,
+    ListConsumableResourcesResponseTypeDef,
+    ListJobsByConsumableResourceRequestTypeDef,
+    ListJobsByConsumableResourceResponseTypeDef,
     ListJobsRequestTypeDef,
     ListJobsResponseTypeDef,
     ListSchedulingPoliciesRequestTypeDef,
@@ -74,6 +85,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateComputeEnvironmentRequestTypeDef,
     UpdateComputeEnvironmentResponseTypeDef,
+    UpdateConsumableResourceRequestTypeDef,
+    UpdateConsumableResourceResponseTypeDef,
     UpdateJobQueueRequestTypeDef,
     UpdateJobQueueResponseTypeDef,
     UpdateSchedulingPolicyRequestTypeDef,
@@ -153,6 +166,16 @@ class BatchClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#create_compute_environment)
         """
 
+    async def create_consumable_resource(
+        self, **kwargs: Unpack[CreateConsumableResourceRequestTypeDef]
+    ) -> CreateConsumableResourceResponseTypeDef:
+        """
+        Creates an Batch consumable resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/create_consumable_resource.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#create_consumable_resource)
+        """
+
     async def create_job_queue(
         self, **kwargs: Unpack[CreateJobQueueRequestTypeDef]
     ) -> CreateJobQueueResponseTypeDef:
@@ -181,6 +204,16 @@ class BatchClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/delete_compute_environment.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#delete_compute_environment)
+        """
+
+    async def delete_consumable_resource(
+        self, **kwargs: Unpack[DeleteConsumableResourceRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes the specified consumable resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/delete_consumable_resource.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#delete_consumable_resource)
         """
 
     async def delete_job_queue(
@@ -221,6 +254,16 @@ class BatchClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/describe_compute_environments.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#describe_compute_environments)
+        """
+
+    async def describe_consumable_resource(
+        self, **kwargs: Unpack[DescribeConsumableResourceRequestTypeDef]
+    ) -> DescribeConsumableResourceResponseTypeDef:
+        """
+        Returns a description of the specified consumable resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/describe_consumable_resource.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#describe_consumable_resource)
         """
 
     async def describe_job_definitions(
@@ -274,12 +317,32 @@ class BatchClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#get_job_queue_snapshot)
         """
 
+    async def list_consumable_resources(
+        self, **kwargs: Unpack[ListConsumableResourcesRequestTypeDef]
+    ) -> ListConsumableResourcesResponseTypeDef:
+        """
+        Returns a list of Batch consumable resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/list_consumable_resources.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#list_consumable_resources)
+        """
+
     async def list_jobs(self, **kwargs: Unpack[ListJobsRequestTypeDef]) -> ListJobsResponseTypeDef:
         """
         Returns a list of Batch jobs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/list_jobs.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#list_jobs)
+        """
+
+    async def list_jobs_by_consumable_resource(
+        self, **kwargs: Unpack[ListJobsByConsumableResourceRequestTypeDef]
+    ) -> ListJobsByConsumableResourceResponseTypeDef:
+        """
+        Returns a list of Batch jobs that require a specific consumable resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/list_jobs_by_consumable_resource.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#list_jobs_by_consumable_resource)
         """
 
     async def list_scheduling_policies(
@@ -357,6 +420,16 @@ class BatchClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#update_compute_environment)
         """
 
+    async def update_consumable_resource(
+        self, **kwargs: Unpack[UpdateConsumableResourceRequestTypeDef]
+    ) -> UpdateConsumableResourceResponseTypeDef:
+        """
+        Updates a consumable resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/update_consumable_resource.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#update_consumable_resource)
+        """
+
     async def update_job_queue(
         self, **kwargs: Unpack[UpdateJobQueueRequestTypeDef]
     ) -> UpdateJobQueueResponseTypeDef:
@@ -403,6 +476,28 @@ class BatchClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_job_queues"]
     ) -> DescribeJobQueuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_consumable_resources"]
+    ) -> ListConsumableResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_jobs_by_consumable_resource"]
+    ) -> ListJobsByConsumableResourcePaginator:
         """
         Create a paginator for an operation.
 

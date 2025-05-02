@@ -1,7 +1,7 @@
 r'''
 # `aws_ce_cost_allocation_tag`
 
-Refer to the Terraform Registry for docs: [`aws_ce_cost_allocation_tag`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag).
+Refer to the Terraform Registry for docs: [`aws_ce_cost_allocation_tag`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CeCostAllocationTag(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ceCostAllocationTag.CeCostAllocationTag",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag aws_ce_cost_allocation_tag}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag aws_ce_cost_allocation_tag}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class CeCostAllocationTag(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag aws_ce_cost_allocation_tag} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag aws_ce_cost_allocation_tag} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#status CeCostAllocationTag#status}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#tag_key CeCostAllocationTag#tag_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#id CeCostAllocationTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#status CeCostAllocationTag#status}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#tag_key CeCostAllocationTag#tag_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#id CeCostAllocationTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class CeCostAllocationTag(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CeCostAllocationTag to import.
-        :param import_from_id: The id of the existing CeCostAllocationTag that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CeCostAllocationTag that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CeCostAllocationTag to import is found.
         '''
         if __debug__:
@@ -233,9 +233,9 @@ class CeCostAllocationTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#status CeCostAllocationTag#status}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#tag_key CeCostAllocationTag#tag_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#id CeCostAllocationTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#status CeCostAllocationTag#status}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#tag_key CeCostAllocationTag#tag_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#id CeCostAllocationTag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -338,21 +338,21 @@ class CeCostAllocationTagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#status CeCostAllocationTag#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#status CeCostAllocationTag#status}.'''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#tag_key CeCostAllocationTag#tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#tag_key CeCostAllocationTag#tag_key}.'''
         result = self._values.get("tag_key")
         assert result is not None, "Required property 'tag_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_allocation_tag#id CeCostAllocationTag#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_allocation_tag#id CeCostAllocationTag#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

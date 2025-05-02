@@ -1,0 +1,42 @@
+[project]
+name = "pywry"
+version = "0.6.2"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+]
+
+dependencies = ["setproctitle"]
+
+[build-system]
+requires = ["setuptools>=58.0.0", "wheel", "maturin", "toml"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+module-name = "pywry"
+include = ['Cargo.toml', 'src/**/*', "build.rs"]
+
+
+[project.optional-dependencies]
+dev = ["auditwheel", "wheel"]
+
+
+[tool.ruff]
+line-length = 122
+target-version = "py38"
+
+[tool.ruff.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.pylint]
+max-args = 8
+max-branches = 25
+max-returns = 9
+max-statements = 30

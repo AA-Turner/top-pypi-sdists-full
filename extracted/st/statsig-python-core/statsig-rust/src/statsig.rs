@@ -732,7 +732,7 @@ impl Statsig {
     }
 
     pub fn get_client_init_response_as_string(&self, user: &StatsigUser) -> String {
-        json!(self.get_client_init_response(user)).to_string()
+        serde_json::to_string(&self.get_client_init_response(user)).unwrap_or_default()
     }
 
     pub fn get_client_init_response_with_options_as_string(
@@ -742,7 +742,7 @@ impl Statsig {
     ) -> String {
         let user_internal = self.internalize_user(user);
         let response = match options.response_format {
-            Some(GCIRResponseFormat::Evaluations) => {
+            Some(GCIRResponseFormat::InitializeWithSecondaryExposureMapping) => {
                 json!(self
                     .gcir_formatter
                     .get_as_v2_format(user_internal, &self.hashing, options))

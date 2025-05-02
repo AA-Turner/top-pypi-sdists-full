@@ -219,6 +219,9 @@ class _MlflowWebhookState:
 
 
 class MlflowWebhook(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/mlflowWebhook:MlflowWebhook"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -232,6 +235,8 @@ class MlflowWebhook(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to create [MLflow Model Registry Webhooks](https://docs.databricks.com/applications/mlflow/model-registry-webhooks.html) in Databricks.  Webhooks enable you to listen for Model Registry events so your integrations can automatically trigger actions. You can use webhooks to automate and integrate your machine learning pipeline with existing CI/CD tools and workflows. Webhooks allow trigger execution of a Databricks job or call a web service on specific event(s) that is generated in the MLflow Registry - stage transitioning, creation of registered model, creation of transition request, etc.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -332,6 +337,8 @@ class MlflowWebhook(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to create [MLflow Model Registry Webhooks](https://docs.databricks.com/applications/mlflow/model-registry-webhooks.html) in Databricks.  Webhooks enable you to listen for Model Registry events so your integrations can automatically trigger actions. You can use webhooks to automate and integrate your machine learning pipeline with existing CI/CD tools and workflows. Webhooks allow trigger execution of a Databricks job or call a web service on specific event(s) that is generated in the MLflow Registry - stage transitioning, creation of registered model, creation of transition request, etc.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

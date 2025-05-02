@@ -44,6 +44,8 @@ __all__ = (
     "JobStateTimeLimitActionsActionType",
     "JobStateTimeLimitActionsStateType",
     "JobStatusType",
+    "ListConsumableResourcesPaginatorName",
+    "ListJobsByConsumableResourcePaginatorName",
     "ListJobsPaginatorName",
     "ListSchedulingPoliciesPaginatorName",
     "LogDriverType",
@@ -84,6 +86,8 @@ JobStateTimeLimitActionsStateType = Literal["RUNNABLE"]
 JobStatusType = Literal[
     "FAILED", "PENDING", "RUNNABLE", "RUNNING", "STARTING", "SUBMITTED", "SUCCEEDED"
 ]
+ListConsumableResourcesPaginatorName = Literal["list_consumable_resources"]
+ListJobsByConsumableResourcePaginatorName = Literal["list_jobs_by_consumable_resource"]
 ListJobsPaginatorName = Literal["list_jobs"]
 ListSchedulingPoliciesPaginatorName = Literal["list_scheduling_policies"]
 LogDriverType = Literal["awslogs", "fluentd", "gelf", "journald", "json-file", "splunk", "syslog"]
@@ -512,7 +516,9 @@ PaginatorName = Literal[
     "describe_compute_environments",
     "describe_job_definitions",
     "describe_job_queues",
+    "list_consumable_resources",
     "list_jobs",
+    "list_jobs_by_consumable_resource",
     "list_scheduling_policies",
 ]
 RegionName = Literal[

@@ -57,7 +57,7 @@ def disable_tqdm():
         from tqdm import tqdm
 
         _init = tqdm.__init__
-        tqdm.__init__ = functools.partialmethod(tqdm.__init__, disable=True)
+        tqdm.__init__ = functools.partialmethod(tqdm.__init__, disable=True)  # type: ignore
         yield
     except ImportError:
         yield
@@ -75,7 +75,7 @@ def disable_stdout():
 
 class DuplicateLogFilter:
     def __init__(self, max_count: int = 1):
-        self.messages = Counter()
+        self.messages: Counter[str] = Counter()
         self.max_count = max_count
 
     def filter(self, record):

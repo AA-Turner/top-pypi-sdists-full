@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uv-dynamic-versioning
-Version: 0.8.1
+Version: 0.8.2
 Summary: Dynamic versioning based on VCS tags for uv/hatch project
 Project-URL: Repository, https://github.com/ninoseki/uv-dynamic-versioning/
 Project-URL: Homepage, https://github.com/ninoseki/uv-dynamic-versioning/
@@ -40,7 +40,6 @@ Requires-Dist: eval-type-backport~=0.2; python_version < '3.10'
 Requires-Dist: hatchling~=1.26
 Requires-Dist: jinja2~=3.0
 Requires-Dist: pydantic~=2.10
-Requires-Dist: returns~=0.23
 Requires-Dist: tomlkit~=0.13
 Description-Content-Type: text/markdown
 

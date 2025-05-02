@@ -260,6 +260,9 @@ class _MlflowExperimentState:
 
 
 class MlflowExperiment(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/mlflowExperiment:MlflowExperiment"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -275,6 +278,8 @@ class MlflowExperiment(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage [MLflow experiments](https://docs.databricks.com/data/data-sources/mlflow-experiment.html) in Databricks.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -338,6 +343,8 @@ class MlflowExperiment(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage [MLflow experiments](https://docs.databricks.com/data/data-sources/mlflow-experiment.html) in Databricks.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

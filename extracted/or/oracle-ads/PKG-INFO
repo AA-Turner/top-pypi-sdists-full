@@ -1,0 +1,379 @@
+Metadata-Version: 2.4
+Name: oracle_ads
+Version: 2.13.8
+Summary: Oracle Accelerated Data Science SDK
+Keywords: Oracle Cloud Infrastructure,OCI,Machine Learning,ML,Artificial Intelligence,AI,Data Science,Cloud,Oracle
+Author: Oracle Data Science
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Universal Permissive License (UPL)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE.txt
+Requires-Dist: PyYAML>=6
+Requires-Dist: asteval>=0.9.25
+Requires-Dist: cerberus>=1.3.4
+Requires-Dist: cloudpickle>=1.6.0
+Requires-Dist: fsspec>=0.8.7
+Requires-Dist: gitpython>=3.1.2
+Requires-Dist: jinja2>=2.11.2
+Requires-Dist: matplotlib>=3.1.3,<=3.8.4
+Requires-Dist: numpy>=1.19.2,<2.0.0
+Requires-Dist: oci>=2.148.0
+Requires-Dist: ocifs>=1.1.3
+Requires-Dist: pandas>=2.2.0
+Requires-Dist: psutil>=5.7.2
+Requires-Dist: python_jsonschema_objects>=0.3.13
+Requires-Dist: requests
+Requires-Dist: scikit-learn>=1.0,<1.6.0
+Requires-Dist: tabulate>=0.8.9
+Requires-Dist: tqdm>=4.59.0
+Requires-Dist: pydantic>=2.6.3
+Requires-Dist: tenacity
+Requires-Dist: httpx
+Requires-Dist: oracle_ads[opctl] ; extra == "anomaly"
+Requires-Dist: autots ; extra == "anomaly"
+Requires-Dist: oracledb ; extra == "anomaly"
+Requires-Dist: report-creator==1.0.37 ; extra == "anomaly"
+Requires-Dist: rrcf==0.4.4 ; extra == "anomaly"
+Requires-Dist: scikit-learn<1.6.0 ; extra == "anomaly"
+Requires-Dist: salesforce-merlion[all]==2.0.4 ; extra == "anomaly"
+Requires-Dist: jupyter_server ; extra == "aqua"
+Requires-Dist: tornado ; extra == "aqua"
+Requires-Dist: notebook>=6.4,<=6.6 ; extra == "aqua"
+Requires-Dist: fire ; extra == "aqua"
+Requires-Dist: cachetools ; extra == "aqua"
+Requires-Dist: huggingface_hub ; extra == "aqua"
+Requires-Dist: python-dotenv ; extra == "aqua"
+Requires-Dist: hdfs[kerberos] ; extra == "bds"
+Requires-Dist: ibis-framework[impala] ; extra == "bds"
+Requires-Dist: sqlalchemy ; extra == "bds"
+Requires-Dist: lightgbm ; extra == "boosted"
+Requires-Dist: xgboost ; extra == "boosted"
+Requires-Dist: datefinder>=0.7.1 ; extra == "data"
+Requires-Dist: fastavro>=0.24.2 ; extra == "data"
+Requires-Dist: htmllistparse>=0.6.0 ; extra == "data"
+Requires-Dist: openpyxl>=3.0.7 ; extra == "data"
+Requires-Dist: oracledb>=1.0 ; extra == "data"
+Requires-Dist: pandavro>=1.6.0 ; extra == "data"
+Requires-Dist: sqlalchemy>=1.4.1,<=1.4.46 ; extra == "data"
+Requires-Dist: oracle-ads[opctl] ; extra == "feature-store-marketplace"
+Requires-Dist: kubernetes ; extra == "feature-store-marketplace"
+Requires-Dist: conda-pack ; extra == "forecast"
+Requires-Dist: inflection ; extra == "forecast"
+Requires-Dist: nbconvert ; extra == "forecast"
+Requires-Dist: nbformat ; extra == "forecast"
+Requires-Dist: oci-cli ; extra == "forecast"
+Requires-Dist: py-cpuinfo ; extra == "forecast"
+Requires-Dist: rich ; extra == "forecast"
+Requires-Dist: autots ; extra == "forecast"
+Requires-Dist: mlforecast ; extra == "forecast"
+Requires-Dist: neuralprophet>=0.7.0 ; extra == "forecast"
+Requires-Dist: numpy<2.0.0 ; extra == "forecast"
+Requires-Dist: oci-cli ; extra == "forecast"
+Requires-Dist: optuna ; extra == "forecast"
+Requires-Dist: pmdarima ; extra == "forecast"
+Requires-Dist: prophet ; extra == "forecast"
+Requires-Dist: shap ; extra == "forecast"
+Requires-Dist: sktime ; extra == "forecast"
+Requires-Dist: statsmodels ; extra == "forecast"
+Requires-Dist: plotly ; extra == "forecast"
+Requires-Dist: oracledb ; extra == "forecast"
+Requires-Dist: report-creator==1.0.37 ; extra == "forecast"
+Requires-Dist: geopandas<1.0.0 ; extra == "geo"
+Requires-Dist: fiona<=1.9.6 ; extra == "geo"
+Requires-Dist: oracle_ads[viz] ; extra == "geo"
+Requires-Dist: transformers ; extra == "huggingface"
+Requires-Dist: tf-keras ; extra == "huggingface"
+Requires-Dist: langchain>=0.2 ; extra == "llm"
+Requires-Dist: langchain-community ; extra == "llm"
+Requires-Dist: langchain_openai ; extra == "llm"
+Requires-Dist: pydantic>=2,<3 ; extra == "llm"
+Requires-Dist: evaluate>=0.4.0 ; extra == "llm"
+Requires-Dist: ipython>=7.23.1, <8.0 ; extra == "notebook"
+Requires-Dist: ipywidgets~=7.6.3 ; extra == "notebook"
+Requires-Dist: lightgbm ; extra == "onnx"
+Requires-Dist: onnx>=1.12.0,<=1.15.0 ; extra == "onnx" and ( python_version < '3.12')
+Requires-Dist: onnx>=1.12.0 ; extra == "onnx" and ( python_version >= '3.12')
+Requires-Dist: onnxmltools>=1.10.0 ; extra == "onnx"
+Requires-Dist: onnxruntime~=1.17.0,!=1.16.0 ; extra == "onnx" and ( python_version < '3.12')
+Requires-Dist: onnxruntime ; extra == "onnx" and ( python_version >= '3.12')
+Requires-Dist: oracle_ads[viz] ; extra == "onnx"
+Requires-Dist: protobuf ; extra == "onnx"
+Requires-Dist: skl2onnx>=1.10.4 ; extra == "onnx"
+Requires-Dist: tf2onnx ; extra == "onnx"
+Requires-Dist: xgboost<=1.7 ; extra == "onnx"
+Requires-Dist: conda-pack ; extra == "opctl"
+Requires-Dist: docker ; extra == "opctl"
+Requires-Dist: inflection ; extra == "opctl"
+Requires-Dist: nbconvert ; extra == "opctl"
+Requires-Dist: nbformat ; extra == "opctl"
+Requires-Dist: oci-cli ; extra == "opctl"
+Requires-Dist: py-cpuinfo ; extra == "opctl"
+Requires-Dist: rich ; extra == "opctl"
+Requires-Dist: fire ; extra == "opctl"
+Requires-Dist: cachetools ; extra == "opctl"
+Requires-Dist: huggingface_hub==0.26.2 ; extra == "opctl"
+Requires-Dist: optuna==2.9.0 ; extra == "optuna"
+Requires-Dist: oracle_ads[viz] ; extra == "optuna"
+Requires-Dist: aiohttp ; extra == "pii"
+Requires-Dist: gender_guesser ; extra == "pii"
+Requires-Dist: nameparser ; extra == "pii"
+Requires-Dist: oracle_ads[opctl] ; extra == "pii"
+Requires-Dist: plotly ; extra == "pii"
+Requires-Dist: scrubadub==2.0.1 ; extra == "pii"
+Requires-Dist: scrubadub_spacy ; extra == "pii"
+Requires-Dist: spacy-transformers==1.2.5 ; extra == "pii"
+Requires-Dist: spacy==3.6.1 ; extra == "pii"
+Requires-Dist: report-creator>=1.0.37 ; extra == "pii"
+Requires-Dist: oracle_ads[opctl] ; extra == "recommender"
+Requires-Dist: scikit-surprise ; extra == "recommender"
+Requires-Dist: plotly ; extra == "recommender"
+Requires-Dist: report-creator==1.0.37 ; extra == "recommender"
+Requires-Dist: pyspark>=3.0.0 ; extra == "spark"
+Requires-Dist: oracle_ads[viz] ; extra == "tensorflow"
+Requires-Dist: tensorflow<=2.15.1 ; extra == "tensorflow" and ( python_version < '3.12')
+Requires-Dist: tensorflow ; extra == "tensorflow" and ( python_version >= '3.12')
+Requires-Dist: arff ; extra == "testsuite"
+Requires-Dist: autogen-agentchat<0.4 ; extra == "testsuite"
+Requires-Dist: category_encoders==2.6.3 ; extra == "testsuite"
+Requires-Dist: cohere==4.53 ; extra == "testsuite"
+Requires-Dist: faiss-cpu ; extra == "testsuite"
+Requires-Dist: fastparquet==2024.2.0 ; extra == "testsuite"
+Requires-Dist: imbalanced-learn ; extra == "testsuite"
+Requires-Dist: lxml ; extra == "testsuite"
+Requires-Dist: mysql-connector-python ; extra == "testsuite"
+Requires-Dist: nltk ; extra == "testsuite"
+Requires-Dist: notebook==6.4.12 ; extra == "testsuite"
+Requires-Dist: opensearch-py ; extra == "testsuite"
+Requires-Dist: pdfplumber ; extra == "testsuite"
+Requires-Dist: py4j ; extra == "testsuite"
+Requires-Dist: pyarrow>=15.0.0 ; extra == "testsuite"
+Requires-Dist: statsmodels>=0.14.1 ; extra == "testsuite"
+Requires-Dist: tables>3.9.0 ; extra == "testsuite"
+Requires-Dist: xlrd>=1.2.0 ; extra == "testsuite"
+Requires-Dist: spacy>=3.4.2,<3.8 ; extra == "text"
+Requires-Dist: wordcloud>=1.8.1 ; extra == "text"
+Requires-Dist: oracle_ads[viz] ; extra == "torch"
+Requires-Dist: torch ; extra == "torch"
+Requires-Dist: torchvision ; extra == "torch"
+Requires-Dist: bokeh ; extra == "viz"
+Requires-Dist: folium>=0.12.1 ; extra == "viz"
+Requires-Dist: graphviz<0.17 ; extra == "viz"
+Requires-Dist: scipy>=1.5.4 ; extra == "viz"
+Requires-Dist: seaborn>=0.11.0 ; extra == "viz"
+Project-URL: Documentation, https://accelerated-data-science.readthedocs.io/en/latest/index.html
+Project-URL: Github, https://github.com/oracle/accelerated-data-science
+Provides-Extra: anomaly
+Provides-Extra: aqua
+Provides-Extra: bds
+Provides-Extra: boosted
+Provides-Extra: data
+Provides-Extra: feature-store-marketplace
+Provides-Extra: forecast
+Provides-Extra: geo
+Provides-Extra: huggingface
+Provides-Extra: llm
+Provides-Extra: notebook
+Provides-Extra: onnx
+Provides-Extra: opctl
+Provides-Extra: optuna
+Provides-Extra: pii
+Provides-Extra: recommender
+Provides-Extra: spark
+Provides-Extra: tensorflow
+Provides-Extra: testsuite
+Provides-Extra: text
+Provides-Extra: torch
+Provides-Extra: viz
+
+# Oracle Accelerated Data Science (ADS)
+
+[![PyPI](https://img.shields.io/pypi/v/oracle-ads.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ads/) [![Python](https://img.shields.io/pypi/pyversions/oracle-ads.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/oracle-ads/) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://github.com/ambv/black)
+
+
+The [Oracle Accelerated Data Science (ADS) SDK](https://accelerated-data-science.readthedocs.io/en/latest/index.html) is maintained by the Oracle Cloud Infrastructure (OCI) [Data Science service](https://docs.oracle.com/en-us/iaas/data-science/using/data-science.htm) team. It speeds up common data science activities by providing tools that automate and simplify common data science tasks. Additionally, provides data scientists a friendly pythonic interface to OCI services. Some of the more notable services are OCI Data Science, Model Catalog, Model Deployment, Jobs, ML Pipelines, Data Flow, Object Storage, Vault, Big Data Service, Data Catalog, and the Autonomous Database. ADS gives you an interface to manage the life cycle of machine learning models, from data acquisition to model evaluation, interpretation, and model deployment.
+
+With ADS you can:
+
+- Read datasets from Oracle Object Storage, Oracle RDBMS (ATP/ADW/On-prem), AWS S3 and other sources into `Pandas dataframes`.
+- Tune models using hyperparameter optimization with the `ADSTuner` tool.
+- Generate detailed evaluation reports of your model candidates with the `ADSEvaluator` module.
+- Save machine learning models to the [OCI Data Science Model Catalog](https://docs.oracle.com/en-us/iaas/data-science/using/models-about.htm).
+- Deploy models as HTTP endpoints with [Model Deployment](https://docs.oracle.com/en-us/iaas/data-science/using/model-dep-about.htm).
+- Launch distributed ETL, data processing, and model training jobs in Spark with [OCI Data Flow](https://docs.oracle.com/en-us/iaas/data-flow/using/home.htm).
+- Train machine learning models in OCI Data Science [Jobs](https://docs.oracle.com/en-us/iaas/data-science/using/jobs-about.htm).
+- Define and run an end-to-end machine learning orchestration covering all the steps of machine learning lifecycle in a repeatable, continuous [ML Pipelines](https://accelerated-data-science.readthedocs.io/en/latest/user_guide/pipeline/overview.html#).
+- Manage the life cycle of conda environments through the `ads conda` command line interface (CLI).
+
+## Installation
+
+You have various options when installing ADS.
+
+### Installing the oracle-ads base package
+
+```bash
+  python3 -m pip install oracle-ads
+```
+
+### Installing OCI AI Operators
+
+To use the AI Forecast Operator, install the "forecast" dependencies using the following command:
+
+```bash
+  python3 -m pip install 'oracle_ads[forecast]>=2.9.0'
+```
+
+### Installing extras libraries
+
+To work with gradient boosting models, install the `boosted` module. This module includes XGBoost and LightGBM model classes.
+
+```bash
+  python3 -m pip install 'oracle-ads[boosted]'
+```
+
+For big data use cases using Oracle Big Data Service (BDS), install the `bds` module. It includes the following libraries, `ibis-framework[impala]`, `hdfs[kerberos]` and `sqlalchemy`.
+
+```bash
+  python3 -m pip install 'oracle-ads[bds]'
+```
+
+To work with a broad set of data formats (for example, Excel, Avro, etc.) install the `data` module. It includes the `fastavro`, `openpyxl`, `pandavro`, `asteval`, `datefinder`, `htmllistparse`, and `sqlalchemy` libraries.
+
+```bash
+  python3 -m pip install 'oracle-ads[data]'
+```
+
+To work with geospatial data install the `geo` module. It includes the `geopandas` and libraries from the `viz` module.
+
+```bash
+  python3 -m pip install 'oracle-ads[geo]'
+```
+
+Install the `notebook` module to use ADS within a OCI Data Science service [notebook session](https://docs.oracle.com/en-us/iaas/data-science/using/manage-notebook-sessions.htm). This module installs `ipywidgets` and `ipython` libraries.
+
+```bash
+  python3 -m pip install 'oracle-ads[notebook]'
+```
+
+To work with ONNX-compatible run times and libraries designed to maximize performance and model portability, install the `onnx` module. It includes the following libraries, `onnx`, `onnxruntime`, `onnxmltools`, `skl2onnx`, `xgboost`, `lightgbm` and libraries from the `viz` module.
+
+```bash
+  python3 -m pip install 'oracle-ads[onnx]'
+```
+
+For infrastructure tasks, install the `opctl` module. It includes the following libraries, `oci-cli`, `docker`, `conda-pack`, `nbconvert`, `nbformat`, and `inflection`.
+
+```bash
+  python3 -m pip install 'oracle-ads[opctl]'
+```
+
+For hyperparameter optimization tasks install the `optuna` module. It includes the `optuna` and libraries from the `viz` module.
+
+```bash
+  python3 -m pip install 'oracle-ads[optuna]'
+```
+
+Install the `tensorflow` module to include `tensorflow` and libraries from the `viz` module.
+
+```bash
+  python3 -m pip install 'oracle-ads[tensorflow]'
+```
+
+For text related tasks, install the `text` module. This will include the `wordcloud`, `spacy` libraries.
+
+```bash
+  python3 -m pip install 'oracle-ads[text]'
+```
+
+Install the `torch` module to include `pytorch` and libraries from the `viz` module.
+
+```bash
+  python3 -m pip install 'oracle-ads[torch]'
+```
+
+Install the `viz` module to include libraries for visualization tasks. Some of the key packages are `bokeh`, `folium`, `seaborn` and related packages.
+
+```bash
+  python3 -m pip install 'oracle-ads[viz]'
+```
+
+See `pyproject.toml` file `[project.optional-dependencies]` section for full list of modules and its list of extra libraries.
+
+**Note**
+
+Multiple extra dependencies can be installed together. For example:
+
+```bash
+  python3 -m pip install  'oracle-ads[notebook,viz,text]'
+```
+
+## Documentation
+
+  - [Oracle Accelerated Data Science SDK (ADS) Documentation](https://accelerated-data-science.readthedocs.io/en/latest/index.html)
+  - [OCI Data Science and AI services Examples](https://github.com/oracle/oci-data-science-ai-samples)
+  - [Oracle AI & Data Science Blog](https://blogs.oracle.com/ai-and-datascience/)
+  - [OCI Documentation](https://docs.oracle.com/en-us/iaas/data-science/using/data-science.htm)
+
+## Examples
+
+### Load data from Object Storage
+
+```python
+  import ads
+  from ads.common.auth import default_signer
+  import oci
+  import pandas as pd
+
+  ads.set_auth(auth="api_key", oci_config_location=oci.config.DEFAULT_LOCATION, profile="DEFAULT")
+  bucket_name = <bucket_name>
+  key = <key>
+  namespace = <namespace>
+  df = pd.read_csv(f"oci://{bucket_name}@{namespace}/{key}", storage_options=default_signer())
+```
+
+### Load data from ADB
+
+This example uses SQL injection safe binding variables.
+
+```python
+  import ads
+  import pandas as pd
+
+  connection_parameters = {
+      "user_name": "<user_name>",
+      "password": "<password>",
+      "service_name": "<tns_name>",
+      "wallet_location": "<file_path>",
+  }
+
+  df = pd.DataFrame.ads.read_sql(
+      """
+      SELECT *
+      FROM SH.SALES
+      WHERE ROWNUM <= :max_rows
+      """,
+      bind_variables={ max_rows : 100 },
+      connection_parameters=connection_parameters,
+  )
+```
+
+## Contributing
+
+This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md)
+
+Find Getting Started instructions for developers in [README-development.md](https://github.com/oracle/accelerated-data-science/blob/main/README-development.md)
+
+## Security
+
+Consult the security guide [SECURITY.md](https://github.com/oracle/accelerated-data-science/blob/main/SECURITY.md) for our responsible security vulnerability disclosure process.
+
+## License
+
+Copyright (c) 2020, 2024 Oracle and/or its affiliates. Licensed under the [Universal Permissive License v1.0](https://oss.oracle.com/licenses/upl/)
+

@@ -1,7 +1,7 @@
 r'''
 # `data_aws_emr_release_labels`
 
-Refer to the Terraform Registry for docs: [`data_aws_emr_release_labels`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels).
+Refer to the Terraform Registry for docs: [`data_aws_emr_release_labels`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEmrReleaseLabels(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEmrReleaseLabels.DataAwsEmrReleaseLabels",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels aws_emr_release_labels}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels aws_emr_release_labels}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataAwsEmrReleaseLabels(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels aws_emr_release_labels} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels aws_emr_release_labels} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#filters DataAwsEmrReleaseLabels#filters}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#id DataAwsEmrReleaseLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#filters DataAwsEmrReleaseLabels#filters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#id DataAwsEmrReleaseLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataAwsEmrReleaseLabels(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEmrReleaseLabels to import.
-        :param import_from_id: The id of the existing DataAwsEmrReleaseLabels that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEmrReleaseLabels that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEmrReleaseLabels to import is found.
         '''
         if __debug__:
@@ -125,8 +125,8 @@ class DataAwsEmrReleaseLabels(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#application DataAwsEmrReleaseLabels#application}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#prefix DataAwsEmrReleaseLabels#prefix}.
+        :param application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#application DataAwsEmrReleaseLabels#application}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#prefix DataAwsEmrReleaseLabels#prefix}.
         '''
         value = DataAwsEmrReleaseLabelsFilters(application=application, prefix=prefix)
 
@@ -223,8 +223,8 @@ class DataAwsEmrReleaseLabelsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#filters DataAwsEmrReleaseLabels#filters}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#id DataAwsEmrReleaseLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#filters DataAwsEmrReleaseLabels#filters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#id DataAwsEmrReleaseLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -329,14 +329,14 @@ class DataAwsEmrReleaseLabelsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filters(self) -> typing.Optional["DataAwsEmrReleaseLabelsFilters"]:
         '''filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#filters DataAwsEmrReleaseLabels#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#filters DataAwsEmrReleaseLabels#filters}
         '''
         result = self._values.get("filters")
         return typing.cast(typing.Optional["DataAwsEmrReleaseLabelsFilters"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#id DataAwsEmrReleaseLabels#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#id DataAwsEmrReleaseLabels#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -369,8 +369,8 @@ class DataAwsEmrReleaseLabelsFilters:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#application DataAwsEmrReleaseLabels#application}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#prefix DataAwsEmrReleaseLabels#prefix}.
+        :param application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#application DataAwsEmrReleaseLabels#application}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#prefix DataAwsEmrReleaseLabels#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f77ae7cee9da6b9c98c0cd0fe2d2543a4db0fb45b12ea165bf987216a5829d1e)
@@ -384,13 +384,13 @@ class DataAwsEmrReleaseLabelsFilters:
 
     @builtins.property
     def application(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#application DataAwsEmrReleaseLabels#application}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#application DataAwsEmrReleaseLabels#application}.'''
         result = self._values.get("application")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/emr_release_labels#prefix DataAwsEmrReleaseLabels#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/emr_release_labels#prefix DataAwsEmrReleaseLabels#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 

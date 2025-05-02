@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_workteam`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_workteam`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_workteam`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerWorkteam(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerWorkteam.SagemakerWorkteam",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam aws_sagemaker_workteam}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam aws_sagemaker_workteam}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class SagemakerWorkteam(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam aws_sagemaker_workteam} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam aws_sagemaker_workteam} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#description SagemakerWorkteam#description}.
-        :param member_definition: member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#member_definition SagemakerWorkteam#member_definition}
-        :param workteam_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#workteam_name SagemakerWorkteam#workteam_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#id SagemakerWorkteam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification_configuration: notification_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#notification_configuration SagemakerWorkteam#notification_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#tags SagemakerWorkteam#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#tags_all SagemakerWorkteam#tags_all}.
-        :param worker_access_configuration: worker_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#worker_access_configuration SagemakerWorkteam#worker_access_configuration}
-        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#workforce_name SagemakerWorkteam#workforce_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#description SagemakerWorkteam#description}.
+        :param member_definition: member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#member_definition SagemakerWorkteam#member_definition}
+        :param workteam_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#workteam_name SagemakerWorkteam#workteam_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#id SagemakerWorkteam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification_configuration: notification_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#notification_configuration SagemakerWorkteam#notification_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#tags SagemakerWorkteam#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#tags_all SagemakerWorkteam#tags_all}.
+        :param worker_access_configuration: worker_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#worker_access_configuration SagemakerWorkteam#worker_access_configuration}
+        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#workforce_name SagemakerWorkteam#workforce_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class SagemakerWorkteam(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerWorkteam to import.
-        :param import_from_id: The id of the existing SagemakerWorkteam that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerWorkteam that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerWorkteam to import is found.
         '''
         if __debug__:
@@ -158,7 +158,7 @@ class SagemakerWorkteam(
         notification_topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param notification_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#notification_topic_arn SagemakerWorkteam#notification_topic_arn}.
+        :param notification_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#notification_topic_arn SagemakerWorkteam#notification_topic_arn}.
         '''
         value = SagemakerWorkteamNotificationConfiguration(
             notification_topic_arn=notification_topic_arn
@@ -173,7 +173,7 @@ class SagemakerWorkteam(
         s3_presign: typing.Optional[typing.Union["SagemakerWorkteamWorkerAccessConfigurationS3Presign", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_presign: s3_presign block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#s3_presign SagemakerWorkteam#s3_presign}
+        :param s3_presign: s3_presign block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#s3_presign SagemakerWorkteam#s3_presign}
         '''
         value = SagemakerWorkteamWorkerAccessConfiguration(s3_presign=s3_presign)
 
@@ -422,15 +422,15 @@ class SagemakerWorkteamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#description SagemakerWorkteam#description}.
-        :param member_definition: member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#member_definition SagemakerWorkteam#member_definition}
-        :param workteam_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#workteam_name SagemakerWorkteam#workteam_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#id SagemakerWorkteam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification_configuration: notification_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#notification_configuration SagemakerWorkteam#notification_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#tags SagemakerWorkteam#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#tags_all SagemakerWorkteam#tags_all}.
-        :param worker_access_configuration: worker_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#worker_access_configuration SagemakerWorkteam#worker_access_configuration}
-        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#workforce_name SagemakerWorkteam#workforce_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#description SagemakerWorkteam#description}.
+        :param member_definition: member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#member_definition SagemakerWorkteam#member_definition}
+        :param workteam_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#workteam_name SagemakerWorkteam#workteam_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#id SagemakerWorkteam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification_configuration: notification_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#notification_configuration SagemakerWorkteam#notification_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#tags SagemakerWorkteam#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#tags_all SagemakerWorkteam#tags_all}.
+        :param worker_access_configuration: worker_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#worker_access_configuration SagemakerWorkteam#worker_access_configuration}
+        :param workforce_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#workforce_name SagemakerWorkteam#workforce_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -554,7 +554,7 @@ class SagemakerWorkteamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#description SagemakerWorkteam#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#description SagemakerWorkteam#description}.'''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
@@ -565,7 +565,7 @@ class SagemakerWorkteamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerWorkteamMemberDefinition"]]:
         '''member_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#member_definition SagemakerWorkteam#member_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#member_definition SagemakerWorkteam#member_definition}
         '''
         result = self._values.get("member_definition")
         assert result is not None, "Required property 'member_definition' is missing"
@@ -573,14 +573,14 @@ class SagemakerWorkteamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def workteam_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#workteam_name SagemakerWorkteam#workteam_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#workteam_name SagemakerWorkteam#workteam_name}.'''
         result = self._values.get("workteam_name")
         assert result is not None, "Required property 'workteam_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#id SagemakerWorkteam#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#id SagemakerWorkteam#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -594,20 +594,20 @@ class SagemakerWorkteamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerWorkteamNotificationConfiguration"]:
         '''notification_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#notification_configuration SagemakerWorkteam#notification_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#notification_configuration SagemakerWorkteam#notification_configuration}
         '''
         result = self._values.get("notification_configuration")
         return typing.cast(typing.Optional["SagemakerWorkteamNotificationConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#tags SagemakerWorkteam#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#tags SagemakerWorkteam#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#tags_all SagemakerWorkteam#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#tags_all SagemakerWorkteam#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -617,14 +617,14 @@ class SagemakerWorkteamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerWorkteamWorkerAccessConfiguration"]:
         '''worker_access_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#worker_access_configuration SagemakerWorkteam#worker_access_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#worker_access_configuration SagemakerWorkteam#worker_access_configuration}
         '''
         result = self._values.get("worker_access_configuration")
         return typing.cast(typing.Optional["SagemakerWorkteamWorkerAccessConfiguration"], result)
 
     @builtins.property
     def workforce_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#workforce_name SagemakerWorkteam#workforce_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#workforce_name SagemakerWorkteam#workforce_name}.'''
         result = self._values.get("workforce_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -656,8 +656,8 @@ class SagemakerWorkteamMemberDefinition:
         oidc_member_definition: typing.Optional[typing.Union["SagemakerWorkteamMemberDefinitionOidcMemberDefinition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cognito_member_definition: cognito_member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#cognito_member_definition SagemakerWorkteam#cognito_member_definition}
-        :param oidc_member_definition: oidc_member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#oidc_member_definition SagemakerWorkteam#oidc_member_definition}
+        :param cognito_member_definition: cognito_member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#cognito_member_definition SagemakerWorkteam#cognito_member_definition}
+        :param oidc_member_definition: oidc_member_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#oidc_member_definition SagemakerWorkteam#oidc_member_definition}
         '''
         if isinstance(cognito_member_definition, dict):
             cognito_member_definition = SagemakerWorkteamMemberDefinitionCognitoMemberDefinition(**cognito_member_definition)
@@ -679,7 +679,7 @@ class SagemakerWorkteamMemberDefinition:
     ) -> typing.Optional["SagemakerWorkteamMemberDefinitionCognitoMemberDefinition"]:
         '''cognito_member_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#cognito_member_definition SagemakerWorkteam#cognito_member_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#cognito_member_definition SagemakerWorkteam#cognito_member_definition}
         '''
         result = self._values.get("cognito_member_definition")
         return typing.cast(typing.Optional["SagemakerWorkteamMemberDefinitionCognitoMemberDefinition"], result)
@@ -690,7 +690,7 @@ class SagemakerWorkteamMemberDefinition:
     ) -> typing.Optional["SagemakerWorkteamMemberDefinitionOidcMemberDefinition"]:
         '''oidc_member_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#oidc_member_definition SagemakerWorkteam#oidc_member_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#oidc_member_definition SagemakerWorkteam#oidc_member_definition}
         '''
         result = self._values.get("oidc_member_definition")
         return typing.cast(typing.Optional["SagemakerWorkteamMemberDefinitionOidcMemberDefinition"], result)
@@ -725,9 +725,9 @@ class SagemakerWorkteamMemberDefinitionCognitoMemberDefinition:
         user_pool: builtins.str,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#client_id SagemakerWorkteam#client_id}.
-        :param user_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#user_group SagemakerWorkteam#user_group}.
-        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#user_pool SagemakerWorkteam#user_pool}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#client_id SagemakerWorkteam#client_id}.
+        :param user_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#user_group SagemakerWorkteam#user_group}.
+        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#user_pool SagemakerWorkteam#user_pool}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d98c03f56c945b7b2fed3d94f1dfdc2b428a0bdfb7e96ca626114a4bf9fbb3a)
@@ -742,21 +742,21 @@ class SagemakerWorkteamMemberDefinitionCognitoMemberDefinition:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#client_id SagemakerWorkteam#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#client_id SagemakerWorkteam#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#user_group SagemakerWorkteam#user_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#user_group SagemakerWorkteam#user_group}.'''
         result = self._values.get("user_group")
         assert result is not None, "Required property 'user_group' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pool(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#user_pool SagemakerWorkteam#user_pool}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#user_pool SagemakerWorkteam#user_pool}.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
         return typing.cast(builtins.str, result)
@@ -963,7 +963,7 @@ class SagemakerWorkteamMemberDefinitionList(
 class SagemakerWorkteamMemberDefinitionOidcMemberDefinition:
     def __init__(self, *, groups: typing.Sequence[builtins.str]) -> None:
         '''
-        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#groups SagemakerWorkteam#groups}.
+        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#groups SagemakerWorkteam#groups}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15f697760f4935780d33b99e9ce8755f57df0f841206af138c389aff9658b711)
@@ -974,7 +974,7 @@ class SagemakerWorkteamMemberDefinitionOidcMemberDefinition:
 
     @builtins.property
     def groups(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#groups SagemakerWorkteam#groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#groups SagemakerWorkteam#groups}.'''
         result = self._values.get("groups")
         assert result is not None, "Required property 'groups' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1081,9 +1081,9 @@ class SagemakerWorkteamMemberDefinitionOutputReference(
         user_pool: builtins.str,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#client_id SagemakerWorkteam#client_id}.
-        :param user_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#user_group SagemakerWorkteam#user_group}.
-        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#user_pool SagemakerWorkteam#user_pool}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#client_id SagemakerWorkteam#client_id}.
+        :param user_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#user_group SagemakerWorkteam#user_group}.
+        :param user_pool: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#user_pool SagemakerWorkteam#user_pool}.
         '''
         value = SagemakerWorkteamMemberDefinitionCognitoMemberDefinition(
             client_id=client_id, user_group=user_group, user_pool=user_pool
@@ -1098,7 +1098,7 @@ class SagemakerWorkteamMemberDefinitionOutputReference(
         groups: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#groups SagemakerWorkteam#groups}.
+        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#groups SagemakerWorkteam#groups}.
         '''
         value = SagemakerWorkteamMemberDefinitionOidcMemberDefinition(groups=groups)
 
@@ -1170,7 +1170,7 @@ class SagemakerWorkteamNotificationConfiguration:
         notification_topic_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param notification_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#notification_topic_arn SagemakerWorkteam#notification_topic_arn}.
+        :param notification_topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#notification_topic_arn SagemakerWorkteam#notification_topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cac05fff26ffbf5927fdf4f7a3261747b6ed6db3da47e6d0a59dbcaa4af07b3d)
@@ -1181,7 +1181,7 @@ class SagemakerWorkteamNotificationConfiguration:
 
     @builtins.property
     def notification_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#notification_topic_arn SagemakerWorkteam#notification_topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#notification_topic_arn SagemakerWorkteam#notification_topic_arn}.'''
         result = self._values.get("notification_topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1268,7 +1268,7 @@ class SagemakerWorkteamWorkerAccessConfiguration:
         s3_presign: typing.Optional[typing.Union["SagemakerWorkteamWorkerAccessConfigurationS3Presign", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_presign: s3_presign block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#s3_presign SagemakerWorkteam#s3_presign}
+        :param s3_presign: s3_presign block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#s3_presign SagemakerWorkteam#s3_presign}
         '''
         if isinstance(s3_presign, dict):
             s3_presign = SagemakerWorkteamWorkerAccessConfigurationS3Presign(**s3_presign)
@@ -1285,7 +1285,7 @@ class SagemakerWorkteamWorkerAccessConfiguration:
     ) -> typing.Optional["SagemakerWorkteamWorkerAccessConfigurationS3Presign"]:
         '''s3_presign block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#s3_presign SagemakerWorkteam#s3_presign}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#s3_presign SagemakerWorkteam#s3_presign}
         '''
         result = self._values.get("s3_presign")
         return typing.cast(typing.Optional["SagemakerWorkteamWorkerAccessConfigurationS3Presign"], result)
@@ -1329,7 +1329,7 @@ class SagemakerWorkteamWorkerAccessConfigurationOutputReference(
         iam_policy_constraints: typing.Optional[typing.Union["SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iam_policy_constraints: iam_policy_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#iam_policy_constraints SagemakerWorkteam#iam_policy_constraints}
+        :param iam_policy_constraints: iam_policy_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#iam_policy_constraints SagemakerWorkteam#iam_policy_constraints}
         '''
         value = SagemakerWorkteamWorkerAccessConfigurationS3Presign(
             iam_policy_constraints=iam_policy_constraints
@@ -1385,7 +1385,7 @@ class SagemakerWorkteamWorkerAccessConfigurationS3Presign:
         iam_policy_constraints: typing.Optional[typing.Union["SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iam_policy_constraints: iam_policy_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#iam_policy_constraints SagemakerWorkteam#iam_policy_constraints}
+        :param iam_policy_constraints: iam_policy_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#iam_policy_constraints SagemakerWorkteam#iam_policy_constraints}
         '''
         if isinstance(iam_policy_constraints, dict):
             iam_policy_constraints = SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints(**iam_policy_constraints)
@@ -1402,7 +1402,7 @@ class SagemakerWorkteamWorkerAccessConfigurationS3Presign:
     ) -> typing.Optional["SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints"]:
         '''iam_policy_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#iam_policy_constraints SagemakerWorkteam#iam_policy_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#iam_policy_constraints SagemakerWorkteam#iam_policy_constraints}
         '''
         result = self._values.get("iam_policy_constraints")
         return typing.cast(typing.Optional["SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints"], result)
@@ -1432,8 +1432,8 @@ class SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints:
         vpc_source_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#source_ip SagemakerWorkteam#source_ip}.
-        :param vpc_source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#vpc_source_ip SagemakerWorkteam#vpc_source_ip}.
+        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#source_ip SagemakerWorkteam#source_ip}.
+        :param vpc_source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#vpc_source_ip SagemakerWorkteam#vpc_source_ip}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1378d3bb1ce9047f64fdcacee4f5fc35098a2088eafcaa58260fea28eea9fcf)
@@ -1447,13 +1447,13 @@ class SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints:
 
     @builtins.property
     def source_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#source_ip SagemakerWorkteam#source_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#source_ip SagemakerWorkteam#source_ip}.'''
         result = self._values.get("source_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_source_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#vpc_source_ip SagemakerWorkteam#vpc_source_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#vpc_source_ip SagemakerWorkteam#vpc_source_ip}.'''
         result = self._values.get("vpc_source_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1577,8 +1577,8 @@ class SagemakerWorkteamWorkerAccessConfigurationS3PresignOutputReference(
         vpc_source_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#source_ip SagemakerWorkteam#source_ip}.
-        :param vpc_source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_workteam#vpc_source_ip SagemakerWorkteam#vpc_source_ip}.
+        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#source_ip SagemakerWorkteam#source_ip}.
+        :param vpc_source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_workteam#vpc_source_ip SagemakerWorkteam#vpc_source_ip}.
         '''
         value = SagemakerWorkteamWorkerAccessConfigurationS3PresignIamPolicyConstraints(
             source_ip=source_ip, vpc_source_ip=vpc_source_ip

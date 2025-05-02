@@ -1,5 +1,10 @@
+import copy
 import logging
 import os
+import sys
+import uvicorn
+import queue
+import atexit
 
 # ANSI escape sequences for different log levels
 COLORS = {
@@ -30,18 +35,45 @@ def get_logger():
         # Retrieve LOGLEVEL from environment or set default to 'INFO'
         log_level = os.getenv("LOGLEVEL", "INFO").upper()
 
-        # Create a custom logger
-        logger = logging.getLogger("flumina_logger")
+        # Important: async logging.
+        # K8s redirects stderr/stdout to a file so writes to it may block if disk i/o is
+        # slow. It may occur when other pods on the same node are downloading huge
+        # models. Hence we do logging only on a separate thread.
+        logger = logging.getLogger()
         logger.setLevel(log_level)  # Set the log level
-        logger.propagate = False
 
-        # Check if handlers are already configured
-        if not logger.handlers:
-            # Create a stream handler with a custom formatter
-            stream_handler = logging.StreamHandler()
-            stream_handler.setFormatter(ColoredFormatter())
+        # Remove all previously configured handlers to enforce async logging.
+        # If additional handlers are needed, please add them after import this module.
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
 
-            # Add the stream handler to the custom logger
-            logger.addHandler(stream_handler)
+        log_queue = queue.Queue()
+        queue_handler = logging.handlers.QueueHandler(log_queue)
+        logger.addHandler(queue_handler)
+
+        # Force all logs at level < ERROR to go to stdout, and all logs at level >= ERROR to go to stderr
+        # This makes it so that unstructured log parsing by google cloud logging (formerly StackDriver)
+        # doesn't spuriously count random log lines as errors
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(ColoredFormatter())
+        stdout_handler.setLevel(logging.INFO)
+
+        # Handler for WARNING and above -> stderr so GCP treats them as ERROR
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setFormatter(ColoredFormatter())
+        stderr_handler.setLevel(logging.WARNING)
+
+        # Add handlers to the logger
+        queue_listener = logging.handlers.QueueListener(
+            log_queue, stdout_handler, stderr_handler, respect_handler_level=True
+        )
+        queue_listener.start()
+        atexit.register(queue_listener.stop)
+        # Redirect uvicorn logs to the same queue
+        UVICORN_LOGGING_CONFIG = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
+        for _, handler_conf in UVICORN_LOGGING_CONFIG["handlers"].items():
+            handler_conf["class"] = "logging.handlers.QueueHandler"
+            handler_conf["queue"] = log_queue
+            del handler_conf["stream"]
 
     return logger

@@ -579,13 +579,17 @@ class SegmentedPdfPage(SegmentedPage):
         with open(filename, "r", encoding="utf-8") as f:
             return cls.model_validate_json(f.read())
 
-    def crop_text(self, cell_unit: TextCellUnit, bbox: BoundingBox, eps: float = 1.0):
+    def crop_text(
+        self, cell_unit: TextCellUnit, bbox: BoundingBox, eps: float = 1.0
+    ) -> str:
         """Extract text from cells within the specified bounding box.
 
         Args:
             cell_unit: Type of text unit to extract
             bbox: Bounding box to extract from
             eps: Epsilon value for position comparison
+        Returns:
+            Extracted text from the cells
         """
         selection = []
         for page_cell in self.iterate_cells(cell_unit):
@@ -605,7 +609,6 @@ class SegmentedPdfPage(SegmentedPage):
 
         text = ""
         for i, cell in enumerate(selection):
-
             if i == 0:
                 text += cell.text
             else:
@@ -619,6 +622,7 @@ class SegmentedPdfPage(SegmentedPage):
                 else:
                     text += " "
                     text += cell.text
+        return text
 
     def export_to_textlines(
         self,
@@ -640,7 +644,6 @@ class SegmentedPdfPage(SegmentedPage):
         """
         lines: List[str] = []
         for cell in self.iterate_cells(cell_unit):
-
             line = ""
             if add_location:
                 line += f"({cell.rect.r_x0:06.02f}, {cell.rect.r_y0:06.02f}) "
@@ -1104,7 +1107,6 @@ class SegmentedPdfPage(SegmentedPage):
 
         # Draw each rectangle by connecting its four points
         for line in self.lines:
-
             line.to_top_left_origin(page_height=page_height)
             for segment in line.iterate_segments():
                 draw.line(

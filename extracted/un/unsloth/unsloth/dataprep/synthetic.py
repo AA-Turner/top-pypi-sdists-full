@@ -13,227 +13,265 @@
 # limitations under the License.
 
 __all__ = [
-    "check_vllm_status",
-    "async_load_vllm",
-    "destroy_vllm",
-    "configure_synthetic_data_kit",
+    "SyntheticDataKit",
 ]
 import subprocess
 import time
 import os
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 import requests
 import torch
 import gc
 import time
+from unsloth_zoo.vllm_utils import (
+    load_vllm,
+    patch_vllm,
+)
+import numpy as np
 
+from .synthetic_configs import (
+    synthetic_qa_config,
+)
 
-def check_vllm_status():
-    try:
-        response = requests.get("http://localhost:8000/metrics")
-        if response.status_code == 200:
-            return True
-    except requests.exceptions.ConnectionError:
-        return False
+class SyntheticDataKit:
+    def __init__(
+        self,
+        model_name = "unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit",
+        max_seq_length = 2048,
+        gpu_memory_utilization = 0.98,
+        float8_kv_cache = False,
+        conservativeness = 1.0,
+        token = None,
+        **kwargs,
+    ):
+        assert(type(model_name) is str)
+        assert(type(max_seq_length) is int)
+        assert(type(gpu_memory_utilization) is float)
+        assert(type(float8_kv_cache) is bool)
+        assert(type(conservativeness) is float)
+        assert(token is None or type(token) is str)
+
+        self.model_name = model_name
+        self.max_seq_length = max_seq_length
+
+        from transformers import AutoConfig, AutoTokenizer
+        self.config = AutoConfig.from_pretrained(
+            model_name,
+            token = token,
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            token = token,
+        )
+        patch_vllm()
+        engine_args = load_vllm(
+            model_name             = model_name,
+            config                 = self.config,
+            gpu_memory_utilization = gpu_memory_utilization,
+            max_seq_length         = max_seq_length,
+            disable_log_stats      = True,
+            float8_kv_cache        = float8_kv_cache,
+            conservativeness       = conservativeness,
+            return_args            = True,
+            enable_lora            = False,
+            use_bitsandbytes       = False,
+            **kwargs,
+        )
+
+        if "device" in engine_args: del engine_args["device"]
+        if "model"  in engine_args: del engine_args["model"]
+
+        subprocess_commands = [
+            "vllm", "serve", str(model_name),
+        ]
+        for key, value in engine_args.items():
+            flag  = key.replace("_", "-")
+            which = str(value).replace("torch.", "")
+            if which == "True":
+                # Ignore --enforce-eager True
+                subprocess_commands += ["--" + flag,]
+            elif which == "False":
+                # Ignore flag
+                pass
+            else:
+                subprocess_commands += ["--" + flag, which,]
+        pass
+        vllm_process = subprocess.Popen(
+            subprocess_commands,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            start_new_session = True,
+        )
+        self.vllm_process = vllm_process
+
+        ready_message_part = b"Starting vLLM API server on"
+        ready = False
+        while vllm_process.poll() is None:
+            output = vllm_process.stdout.readline()
+            if not output:
+                print("Stdout stream ended before readiness message detected.")
+                break
+            output_str = output.decode('utf-8', errors='ignore').strip()
+            print(f"vLLM STDOUT: {output_str}")
+            if ready_message_part in output:
+                print(f"\n--- vLLM Server Ready (Detected: '{ready_message_part.decode()}') ---")
+                ready = True
+                break
+            pass
+        pass
+        if vllm_process is None:
+            raise RuntimeError("Unsloth: vllm_process failed to load!")
+        trial = 0
+        while not self.check_vllm_status():
+            if trial >= 100:
+                raise RuntimeError("Unsloth: vllm_process failed to load!")
+            trial += 1
+            time.sleep(1)
+        return
     pass
-pass
 
+    @staticmethod
+    def from_pretrained(
+        model_name = "unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit",
+        max_seq_length = 2048,
+        gpu_memory_utilization = 0.9,
+        float8_kv_cache = False,
+        conservativeness = 1.0,
+        token = None,
+        **kwargs,
+    ):
+        return SyntheticDataKit(
+            model_name = model_name,
+            max_seq_length = max_seq_length,
+            gpu_memory_utilization = gpu_memory_utilization,
+            float8_kv_cache = float8_kv_cache,
+            conservativeness = conservativeness,
+            token = token,
+            **kwargs,
+        )
+    pass
 
-def async_load_vllm(
-    model_name = "unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit",
-    max_model_len = 10000,
-    gpu_memory_utilization = 0.85,
-):
-    vllm_process = subprocess.Popen([
-            'vllm', 'serve',
-            str(model_name),
-            '--trust-remote-code',
-            '--dtype', 'half',
-            '--max-model-len', str(max_model_len),
-            '--enable-chunked-prefill', 'true',
-            '--quantization', 'bitsandbytes',
-            '--gpu-memory-utilization', str(gpu_memory_utilization),
-            '--swap_space', '4',
-        ],
-        stdout = subprocess.PIPE,
-        stderr = subprocess.PIPE,
-        start_new_session = True,
-    )
-    ready_message_part = b"Starting vLLM API server on"
-    ready = False
-    while vllm_process.poll() is None:
-        output = vllm_process.stdout.readline()
-        if not output:
-            print("Stdout stream ended before readiness message detected.")
-            break
-        output_str = output.decode('utf-8', errors='ignore').strip()
-        print(f"vLLM STDOUT: {output_str}")
-        if ready_message_part in output:
-            print(f"\n--- vLLM Server Ready (Detected: '{ready_message_part.decode()}') ---")
-            ready = True
-            break
+    @staticmethod
+    def check_vllm_status():
+        try:
+            response = requests.get("http://localhost:8000/metrics")
+            if response.status_code == 200:
+                return True
+        except requests.exceptions.ConnectionError:
+            return False
         pass
     pass
-    if vllm_process is None:
-        raise RuntimeError("Unsloth: vllm_process failed to load!")
-    trial = 0
-    while not check_vllm_status():
-        if trial >= 100:
-            raise RuntimeError("Unsloth: vllm_process failed to load!")
-        trial += 1
-        time.sleep(1)
-    return vllm_process
-pass
 
+    def cleanup(self):
+        if not hasattr(self, "vllm_process"): return
 
-def destroy_vllm(vllm_process):
-    print("Attempting to terminate the VLLM server gracefully...")
-    try:
-        vllm_process.terminate()
-        vllm_process.wait(timeout=10)
-        print("Server terminated gracefully.")
-    except subprocess.TimeoutExpired:
-        print("Server did not terminate gracefully after 10 seconds. Forcing kill...")
-        vllm_process.kill()
-        vllm_process.wait()
-        print("Server killed forcefully.")
-    except Exception as e:
-         print(f"An error occurred while trying to stop the process: {e}")
-         try:
-             if vllm_process.poll() is None:
-                 print("Attempting forceful kill due to error...")
-                 vllm_process.kill()
-                 vllm_process.wait()
-                 print("Server killed forcefully after error.")
-         except Exception as kill_e:
-             print(f"Error during forceful kill: {kill_e}")
-    for _ in range(10):
-        torch.cuda.empty_cache()
-        gc.collect()
-pass
+        vllm_process = self.vllm_process
+        print("Attempting to terminate the VLLM server gracefully...")
+        try:
+            vllm_process.terminate()
+            vllm_process.wait(timeout=10)
+            print("Server terminated gracefully.")
+        except subprocess.TimeoutExpired:
+            print("Server did not terminate gracefully after 10 seconds. Forcing kill...")
+            vllm_process.kill()
+            vllm_process.wait()
+            print("Server killed forcefully.")
+        except Exception as e:
+             print(f"An error occurred while trying to stop the process: {e}")
+             try:
+                 if vllm_process.poll() is None:
+                     print("Attempting forceful kill due to error...")
+                     vllm_process.kill()
+                     vllm_process.wait()
+                     print("Server killed forcefully after error.")
+             except Exception as kill_e:
+                 print(f"Error during forceful kill: {kill_e}")
+        for _ in range(10):
+            torch.cuda.empty_cache()
+            gc.collect()
+    pass
 
+    def __enter__(self): return self
+    def __exit__(self, *exc): self.cleanup()
+    def __del__(self): self.cleanup()
 
-synthetic_config_string = """\
-# Master configuration file for Synthetic Data Kit
+    def chunk_data(self, filename = None):
+        # Chunks data by max tokens and generation length
+        assert(filename is not None)
+        assert(os.path.exists(filename))
+        assert(hasattr(self, "tokenizer"))
+        if not hasattr(self, "max_seq_length"):
+            raise RuntimeError("Please use SynthetidDataKit.from_pretrained(...) first!")
+        if not hasattr(self, "overlap") or not hasattr(self, "max_generation_tokens"):
+            raise RuntimeError("Please use prepare_qa_generation first!")
 
-# Global paths configuration
-paths:
-  # Input data locations
-  input:
-    pdf: "data/pdf"
-    html: "data/html"
-    youtube: "data/youtube"
-    docx: "data/docx"
-    ppt: "data/ppt"
-    txt: "data/txt"
+        with open(filename, "r") as f: text = f.read()
 
-  # Output locations
-  output:
-    parsed: "data/output"      # Where parsed text files are saved
-    generated: "data/generated" # Where generated content is saved
-    cleaned: "data/cleaned"     # Where cleaned content is saved
-    final: "data/final"         # Where final formatted content is saved
+        max_tokens = self.max_seq_length - self.max_generation_tokens*2 - 128 # -128 to reduce errors
+        if max_tokens <= 5:
+            raise RuntimeError("Generation length is way too long!")
+        input_ids = self.tokenizer(text, add_special_tokens = False).input_ids
 
-# VLLM server configuration
-vllm:
-  api_base: "http://localhost:8000/v1" # Base URL for VLLM API
-  port: 8000                           # Port for VLLM server
-  model: "{model_name}"                # Default model to use
-  max_retries: 3                       # Number of retries for API calls
-  retry_delay: 1.0                     # Initial delay between retries (seconds)
+        # Get left and right boundaries
+        length = len(input_ids)
+        n_chunks = int(np.ceil(length / (max_tokens - self.overlap)))
+        boundaries = np.ceil(np.linspace(0, length - self.overlap, n_chunks)).astype(int)
+        boundaries = np.stack((boundaries[:-1], (boundaries + self.overlap)[1:])).T
+        boundaries = np.minimum(boundaries, length).tolist()
 
-# Ingest configuration
-ingest:
-  default_format: "txt"  # Default output format for parsed files
-  youtube_captions: "auto"  # Options: "auto", "manual" - caption preference
+        # Get extension of filename like .txt
+        filename, extension = os.path.splitext(filename)
+        if filename.endswith("/"): filename = filename[:-1]
 
-# LLM generation parameters
-generation:
-  temperature: {temperature}     # Higher = more creative, lower = more deterministic
-  top_p: {top_p}                 # Nucleus sampling parameter
-  chunk_size: {chunk_size}       # Size of text chunks for processing
-  overlap: {overlap}             # Overlap between chunks to maintain context
-  max_tokens: {max_tokens}       # Maximum tokens in LLM responses
-  num_pairs: {default_num_pairs} # Default number of QA pairs to generate
+        all_filenames = []
+        for i, (left, right) in enumerate(boundaries):
+            chunked_text = self.tokenizer.decode(input_ids[left : right])
+            new_filename = f"{filename}_{i}{extension}"
+            all_filenames.append(new_filename)
+            with open(new_filename, "w") as f: f.write(chunked_text)
+        pass
+        return all_filenames
+    pass
 
-# Content cleanup parameters
-cleanup:
-  threshold: {cleanup_threshold}       # Default quality threshold (1-10)
-  batch_size: {cleanup_batch_size}     # Number of items per batch for rating
-  temperature: {cleanup_temperature}   # Temperature for rating (lower = more consistent)
+    def prepare_qa_generation(
+        self,
+        output_folder = "data",
+        max_generation_tokens = 512,
+        temperature = 0.7,
+        top_p = 0.95,
+        overlap = 64,
+        default_num_pairs = 25,
+        cleanup_threshold = 1.0,
+        cleanup_batch_size = 4,
+        cleanup_temperature = 0.3,
+    ):
+        assert(hasattr(self, "model_name"))
+        assert(hasattr(self, "max_seq_length"))
+        assert(max_generation_tokens < self.max_seq_length)
 
-# Format conversion parameters
-format:
-  default: "jsonl"   # Default output format
-  include_metadata: true  # Include metadata in output files
-  pretty_json: true  # Use indentation in JSON output
+        locations = "pdf,html,youtube,docx,ppt,txt,output,generated,cleaned,final"
+        locations = locations.split(",")
+        for path in locations:
+            os.makedirs(os.path.join(output_folder, path), exist_ok = True)
+        pass
 
-# Prompts for different tasks
-prompts:
-  # Summary generation prompt
-  summary: |
-    Summarize this document in 3-5 sentences, focusing on the main topic and key concepts.
+        self.max_generation_tokens = max_generation_tokens
 
-  # QA pair generation prompt
-  qa_generation: |
-    Create {num_pairs} question-answer pairs from this text for LLM training.
+        config = synthetic_qa_config\
+            .replace("{data_output_location}", str(output_folder))\
+            .replace("{model_name}", str(self.model_name))\
+            .replace("{temperature}", str(temperature))\
+            .replace("{top_p}", str(top_p))\
+            .replace("{chunk_size}", str(self.max_seq_length - max_generation_tokens*2 - 2))\
+            .replace("{overlap}", str(overlap))\
+            .replace("{max_tokens}", str(max_generation_tokens))\
+            .replace("{default_num_pairs}", str(default_num_pairs))\
+            .replace("{cleanup_threshold}", str(cleanup_threshold))\
+            .replace("{cleanup_batch_size}", str(cleanup_batch_size))\
+            .replace("{cleanup_temperature}", str(cleanup_temperature))
 
-    Rules:
-    1. Questions must be about important facts in the text
-    2. Answers must be directly supported by the text
-    3. Return JSON format only:
+        with open("synthetic_data_kit_config.yaml", "w") as f: f.write(config)
 
-    [
-      {{
-        "question": "Question 1?",
-        "answer": "Answer 1."
-      }},
-      {{
-        "question": "Question 2?",
-        "answer": "Answer 2."
-      }}
-    ]
-
-    Text:
-    {text}
-
-  # QA pair rating prompt
-  qa_rating: |
-    Rate each of these question-answer pairs for quality and return exactly this JSON format:
-
-    [
-      {{"question": "same question text", "answer": "same answer text", "rating": n}}
-    ]
-
-    Where n is a number from 1-10.
-
-    DO NOT include any text outside of the JSON array, just return valid JSON:
-
-    {pairs}"""
-
-
-def configure_synthetic_data_kit(
-    model_name = "unsloth/Llama-3.1-8B-Instruct-unsloth-bnb-4bit",
-    temperature = 0.7,
-    top_p = 0.95,
-    chunk_size = 4000,
-    overlap = 200,
-    max_tokens = 512,
-    default_num_pairs = 25,
-    cleanup_threshold = 1.0,
-    cleanup_batch_size = 4,
-    cleanup_temperature = 0.3,
-):
-    config = synthetic_config_string\
-        .replace("{model_name}", str(model_name))\
-        .replace("{temperature}", str(temperature))\
-        .replace("{top_p}", str(top_p))\
-        .replace("{chunk_size}", str(chunk_size))\
-        .replace("{overlap}", str(overlap))\
-        .replace("{max_tokens}", str(max_tokens))\
-        .replace("{default_num_pairs}", str(default_num_pairs))\
-        .replace("{cleanup_threshold}", str(cleanup_threshold))\
-        .replace("{cleanup_batch_size}", str(cleanup_batch_size))\
-        .replace("{cleanup_temperature}", str(cleanup_temperature))
-
-    return config
+        self.overlap = overlap
+    pass
 pass

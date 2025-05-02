@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_crawler`
 
-Refer to the Terraform Registry for docs: [`aws_glue_crawler`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler).
+Refer to the Terraform Registry for docs: [`aws_glue_crawler`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueCrawler(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueCrawler.GlueCrawler",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler aws_glue_crawler}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler aws_glue_crawler}.'''
 
     def __init__(
         self,
@@ -83,34 +83,34 @@ class GlueCrawler(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler aws_glue_crawler} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler aws_glue_crawler} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#name GlueCrawler#name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#role GlueCrawler#role}.
-        :param catalog_target: catalog_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#catalog_target GlueCrawler#catalog_target}
-        :param classifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#classifiers GlueCrawler#classifiers}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#configuration GlueCrawler#configuration}.
-        :param delta_target: delta_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delta_target GlueCrawler#delta_target}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#description GlueCrawler#description}.
-        :param dynamodb_target: dynamodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dynamodb_target GlueCrawler#dynamodb_target}
-        :param hudi_target: hudi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#hudi_target GlueCrawler#hudi_target}
-        :param iceberg_target: iceberg_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#iceberg_target GlueCrawler#iceberg_target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#id GlueCrawler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param jdbc_target: jdbc_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#jdbc_target GlueCrawler#jdbc_target}
-        :param lake_formation_configuration: lake_formation_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#lake_formation_configuration GlueCrawler#lake_formation_configuration}
-        :param lineage_configuration: lineage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#lineage_configuration GlueCrawler#lineage_configuration}
-        :param mongodb_target: mongodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#mongodb_target GlueCrawler#mongodb_target}
-        :param recrawl_policy: recrawl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#recrawl_policy GlueCrawler#recrawl_policy}
-        :param s3_target: s3_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#s3_target GlueCrawler#s3_target}
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#schedule GlueCrawler#schedule}.
-        :param schema_change_policy: schema_change_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#schema_change_policy GlueCrawler#schema_change_policy}
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#security_configuration GlueCrawler#security_configuration}.
-        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#table_prefix GlueCrawler#table_prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tags GlueCrawler#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tags_all GlueCrawler#tags_all}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#name GlueCrawler#name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#role GlueCrawler#role}.
+        :param catalog_target: catalog_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#catalog_target GlueCrawler#catalog_target}
+        :param classifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#classifiers GlueCrawler#classifiers}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#configuration GlueCrawler#configuration}.
+        :param delta_target: delta_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delta_target GlueCrawler#delta_target}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#description GlueCrawler#description}.
+        :param dynamodb_target: dynamodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dynamodb_target GlueCrawler#dynamodb_target}
+        :param hudi_target: hudi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#hudi_target GlueCrawler#hudi_target}
+        :param iceberg_target: iceberg_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#iceberg_target GlueCrawler#iceberg_target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#id GlueCrawler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param jdbc_target: jdbc_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#jdbc_target GlueCrawler#jdbc_target}
+        :param lake_formation_configuration: lake_formation_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#lake_formation_configuration GlueCrawler#lake_formation_configuration}
+        :param lineage_configuration: lineage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#lineage_configuration GlueCrawler#lineage_configuration}
+        :param mongodb_target: mongodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#mongodb_target GlueCrawler#mongodb_target}
+        :param recrawl_policy: recrawl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#recrawl_policy GlueCrawler#recrawl_policy}
+        :param s3_target: s3_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#s3_target GlueCrawler#s3_target}
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#schedule GlueCrawler#schedule}.
+        :param schema_change_policy: schema_change_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#schema_change_policy GlueCrawler#schema_change_policy}
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#security_configuration GlueCrawler#security_configuration}.
+        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#table_prefix GlueCrawler#table_prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tags GlueCrawler#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tags_all GlueCrawler#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -172,7 +172,7 @@ class GlueCrawler(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueCrawler to import.
-        :param import_from_id: The id of the existing GlueCrawler that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueCrawler that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueCrawler to import is found.
         '''
         if __debug__:
@@ -269,8 +269,8 @@ class GlueCrawler(
         use_lake_formation_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#account_id GlueCrawler#account_id}.
-        :param use_lake_formation_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#use_lake_formation_credentials GlueCrawler#use_lake_formation_credentials}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#account_id GlueCrawler#account_id}.
+        :param use_lake_formation_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#use_lake_formation_credentials GlueCrawler#use_lake_formation_credentials}.
         '''
         value = GlueCrawlerLakeFormationConfiguration(
             account_id=account_id,
@@ -286,7 +286,7 @@ class GlueCrawler(
         crawler_lineage_settings: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param crawler_lineage_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#crawler_lineage_settings GlueCrawler#crawler_lineage_settings}.
+        :param crawler_lineage_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#crawler_lineage_settings GlueCrawler#crawler_lineage_settings}.
         '''
         value = GlueCrawlerLineageConfiguration(
             crawler_lineage_settings=crawler_lineage_settings
@@ -314,7 +314,7 @@ class GlueCrawler(
         recrawl_behavior: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recrawl_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#recrawl_behavior GlueCrawler#recrawl_behavior}.
+        :param recrawl_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#recrawl_behavior GlueCrawler#recrawl_behavior}.
         '''
         value = GlueCrawlerRecrawlPolicy(recrawl_behavior=recrawl_behavior)
 
@@ -341,8 +341,8 @@ class GlueCrawler(
         update_behavior: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delete_behavior GlueCrawler#delete_behavior}.
-        :param update_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#update_behavior GlueCrawler#update_behavior}.
+        :param delete_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delete_behavior GlueCrawler#delete_behavior}.
+        :param update_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#update_behavior GlueCrawler#update_behavior}.
         '''
         value = GlueCrawlerSchemaChangePolicy(
             delete_behavior=delete_behavior, update_behavior=update_behavior
@@ -825,11 +825,11 @@ class GlueCrawlerCatalogTarget:
         event_queue_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.
-        :param tables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tables GlueCrawler#tables}.
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param dlq_event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.
-        :param event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.
+        :param tables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tables GlueCrawler#tables}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param dlq_event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.
+        :param event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f5a3c6ad3aa8e0b625d2a87b05df251418e59496dcf56b73c199e05b38bde77)
@@ -851,33 +851,33 @@ class GlueCrawlerCatalogTarget:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tables(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tables GlueCrawler#tables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tables GlueCrawler#tables}.'''
         result = self._values.get("tables")
         assert result is not None, "Required property 'tables' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dlq_event_queue_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.'''
         result = self._values.get("dlq_event_queue_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_queue_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.'''
         result = self._values.get("event_queue_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1205,30 +1205,30 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#name GlueCrawler#name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#role GlueCrawler#role}.
-        :param catalog_target: catalog_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#catalog_target GlueCrawler#catalog_target}
-        :param classifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#classifiers GlueCrawler#classifiers}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#configuration GlueCrawler#configuration}.
-        :param delta_target: delta_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delta_target GlueCrawler#delta_target}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#description GlueCrawler#description}.
-        :param dynamodb_target: dynamodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dynamodb_target GlueCrawler#dynamodb_target}
-        :param hudi_target: hudi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#hudi_target GlueCrawler#hudi_target}
-        :param iceberg_target: iceberg_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#iceberg_target GlueCrawler#iceberg_target}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#id GlueCrawler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param jdbc_target: jdbc_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#jdbc_target GlueCrawler#jdbc_target}
-        :param lake_formation_configuration: lake_formation_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#lake_formation_configuration GlueCrawler#lake_formation_configuration}
-        :param lineage_configuration: lineage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#lineage_configuration GlueCrawler#lineage_configuration}
-        :param mongodb_target: mongodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#mongodb_target GlueCrawler#mongodb_target}
-        :param recrawl_policy: recrawl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#recrawl_policy GlueCrawler#recrawl_policy}
-        :param s3_target: s3_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#s3_target GlueCrawler#s3_target}
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#schedule GlueCrawler#schedule}.
-        :param schema_change_policy: schema_change_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#schema_change_policy GlueCrawler#schema_change_policy}
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#security_configuration GlueCrawler#security_configuration}.
-        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#table_prefix GlueCrawler#table_prefix}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tags GlueCrawler#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tags_all GlueCrawler#tags_all}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#name GlueCrawler#name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#role GlueCrawler#role}.
+        :param catalog_target: catalog_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#catalog_target GlueCrawler#catalog_target}
+        :param classifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#classifiers GlueCrawler#classifiers}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#configuration GlueCrawler#configuration}.
+        :param delta_target: delta_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delta_target GlueCrawler#delta_target}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#description GlueCrawler#description}.
+        :param dynamodb_target: dynamodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dynamodb_target GlueCrawler#dynamodb_target}
+        :param hudi_target: hudi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#hudi_target GlueCrawler#hudi_target}
+        :param iceberg_target: iceberg_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#iceberg_target GlueCrawler#iceberg_target}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#id GlueCrawler#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param jdbc_target: jdbc_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#jdbc_target GlueCrawler#jdbc_target}
+        :param lake_formation_configuration: lake_formation_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#lake_formation_configuration GlueCrawler#lake_formation_configuration}
+        :param lineage_configuration: lineage_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#lineage_configuration GlueCrawler#lineage_configuration}
+        :param mongodb_target: mongodb_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#mongodb_target GlueCrawler#mongodb_target}
+        :param recrawl_policy: recrawl_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#recrawl_policy GlueCrawler#recrawl_policy}
+        :param s3_target: s3_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#s3_target GlueCrawler#s3_target}
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#schedule GlueCrawler#schedule}.
+        :param schema_change_policy: schema_change_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#schema_change_policy GlueCrawler#schema_change_policy}
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#security_configuration GlueCrawler#security_configuration}.
+        :param table_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#table_prefix GlueCrawler#table_prefix}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tags GlueCrawler#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tags_all GlueCrawler#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1401,21 +1401,21 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#database_name GlueCrawler#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#name GlueCrawler#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#name GlueCrawler#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#role GlueCrawler#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#role GlueCrawler#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -1426,20 +1426,20 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GlueCrawlerCatalogTarget]]]:
         '''catalog_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#catalog_target GlueCrawler#catalog_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#catalog_target GlueCrawler#catalog_target}
         '''
         result = self._values.get("catalog_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GlueCrawlerCatalogTarget]]], result)
 
     @builtins.property
     def classifiers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#classifiers GlueCrawler#classifiers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#classifiers GlueCrawler#classifiers}.'''
         result = self._values.get("classifiers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#configuration GlueCrawler#configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#configuration GlueCrawler#configuration}.'''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1449,14 +1449,14 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerDeltaTarget"]]]:
         '''delta_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delta_target GlueCrawler#delta_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delta_target GlueCrawler#delta_target}
         '''
         result = self._values.get("delta_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerDeltaTarget"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#description GlueCrawler#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#description GlueCrawler#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1466,7 +1466,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerDynamodbTarget"]]]:
         '''dynamodb_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dynamodb_target GlueCrawler#dynamodb_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dynamodb_target GlueCrawler#dynamodb_target}
         '''
         result = self._values.get("dynamodb_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerDynamodbTarget"]]], result)
@@ -1477,7 +1477,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerHudiTarget"]]]:
         '''hudi_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#hudi_target GlueCrawler#hudi_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#hudi_target GlueCrawler#hudi_target}
         '''
         result = self._values.get("hudi_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerHudiTarget"]]], result)
@@ -1488,14 +1488,14 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerIcebergTarget"]]]:
         '''iceberg_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#iceberg_target GlueCrawler#iceberg_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#iceberg_target GlueCrawler#iceberg_target}
         '''
         result = self._values.get("iceberg_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerIcebergTarget"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#id GlueCrawler#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#id GlueCrawler#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1509,7 +1509,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerJdbcTarget"]]]:
         '''jdbc_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#jdbc_target GlueCrawler#jdbc_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#jdbc_target GlueCrawler#jdbc_target}
         '''
         result = self._values.get("jdbc_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerJdbcTarget"]]], result)
@@ -1520,7 +1520,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GlueCrawlerLakeFormationConfiguration"]:
         '''lake_formation_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#lake_formation_configuration GlueCrawler#lake_formation_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#lake_formation_configuration GlueCrawler#lake_formation_configuration}
         '''
         result = self._values.get("lake_formation_configuration")
         return typing.cast(typing.Optional["GlueCrawlerLakeFormationConfiguration"], result)
@@ -1531,7 +1531,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GlueCrawlerLineageConfiguration"]:
         '''lineage_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#lineage_configuration GlueCrawler#lineage_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#lineage_configuration GlueCrawler#lineage_configuration}
         '''
         result = self._values.get("lineage_configuration")
         return typing.cast(typing.Optional["GlueCrawlerLineageConfiguration"], result)
@@ -1542,7 +1542,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerMongodbTarget"]]]:
         '''mongodb_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#mongodb_target GlueCrawler#mongodb_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#mongodb_target GlueCrawler#mongodb_target}
         '''
         result = self._values.get("mongodb_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerMongodbTarget"]]], result)
@@ -1551,7 +1551,7 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def recrawl_policy(self) -> typing.Optional["GlueCrawlerRecrawlPolicy"]:
         '''recrawl_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#recrawl_policy GlueCrawler#recrawl_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#recrawl_policy GlueCrawler#recrawl_policy}
         '''
         result = self._values.get("recrawl_policy")
         return typing.cast(typing.Optional["GlueCrawlerRecrawlPolicy"], result)
@@ -1562,14 +1562,14 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerS3Target"]]]:
         '''s3_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#s3_target GlueCrawler#s3_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#s3_target GlueCrawler#s3_target}
         '''
         result = self._values.get("s3_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCrawlerS3Target"]]], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#schedule GlueCrawler#schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#schedule GlueCrawler#schedule}.'''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1577,32 +1577,32 @@ class GlueCrawlerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema_change_policy(self) -> typing.Optional["GlueCrawlerSchemaChangePolicy"]:
         '''schema_change_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#schema_change_policy GlueCrawler#schema_change_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#schema_change_policy GlueCrawler#schema_change_policy}
         '''
         result = self._values.get("schema_change_policy")
         return typing.cast(typing.Optional["GlueCrawlerSchemaChangePolicy"], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#security_configuration GlueCrawler#security_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#security_configuration GlueCrawler#security_configuration}.'''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def table_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#table_prefix GlueCrawler#table_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#table_prefix GlueCrawler#table_prefix}.'''
         result = self._values.get("table_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tags GlueCrawler#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tags GlueCrawler#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#tags_all GlueCrawler#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#tags_all GlueCrawler#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1638,10 +1638,10 @@ class GlueCrawlerDeltaTarget:
         create_native_delta_table: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param delta_tables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delta_tables GlueCrawler#delta_tables}.
-        :param write_manifest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#write_manifest GlueCrawler#write_manifest}.
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param create_native_delta_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#create_native_delta_table GlueCrawler#create_native_delta_table}.
+        :param delta_tables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delta_tables GlueCrawler#delta_tables}.
+        :param write_manifest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#write_manifest GlueCrawler#write_manifest}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param create_native_delta_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#create_native_delta_table GlueCrawler#create_native_delta_table}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15ed98b8be4f732e000212784a03756b4296bf66ae2780f62783f33ea462438e)
@@ -1660,7 +1660,7 @@ class GlueCrawlerDeltaTarget:
 
     @builtins.property
     def delta_tables(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delta_tables GlueCrawler#delta_tables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delta_tables GlueCrawler#delta_tables}.'''
         result = self._values.get("delta_tables")
         assert result is not None, "Required property 'delta_tables' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1669,14 +1669,14 @@ class GlueCrawlerDeltaTarget:
     def write_manifest(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#write_manifest GlueCrawler#write_manifest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#write_manifest GlueCrawler#write_manifest}.'''
         result = self._values.get("write_manifest")
         assert result is not None, "Required property 'write_manifest' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1684,7 +1684,7 @@ class GlueCrawlerDeltaTarget:
     def create_native_delta_table(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#create_native_delta_table GlueCrawler#create_native_delta_table}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#create_native_delta_table GlueCrawler#create_native_delta_table}.'''
         result = self._values.get("create_native_delta_table")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1938,9 +1938,9 @@ class GlueCrawlerDynamodbTarget:
         scan_rate: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.
-        :param scan_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.
-        :param scan_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#scan_rate GlueCrawler#scan_rate}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.
+        :param scan_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.
+        :param scan_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#scan_rate GlueCrawler#scan_rate}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb4a3f9ae5a62dcf48f95b95ae4cfb17eec77a8a937bec64d924b129aff37140)
@@ -1957,7 +1957,7 @@ class GlueCrawlerDynamodbTarget:
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -1966,13 +1966,13 @@ class GlueCrawlerDynamodbTarget:
     def scan_all(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.'''
         result = self._values.get("scan_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def scan_rate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#scan_rate GlueCrawler#scan_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#scan_rate GlueCrawler#scan_rate}.'''
         result = self._values.get("scan_rate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2206,10 +2206,10 @@ class GlueCrawlerHudiTarget:
         exclusions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param maximum_traversal_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
+        :param maximum_traversal_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3b59d4c21a8c34b546f5734f88b4475d75154bc9c3df24c4b6a270bd99dead4)
@@ -2228,27 +2228,27 @@ class GlueCrawlerHudiTarget:
 
     @builtins.property
     def maximum_traversal_depth(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.'''
         result = self._values.get("maximum_traversal_depth")
         assert result is not None, "Required property 'maximum_traversal_depth' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def paths(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.'''
         result = self._values.get("paths")
         assert result is not None, "Required property 'paths' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def exclusions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
         result = self._values.get("exclusions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2494,10 +2494,10 @@ class GlueCrawlerIcebergTarget:
         exclusions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param maximum_traversal_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
+        :param maximum_traversal_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6595cc4d44306f256fb9c29efa49c4da2ea22430d66c48d0d599f8d18ff34ae)
@@ -2516,27 +2516,27 @@ class GlueCrawlerIcebergTarget:
 
     @builtins.property
     def maximum_traversal_depth(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#maximum_traversal_depth GlueCrawler#maximum_traversal_depth}.'''
         result = self._values.get("maximum_traversal_depth")
         assert result is not None, "Required property 'maximum_traversal_depth' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def paths(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#paths GlueCrawler#paths}.'''
         result = self._values.get("paths")
         assert result is not None, "Required property 'paths' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def exclusions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
         result = self._values.get("exclusions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2782,10 +2782,10 @@ class GlueCrawlerJdbcTarget:
         exclusions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.
-        :param enable_additional_metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#enable_additional_metadata GlueCrawler#enable_additional_metadata}.
-        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.
+        :param enable_additional_metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#enable_additional_metadata GlueCrawler#enable_additional_metadata}.
+        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad0b8ca35ae61e40fe2419e036b15295e1b709d068551322d2b7790a382637bc)
@@ -2804,27 +2804,27 @@ class GlueCrawlerJdbcTarget:
 
     @builtins.property
     def connection_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         assert result is not None, "Required property 'connection_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def enable_additional_metadata(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#enable_additional_metadata GlueCrawler#enable_additional_metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#enable_additional_metadata GlueCrawler#enable_additional_metadata}.'''
         result = self._values.get("enable_additional_metadata")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def exclusions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
         result = self._values.get("exclusions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3068,8 +3068,8 @@ class GlueCrawlerLakeFormationConfiguration:
         use_lake_formation_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#account_id GlueCrawler#account_id}.
-        :param use_lake_formation_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#use_lake_formation_credentials GlueCrawler#use_lake_formation_credentials}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#account_id GlueCrawler#account_id}.
+        :param use_lake_formation_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#use_lake_formation_credentials GlueCrawler#use_lake_formation_credentials}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e49750b032f075036e4cb1870abcf9354615920dda4bafdcf65507f92b09a6df)
@@ -3083,7 +3083,7 @@ class GlueCrawlerLakeFormationConfiguration:
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#account_id GlueCrawler#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#account_id GlueCrawler#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3091,7 +3091,7 @@ class GlueCrawlerLakeFormationConfiguration:
     def use_lake_formation_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#use_lake_formation_credentials GlueCrawler#use_lake_formation_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#use_lake_formation_credentials GlueCrawler#use_lake_formation_credentials}.'''
         result = self._values.get("use_lake_formation_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3204,7 +3204,7 @@ class GlueCrawlerLineageConfiguration:
         crawler_lineage_settings: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param crawler_lineage_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#crawler_lineage_settings GlueCrawler#crawler_lineage_settings}.
+        :param crawler_lineage_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#crawler_lineage_settings GlueCrawler#crawler_lineage_settings}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab316959ad80c77b0f3d5648271572772b7d32698e581a1fd5a584aadc1b3140)
@@ -3215,7 +3215,7 @@ class GlueCrawlerLineageConfiguration:
 
     @builtins.property
     def crawler_lineage_settings(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#crawler_lineage_settings GlueCrawler#crawler_lineage_settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#crawler_lineage_settings GlueCrawler#crawler_lineage_settings}.'''
         result = self._values.get("crawler_lineage_settings")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3306,9 +3306,9 @@ class GlueCrawlerMongodbTarget:
         scan_all: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.
-        :param scan_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.
+        :param scan_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a25f9a719a955db4fe04c0aa1fb1e2a64978d46f5c22c517d99534b2bb75dd39)
@@ -3324,14 +3324,14 @@ class GlueCrawlerMongodbTarget:
 
     @builtins.property
     def connection_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         assert result is not None, "Required property 'connection_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -3340,7 +3340,7 @@ class GlueCrawlerMongodbTarget:
     def scan_all(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#scan_all GlueCrawler#scan_all}.'''
         result = self._values.get("scan_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3562,7 +3562,7 @@ class GlueCrawlerRecrawlPolicy:
         recrawl_behavior: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recrawl_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#recrawl_behavior GlueCrawler#recrawl_behavior}.
+        :param recrawl_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#recrawl_behavior GlueCrawler#recrawl_behavior}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5905d83bf20d4a60d912f7ad07b73c539718f183b9e84f3efe95d79adf79e439)
@@ -3573,7 +3573,7 @@ class GlueCrawlerRecrawlPolicy:
 
     @builtins.property
     def recrawl_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#recrawl_behavior GlueCrawler#recrawl_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#recrawl_behavior GlueCrawler#recrawl_behavior}.'''
         result = self._values.get("recrawl_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3667,12 +3667,12 @@ class GlueCrawlerS3Target:
         sample_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
-        :param dlq_event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.
-        :param event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.
-        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
-        :param sample_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#sample_size GlueCrawler#sample_size}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.
+        :param dlq_event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.
+        :param event_queue_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.
+        :param exclusions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.
+        :param sample_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#sample_size GlueCrawler#sample_size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41c5ac45a1fcaffd80f31c027d77a2cb5d4504087c3c075518d3543d14737d02)
@@ -3698,38 +3698,38 @@ class GlueCrawlerS3Target:
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#path GlueCrawler#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#connection_name GlueCrawler#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dlq_event_queue_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#dlq_event_queue_arn GlueCrawler#dlq_event_queue_arn}.'''
         result = self._values.get("dlq_event_queue_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_queue_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#event_queue_arn GlueCrawler#event_queue_arn}.'''
         result = self._values.get("event_queue_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def exclusions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#exclusions GlueCrawler#exclusions}.'''
         result = self._values.get("exclusions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def sample_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#sample_size GlueCrawler#sample_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#sample_size GlueCrawler#sample_size}.'''
         result = self._values.get("sample_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4017,8 +4017,8 @@ class GlueCrawlerSchemaChangePolicy:
         update_behavior: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delete_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delete_behavior GlueCrawler#delete_behavior}.
-        :param update_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#update_behavior GlueCrawler#update_behavior}.
+        :param delete_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delete_behavior GlueCrawler#delete_behavior}.
+        :param update_behavior: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#update_behavior GlueCrawler#update_behavior}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b168a4a105f3bdf826db49d7e4fc7f9d36174a9c0b54f9935e32b65ce6f1548)
@@ -4032,13 +4032,13 @@ class GlueCrawlerSchemaChangePolicy:
 
     @builtins.property
     def delete_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#delete_behavior GlueCrawler#delete_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#delete_behavior GlueCrawler#delete_behavior}.'''
         result = self._values.get("delete_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update_behavior(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_crawler#update_behavior GlueCrawler#update_behavior}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_crawler#update_behavior GlueCrawler#update_behavior}.'''
         result = self._values.get("update_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
 

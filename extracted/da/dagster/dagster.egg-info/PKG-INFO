@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster
-Version: 1.10.12
+Version: 1.10.13
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -30,13 +30,100 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 Description-Content-Type: text/markdown
-Provides-Extra: docker
-Provides-Extra: test
-Provides-Extra: test-components
-Provides-Extra: mypy
-Provides-Extra: pyright
-Provides-Extra: ruff
 License-File: LICENSE
+Requires-Dist: click>=5.0
+Requires-Dist: coloredlogs<=14.0,>=6.1
+Requires-Dist: Jinja2
+Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
+Requires-Dist: grpcio>=1.44.0
+Requires-Dist: grpcio-health-checking>=1.44.0
+Requires-Dist: protobuf<6,>=3.20.0; python_version < "3.11"
+Requires-Dist: protobuf<6,>=4; python_version >= "3.11"
+Requires-Dist: python-dotenv
+Requires-Dist: pytz
+Requires-Dist: requests
+Requires-Dist: setuptools
+Requires-Dist: six
+Requires-Dist: tabulate
+Requires-Dist: tomli<3
+Requires-Dist: tqdm<5
+Requires-Dist: tzdata; platform_system == "Windows"
+Requires-Dist: structlog
+Requires-Dist: sqlalchemy<3,>=1.0
+Requires-Dist: toposort>=1.0
+Requires-Dist: watchdog<6,>=0.8.3
+Requires-Dist: psutil>=1.0; platform_system == "Windows"
+Requires-Dist: pywin32!=226; platform_system == "Windows"
+Requires-Dist: docstring-parser
+Requires-Dist: universal_pathlib; python_version < "3.12"
+Requires-Dist: universal_pathlib>=0.2.0; python_version >= "3.12"
+Requires-Dist: rich
+Requires-Dist: filelock
+Requires-Dist: dagster-pipes==1.10.13
+Requires-Dist: dagster-shared==0.26.13
+Requires-Dist: antlr4-python3-runtime
+Provides-Extra: docker
+Requires-Dist: docker; extra == "docker"
+Provides-Extra: test
+Requires-Dist: buildkite-test-collector; extra == "test"
+Requires-Dist: docker; extra == "test"
+Requires-Dist: grpcio-tools>=1.44.0; extra == "test"
+Requires-Dist: mypy-protobuf; extra == "test"
+Requires-Dist: objgraph; extra == "test"
+Requires-Dist: pytest-cov==5.0.0; extra == "test"
+Requires-Dist: pytest-mock==3.14.0; extra == "test"
+Requires-Dist: pytest-xdist==3.6.1; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: responses<=0.23.1; extra == "test"
+Requires-Dist: syrupy>=4.0.0; extra == "test"
+Requires-Dist: tox>=4; extra == "test"
+Requires-Dist: morefs[asynclocal]; extra == "test"
+Requires-Dist: fsspec<2024.5.0; extra == "test"
+Requires-Dist: rapidfuzz; extra == "test"
+Requires-Dist: flaky; extra == "test"
+Requires-Dist: psutil; extra == "test"
+Provides-Extra: test-components
+Requires-Dist: tomlkit; extra == "test-components"
+Requires-Dist: jsonschema; extra == "test-components"
+Requires-Dist: pandas; extra == "test-components"
+Requires-Dist: duckdb; extra == "test-components"
+Provides-Extra: mypy
+Requires-Dist: mypy==1.8.0; extra == "mypy"
+Provides-Extra: pyright
+Requires-Dist: pyright==1.1.379; extra == "pyright"
+Requires-Dist: pandas-stubs; extra == "pyright"
+Requires-Dist: types-backports; extra == "pyright"
+Requires-Dist: types-certifi; extra == "pyright"
+Requires-Dist: types-chardet; extra == "pyright"
+Requires-Dist: types-cryptography; extra == "pyright"
+Requires-Dist: types-mock; extra == "pyright"
+Requires-Dist: types-paramiko; extra == "pyright"
+Requires-Dist: types-pyOpenSSL; extra == "pyright"
+Requires-Dist: types-python-dateutil~=2.9.0.20240316; extra == "pyright"
+Requires-Dist: types-PyYAML; extra == "pyright"
+Requires-Dist: types-pytz; extra == "pyright"
+Requires-Dist: types-requests; extra == "pyright"
+Requires-Dist: types-simplejson; extra == "pyright"
+Requires-Dist: types-six; extra == "pyright"
+Requires-Dist: types-tabulate; extra == "pyright"
+Requires-Dist: types-tzlocal; extra == "pyright"
+Requires-Dist: types-toml; extra == "pyright"
+Provides-Extra: ruff
+Requires-Dist: ruff==0.11.5; extra == "ruff"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <div align="center">
   <!-- Note: Do not try adding the dark mode version here with the `picture` element, it will break formatting in PyPI -->

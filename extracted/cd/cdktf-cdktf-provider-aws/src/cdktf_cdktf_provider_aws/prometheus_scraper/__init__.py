@@ -1,7 +1,7 @@
 r'''
 # `aws_prometheus_scraper`
 
-Refer to the Terraform Registry for docs: [`aws_prometheus_scraper`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper).
+Refer to the Terraform Registry for docs: [`aws_prometheus_scraper`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PrometheusScraper(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.prometheusScraper.PrometheusScraper",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper aws_prometheus_scraper}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper aws_prometheus_scraper}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class PrometheusScraper(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper aws_prometheus_scraper} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper aws_prometheus_scraper} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param scrape_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#scrape_configuration PrometheusScraper#scrape_configuration}.
-        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#alias PrometheusScraper#alias}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#destination PrometheusScraper#destination}
-        :param role_configuration: role_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#role_configuration PrometheusScraper#role_configuration}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#source PrometheusScraper#source}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#tags PrometheusScraper#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#timeouts PrometheusScraper#timeouts}
+        :param scrape_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#scrape_configuration PrometheusScraper#scrape_configuration}.
+        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#alias PrometheusScraper#alias}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#destination PrometheusScraper#destination}
+        :param role_configuration: role_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#role_configuration PrometheusScraper#role_configuration}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#source PrometheusScraper#source}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#tags PrometheusScraper#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#timeouts PrometheusScraper#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class PrometheusScraper(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PrometheusScraper to import.
-        :param import_from_id: The id of the existing PrometheusScraper that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PrometheusScraper that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PrometheusScraper to import is found.
         '''
         if __debug__:
@@ -180,9 +180,9 @@ class PrometheusScraper(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#create PrometheusScraper#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#delete PrometheusScraper#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#update PrometheusScraper#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#create PrometheusScraper#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#delete PrometheusScraper#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#update PrometheusScraper#update}
         '''
         value = PrometheusScraperTimeouts(create=create, delete=delete, update=update)
 
@@ -392,13 +392,13 @@ class PrometheusScraperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param scrape_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#scrape_configuration PrometheusScraper#scrape_configuration}.
-        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#alias PrometheusScraper#alias}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#destination PrometheusScraper#destination}
-        :param role_configuration: role_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#role_configuration PrometheusScraper#role_configuration}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#source PrometheusScraper#source}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#tags PrometheusScraper#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#timeouts PrometheusScraper#timeouts}
+        :param scrape_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#scrape_configuration PrometheusScraper#scrape_configuration}.
+        :param alias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#alias PrometheusScraper#alias}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#destination PrometheusScraper#destination}
+        :param role_configuration: role_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#role_configuration PrometheusScraper#role_configuration}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#source PrometheusScraper#source}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#tags PrometheusScraper#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#timeouts PrometheusScraper#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -516,14 +516,14 @@ class PrometheusScraperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def scrape_configuration(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#scrape_configuration PrometheusScraper#scrape_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#scrape_configuration PrometheusScraper#scrape_configuration}.'''
         result = self._values.get("scrape_configuration")
         assert result is not None, "Required property 'scrape_configuration' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def alias(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#alias PrometheusScraper#alias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#alias PrometheusScraper#alias}.'''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -533,7 +533,7 @@ class PrometheusScraperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperDestination"]]]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#destination PrometheusScraper#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#destination PrometheusScraper#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperDestination"]]], result)
@@ -544,7 +544,7 @@ class PrometheusScraperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperRoleConfiguration"]]]:
         '''role_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#role_configuration PrometheusScraper#role_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#role_configuration PrometheusScraper#role_configuration}
         '''
         result = self._values.get("role_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperRoleConfiguration"]]], result)
@@ -555,14 +555,14 @@ class PrometheusScraperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperSource"]]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#source PrometheusScraper#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#source PrometheusScraper#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperSource"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#tags PrometheusScraper#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#tags PrometheusScraper#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -570,7 +570,7 @@ class PrometheusScraperConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PrometheusScraperTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#timeouts PrometheusScraper#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#timeouts PrometheusScraper#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PrometheusScraperTimeouts"], result)
@@ -599,7 +599,7 @@ class PrometheusScraperDestination:
         amp: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrometheusScraperDestinationAmp", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param amp: amp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#amp PrometheusScraper#amp}
+        :param amp: amp block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#amp PrometheusScraper#amp}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a85eee689decd6a10d0e6770a3ec3b1070d7c34b267fc0880280d497fbdba5b)
@@ -614,7 +614,7 @@ class PrometheusScraperDestination:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperDestinationAmp"]]]:
         '''amp block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#amp PrometheusScraper#amp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#amp PrometheusScraper#amp}
         '''
         result = self._values.get("amp")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperDestinationAmp"]]], result)
@@ -639,7 +639,7 @@ class PrometheusScraperDestination:
 class PrometheusScraperDestinationAmp:
     def __init__(self, *, workspace_arn: builtins.str) -> None:
         '''
-        :param workspace_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#workspace_arn PrometheusScraper#workspace_arn}.
+        :param workspace_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#workspace_arn PrometheusScraper#workspace_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31274be3007be32b1e41dab61d94286e4c12d2a56200a91dca40141f3ea6e519)
@@ -650,7 +650,7 @@ class PrometheusScraperDestinationAmp:
 
     @builtins.property
     def workspace_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#workspace_arn PrometheusScraper#workspace_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#workspace_arn PrometheusScraper#workspace_arn}.'''
         result = self._values.get("workspace_arn")
         assert result is not None, "Required property 'workspace_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1000,8 +1000,8 @@ class PrometheusScraperRoleConfiguration:
         target_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#source_role_arn PrometheusScraper#source_role_arn}.
-        :param target_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#target_role_arn PrometheusScraper#target_role_arn}.
+        :param source_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#source_role_arn PrometheusScraper#source_role_arn}.
+        :param target_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#target_role_arn PrometheusScraper#target_role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe4af7129284b92563afe818f224a4baf8cdcfef62dc41d7a8e0f873dfe6ec57)
@@ -1015,13 +1015,13 @@ class PrometheusScraperRoleConfiguration:
 
     @builtins.property
     def source_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#source_role_arn PrometheusScraper#source_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#source_role_arn PrometheusScraper#source_role_arn}.'''
         result = self._values.get("source_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#target_role_arn PrometheusScraper#target_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#target_role_arn PrometheusScraper#target_role_arn}.'''
         result = self._values.get("target_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1228,7 +1228,7 @@ class PrometheusScraperSource:
         eks: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrometheusScraperSourceEks", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param eks: eks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#eks PrometheusScraper#eks}
+        :param eks: eks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#eks PrometheusScraper#eks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__410e8aa5d76dd7381121d05c218da02bbb98fcfa60e940b59e3b206ef97e43f1)
@@ -1243,7 +1243,7 @@ class PrometheusScraperSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperSourceEks"]]]:
         '''eks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#eks PrometheusScraper#eks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#eks PrometheusScraper#eks}
         '''
         result = self._values.get("eks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrometheusScraperSourceEks"]]], result)
@@ -1278,9 +1278,9 @@ class PrometheusScraperSourceEks:
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#cluster_arn PrometheusScraper#cluster_arn}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#subnet_ids PrometheusScraper#subnet_ids}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#security_group_ids PrometheusScraper#security_group_ids}.
+        :param cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#cluster_arn PrometheusScraper#cluster_arn}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#subnet_ids PrometheusScraper#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#security_group_ids PrometheusScraper#security_group_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3189af18d8f6a9ed522bf8fde190144e81066884fae20219c74a3b020f46da14)
@@ -1296,21 +1296,21 @@ class PrometheusScraperSourceEks:
 
     @builtins.property
     def cluster_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#cluster_arn PrometheusScraper#cluster_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#cluster_arn PrometheusScraper#cluster_arn}.'''
         result = self._values.get("cluster_arn")
         assert result is not None, "Required property 'cluster_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#subnet_ids PrometheusScraper#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#subnet_ids PrometheusScraper#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#security_group_ids PrometheusScraper#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#security_group_ids PrometheusScraper#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1692,9 +1692,9 @@ class PrometheusScraperTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#create PrometheusScraper#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#delete PrometheusScraper#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#update PrometheusScraper#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#create PrometheusScraper#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#delete PrometheusScraper#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#update PrometheusScraper#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3168953b5d3a9cff1e2830cd01f2a386be169c31ed6f3e9f3591ee4485543970)
@@ -1713,7 +1713,7 @@ class PrometheusScraperTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#create PrometheusScraper#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#create PrometheusScraper#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1722,7 +1722,7 @@ class PrometheusScraperTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#delete PrometheusScraper#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#delete PrometheusScraper#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1731,7 +1731,7 @@ class PrometheusScraperTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/prometheus_scraper#update PrometheusScraper#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/prometheus_scraper#update PrometheusScraper#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

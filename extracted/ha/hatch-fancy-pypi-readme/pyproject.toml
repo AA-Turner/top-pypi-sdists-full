@@ -5,30 +5,29 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hatch-fancy-pypi-readme"
-version = "24.1.0"
+version = "25.1.0"
 description = "Fancy PyPI READMEs with Hatch"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 keywords = ["hatch", "pypi", "readme", "documentation"]
 authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
 license = "MIT"
+license-files = ["LICENSE.txt"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Hatch",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Build Tools",
 
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
   "hatchling",
   "tomli; python_version<'3.11'",
-  "typing-extensions; python_version<'3.8'",
 ]
 
 [project.entry-points.hatch]
@@ -104,10 +103,6 @@ partial_branches = [
 ]
 
 
-[tool.black]
-line-length = 79
-
-
 [tool.mypy]
 strict = true
 follow_imports = "normal"
@@ -123,27 +118,29 @@ ignore_errors = true
 
 [tool.ruff]
 src = ["src", "tests"]
-select = ["ALL"]
+line-length = 79
 
+[tool.ruff.lint]
+select = ["ALL"]
 ignore = [
-  "ANN",      # Mypy is better at this.
-  "C901",     # Leave complexity to me.
-  "COM",      # Leave commas to Black.
-  "D",        # We have different ideas about docstrings.
-  "E501",     # leave line-length enforcement to Black
-  "PLR0912",  # Leave complexity to me.
-  "TRY301",   # Raise in try blocks can totally make sense.
+  "ANN",     # Mypy is better at this.
+  "C901",    # Leave complexity to me.
+  "COM",     # Leave commas to formatter.
+  "D",       # We have different ideas about docstrings.
+  "E501",    # leave line-length enforcement to formatter.
+  "ISC001",  # conflicts with formatter
+  "PLR0912", # Leave complexity to me.
+  "TRY301",  # Raise in try blocks can totally make sense.
 ]
 
-[tool.ruff.per-file-ignores]
-"src/hatch_fancy_pypi_readme/_cli.py" = ["T201"]  # need print in CLI
+[tool.ruff.lint.per-file-ignores]
+"src/hatch_fancy_pypi_readme/_cli.py" = ["T201"] # need print in CLI
 "tests/*" = [
   "PLC1901", # empty strings are falsey, but are less specific in tests
-  "PT005",   # we use always underscores and explicit names
-  "S101",    # assert
+  "S",       # Security is not an issue in our tests.
   "SIM300",  # Yoda rocks in tests
 ]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-between-types = 1
 lines-after-imports = 2

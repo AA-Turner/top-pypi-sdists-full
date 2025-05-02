@@ -1,0 +1,186 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[dependency-groups]
+dev = [
+  "grpcio-tools>=1.60.1,<2",
+  "httpretty>=1.1.4",
+  "mypy",
+  "pre-commit",
+  "pytest",
+  "pytest-asyncio>=0.24,<0.26",
+  "pytest-mock",
+  "python-semantic-release",
+  "requests-mock",
+  "ruff>=0.8,<0.10",
+  "types-protobuf",
+  "types-requests"
+]
+
+[project]
+authors = [{email = "engineering@canvasmedical.com", name = "Canvas Team"}]
+dependencies = [
+  "cookiecutter",
+  "cron-converter>=1.2.1,<2",
+  "deprecation>=2.1.0,<3",
+  "django-stubs[compatible-mypy]>=5.1.1,<6",
+  "django-timezone-utils>=0.15.0,<0.16",
+  "django>=5.1.1,<6",
+  "env-tools>=2.4.0,<3",
+  "frozendict>=2.4.6",
+  "grpcio>=1.60.1,<2",
+  "ipython>=8.21.0,<9",
+  "jsonschema>=4.21.1,<5",
+  "keyring",
+  "protobuf>=4.25.3,<5",
+  "psycopg[binary]>=3.2.2,<4",
+  "pydantic>=2.6.1,<3",
+  "pyjwt==2.10.1",
+  "python-dotenv>=1.0.1,<2",
+  "rapidfuzz>=3.10.1,<4",
+  "redis>=5.0.4,<6",
+  "requests",
+  "restrictedpython>=8.0",
+  "sentry-sdk>=2.25.1",
+  "statsd>=4.0.1,<5",
+  "typer",
+  "typing-extensions>=4.8,<4.13",
+  "websocket-client>=1.7.0,<2"
+]
+description = "SDK to customize event-driven actions in your Canvas instance"
+license = "MIT"
+name = "canvas"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+version = "0.34.1"
+
+[project.scripts]
+canvas = "canvas_cli.main:app"
+
+[tool.django-stubs]
+django_settings_module = "settings"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["**/tests/*", "conftest.py", "test_*.py", "tests.py"]
+include = [
+  "canvas_cli",
+  "canvas_generated",
+  "canvas_sdk",
+  "logger",
+  "plugin_runner",
+  "pubsub",
+  "settings.py"
+]
+
+[tool.hatch.build.targets.wheel]
+exclude = ["**/tests/*", "conftest.py", "test_*.py", "tests.py"]
+include = [
+  "canvas_cli",
+  "canvas_generated",
+  "canvas_sdk",
+  "logger",
+  "plugin_runner",
+  "pubsub",
+  "settings.py"
+]
+
+[tool.mypy]
+check_untyped_defs = true
+color_output = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = false
+disallow_untyped_defs = true
+error_summary = true
+exclude = ["canvas_generated/"]
+follow_imports = "normal"
+follow_imports_for_stubs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+plugins = ["mypy_django_plugin.main", "pydantic.mypy"]
+pretty = true
+show_error_context = true
+strict_equality = true
+strict_optional = true
+untyped_calls_exclude = [
+  "canvas_generated",
+  "redis"
+] # https://github.com/python/typeshed/issues/10592
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = false
+warn_unreachable = true
+warn_unused_ignores = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
+[tool.pytest.ini_options]
+addopts = "--durations=5 --durations-min=0.25 --pdbcls=IPython.terminal.debugger:TerminalPdb"
+asyncio_default_fixture_loop_scope = "session"
+filterwarnings = [
+  'ignore:No directory at.*static.*:UserWarning:whitenoise.base',
+  'ignore:SelectableGroups dict interface is deprecated. .*:DeprecationWarning'
+]
+markers = ['integtest: mark a test as being an integration test with external dependencies']
+norecursedirs = [
+  ".git",
+  ".mypy_cache",
+  ".pytest_cache",
+  "__pycache__",
+  "custom-plugins",
+  "node_modules",
+  "static",
+  "static-files"
+]
+python_files = ["*_tests.py", "test_*.py", "tests.py"]
+
+[tool.ruff]
+exclude = ["canvas_generated/"]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["D100", "D104", "D105", "D106", "D107", "D200", "D205", "D212", "E501"]
+select = [
+  "B", # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "D", # pydocstyle
+  "E", # pycodestyle errors
+  "F", # Pyflakes
+  "I", # isort
+  "SIM", # flake8-simplify
+  "UP", # pyupgrade
+  "W" # pycodestyle warnings
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.semantic_release]
+build_command = """
+uv lock
+git add uv.lock
+uv build
+"""
+commit_message = "chore: v{version}\n\nSee the changelog for changes."
+commit_version_number = true
+match = "main"
+tag_format = "{version}"
+version_source = "tag"
+version_toml = ["pyproject.toml:project.version"]
+
+[tool.uv]
+
+[[tool.uv.index]]
+default = true
+name = "PyPI"
+url = "https://pypi.org/simple/"
+
+[tool.uv.sources]
+httpretty = {git = "https://github.com/carlsmedstad/HTTPretty.git", rev = "8e96b1e312d473429fbd08bc867376e9932ad42a"}

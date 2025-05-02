@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: evdev
-Version: 1.9.1
+Version: 1.9.2
 Summary: Bindings to the Linux input handling subsystem
 Author-email: Georgi Valkov <georgi.t.valkov@gmail.com>
 Maintainer-email: Tobi <proxima@sezanzeb.de>
@@ -46,6 +46,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # evdev
 

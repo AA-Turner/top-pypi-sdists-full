@@ -1,7 +1,7 @@
 r'''
 # `aws_ce_cost_category`
 
-Refer to the Terraform Registry for docs: [`aws_ce_cost_category`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category).
+Refer to the Terraform Registry for docs: [`aws_ce_cost_category`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CeCostCategory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ceCostCategory.CeCostCategory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category aws_ce_cost_category}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category aws_ce_cost_category}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class CeCostCategory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category aws_ce_cost_category} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category aws_ce_cost_category} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#name CeCostCategory#name}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
-        :param rule_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule_version CeCostCategory#rule_version}.
-        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#default_value CeCostCategory#default_value}.
-        :param effective_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#effective_start CeCostCategory#effective_start}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#id CeCostCategory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param split_charge_rule: split_charge_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#split_charge_rule CeCostCategory#split_charge_rule}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags_all CeCostCategory#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#name CeCostCategory#name}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
+        :param rule_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule_version CeCostCategory#rule_version}.
+        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#default_value CeCostCategory#default_value}.
+        :param effective_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#effective_start CeCostCategory#effective_start}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#id CeCostCategory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param split_charge_rule: split_charge_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#split_charge_rule CeCostCategory#split_charge_rule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags_all CeCostCategory#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class CeCostCategory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CeCostCategory to import.
-        :param import_from_id: The id of the existing CeCostCategory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CeCostCategory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CeCostCategory to import is found.
         '''
         if __debug__:
@@ -408,15 +408,15 @@ class CeCostCategoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#name CeCostCategory#name}.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
-        :param rule_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule_version CeCostCategory#rule_version}.
-        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#default_value CeCostCategory#default_value}.
-        :param effective_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#effective_start CeCostCategory#effective_start}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#id CeCostCategory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param split_charge_rule: split_charge_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#split_charge_rule CeCostCategory#split_charge_rule}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags_all CeCostCategory#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#name CeCostCategory#name}.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
+        :param rule_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule_version CeCostCategory#rule_version}.
+        :param default_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#default_value CeCostCategory#default_value}.
+        :param effective_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#effective_start CeCostCategory#effective_start}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#id CeCostCategory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param split_charge_rule: split_charge_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#split_charge_rule CeCostCategory#split_charge_rule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags_all CeCostCategory#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -536,7 +536,7 @@ class CeCostCategoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#name CeCostCategory#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#name CeCostCategory#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -547,7 +547,7 @@ class CeCostCategoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRule"]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -555,26 +555,26 @@ class CeCostCategoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def rule_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule_version CeCostCategory#rule_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule_version CeCostCategory#rule_version}.'''
         result = self._values.get("rule_version")
         assert result is not None, "Required property 'rule_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def default_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#default_value CeCostCategory#default_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#default_value CeCostCategory#default_value}.'''
         result = self._values.get("default_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def effective_start(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#effective_start CeCostCategory#effective_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#effective_start CeCostCategory#effective_start}.'''
         result = self._values.get("effective_start")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#id CeCostCategory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#id CeCostCategory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -588,20 +588,20 @@ class CeCostCategoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategorySplitChargeRule"]]]:
         '''split_charge_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#split_charge_rule CeCostCategory#split_charge_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#split_charge_rule CeCostCategory#split_charge_rule}
         '''
         result = self._values.get("split_charge_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategorySplitChargeRule"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags_all CeCostCategory#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags_all CeCostCategory#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -637,10 +637,10 @@ class CeCostCategoryRule:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param inherited_value: inherited_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#inherited_value CeCostCategory#inherited_value}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#type CeCostCategory#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#value CeCostCategory#value}.
+        :param inherited_value: inherited_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#inherited_value CeCostCategory#inherited_value}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#type CeCostCategory#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#value CeCostCategory#value}.
         '''
         if isinstance(inherited_value, dict):
             inherited_value = CeCostCategoryRuleInheritedValue(**inherited_value)
@@ -666,7 +666,7 @@ class CeCostCategoryRule:
     def inherited_value(self) -> typing.Optional["CeCostCategoryRuleInheritedValue"]:
         '''inherited_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#inherited_value CeCostCategory#inherited_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#inherited_value CeCostCategory#inherited_value}
         '''
         result = self._values.get("inherited_value")
         return typing.cast(typing.Optional["CeCostCategoryRuleInheritedValue"], result)
@@ -675,20 +675,20 @@ class CeCostCategoryRule:
     def rule(self) -> typing.Optional["CeCostCategoryRuleRule"]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#rule CeCostCategory#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional["CeCostCategoryRuleRule"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#type CeCostCategory#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#type CeCostCategory#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#value CeCostCategory#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#value CeCostCategory#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -717,8 +717,8 @@ class CeCostCategoryRuleInheritedValue:
         dimension_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dimension_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension_key CeCostCategory#dimension_key}.
-        :param dimension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension_name CeCostCategory#dimension_name}.
+        :param dimension_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension_key CeCostCategory#dimension_key}.
+        :param dimension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension_name CeCostCategory#dimension_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d879549216b38dee5b4d152e5537fbb5a899bc01b7ac22231f384ad40e0d1f1)
@@ -732,13 +732,13 @@ class CeCostCategoryRuleInheritedValue:
 
     @builtins.property
     def dimension_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension_key CeCostCategory#dimension_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension_key CeCostCategory#dimension_key}.'''
         result = self._values.get("dimension_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dimension_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension_name CeCostCategory#dimension_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension_name CeCostCategory#dimension_name}.'''
         result = self._values.get("dimension_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -956,8 +956,8 @@ class CeCostCategoryRuleOutputReference(
         dimension_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dimension_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension_key CeCostCategory#dimension_key}.
-        :param dimension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension_name CeCostCategory#dimension_name}.
+        :param dimension_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension_key CeCostCategory#dimension_key}.
+        :param dimension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension_name CeCostCategory#dimension_name}.
         '''
         value = CeCostCategoryRuleInheritedValue(
             dimension_key=dimension_key, dimension_name=dimension_name
@@ -977,12 +977,12 @@ class CeCostCategoryRuleOutputReference(
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         value = CeCostCategoryRuleRule(
             and_=and_,
@@ -1109,12 +1109,12 @@ class CeCostCategoryRuleRule:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleCostCategory(**cost_category)
@@ -1152,7 +1152,7 @@ class CeCostCategoryRuleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleAnd"]]], result)
@@ -1161,7 +1161,7 @@ class CeCostCategoryRuleRule:
     def cost_category(self) -> typing.Optional["CeCostCategoryRuleRuleCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleCostCategory"], result)
@@ -1170,7 +1170,7 @@ class CeCostCategoryRuleRule:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleDimension"], result)
@@ -1179,7 +1179,7 @@ class CeCostCategoryRuleRule:
     def not_(self) -> typing.Optional["CeCostCategoryRuleRuleNot"]:
         '''not block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
         '''
         result = self._values.get("not_")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNot"], result)
@@ -1190,7 +1190,7 @@ class CeCostCategoryRuleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleOr"]]]:
         '''or block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
         '''
         result = self._values.get("or_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleOr"]]], result)
@@ -1199,7 +1199,7 @@ class CeCostCategoryRuleRule:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleTags"], result)
@@ -1240,12 +1240,12 @@ class CeCostCategoryRuleRuleAnd:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleAndTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleAndCostCategory(**cost_category)
@@ -1283,7 +1283,7 @@ class CeCostCategoryRuleRuleAnd:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleAndAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleAndAnd"]]], result)
@@ -1292,7 +1292,7 @@ class CeCostCategoryRuleRuleAnd:
     def cost_category(self) -> typing.Optional["CeCostCategoryRuleRuleAndCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndCostCategory"], result)
@@ -1301,7 +1301,7 @@ class CeCostCategoryRuleRuleAnd:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleAndDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndDimension"], result)
@@ -1310,7 +1310,7 @@ class CeCostCategoryRuleRuleAnd:
     def not_(self) -> typing.Optional["CeCostCategoryRuleRuleAndNot"]:
         '''not block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
         '''
         result = self._values.get("not_")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndNot"], result)
@@ -1321,7 +1321,7 @@ class CeCostCategoryRuleRuleAnd:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleAndOr"]]]:
         '''or block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
         '''
         result = self._values.get("or_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleAndOr"]]], result)
@@ -1330,7 +1330,7 @@ class CeCostCategoryRuleRuleAnd:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleAndTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndTags"], result)
@@ -1365,9 +1365,9 @@ class CeCostCategoryRuleRuleAndAnd:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleAndAndTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleAndAndCostCategory(**cost_category)
@@ -1394,7 +1394,7 @@ class CeCostCategoryRuleRuleAndAnd:
     ) -> typing.Optional["CeCostCategoryRuleRuleAndAndCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndAndCostCategory"], result)
@@ -1403,7 +1403,7 @@ class CeCostCategoryRuleRuleAndAnd:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleAndAndDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndAndDimension"], result)
@@ -1412,7 +1412,7 @@ class CeCostCategoryRuleRuleAndAnd:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleAndAndTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndAndTags"], result)
@@ -1443,9 +1443,9 @@ class CeCostCategoryRuleRuleAndAndCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5caf491c4a8d9a701e9bf1ae057d90215d0dc16ec13ab2ef8e0e31f1edf6810)
@@ -1462,19 +1462,19 @@ class CeCostCategoryRuleRuleAndAndCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1605,9 +1605,9 @@ class CeCostCategoryRuleRuleAndAndDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcdb6911fc00c01e2b8e0a825ea6ea4739a252da2da28cb4c6f02a8f11fba676)
@@ -1624,19 +1624,19 @@ class CeCostCategoryRuleRuleAndAndDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1876,9 +1876,9 @@ class CeCostCategoryRuleRuleAndAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndAndCostCategory(
             key=key, match_options=match_options, values=values
@@ -1895,9 +1895,9 @@ class CeCostCategoryRuleRuleAndAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndAndDimension(
             key=key, match_options=match_options, values=values
@@ -1914,9 +1914,9 @@ class CeCostCategoryRuleRuleAndAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndAndTags(
             key=key, match_options=match_options, values=values
@@ -2000,9 +2000,9 @@ class CeCostCategoryRuleRuleAndAndTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa370e794329d6e54152f2c7acebfcd3cc1bd3d93d2e6ce028a6cd04c2b9c415)
@@ -2019,19 +2019,19 @@ class CeCostCategoryRuleRuleAndAndTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2160,9 +2160,9 @@ class CeCostCategoryRuleRuleAndCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__693ebd54dd0c6a188a93315e7fd2384dcaeb6d6b28c03e13a9f86a62a186d35f)
@@ -2179,19 +2179,19 @@ class CeCostCategoryRuleRuleAndCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2320,9 +2320,9 @@ class CeCostCategoryRuleRuleAndDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__248eda79c8c00f0767325544ba1b3d141be206555d863a847fdd152a400bc3a0)
@@ -2339,19 +2339,19 @@ class CeCostCategoryRuleRuleAndDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2574,9 +2574,9 @@ class CeCostCategoryRuleRuleAndNot:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleAndNotTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleAndNotCostCategory(**cost_category)
@@ -2603,7 +2603,7 @@ class CeCostCategoryRuleRuleAndNot:
     ) -> typing.Optional["CeCostCategoryRuleRuleAndNotCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndNotCostCategory"], result)
@@ -2612,7 +2612,7 @@ class CeCostCategoryRuleRuleAndNot:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleAndNotDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndNotDimension"], result)
@@ -2621,7 +2621,7 @@ class CeCostCategoryRuleRuleAndNot:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleAndNotTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndNotTags"], result)
@@ -2652,9 +2652,9 @@ class CeCostCategoryRuleRuleAndNotCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a83fc2b258c6565ab5d043c29c98b2f868a845cfdfe181df19e4e74f69ea9b16)
@@ -2671,19 +2671,19 @@ class CeCostCategoryRuleRuleAndNotCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2814,9 +2814,9 @@ class CeCostCategoryRuleRuleAndNotDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cda4e8a450b8a37c4cdbfd15b3c80ae7adba3e61b89dd215ba960e9847293a73)
@@ -2833,19 +2833,19 @@ class CeCostCategoryRuleRuleAndNotDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2989,9 +2989,9 @@ class CeCostCategoryRuleRuleAndNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndNotCostCategory(
             key=key, match_options=match_options, values=values
@@ -3008,9 +3008,9 @@ class CeCostCategoryRuleRuleAndNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndNotDimension(
             key=key, match_options=match_options, values=values
@@ -3027,9 +3027,9 @@ class CeCostCategoryRuleRuleAndNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndNotTags(
             key=key, match_options=match_options, values=values
@@ -3111,9 +3111,9 @@ class CeCostCategoryRuleRuleAndNotTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ebcf527b4bbcf01e591a5fc00764ed7f18de74cd926475d2b5611de87b90c00)
@@ -3130,19 +3130,19 @@ class CeCostCategoryRuleRuleAndNotTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3275,9 +3275,9 @@ class CeCostCategoryRuleRuleAndOr:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleAndOrTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleAndOrCostCategory(**cost_category)
@@ -3304,7 +3304,7 @@ class CeCostCategoryRuleRuleAndOr:
     ) -> typing.Optional["CeCostCategoryRuleRuleAndOrCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndOrCostCategory"], result)
@@ -3313,7 +3313,7 @@ class CeCostCategoryRuleRuleAndOr:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleAndOrDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndOrDimension"], result)
@@ -3322,7 +3322,7 @@ class CeCostCategoryRuleRuleAndOr:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleAndOrTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleAndOrTags"], result)
@@ -3353,9 +3353,9 @@ class CeCostCategoryRuleRuleAndOrCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e18a03589a833a3d76d515957a0847aabae586d44a72ff876f20ceb5aad100d9)
@@ -3372,19 +3372,19 @@ class CeCostCategoryRuleRuleAndOrCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3515,9 +3515,9 @@ class CeCostCategoryRuleRuleAndOrDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f22e0c93f7c010c2143a24fb3b36f8050c569fc1ec321b483fb2142e205cb073)
@@ -3534,19 +3534,19 @@ class CeCostCategoryRuleRuleAndOrDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3786,9 +3786,9 @@ class CeCostCategoryRuleRuleAndOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndOrCostCategory(
             key=key, match_options=match_options, values=values
@@ -3805,9 +3805,9 @@ class CeCostCategoryRuleRuleAndOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndOrDimension(
             key=key, match_options=match_options, values=values
@@ -3824,9 +3824,9 @@ class CeCostCategoryRuleRuleAndOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndOrTags(
             key=key, match_options=match_options, values=values
@@ -3910,9 +3910,9 @@ class CeCostCategoryRuleRuleAndOrTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c18d6362a4d4f1b55a60cae352be274a1c856c77093df1c0b0bf637672d1fe80)
@@ -3929,19 +3929,19 @@ class CeCostCategoryRuleRuleAndOrTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4104,9 +4104,9 @@ class CeCostCategoryRuleRuleAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndCostCategory(
             key=key, match_options=match_options, values=values
@@ -4123,9 +4123,9 @@ class CeCostCategoryRuleRuleAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndDimension(
             key=key, match_options=match_options, values=values
@@ -4142,9 +4142,9 @@ class CeCostCategoryRuleRuleAndOutputReference(
         tags: typing.Optional[typing.Union[CeCostCategoryRuleRuleAndNotTags, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         value = CeCostCategoryRuleRuleAndNot(
             cost_category=cost_category, dimension=dimension, tags=tags
@@ -4174,9 +4174,9 @@ class CeCostCategoryRuleRuleAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleAndTags(
             key=key, match_options=match_options, values=values
@@ -4306,9 +4306,9 @@ class CeCostCategoryRuleRuleAndTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4229c1a54d2b3ab6cdee7acf9ae6b012245de3cb2f8e2aa83b509c4390315950)
@@ -4325,19 +4325,19 @@ class CeCostCategoryRuleRuleAndTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4466,9 +4466,9 @@ class CeCostCategoryRuleRuleCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3ecb408659afebfedd52145599269b62985e173f0b7f906b3b5ee25f9453f7a)
@@ -4485,19 +4485,19 @@ class CeCostCategoryRuleRuleCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4626,9 +4626,9 @@ class CeCostCategoryRuleRuleDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2edee190bc1788b7be1c1a2b966fec6a8a624a55bacdecf7a91685c31baada37)
@@ -4645,19 +4645,19 @@ class CeCostCategoryRuleRuleDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4796,12 +4796,12 @@ class CeCostCategoryRuleRuleNot:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleNotTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleNotCostCategory(**cost_category)
@@ -4839,7 +4839,7 @@ class CeCostCategoryRuleRuleNot:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleNotAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleNotAnd"]]], result)
@@ -4848,7 +4848,7 @@ class CeCostCategoryRuleRuleNot:
     def cost_category(self) -> typing.Optional["CeCostCategoryRuleRuleNotCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotCostCategory"], result)
@@ -4857,7 +4857,7 @@ class CeCostCategoryRuleRuleNot:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleNotDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotDimension"], result)
@@ -4866,7 +4866,7 @@ class CeCostCategoryRuleRuleNot:
     def not_(self) -> typing.Optional["CeCostCategoryRuleRuleNotNot"]:
         '''not block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
         '''
         result = self._values.get("not_")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotNot"], result)
@@ -4877,7 +4877,7 @@ class CeCostCategoryRuleRuleNot:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleNotOr"]]]:
         '''or block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
         '''
         result = self._values.get("or_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleNotOr"]]], result)
@@ -4886,7 +4886,7 @@ class CeCostCategoryRuleRuleNot:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleNotTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotTags"], result)
@@ -4921,9 +4921,9 @@ class CeCostCategoryRuleRuleNotAnd:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleNotAndTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleNotAndCostCategory(**cost_category)
@@ -4950,7 +4950,7 @@ class CeCostCategoryRuleRuleNotAnd:
     ) -> typing.Optional["CeCostCategoryRuleRuleNotAndCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotAndCostCategory"], result)
@@ -4959,7 +4959,7 @@ class CeCostCategoryRuleRuleNotAnd:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleNotAndDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotAndDimension"], result)
@@ -4968,7 +4968,7 @@ class CeCostCategoryRuleRuleNotAnd:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleNotAndTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotAndTags"], result)
@@ -4999,9 +4999,9 @@ class CeCostCategoryRuleRuleNotAndCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3cd67b38c824c32bd8652b398d27e907c61afce7375ef85f06c52726a3fa665)
@@ -5018,19 +5018,19 @@ class CeCostCategoryRuleRuleNotAndCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5161,9 +5161,9 @@ class CeCostCategoryRuleRuleNotAndDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7fbd22dca8641265d9adf2227da7c5309c420727863f5888c4f2459367a9d6b)
@@ -5180,19 +5180,19 @@ class CeCostCategoryRuleRuleNotAndDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5432,9 +5432,9 @@ class CeCostCategoryRuleRuleNotAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotAndCostCategory(
             key=key, match_options=match_options, values=values
@@ -5451,9 +5451,9 @@ class CeCostCategoryRuleRuleNotAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotAndDimension(
             key=key, match_options=match_options, values=values
@@ -5470,9 +5470,9 @@ class CeCostCategoryRuleRuleNotAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotAndTags(
             key=key, match_options=match_options, values=values
@@ -5556,9 +5556,9 @@ class CeCostCategoryRuleRuleNotAndTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64fd38d0b2643e79652d74457d062f77aa632e850c2410b15a00e1cf639c7bc1)
@@ -5575,19 +5575,19 @@ class CeCostCategoryRuleRuleNotAndTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5716,9 +5716,9 @@ class CeCostCategoryRuleRuleNotCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab28c78999f895e0c64fd1513e398c97d3c625221b519e1f78b84ebbf95989e9)
@@ -5735,19 +5735,19 @@ class CeCostCategoryRuleRuleNotCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5876,9 +5876,9 @@ class CeCostCategoryRuleRuleNotDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66193d4c3177be998864e1bd8f593ace5d7182a1d4cdd796b208696d58b7ad85)
@@ -5895,19 +5895,19 @@ class CeCostCategoryRuleRuleNotDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6040,9 +6040,9 @@ class CeCostCategoryRuleRuleNotNot:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleNotNotTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleNotNotCostCategory(**cost_category)
@@ -6069,7 +6069,7 @@ class CeCostCategoryRuleRuleNotNot:
     ) -> typing.Optional["CeCostCategoryRuleRuleNotNotCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotNotCostCategory"], result)
@@ -6078,7 +6078,7 @@ class CeCostCategoryRuleRuleNotNot:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleNotNotDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotNotDimension"], result)
@@ -6087,7 +6087,7 @@ class CeCostCategoryRuleRuleNotNot:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleNotNotTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotNotTags"], result)
@@ -6118,9 +6118,9 @@ class CeCostCategoryRuleRuleNotNotCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ca1e802357145dcea8d277ad1f85d7a538c06533118b57de88065902aa3cbe1)
@@ -6137,19 +6137,19 @@ class CeCostCategoryRuleRuleNotNotCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6280,9 +6280,9 @@ class CeCostCategoryRuleRuleNotNotDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a41f490d30c9adf4e868ffa6a0a84411d75e5711d95139fc225b5be3bbcfc15)
@@ -6299,19 +6299,19 @@ class CeCostCategoryRuleRuleNotNotDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6455,9 +6455,9 @@ class CeCostCategoryRuleRuleNotNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotNotCostCategory(
             key=key, match_options=match_options, values=values
@@ -6474,9 +6474,9 @@ class CeCostCategoryRuleRuleNotNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotNotDimension(
             key=key, match_options=match_options, values=values
@@ -6493,9 +6493,9 @@ class CeCostCategoryRuleRuleNotNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotNotTags(
             key=key, match_options=match_options, values=values
@@ -6577,9 +6577,9 @@ class CeCostCategoryRuleRuleNotNotTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__598771344713411f2ed26551d87d93f1851780f1551cc006a02098b0dd1f7c3e)
@@ -6596,19 +6596,19 @@ class CeCostCategoryRuleRuleNotNotTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6741,9 +6741,9 @@ class CeCostCategoryRuleRuleNotOr:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleNotOrTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleNotOrCostCategory(**cost_category)
@@ -6770,7 +6770,7 @@ class CeCostCategoryRuleRuleNotOr:
     ) -> typing.Optional["CeCostCategoryRuleRuleNotOrCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotOrCostCategory"], result)
@@ -6779,7 +6779,7 @@ class CeCostCategoryRuleRuleNotOr:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleNotOrDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotOrDimension"], result)
@@ -6788,7 +6788,7 @@ class CeCostCategoryRuleRuleNotOr:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleNotOrTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleNotOrTags"], result)
@@ -6819,9 +6819,9 @@ class CeCostCategoryRuleRuleNotOrCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44f98329b37fc461fe57838539396bb2050b299933643fe3f780613d7909d8f7)
@@ -6838,19 +6838,19 @@ class CeCostCategoryRuleRuleNotOrCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6981,9 +6981,9 @@ class CeCostCategoryRuleRuleNotOrDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f314b23c19361844ac355243b42fd328992f7b3f9bfa5b76f6c53a76956c133)
@@ -7000,19 +7000,19 @@ class CeCostCategoryRuleRuleNotOrDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7252,9 +7252,9 @@ class CeCostCategoryRuleRuleNotOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotOrCostCategory(
             key=key, match_options=match_options, values=values
@@ -7271,9 +7271,9 @@ class CeCostCategoryRuleRuleNotOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotOrDimension(
             key=key, match_options=match_options, values=values
@@ -7290,9 +7290,9 @@ class CeCostCategoryRuleRuleNotOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotOrTags(
             key=key, match_options=match_options, values=values
@@ -7376,9 +7376,9 @@ class CeCostCategoryRuleRuleNotOrTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa14fb4adce35d507ed4c00f3a2171cc53758666f298fea9dc6f87fd75331952)
@@ -7395,19 +7395,19 @@ class CeCostCategoryRuleRuleNotOrTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7564,9 +7564,9 @@ class CeCostCategoryRuleRuleNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotCostCategory(
             key=key, match_options=match_options, values=values
@@ -7583,9 +7583,9 @@ class CeCostCategoryRuleRuleNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotDimension(
             key=key, match_options=match_options, values=values
@@ -7602,9 +7602,9 @@ class CeCostCategoryRuleRuleNotOutputReference(
         tags: typing.Optional[typing.Union[CeCostCategoryRuleRuleNotNotTags, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         value = CeCostCategoryRuleRuleNotNot(
             cost_category=cost_category, dimension=dimension, tags=tags
@@ -7634,9 +7634,9 @@ class CeCostCategoryRuleRuleNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleNotTags(
             key=key, match_options=match_options, values=values
@@ -7761,9 +7761,9 @@ class CeCostCategoryRuleRuleNotTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43895437dd520f74c895982a104462b5224ec2813b79d0947b4e01ef89c7beb4)
@@ -7780,19 +7780,19 @@ class CeCostCategoryRuleRuleNotTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7931,12 +7931,12 @@ class CeCostCategoryRuleRuleOr:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleOrTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleOrCostCategory(**cost_category)
@@ -7974,7 +7974,7 @@ class CeCostCategoryRuleRuleOr:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleOrAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleOrAnd"]]], result)
@@ -7983,7 +7983,7 @@ class CeCostCategoryRuleRuleOr:
     def cost_category(self) -> typing.Optional["CeCostCategoryRuleRuleOrCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrCostCategory"], result)
@@ -7992,7 +7992,7 @@ class CeCostCategoryRuleRuleOr:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleOrDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrDimension"], result)
@@ -8001,7 +8001,7 @@ class CeCostCategoryRuleRuleOr:
     def not_(self) -> typing.Optional["CeCostCategoryRuleRuleOrNot"]:
         '''not block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
         '''
         result = self._values.get("not_")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrNot"], result)
@@ -8012,7 +8012,7 @@ class CeCostCategoryRuleRuleOr:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleOrOr"]]]:
         '''or block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
         '''
         result = self._values.get("or_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategoryRuleRuleOrOr"]]], result)
@@ -8021,7 +8021,7 @@ class CeCostCategoryRuleRuleOr:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleOrTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrTags"], result)
@@ -8056,9 +8056,9 @@ class CeCostCategoryRuleRuleOrAnd:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleOrAndTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleOrAndCostCategory(**cost_category)
@@ -8085,7 +8085,7 @@ class CeCostCategoryRuleRuleOrAnd:
     ) -> typing.Optional["CeCostCategoryRuleRuleOrAndCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrAndCostCategory"], result)
@@ -8094,7 +8094,7 @@ class CeCostCategoryRuleRuleOrAnd:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleOrAndDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrAndDimension"], result)
@@ -8103,7 +8103,7 @@ class CeCostCategoryRuleRuleOrAnd:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleOrAndTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrAndTags"], result)
@@ -8134,9 +8134,9 @@ class CeCostCategoryRuleRuleOrAndCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2513722cf54f30acfdd44e47f475b4119523d50a4b5b8484e6a54c8d398ba89b)
@@ -8153,19 +8153,19 @@ class CeCostCategoryRuleRuleOrAndCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -8296,9 +8296,9 @@ class CeCostCategoryRuleRuleOrAndDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__307d9f1bcb2a3ce284815a152fedc6f8664dcc1e68cb55874b1aaae9cc3bac36)
@@ -8315,19 +8315,19 @@ class CeCostCategoryRuleRuleOrAndDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -8567,9 +8567,9 @@ class CeCostCategoryRuleRuleOrAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrAndCostCategory(
             key=key, match_options=match_options, values=values
@@ -8586,9 +8586,9 @@ class CeCostCategoryRuleRuleOrAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrAndDimension(
             key=key, match_options=match_options, values=values
@@ -8605,9 +8605,9 @@ class CeCostCategoryRuleRuleOrAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrAndTags(
             key=key, match_options=match_options, values=values
@@ -8691,9 +8691,9 @@ class CeCostCategoryRuleRuleOrAndTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9cbad699ec9de0cacf4555d2b42c687ded7964d5233aef24c01af55b573e476c)
@@ -8710,19 +8710,19 @@ class CeCostCategoryRuleRuleOrAndTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -8851,9 +8851,9 @@ class CeCostCategoryRuleRuleOrCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da8e12393dd787f22cabd9deeea1f6306cb6a4c41669c1a8eb80613e7c13c9c2)
@@ -8870,19 +8870,19 @@ class CeCostCategoryRuleRuleOrCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -9011,9 +9011,9 @@ class CeCostCategoryRuleRuleOrDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b20619a1018ab990799d867d95d58196d6cd908dd36f2c7a937acc7bcbc50a23)
@@ -9030,19 +9030,19 @@ class CeCostCategoryRuleRuleOrDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -9265,9 +9265,9 @@ class CeCostCategoryRuleRuleOrNot:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleOrNotTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleOrNotCostCategory(**cost_category)
@@ -9294,7 +9294,7 @@ class CeCostCategoryRuleRuleOrNot:
     ) -> typing.Optional["CeCostCategoryRuleRuleOrNotCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrNotCostCategory"], result)
@@ -9303,7 +9303,7 @@ class CeCostCategoryRuleRuleOrNot:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleOrNotDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrNotDimension"], result)
@@ -9312,7 +9312,7 @@ class CeCostCategoryRuleRuleOrNot:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleOrNotTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrNotTags"], result)
@@ -9343,9 +9343,9 @@ class CeCostCategoryRuleRuleOrNotCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0c706a0fa71fbcc6fa9fd77d71aeb5241c5ceb87dad39b31f7dafae2631044d)
@@ -9362,19 +9362,19 @@ class CeCostCategoryRuleRuleOrNotCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -9505,9 +9505,9 @@ class CeCostCategoryRuleRuleOrNotDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be832b372ab60d22a68fb2c3e01dc6455f533279ebdb0e9854e717bb541c4adc)
@@ -9524,19 +9524,19 @@ class CeCostCategoryRuleRuleOrNotDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -9680,9 +9680,9 @@ class CeCostCategoryRuleRuleOrNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrNotCostCategory(
             key=key, match_options=match_options, values=values
@@ -9699,9 +9699,9 @@ class CeCostCategoryRuleRuleOrNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrNotDimension(
             key=key, match_options=match_options, values=values
@@ -9718,9 +9718,9 @@ class CeCostCategoryRuleRuleOrNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrNotTags(
             key=key, match_options=match_options, values=values
@@ -9802,9 +9802,9 @@ class CeCostCategoryRuleRuleOrNotTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61b0c7e0b49fbd2236b9b3c1abc0235d018d93efc96d78a3c30cd2df4eb6de74)
@@ -9821,19 +9821,19 @@ class CeCostCategoryRuleRuleOrNotTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -9966,9 +9966,9 @@ class CeCostCategoryRuleRuleOrOr:
         tags: typing.Optional[typing.Union["CeCostCategoryRuleRuleOrOrTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = CeCostCategoryRuleRuleOrOrCostCategory(**cost_category)
@@ -9995,7 +9995,7 @@ class CeCostCategoryRuleRuleOrOr:
     ) -> typing.Optional["CeCostCategoryRuleRuleOrOrCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrOrCostCategory"], result)
@@ -10004,7 +10004,7 @@ class CeCostCategoryRuleRuleOrOr:
     def dimension(self) -> typing.Optional["CeCostCategoryRuleRuleOrOrDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrOrDimension"], result)
@@ -10013,7 +10013,7 @@ class CeCostCategoryRuleRuleOrOr:
     def tags(self) -> typing.Optional["CeCostCategoryRuleRuleOrOrTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["CeCostCategoryRuleRuleOrOrTags"], result)
@@ -10044,9 +10044,9 @@ class CeCostCategoryRuleRuleOrOrCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a8f361153365575b44fd533edaef3cc11a92a3ea583a04d702ba74a7f415631)
@@ -10063,19 +10063,19 @@ class CeCostCategoryRuleRuleOrOrCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -10204,9 +10204,9 @@ class CeCostCategoryRuleRuleOrOrDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32220e5000429e82d14fac4364a54801b81819573e5a8a1d1dd0ee71eb99aff0)
@@ -10223,19 +10223,19 @@ class CeCostCategoryRuleRuleOrOrDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -10475,9 +10475,9 @@ class CeCostCategoryRuleRuleOrOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrOrCostCategory(
             key=key, match_options=match_options, values=values
@@ -10494,9 +10494,9 @@ class CeCostCategoryRuleRuleOrOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrOrDimension(
             key=key, match_options=match_options, values=values
@@ -10513,9 +10513,9 @@ class CeCostCategoryRuleRuleOrOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrOrTags(
             key=key, match_options=match_options, values=values
@@ -10599,9 +10599,9 @@ class CeCostCategoryRuleRuleOrOrTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19d2ff70b81392c82276f36e035a97306e705a76fec1a23c36808a50fa5be65d)
@@ -10618,19 +10618,19 @@ class CeCostCategoryRuleRuleOrOrTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -10793,9 +10793,9 @@ class CeCostCategoryRuleRuleOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrCostCategory(
             key=key, match_options=match_options, values=values
@@ -10812,9 +10812,9 @@ class CeCostCategoryRuleRuleOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrDimension(
             key=key, match_options=match_options, values=values
@@ -10831,9 +10831,9 @@ class CeCostCategoryRuleRuleOrOutputReference(
         tags: typing.Optional[typing.Union[CeCostCategoryRuleRuleOrNotTags, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         value = CeCostCategoryRuleRuleOrNot(
             cost_category=cost_category, dimension=dimension, tags=tags
@@ -10863,9 +10863,9 @@ class CeCostCategoryRuleRuleOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleOrTags(
             key=key, match_options=match_options, values=values
@@ -10995,9 +10995,9 @@ class CeCostCategoryRuleRuleOrTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__188783368c97562e89d106c61c05393b8f9b3ba8ff48f7a139d85d3a75bfce38)
@@ -11014,19 +11014,19 @@ class CeCostCategoryRuleRuleOrTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -11183,9 +11183,9 @@ class CeCostCategoryRuleRuleOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleCostCategory(
             key=key, match_options=match_options, values=values
@@ -11202,9 +11202,9 @@ class CeCostCategoryRuleRuleOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleDimension(
             key=key, match_options=match_options, values=values
@@ -11224,12 +11224,12 @@ class CeCostCategoryRuleRuleOutputReference(
         tags: typing.Optional[typing.Union[CeCostCategoryRuleRuleNotTags, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#and CeCostCategory#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#not CeCostCategory#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#or CeCostCategory#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#and CeCostCategory#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#cost_category CeCostCategory#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#dimension CeCostCategory#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#not CeCostCategory#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#or CeCostCategory#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#tags CeCostCategory#tags}
         '''
         value = CeCostCategoryRuleRuleNot(
             and_=and_,
@@ -11264,9 +11264,9 @@ class CeCostCategoryRuleRuleOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         value = CeCostCategoryRuleRuleTags(
             key=key, match_options=match_options, values=values
@@ -11391,9 +11391,9 @@ class CeCostCategoryRuleRuleTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21897034ad168c58444ef560a442af862fb67fdd82fecce28037d598ddd16e7e)
@@ -11410,19 +11410,19 @@ class CeCostCategoryRuleRuleTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#key CeCostCategory#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#match_options CeCostCategory#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -11557,10 +11557,10 @@ class CeCostCategorySplitChargeRule:
         parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CeCostCategorySplitChargeRuleParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#method CeCostCategory#method}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#source CeCostCategory#source}.
-        :param targets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#targets CeCostCategory#targets}.
-        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#parameter CeCostCategory#parameter}
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#method CeCostCategory#method}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#source CeCostCategory#source}.
+        :param targets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#targets CeCostCategory#targets}.
+        :param parameter: parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#parameter CeCostCategory#parameter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2acf5780c91ff56b2039951fddbbcd18217b16c656de07a26a1410a75346083e)
@@ -11578,21 +11578,21 @@ class CeCostCategorySplitChargeRule:
 
     @builtins.property
     def method(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#method CeCostCategory#method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#method CeCostCategory#method}.'''
         result = self._values.get("method")
         assert result is not None, "Required property 'method' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#source CeCostCategory#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#source CeCostCategory#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def targets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#targets CeCostCategory#targets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#targets CeCostCategory#targets}.'''
         result = self._values.get("targets")
         assert result is not None, "Required property 'targets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -11603,7 +11603,7 @@ class CeCostCategorySplitChargeRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategorySplitChargeRuleParameter"]]]:
         '''parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#parameter CeCostCategory#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#parameter CeCostCategory#parameter}
         '''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CeCostCategorySplitChargeRuleParameter"]]], result)
@@ -11847,8 +11847,8 @@ class CeCostCategorySplitChargeRuleParameter:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#type CeCostCategory#type}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#type CeCostCategory#type}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c47f291c1eaa278817694b8bbeadb242e84d135121c232d85b2d24bf4d80909b)
@@ -11862,13 +11862,13 @@ class CeCostCategorySplitChargeRuleParameter:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#type CeCostCategory#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#type CeCostCategory#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ce_cost_category#values CeCostCategory#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

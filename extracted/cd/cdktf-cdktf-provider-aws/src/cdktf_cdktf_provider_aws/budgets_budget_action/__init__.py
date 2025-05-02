@@ -1,7 +1,7 @@
 r'''
 # `aws_budgets_budget_action`
 
-Refer to the Terraform Registry for docs: [`aws_budgets_budget_action`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action).
+Refer to the Terraform Registry for docs: [`aws_budgets_budget_action`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BudgetsBudgetAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.budgetsBudgetAction.BudgetsBudgetAction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action aws_budgets_budget_action}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action aws_budgets_budget_action}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class BudgetsBudgetAction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action aws_budgets_budget_action} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action aws_budgets_budget_action} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action_threshold: action_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold BudgetsBudgetAction#action_threshold}
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_type BudgetsBudgetAction#action_type}.
-        :param approval_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#approval_model BudgetsBudgetAction#approval_model}.
-        :param budget_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#budget_name BudgetsBudgetAction#budget_name}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#definition BudgetsBudgetAction#definition}
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#execution_role_arn BudgetsBudgetAction#execution_role_arn}.
-        :param notification_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#notification_type BudgetsBudgetAction#notification_type}.
-        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#subscriber BudgetsBudgetAction#subscriber}
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#account_id BudgetsBudgetAction#account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#id BudgetsBudgetAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#tags BudgetsBudgetAction#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#tags_all BudgetsBudgetAction#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#timeouts BudgetsBudgetAction#timeouts}
+        :param action_threshold: action_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold BudgetsBudgetAction#action_threshold}
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_type BudgetsBudgetAction#action_type}.
+        :param approval_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#approval_model BudgetsBudgetAction#approval_model}.
+        :param budget_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#budget_name BudgetsBudgetAction#budget_name}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#definition BudgetsBudgetAction#definition}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#execution_role_arn BudgetsBudgetAction#execution_role_arn}.
+        :param notification_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#notification_type BudgetsBudgetAction#notification_type}.
+        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#subscriber BudgetsBudgetAction#subscriber}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#account_id BudgetsBudgetAction#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#id BudgetsBudgetAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#tags BudgetsBudgetAction#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#tags_all BudgetsBudgetAction#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#timeouts BudgetsBudgetAction#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class BudgetsBudgetAction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BudgetsBudgetAction to import.
-        :param import_from_id: The id of the existing BudgetsBudgetAction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BudgetsBudgetAction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BudgetsBudgetAction to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class BudgetsBudgetAction(
         action_threshold_value: jsii.Number,
     ) -> None:
         '''
-        :param action_threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold_type BudgetsBudgetAction#action_threshold_type}.
-        :param action_threshold_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold_value BudgetsBudgetAction#action_threshold_value}.
+        :param action_threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold_type BudgetsBudgetAction#action_threshold_type}.
+        :param action_threshold_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold_value BudgetsBudgetAction#action_threshold_value}.
         '''
         value = BudgetsBudgetActionActionThreshold(
             action_threshold_type=action_threshold_type,
@@ -177,9 +177,9 @@ class BudgetsBudgetAction(
         ssm_action_definition: typing.Optional[typing.Union["BudgetsBudgetActionDefinitionSsmActionDefinition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iam_action_definition: iam_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#iam_action_definition BudgetsBudgetAction#iam_action_definition}
-        :param scp_action_definition: scp_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#scp_action_definition BudgetsBudgetAction#scp_action_definition}
-        :param ssm_action_definition: ssm_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#ssm_action_definition BudgetsBudgetAction#ssm_action_definition}
+        :param iam_action_definition: iam_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#iam_action_definition BudgetsBudgetAction#iam_action_definition}
+        :param scp_action_definition: scp_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#scp_action_definition BudgetsBudgetAction#scp_action_definition}
+        :param ssm_action_definition: ssm_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#ssm_action_definition BudgetsBudgetAction#ssm_action_definition}
         '''
         value = BudgetsBudgetActionDefinition(
             iam_action_definition=iam_action_definition,
@@ -211,9 +211,9 @@ class BudgetsBudgetAction(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#create BudgetsBudgetAction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#delete BudgetsBudgetAction#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#update BudgetsBudgetAction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#create BudgetsBudgetAction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#delete BudgetsBudgetAction#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#update BudgetsBudgetAction#update}.
         '''
         value = BudgetsBudgetActionTimeouts(
             create=create, delete=delete, update=update
@@ -487,8 +487,8 @@ class BudgetsBudgetActionActionThreshold:
         action_threshold_value: jsii.Number,
     ) -> None:
         '''
-        :param action_threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold_type BudgetsBudgetAction#action_threshold_type}.
-        :param action_threshold_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold_value BudgetsBudgetAction#action_threshold_value}.
+        :param action_threshold_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold_type BudgetsBudgetAction#action_threshold_type}.
+        :param action_threshold_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold_value BudgetsBudgetAction#action_threshold_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4984fe1cdca7a59e0ec62d7826660eaa646bc6c8187b92bde18e01e54dadeaa)
@@ -501,14 +501,14 @@ class BudgetsBudgetActionActionThreshold:
 
     @builtins.property
     def action_threshold_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold_type BudgetsBudgetAction#action_threshold_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold_type BudgetsBudgetAction#action_threshold_type}.'''
         result = self._values.get("action_threshold_type")
         assert result is not None, "Required property 'action_threshold_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def action_threshold_value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold_value BudgetsBudgetAction#action_threshold_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold_value BudgetsBudgetAction#action_threshold_value}.'''
         result = self._values.get("action_threshold_value")
         assert result is not None, "Required property 'action_threshold_value' is missing"
         return typing.cast(jsii.Number, result)
@@ -654,19 +654,19 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action_threshold: action_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold BudgetsBudgetAction#action_threshold}
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_type BudgetsBudgetAction#action_type}.
-        :param approval_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#approval_model BudgetsBudgetAction#approval_model}.
-        :param budget_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#budget_name BudgetsBudgetAction#budget_name}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#definition BudgetsBudgetAction#definition}
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#execution_role_arn BudgetsBudgetAction#execution_role_arn}.
-        :param notification_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#notification_type BudgetsBudgetAction#notification_type}.
-        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#subscriber BudgetsBudgetAction#subscriber}
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#account_id BudgetsBudgetAction#account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#id BudgetsBudgetAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#tags BudgetsBudgetAction#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#tags_all BudgetsBudgetAction#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#timeouts BudgetsBudgetAction#timeouts}
+        :param action_threshold: action_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold BudgetsBudgetAction#action_threshold}
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_type BudgetsBudgetAction#action_type}.
+        :param approval_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#approval_model BudgetsBudgetAction#approval_model}.
+        :param budget_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#budget_name BudgetsBudgetAction#budget_name}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#definition BudgetsBudgetAction#definition}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#execution_role_arn BudgetsBudgetAction#execution_role_arn}.
+        :param notification_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#notification_type BudgetsBudgetAction#notification_type}.
+        :param subscriber: subscriber block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#subscriber BudgetsBudgetAction#subscriber}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#account_id BudgetsBudgetAction#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#id BudgetsBudgetAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#tags BudgetsBudgetAction#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#tags_all BudgetsBudgetAction#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#timeouts BudgetsBudgetAction#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -801,7 +801,7 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def action_threshold(self) -> BudgetsBudgetActionActionThreshold:
         '''action_threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_threshold BudgetsBudgetAction#action_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_threshold BudgetsBudgetAction#action_threshold}
         '''
         result = self._values.get("action_threshold")
         assert result is not None, "Required property 'action_threshold' is missing"
@@ -809,21 +809,21 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def action_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_type BudgetsBudgetAction#action_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_type BudgetsBudgetAction#action_type}.'''
         result = self._values.get("action_type")
         assert result is not None, "Required property 'action_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def approval_model(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#approval_model BudgetsBudgetAction#approval_model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#approval_model BudgetsBudgetAction#approval_model}.'''
         result = self._values.get("approval_model")
         assert result is not None, "Required property 'approval_model' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def budget_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#budget_name BudgetsBudgetAction#budget_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#budget_name BudgetsBudgetAction#budget_name}.'''
         result = self._values.get("budget_name")
         assert result is not None, "Required property 'budget_name' is missing"
         return typing.cast(builtins.str, result)
@@ -832,7 +832,7 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def definition(self) -> "BudgetsBudgetActionDefinition":
         '''definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#definition BudgetsBudgetAction#definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#definition BudgetsBudgetAction#definition}
         '''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
@@ -840,14 +840,14 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#execution_role_arn BudgetsBudgetAction#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#execution_role_arn BudgetsBudgetAction#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def notification_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#notification_type BudgetsBudgetAction#notification_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#notification_type BudgetsBudgetAction#notification_type}.'''
         result = self._values.get("notification_type")
         assert result is not None, "Required property 'notification_type' is missing"
         return typing.cast(builtins.str, result)
@@ -858,7 +858,7 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BudgetsBudgetActionSubscriber"]]:
         '''subscriber block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#subscriber BudgetsBudgetAction#subscriber}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#subscriber BudgetsBudgetAction#subscriber}
         '''
         result = self._values.get("subscriber")
         assert result is not None, "Required property 'subscriber' is missing"
@@ -866,13 +866,13 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#account_id BudgetsBudgetAction#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#account_id BudgetsBudgetAction#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#id BudgetsBudgetAction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#id BudgetsBudgetAction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -882,13 +882,13 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#tags BudgetsBudgetAction#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#tags BudgetsBudgetAction#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#tags_all BudgetsBudgetAction#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#tags_all BudgetsBudgetAction#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -896,7 +896,7 @@ class BudgetsBudgetActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BudgetsBudgetActionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#timeouts BudgetsBudgetAction#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#timeouts BudgetsBudgetAction#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BudgetsBudgetActionTimeouts"], result)
@@ -931,9 +931,9 @@ class BudgetsBudgetActionDefinition:
         ssm_action_definition: typing.Optional[typing.Union["BudgetsBudgetActionDefinitionSsmActionDefinition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param iam_action_definition: iam_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#iam_action_definition BudgetsBudgetAction#iam_action_definition}
-        :param scp_action_definition: scp_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#scp_action_definition BudgetsBudgetAction#scp_action_definition}
-        :param ssm_action_definition: ssm_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#ssm_action_definition BudgetsBudgetAction#ssm_action_definition}
+        :param iam_action_definition: iam_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#iam_action_definition BudgetsBudgetAction#iam_action_definition}
+        :param scp_action_definition: scp_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#scp_action_definition BudgetsBudgetAction#scp_action_definition}
+        :param ssm_action_definition: ssm_action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#ssm_action_definition BudgetsBudgetAction#ssm_action_definition}
         '''
         if isinstance(iam_action_definition, dict):
             iam_action_definition = BudgetsBudgetActionDefinitionIamActionDefinition(**iam_action_definition)
@@ -960,7 +960,7 @@ class BudgetsBudgetActionDefinition:
     ) -> typing.Optional["BudgetsBudgetActionDefinitionIamActionDefinition"]:
         '''iam_action_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#iam_action_definition BudgetsBudgetAction#iam_action_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#iam_action_definition BudgetsBudgetAction#iam_action_definition}
         '''
         result = self._values.get("iam_action_definition")
         return typing.cast(typing.Optional["BudgetsBudgetActionDefinitionIamActionDefinition"], result)
@@ -971,7 +971,7 @@ class BudgetsBudgetActionDefinition:
     ) -> typing.Optional["BudgetsBudgetActionDefinitionScpActionDefinition"]:
         '''scp_action_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#scp_action_definition BudgetsBudgetAction#scp_action_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#scp_action_definition BudgetsBudgetAction#scp_action_definition}
         '''
         result = self._values.get("scp_action_definition")
         return typing.cast(typing.Optional["BudgetsBudgetActionDefinitionScpActionDefinition"], result)
@@ -982,7 +982,7 @@ class BudgetsBudgetActionDefinition:
     ) -> typing.Optional["BudgetsBudgetActionDefinitionSsmActionDefinition"]:
         '''ssm_action_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#ssm_action_definition BudgetsBudgetAction#ssm_action_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#ssm_action_definition BudgetsBudgetAction#ssm_action_definition}
         '''
         result = self._values.get("ssm_action_definition")
         return typing.cast(typing.Optional["BudgetsBudgetActionDefinitionSsmActionDefinition"], result)
@@ -1019,10 +1019,10 @@ class BudgetsBudgetActionDefinitionIamActionDefinition:
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param policy_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#policy_arn BudgetsBudgetAction#policy_arn}.
-        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#groups BudgetsBudgetAction#groups}.
-        :param roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#roles BudgetsBudgetAction#roles}.
-        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#users BudgetsBudgetAction#users}.
+        :param policy_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#policy_arn BudgetsBudgetAction#policy_arn}.
+        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#groups BudgetsBudgetAction#groups}.
+        :param roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#roles BudgetsBudgetAction#roles}.
+        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#users BudgetsBudgetAction#users}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b131b4523a0a72b0546a082da32c77d7e6495b1e501177ebdc3aab624f90de50)
@@ -1042,26 +1042,26 @@ class BudgetsBudgetActionDefinitionIamActionDefinition:
 
     @builtins.property
     def policy_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#policy_arn BudgetsBudgetAction#policy_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#policy_arn BudgetsBudgetAction#policy_arn}.'''
         result = self._values.get("policy_arn")
         assert result is not None, "Required property 'policy_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#groups BudgetsBudgetAction#groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#groups BudgetsBudgetAction#groups}.'''
         result = self._values.get("groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#roles BudgetsBudgetAction#roles}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#roles BudgetsBudgetAction#roles}.'''
         result = self._values.get("roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#users BudgetsBudgetAction#users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#users BudgetsBudgetAction#users}.'''
         result = self._values.get("users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1225,10 +1225,10 @@ class BudgetsBudgetActionDefinitionOutputReference(
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param policy_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#policy_arn BudgetsBudgetAction#policy_arn}.
-        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#groups BudgetsBudgetAction#groups}.
-        :param roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#roles BudgetsBudgetAction#roles}.
-        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#users BudgetsBudgetAction#users}.
+        :param policy_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#policy_arn BudgetsBudgetAction#policy_arn}.
+        :param groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#groups BudgetsBudgetAction#groups}.
+        :param roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#roles BudgetsBudgetAction#roles}.
+        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#users BudgetsBudgetAction#users}.
         '''
         value = BudgetsBudgetActionDefinitionIamActionDefinition(
             policy_arn=policy_arn, groups=groups, roles=roles, users=users
@@ -1244,8 +1244,8 @@ class BudgetsBudgetActionDefinitionOutputReference(
         target_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#policy_id BudgetsBudgetAction#policy_id}.
-        :param target_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#target_ids BudgetsBudgetAction#target_ids}.
+        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#policy_id BudgetsBudgetAction#policy_id}.
+        :param target_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#target_ids BudgetsBudgetAction#target_ids}.
         '''
         value = BudgetsBudgetActionDefinitionScpActionDefinition(
             policy_id=policy_id, target_ids=target_ids
@@ -1262,9 +1262,9 @@ class BudgetsBudgetActionDefinitionOutputReference(
         region: builtins.str,
     ) -> None:
         '''
-        :param action_sub_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_sub_type BudgetsBudgetAction#action_sub_type}.
-        :param instance_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#instance_ids BudgetsBudgetAction#instance_ids}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#region BudgetsBudgetAction#region}.
+        :param action_sub_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_sub_type BudgetsBudgetAction#action_sub_type}.
+        :param instance_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#instance_ids BudgetsBudgetAction#instance_ids}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#region BudgetsBudgetAction#region}.
         '''
         value = BudgetsBudgetActionDefinitionSsmActionDefinition(
             action_sub_type=action_sub_type, instance_ids=instance_ids, region=region
@@ -1355,8 +1355,8 @@ class BudgetsBudgetActionDefinitionScpActionDefinition:
         target_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#policy_id BudgetsBudgetAction#policy_id}.
-        :param target_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#target_ids BudgetsBudgetAction#target_ids}.
+        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#policy_id BudgetsBudgetAction#policy_id}.
+        :param target_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#target_ids BudgetsBudgetAction#target_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8a6bffb3c87194d02b42892786c955f33697c7b9e5b303db0886a2d97b2ee21)
@@ -1369,14 +1369,14 @@ class BudgetsBudgetActionDefinitionScpActionDefinition:
 
     @builtins.property
     def policy_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#policy_id BudgetsBudgetAction#policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#policy_id BudgetsBudgetAction#policy_id}.'''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#target_ids BudgetsBudgetAction#target_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#target_ids BudgetsBudgetAction#target_ids}.'''
         result = self._values.get("target_ids")
         assert result is not None, "Required property 'target_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1483,9 +1483,9 @@ class BudgetsBudgetActionDefinitionSsmActionDefinition:
         region: builtins.str,
     ) -> None:
         '''
-        :param action_sub_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_sub_type BudgetsBudgetAction#action_sub_type}.
-        :param instance_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#instance_ids BudgetsBudgetAction#instance_ids}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#region BudgetsBudgetAction#region}.
+        :param action_sub_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_sub_type BudgetsBudgetAction#action_sub_type}.
+        :param instance_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#instance_ids BudgetsBudgetAction#instance_ids}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#region BudgetsBudgetAction#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d07300724f0efe028f859ed026cb9a7d2dd390de1059b732e254d04e0e43aff3)
@@ -1500,21 +1500,21 @@ class BudgetsBudgetActionDefinitionSsmActionDefinition:
 
     @builtins.property
     def action_sub_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#action_sub_type BudgetsBudgetAction#action_sub_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#action_sub_type BudgetsBudgetAction#action_sub_type}.'''
         result = self._values.get("action_sub_type")
         assert result is not None, "Required property 'action_sub_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#instance_ids BudgetsBudgetAction#instance_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#instance_ids BudgetsBudgetAction#instance_ids}.'''
         result = self._values.get("instance_ids")
         assert result is not None, "Required property 'instance_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#region BudgetsBudgetAction#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#region BudgetsBudgetAction#region}.'''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
         return typing.cast(builtins.str, result)
@@ -1633,8 +1633,8 @@ class BudgetsBudgetActionSubscriber:
         subscription_type: builtins.str,
     ) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#address BudgetsBudgetAction#address}.
-        :param subscription_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#subscription_type BudgetsBudgetAction#subscription_type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#address BudgetsBudgetAction#address}.
+        :param subscription_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#subscription_type BudgetsBudgetAction#subscription_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__700d414c9ed9c9063ac66065316c8243ecd340b780f415cc7f4c54c4ad70d3fd)
@@ -1647,14 +1647,14 @@ class BudgetsBudgetActionSubscriber:
 
     @builtins.property
     def address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#address BudgetsBudgetAction#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#address BudgetsBudgetAction#address}.'''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscription_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#subscription_type BudgetsBudgetAction#subscription_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#subscription_type BudgetsBudgetAction#subscription_type}.'''
         result = self._values.get("subscription_type")
         assert result is not None, "Required property 'subscription_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1853,9 +1853,9 @@ class BudgetsBudgetActionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#create BudgetsBudgetAction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#delete BudgetsBudgetAction#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#update BudgetsBudgetAction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#create BudgetsBudgetAction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#delete BudgetsBudgetAction#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#update BudgetsBudgetAction#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c06e77965d33b666a8b37bda16ae0f581f0b62e742e5c3e876a80ae5c38e5d3)
@@ -1872,19 +1872,19 @@ class BudgetsBudgetActionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#create BudgetsBudgetAction#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#create BudgetsBudgetAction#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#delete BudgetsBudgetAction#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#delete BudgetsBudgetAction#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/budgets_budget_action#update BudgetsBudgetAction#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/budgets_budget_action#update BudgetsBudgetAction#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

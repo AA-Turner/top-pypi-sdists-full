@@ -1,7 +1,7 @@
 r'''
 # `aws_macie2_findings_filter`
 
-Refer to the Terraform Registry for docs: [`aws_macie2_findings_filter`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter).
+Refer to the Terraform Registry for docs: [`aws_macie2_findings_filter`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Macie2FindingsFilter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.macie2FindingsFilter.Macie2FindingsFilter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter aws_macie2_findings_filter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter aws_macie2_findings_filter}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class Macie2FindingsFilter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter aws_macie2_findings_filter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter aws_macie2_findings_filter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#action Macie2FindingsFilter#action}.
-        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#finding_criteria Macie2FindingsFilter#finding_criteria}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#description Macie2FindingsFilter#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#id Macie2FindingsFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#name Macie2FindingsFilter#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#name_prefix Macie2FindingsFilter#name_prefix}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#position Macie2FindingsFilter#position}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#tags Macie2FindingsFilter#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#tags_all Macie2FindingsFilter#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#timeouts Macie2FindingsFilter#timeouts}
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#action Macie2FindingsFilter#action}.
+        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#finding_criteria Macie2FindingsFilter#finding_criteria}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#description Macie2FindingsFilter#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#id Macie2FindingsFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#name Macie2FindingsFilter#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#name_prefix Macie2FindingsFilter#name_prefix}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#position Macie2FindingsFilter#position}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#tags Macie2FindingsFilter#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#tags_all Macie2FindingsFilter#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#timeouts Macie2FindingsFilter#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class Macie2FindingsFilter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Macie2FindingsFilter to import.
-        :param import_from_id: The id of the existing Macie2FindingsFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Macie2FindingsFilter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Macie2FindingsFilter to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class Macie2FindingsFilter(
         criterion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2FindingsFilterFindingCriteriaCriterion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#criterion Macie2FindingsFilter#criterion}
+        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#criterion Macie2FindingsFilter#criterion}
         '''
         value = Macie2FindingsFilterFindingCriteria(criterion=criterion)
 
@@ -157,7 +157,7 @@ class Macie2FindingsFilter(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#create Macie2FindingsFilter#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#create Macie2FindingsFilter#create}.
         '''
         value = Macie2FindingsFilterTimeouts(create=create)
 
@@ -429,16 +429,16 @@ class Macie2FindingsFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#action Macie2FindingsFilter#action}.
-        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#finding_criteria Macie2FindingsFilter#finding_criteria}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#description Macie2FindingsFilter#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#id Macie2FindingsFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#name Macie2FindingsFilter#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#name_prefix Macie2FindingsFilter#name_prefix}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#position Macie2FindingsFilter#position}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#tags Macie2FindingsFilter#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#tags_all Macie2FindingsFilter#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#timeouts Macie2FindingsFilter#timeouts}
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#action Macie2FindingsFilter#action}.
+        :param finding_criteria: finding_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#finding_criteria Macie2FindingsFilter#finding_criteria}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#description Macie2FindingsFilter#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#id Macie2FindingsFilter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#name Macie2FindingsFilter#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#name_prefix Macie2FindingsFilter#name_prefix}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#position Macie2FindingsFilter#position}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#tags Macie2FindingsFilter#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#tags_all Macie2FindingsFilter#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#timeouts Macie2FindingsFilter#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -566,7 +566,7 @@ class Macie2FindingsFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#action Macie2FindingsFilter#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#action Macie2FindingsFilter#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
@@ -575,7 +575,7 @@ class Macie2FindingsFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def finding_criteria(self) -> "Macie2FindingsFilterFindingCriteria":
         '''finding_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#finding_criteria Macie2FindingsFilter#finding_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#finding_criteria Macie2FindingsFilter#finding_criteria}
         '''
         result = self._values.get("finding_criteria")
         assert result is not None, "Required property 'finding_criteria' is missing"
@@ -583,13 +583,13 @@ class Macie2FindingsFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#description Macie2FindingsFilter#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#description Macie2FindingsFilter#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#id Macie2FindingsFilter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#id Macie2FindingsFilter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -599,31 +599,31 @@ class Macie2FindingsFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#name Macie2FindingsFilter#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#name Macie2FindingsFilter#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#name_prefix Macie2FindingsFilter#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#name_prefix Macie2FindingsFilter#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def position(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#position Macie2FindingsFilter#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#position Macie2FindingsFilter#position}.'''
         result = self._values.get("position")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#tags Macie2FindingsFilter#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#tags Macie2FindingsFilter#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#tags_all Macie2FindingsFilter#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#tags_all Macie2FindingsFilter#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -631,7 +631,7 @@ class Macie2FindingsFilterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Macie2FindingsFilterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#timeouts Macie2FindingsFilter#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#timeouts Macie2FindingsFilter#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Macie2FindingsFilterTimeouts"], result)
@@ -660,7 +660,7 @@ class Macie2FindingsFilterFindingCriteria:
         criterion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2FindingsFilterFindingCriteriaCriterion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#criterion Macie2FindingsFilter#criterion}
+        :param criterion: criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#criterion Macie2FindingsFilter#criterion}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef67c21a192178e18ed15e4d5bc86bd048a17cdab08d9d225162eaa6d532eaa8)
@@ -675,7 +675,7 @@ class Macie2FindingsFilterFindingCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2FindingsFilterFindingCriteriaCriterion"]]]:
         '''criterion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#criterion Macie2FindingsFilter#criterion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#criterion Macie2FindingsFilter#criterion}
         '''
         result = self._values.get("criterion")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2FindingsFilterFindingCriteriaCriterion"]]], result)
@@ -720,14 +720,14 @@ class Macie2FindingsFilterFindingCriteriaCriterion:
         neq: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#field Macie2FindingsFilter#field}.
-        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#eq Macie2FindingsFilter#eq}.
-        :param eq_exact_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#eq_exact_match Macie2FindingsFilter#eq_exact_match}.
-        :param gt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#gt Macie2FindingsFilter#gt}.
-        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#gte Macie2FindingsFilter#gte}.
-        :param lt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#lt Macie2FindingsFilter#lt}.
-        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#lte Macie2FindingsFilter#lte}.
-        :param neq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#neq Macie2FindingsFilter#neq}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#field Macie2FindingsFilter#field}.
+        :param eq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#eq Macie2FindingsFilter#eq}.
+        :param eq_exact_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#eq_exact_match Macie2FindingsFilter#eq_exact_match}.
+        :param gt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#gt Macie2FindingsFilter#gt}.
+        :param gte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#gte Macie2FindingsFilter#gte}.
+        :param lt: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#lt Macie2FindingsFilter#lt}.
+        :param lte: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#lte Macie2FindingsFilter#lte}.
+        :param neq: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#neq Macie2FindingsFilter#neq}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e9d1c60ef9249f799fa589e0f7b6711ddb25fa8ba41a985d73d42ba19051d7d)
@@ -759,50 +759,50 @@ class Macie2FindingsFilterFindingCriteriaCriterion:
 
     @builtins.property
     def field(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#field Macie2FindingsFilter#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#field Macie2FindingsFilter#field}.'''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def eq(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#eq Macie2FindingsFilter#eq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#eq Macie2FindingsFilter#eq}.'''
         result = self._values.get("eq")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def eq_exact_match(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#eq_exact_match Macie2FindingsFilter#eq_exact_match}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#eq_exact_match Macie2FindingsFilter#eq_exact_match}.'''
         result = self._values.get("eq_exact_match")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def gt(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#gt Macie2FindingsFilter#gt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#gt Macie2FindingsFilter#gt}.'''
         result = self._values.get("gt")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#gte Macie2FindingsFilter#gte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#gte Macie2FindingsFilter#gte}.'''
         result = self._values.get("gte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lt(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#lt Macie2FindingsFilter#lt}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#lt Macie2FindingsFilter#lt}.'''
         result = self._values.get("lt")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lte(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#lte Macie2FindingsFilter#lte}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#lte Macie2FindingsFilter#lte}.'''
         result = self._values.get("lte")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def neq(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#neq Macie2FindingsFilter#neq}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#neq Macie2FindingsFilter#neq}.'''
         result = self._values.get("neq")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1192,7 +1192,7 @@ class Macie2FindingsFilterFindingCriteriaOutputReference(
 class Macie2FindingsFilterTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#create Macie2FindingsFilter#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#create Macie2FindingsFilter#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46e97adfe23668e07e73b1a2feadbe108a5ac3a651cafd4bca0eb284b6f62318)
@@ -1203,7 +1203,7 @@ class Macie2FindingsFilterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_findings_filter#create Macie2FindingsFilter#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_findings_filter#create Macie2FindingsFilter#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

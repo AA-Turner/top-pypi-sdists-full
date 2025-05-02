@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_image_version`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_image_version`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_image_version`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerImageVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerImageVersion.SagemakerImageVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class SagemakerImageVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version aws_sagemaker_image_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
-        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
-        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
-        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
-        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
-        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
-        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
+        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
+        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
+        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
+        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
+        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
+        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
+        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class SagemakerImageVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerImageVersion to import.
-        :param import_from_id: The id of the existing SagemakerImageVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerImageVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerImageVersion to import is found.
         '''
         if __debug__:
@@ -435,16 +435,16 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
-        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
-        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
-        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
-        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
-        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
-        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
+        :param base_image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.
+        :param horovod: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.
+        :param ml_framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.
+        :param processor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.
+        :param programming_lang: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.
+        :param release_notes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.
+        :param vendor_guidance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -568,14 +568,14 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def base_image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#base_image SagemakerImageVersion#base_image}.'''
         result = self._values.get("base_image")
         assert result is not None, "Required property 'base_image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def image_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#image_name SagemakerImageVersion#image_name}.'''
         result = self._values.get("image_name")
         assert result is not None, "Required property 'image_name' is missing"
         return typing.cast(builtins.str, result)
@@ -584,13 +584,13 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def horovod(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#horovod SagemakerImageVersion#horovod}.'''
         result = self._values.get("horovod")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#id SagemakerImageVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -600,37 +600,37 @@ class SagemakerImageVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def job_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#job_type SagemakerImageVersion#job_type}.'''
         result = self._values.get("job_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ml_framework(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#ml_framework SagemakerImageVersion#ml_framework}.'''
         result = self._values.get("ml_framework")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def processor(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#processor SagemakerImageVersion#processor}.'''
         result = self._values.get("processor")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def programming_lang(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#programming_lang SagemakerImageVersion#programming_lang}.'''
         result = self._values.get("programming_lang")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def release_notes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#release_notes SagemakerImageVersion#release_notes}.'''
         result = self._values.get("release_notes")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vendor_guidance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/sagemaker_image_version#vendor_guidance SagemakerImageVersion#vendor_guidance}.'''
         result = self._values.get("vendor_guidance")
         return typing.cast(typing.Optional[builtins.str], result)
 

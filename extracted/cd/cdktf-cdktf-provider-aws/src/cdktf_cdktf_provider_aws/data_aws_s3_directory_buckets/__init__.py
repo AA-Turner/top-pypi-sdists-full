@@ -1,7 +1,7 @@
 r'''
 # `data_aws_s3_directory_buckets`
 
-Refer to the Terraform Registry for docs: [`data_aws_s3_directory_buckets`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/s3_directory_buckets).
+Refer to the Terraform Registry for docs: [`data_aws_s3_directory_buckets`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/s3_directory_buckets).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsS3DirectoryBuckets(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsS3DirectoryBuckets.DataAwsS3DirectoryBuckets",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/s3_directory_buckets aws_s3_directory_buckets}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/s3_directory_buckets aws_s3_directory_buckets}.'''
 
     def __init__(
         self,
@@ -59,7 +59,7 @@ class DataAwsS3DirectoryBuckets(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/s3_directory_buckets aws_s3_directory_buckets} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/s3_directory_buckets aws_s3_directory_buckets} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
@@ -100,7 +100,7 @@ class DataAwsS3DirectoryBuckets(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsS3DirectoryBuckets to import.
-        :param import_from_id: The id of the existing DataAwsS3DirectoryBuckets that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/s3_directory_buckets#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsS3DirectoryBuckets that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/s3_directory_buckets#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsS3DirectoryBuckets to import is found.
         '''
         if __debug__:

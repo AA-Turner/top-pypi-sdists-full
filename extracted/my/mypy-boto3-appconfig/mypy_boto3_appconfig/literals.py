@@ -26,8 +26,10 @@ __all__ = (
     "ActionPointType",
     "AppConfigServiceName",
     "DeletionProtectionCheckType",
+    "DeploymentCompleteWaiterName",
     "DeploymentEventTypeType",
     "DeploymentStateType",
+    "EnvironmentReadyForDeploymentWaiterName",
     "EnvironmentStateType",
     "GrowthTypeType",
     "ListApplicationsPaginatorName",
@@ -45,6 +47,7 @@ __all__ = (
     "ServiceName",
     "TriggeredByType",
     "ValidatorTypeType",
+    "WaiterName",
 )
 
 
@@ -59,6 +62,7 @@ ActionPointType = Literal[
     "PRE_START_DEPLOYMENT",
 ]
 DeletionProtectionCheckType = Literal["ACCOUNT_DEFAULT", "APPLY", "BYPASS"]
+DeploymentCompleteWaiterName = Literal["deployment_complete"]
 DeploymentEventTypeType = Literal[
     "BAKE_TIME_STARTED",
     "DEPLOYMENT_COMPLETED",
@@ -71,6 +75,7 @@ DeploymentEventTypeType = Literal[
 DeploymentStateType = Literal[
     "BAKING", "COMPLETE", "DEPLOYING", "REVERTED", "ROLLED_BACK", "ROLLING_BACK", "VALIDATING"
 ]
+EnvironmentReadyForDeploymentWaiterName = Literal["environment_ready_for_deployment"]
 EnvironmentStateType = Literal[
     "DEPLOYING", "READY_FOR_DEPLOYMENT", "REVERTED", "ROLLED_BACK", "ROLLING_BACK"
 ]
@@ -453,6 +458,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",
@@ -515,6 +521,7 @@ PaginatorName = Literal[
     "list_extensions",
     "list_hosted_configuration_versions",
 ]
+WaiterName = Literal["deployment_complete", "environment_ready_for_deployment"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

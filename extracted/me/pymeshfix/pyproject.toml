@@ -1,0 +1,35 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel>=0.33.0",
+    "cython>=3.0.0",
+    "numpy>=2,<3",
+]
+
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+junit_family= "legacy"
+filterwarnings = [
+    # bogus numpy ABI warning (see numpy/#432)
+    "ignore:.*numpy.dtype size changed.*:RuntimeWarning",
+    "ignore:.*numpy.ufunc size changed.*:RuntimeWarning"
+]
+
+[tool.cibuildwheel]
+archs = ["auto64"]  # 64-bit only
+skip = "pp* *musllinux* cp38-*"  # disable PyPy and musl-based wheels and Python<3.9
+test-requires = "pytest"
+test-command = "pytest {project}/tests"
+
+[tool.cibuildwheel.macos]
+archs = ["native"]
+
+[tool.codespell]
+skip = '*.cxx,*.h,*.gif,*.png,*.jpg,*.js,*.html,*.doctree,*.ttf,*.woff,*.woff2,*.eot,*.mp4,*.inv,*.pickle,*.ipynb,flycheck*,./.git/*,./.hypothesis/*,*.yml,./doc/build/*,./doc/images/*,./dist/*,*~,.hypothesis*,*.cpp,*.c'
+quiet-level = 3
+
+[tool.ruff]
+line-length = 100
+# pyflakes, pycodestyle, isort
+select = ["F", "E", "W", "I001"]

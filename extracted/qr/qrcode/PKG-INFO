@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: qrcode
-Version: 8.1
+Version: 8.2
 Summary: QR Code image generator
+Home-page: https://github.com/lincolnloop/python-qrcode
 License: BSD
 Keywords: qr,denso-wave,IEC18004
 Author: Lincoln Loop
@@ -18,8 +19,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: all
@@ -28,7 +29,6 @@ Provides-Extra: png
 Requires-Dist: colorama ; sys_platform == "win32"
 Requires-Dist: pillow (>=9.1.0) ; extra == "pil" or extra == "all"
 Requires-Dist: pypng ; extra == "png" or extra == "all"
-Project-URL: Homepage, https://github.com/lincolnloop/python-qrcode
 Description-Content-Type: text/x-rst
 
 =============================
@@ -244,7 +244,7 @@ circles by reducing this less than the default of ``Decimal(1)``.
 
 The ``StyledPilImage`` additionally accepts an optional ``color_mask``
 parameter to change the colors of the QR Code, and an optional
-``embeded_image_path`` to embed an image in the center of the code.
+``embedded_image_path`` to embed an image in the center of the code.
 
 Other color masks:
 
@@ -265,7 +265,7 @@ and an embedded image:
 
     img_1 = qr.make_image(image_factory=StyledPilImage, module_drawer=RoundedModuleDrawer())
     img_2 = qr.make_image(image_factory=StyledPilImage, color_mask=RadialGradiantColorMask())
-    img_3 = qr.make_image(image_factory=StyledPilImage, embeded_image_path="/path/to/image.png")
+    img_3 = qr.make_image(image_factory=StyledPilImage, embedded_image_path="/path/to/image.png")
 
 Examples
 ========
@@ -309,12 +309,21 @@ Alternative to piping output to file to avoid PowerShell issues::
 Change log
 ==========
 
-8.1 ( 02 April 2025)
+8.2 (01 May 2025)
+=================
+
+- Optimize QRColorMask apply_mask method for enhanced performance
+- Fix typos on StyledPilImage embeded_* parameters.
+  The old parameters with the typos are still accepted
+  for backward compatibility.
+
+
+8.1 (02 April 2025)
 ====================
 
 - Added support for Python 3.13.
 
-8.0 ( 27 September 2024)
+8.0 (27 September 2024)
 ========================
 
 - Added support for Python 3.11 and 3.12.
@@ -327,10 +336,12 @@ Change log
 
 - Code quality and formatting utilises ruff_.
 
-- Removed ``typing_extensions`` as a dependency, as it's no longer required with
+- Removed ``typing_extensions`` as a dependency, as it's no longer required
+  with having Python 3.9+ as a requirement.
   having Python 3.9+ as a requirement.
 
-- Only allow high error correction rate (`qrcode.ERROR_CORRECT_H`) when generating
+- Only allow high error correction rate (`qrcode.ERROR_CORRECT_H`)
+  when generating
   QR codes with embedded images to ensure content is readable
 
 .. _Poetry: https://python-poetry.org

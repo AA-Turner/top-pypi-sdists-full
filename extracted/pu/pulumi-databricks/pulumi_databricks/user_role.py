@@ -96,6 +96,9 @@ class _UserRoleState:
 
 
 class UserRole(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/userRole:UserRole"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -105,6 +108,8 @@ class UserRole(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to attach a role or InstanceProfile (AWS) to databricks_user.
+
+        > This resource can be used with an account or workspace-level provider.
 
         ## Example Usage
 
@@ -161,6 +166,8 @@ class UserRole(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to attach a role or InstanceProfile (AWS) to databricks_user.
+
+        > This resource can be used with an account or workspace-level provider.
 
         ## Example Usage
 

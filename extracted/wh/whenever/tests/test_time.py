@@ -8,7 +8,7 @@ from datetime import (
 
 import pytest
 
-from whenever import Date, LocalDateTime, Time
+from whenever import Date, PlainDateTime, Time
 
 from .common import AlwaysEqual, AlwaysLarger, AlwaysSmaller, NeverEqual
 
@@ -90,12 +90,22 @@ class TestParseCommonIso:
     @pytest.mark.parametrize(
         "input, expect",
         [
+            # extended format
             ("00:00:00.000000", Time()),
             ("01:02:03.004000", Time(1, 2, 3, nanosecond=4_000_000)),
             ("23:59:59.999999", Time(23, 59, 59, nanosecond=999_999_000)),
             ("23:59:59.99", Time(23, 59, 59, nanosecond=990_000_000)),
-            ("23:59:59.123456789", Time(23, 59, 59, nanosecond=123_456_789)),
+            ("23:59:59,123456789", Time(23, 59, 59, nanosecond=123_456_789)),
             ("23:59:59", Time(23, 59, 59)),
+            ("23:59", Time(23, 59)),
+            # basic format
+            ("235959", Time(23, 59, 59)),
+            ("235959.123456789", Time(23, 59, 59, nanosecond=123_456_789)),
+            ("010203.004000", Time(1, 2, 3, nanosecond=4_000_000)),
+            ("010203.0", Time(1, 2, 3)),
+            ("010203,03", Time(1, 2, 3, nanosecond=30_000_000)),
+            ("0102", Time(1, 2)),
+            ("13", Time(13)),
         ],
     )
     def test_valid(self, input, expect):
@@ -104,16 +114,47 @@ class TestParseCommonIso:
     @pytest.mark.parametrize(
         "input",
         [
-            "01:02:03.004.0",
-            "01:02:03+00:00",
+            # invalid values
             "32:02:03",
             "22:72:03",
-            "22:72:93",
-            "22112:23",
-            "22:12:23,123",
+            "22:32:63",
+            "320203",
+            "227203",
+            "223263",
+            # separator issues
+            "2212:23",
+            "22:1223.123",
+            "22:12|23",
+            "01:02:03.004.0",
+            "22:12:23:34",
+            # invalid fractional units
+            "22:12.0",
+            "2212.0",
+            "22.2",
+            # fractional issues
+            "22:12:23, 23",
+            "22:12:23.-23",
+            "12:02:03.1234567890",
+            "12:02:03;123456789",
+            # offset
+            "01:02:03+00:00",
+            "010203Z",
+            # trailing/padding
+            "01:02:034",
+            "01:02:03 ",
+            "010203 ",
+            " 010203",
+            # too short
+            "01023",
+            "011",
+            "2",
+            # other
             "garbage",
-            "12:02:03.1234567890",  # too many digits
-            "23:59:59.99999𝟙",  # non-ASCII
+            "",
+            "**",
+            # non-ascii
+            "23:59:59.99999𝟙",
+            "2𝟙:23",
         ],
     )
     def test_invalid(self, input):
@@ -212,7 +253,7 @@ def test_constants():
 
 def test_on():
     t = Time(1, 2, 3, nanosecond=4_000)
-    assert t.on(Date(2021, 1, 2)) == LocalDateTime(
+    assert t.on(Date(2021, 1, 2)) == PlainDateTime(
         2021, 1, 2, 1, 2, 3, nanosecond=4_000
     )
 

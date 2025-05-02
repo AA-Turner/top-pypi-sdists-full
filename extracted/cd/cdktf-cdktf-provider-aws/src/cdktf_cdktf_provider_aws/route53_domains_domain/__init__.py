@@ -1,7 +1,7 @@
 r'''
 # `aws_route53domains_domain`
 
-Refer to the Terraform Registry for docs: [`aws_route53domains_domain`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain).
+Refer to the Terraform Registry for docs: [`aws_route53domains_domain`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Route53DomainsDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.route53DomainsDomain.Route53DomainsDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain aws_route53domains_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain aws_route53domains_domain}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class Route53DomainsDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain aws_route53domains_domain} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain aws_route53domains_domain} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#domain_name Route53DomainsDomain#domain_name}.
-        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#admin_contact Route53DomainsDomain#admin_contact}
-        :param admin_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#admin_privacy Route53DomainsDomain#admin_privacy}.
-        :param auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#auto_renew Route53DomainsDomain#auto_renew}.
-        :param billing_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#billing_contact Route53DomainsDomain#billing_contact}.
-        :param billing_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#billing_privacy Route53DomainsDomain#billing_privacy}.
-        :param duration_in_years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#duration_in_years Route53DomainsDomain#duration_in_years}.
-        :param name_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name_server Route53DomainsDomain#name_server}.
-        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#registrant_contact Route53DomainsDomain#registrant_contact}
-        :param registrant_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#registrant_privacy Route53DomainsDomain#registrant_privacy}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tags Route53DomainsDomain#tags}.
-        :param tech_contact: tech_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tech_contact Route53DomainsDomain#tech_contact}
-        :param tech_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tech_privacy Route53DomainsDomain#tech_privacy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#timeouts Route53DomainsDomain#timeouts}
-        :param transfer_lock: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#transfer_lock Route53DomainsDomain#transfer_lock}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#domain_name Route53DomainsDomain#domain_name}.
+        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#admin_contact Route53DomainsDomain#admin_contact}
+        :param admin_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#admin_privacy Route53DomainsDomain#admin_privacy}.
+        :param auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#auto_renew Route53DomainsDomain#auto_renew}.
+        :param billing_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#billing_contact Route53DomainsDomain#billing_contact}.
+        :param billing_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#billing_privacy Route53DomainsDomain#billing_privacy}.
+        :param duration_in_years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#duration_in_years Route53DomainsDomain#duration_in_years}.
+        :param name_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name_server Route53DomainsDomain#name_server}.
+        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#registrant_contact Route53DomainsDomain#registrant_contact}
+        :param registrant_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#registrant_privacy Route53DomainsDomain#registrant_privacy}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tags Route53DomainsDomain#tags}.
+        :param tech_contact: tech_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tech_contact Route53DomainsDomain#tech_contact}
+        :param tech_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tech_privacy Route53DomainsDomain#tech_privacy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#timeouts Route53DomainsDomain#timeouts}
+        :param transfer_lock: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#transfer_lock Route53DomainsDomain#transfer_lock}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class Route53DomainsDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Route53DomainsDomain to import.
-        :param import_from_id: The id of the existing Route53DomainsDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Route53DomainsDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Route53DomainsDomain to import is found.
         '''
         if __debug__:
@@ -230,9 +230,9 @@ class Route53DomainsDomain(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#create Route53DomainsDomain#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#delete Route53DomainsDomain#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#update Route53DomainsDomain#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#create Route53DomainsDomain#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#delete Route53DomainsDomain#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#update Route53DomainsDomain#update}
         '''
         value = Route53DomainsDomainTimeouts(
             create=create, delete=delete, update=update
@@ -664,20 +664,20 @@ class Route53DomainsDomainAdminContact:
         zip_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
-        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
-        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
-        :param extra_param: extra_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
-        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
-        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
-        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
+        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
+        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
+        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
+        :param extra_param: extra_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
+        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
+        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
+        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1dac08555a264aec4e07632cbeabd9f75de900def51187d4fec0b15b0536343b)
@@ -727,37 +727,37 @@ class Route53DomainsDomainAdminContact:
 
     @builtins.property
     def address_line1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
         result = self._values.get("address_line1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_line2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
         result = self._values.get("address_line2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def contact_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
         result = self._values.get("contact_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -767,50 +767,50 @@ class Route53DomainsDomainAdminContact:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainAdminContactExtraParam"]]]:
         '''extra_param block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
         '''
         result = self._values.get("extra_param")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainAdminContactExtraParam"]]], result)
 
     @builtins.property
     def fax(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
         result = self._values.get("fax")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
         result = self._values.get("first_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def last_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
         result = self._values.get("last_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def organization_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
         result = self._values.get("organization_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zip_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
         result = self._values.get("zip_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -834,8 +834,8 @@ class Route53DomainsDomainAdminContact:
 class Route53DomainsDomainAdminContactExtraParam:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1632be65022260fb494025279dc441a8f9b986d6c193b83ded957f15b625d7f)
@@ -848,14 +848,14 @@ class Route53DomainsDomainAdminContactExtraParam:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1522,20 +1522,20 @@ class Route53DomainsDomainBillingContact:
         zip_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
-        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
-        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
-        :param extra_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}.
-        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
-        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
-        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
+        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
+        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
+        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
+        :param extra_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}.
+        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
+        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
+        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d57961134577360d3d1955c9cc6f0d2e5eb0b1de87580c633df61a74005839a)
@@ -1585,37 +1585,37 @@ class Route53DomainsDomainBillingContact:
 
     @builtins.property
     def address_line1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
         result = self._values.get("address_line1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_line2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
         result = self._values.get("address_line2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def contact_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
         result = self._values.get("contact_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1623,49 +1623,49 @@ class Route53DomainsDomainBillingContact:
     def extra_param(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainBillingContactExtraParam"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}.'''
         result = self._values.get("extra_param")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainBillingContactExtraParam"]]], result)
 
     @builtins.property
     def fax(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
         result = self._values.get("fax")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
         result = self._values.get("first_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def last_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
         result = self._values.get("last_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def organization_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
         result = self._values.get("organization_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zip_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
         result = self._values.get("zip_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1694,8 +1694,8 @@ class Route53DomainsDomainBillingContactExtraParam:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a091a70c0e88b73ee05686bf5d83f4c60bcbab817cb14eb70e816d61f5c6b58c)
@@ -1709,13 +1709,13 @@ class Route53DomainsDomainBillingContactExtraParam:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2412,21 +2412,21 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#domain_name Route53DomainsDomain#domain_name}.
-        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#admin_contact Route53DomainsDomain#admin_contact}
-        :param admin_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#admin_privacy Route53DomainsDomain#admin_privacy}.
-        :param auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#auto_renew Route53DomainsDomain#auto_renew}.
-        :param billing_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#billing_contact Route53DomainsDomain#billing_contact}.
-        :param billing_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#billing_privacy Route53DomainsDomain#billing_privacy}.
-        :param duration_in_years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#duration_in_years Route53DomainsDomain#duration_in_years}.
-        :param name_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name_server Route53DomainsDomain#name_server}.
-        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#registrant_contact Route53DomainsDomain#registrant_contact}
-        :param registrant_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#registrant_privacy Route53DomainsDomain#registrant_privacy}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tags Route53DomainsDomain#tags}.
-        :param tech_contact: tech_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tech_contact Route53DomainsDomain#tech_contact}
-        :param tech_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tech_privacy Route53DomainsDomain#tech_privacy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#timeouts Route53DomainsDomain#timeouts}
-        :param transfer_lock: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#transfer_lock Route53DomainsDomain#transfer_lock}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#domain_name Route53DomainsDomain#domain_name}.
+        :param admin_contact: admin_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#admin_contact Route53DomainsDomain#admin_contact}
+        :param admin_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#admin_privacy Route53DomainsDomain#admin_privacy}.
+        :param auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#auto_renew Route53DomainsDomain#auto_renew}.
+        :param billing_contact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#billing_contact Route53DomainsDomain#billing_contact}.
+        :param billing_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#billing_privacy Route53DomainsDomain#billing_privacy}.
+        :param duration_in_years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#duration_in_years Route53DomainsDomain#duration_in_years}.
+        :param name_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name_server Route53DomainsDomain#name_server}.
+        :param registrant_contact: registrant_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#registrant_contact Route53DomainsDomain#registrant_contact}
+        :param registrant_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#registrant_privacy Route53DomainsDomain#registrant_privacy}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tags Route53DomainsDomain#tags}.
+        :param tech_contact: tech_contact block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tech_contact Route53DomainsDomain#tech_contact}
+        :param tech_privacy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tech_privacy Route53DomainsDomain#tech_privacy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#timeouts Route53DomainsDomain#timeouts}
+        :param transfer_lock: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#transfer_lock Route53DomainsDomain#transfer_lock}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2568,7 +2568,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#domain_name Route53DomainsDomain#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#domain_name Route53DomainsDomain#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2579,7 +2579,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[Route53DomainsDomainAdminContact]]]:
         '''admin_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#admin_contact Route53DomainsDomain#admin_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#admin_contact Route53DomainsDomain#admin_contact}
         '''
         result = self._values.get("admin_contact")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[Route53DomainsDomainAdminContact]]], result)
@@ -2588,7 +2588,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def admin_privacy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#admin_privacy Route53DomainsDomain#admin_privacy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#admin_privacy Route53DomainsDomain#admin_privacy}.'''
         result = self._values.get("admin_privacy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2596,7 +2596,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_renew(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#auto_renew Route53DomainsDomain#auto_renew}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#auto_renew Route53DomainsDomain#auto_renew}.'''
         result = self._values.get("auto_renew")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2604,7 +2604,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing_contact(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[Route53DomainsDomainBillingContact]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#billing_contact Route53DomainsDomain#billing_contact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#billing_contact Route53DomainsDomain#billing_contact}.'''
         result = self._values.get("billing_contact")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[Route53DomainsDomainBillingContact]]], result)
 
@@ -2612,13 +2612,13 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing_privacy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#billing_privacy Route53DomainsDomain#billing_privacy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#billing_privacy Route53DomainsDomain#billing_privacy}.'''
         result = self._values.get("billing_privacy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def duration_in_years(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#duration_in_years Route53DomainsDomain#duration_in_years}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#duration_in_years Route53DomainsDomain#duration_in_years}.'''
         result = self._values.get("duration_in_years")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2626,7 +2626,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name_server(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainNameServer"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name_server Route53DomainsDomain#name_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name_server Route53DomainsDomain#name_server}.'''
         result = self._values.get("name_server")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainNameServer"]]], result)
 
@@ -2636,7 +2636,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainRegistrantContact"]]]:
         '''registrant_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#registrant_contact Route53DomainsDomain#registrant_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#registrant_contact Route53DomainsDomain#registrant_contact}
         '''
         result = self._values.get("registrant_contact")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainRegistrantContact"]]], result)
@@ -2645,13 +2645,13 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def registrant_privacy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#registrant_privacy Route53DomainsDomain#registrant_privacy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#registrant_privacy Route53DomainsDomain#registrant_privacy}.'''
         result = self._values.get("registrant_privacy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tags Route53DomainsDomain#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tags Route53DomainsDomain#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2661,7 +2661,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainTechContact"]]]:
         '''tech_contact block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tech_contact Route53DomainsDomain#tech_contact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tech_contact Route53DomainsDomain#tech_contact}
         '''
         result = self._values.get("tech_contact")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainTechContact"]]], result)
@@ -2670,7 +2670,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tech_privacy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#tech_privacy Route53DomainsDomain#tech_privacy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#tech_privacy Route53DomainsDomain#tech_privacy}.'''
         result = self._values.get("tech_privacy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2678,7 +2678,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Route53DomainsDomainTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#timeouts Route53DomainsDomain#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#timeouts Route53DomainsDomain#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Route53DomainsDomainTimeouts"], result)
@@ -2687,7 +2687,7 @@ class Route53DomainsDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def transfer_lock(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#transfer_lock Route53DomainsDomain#transfer_lock}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#transfer_lock Route53DomainsDomain#transfer_lock}.'''
         result = self._values.get("transfer_lock")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2716,8 +2716,8 @@ class Route53DomainsDomainNameServer:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param glue_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#glue_ips Route53DomainsDomain#glue_ips}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
+        :param glue_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#glue_ips Route53DomainsDomain#glue_ips}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4378f367f6b39544401954bd7db533912033604404521a3a4e00fe00e0e961b)
@@ -2731,13 +2731,13 @@ class Route53DomainsDomainNameServer:
 
     @builtins.property
     def glue_ips(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#glue_ips Route53DomainsDomain#glue_ips}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#glue_ips Route53DomainsDomain#glue_ips}.'''
         result = self._values.get("glue_ips")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2972,20 +2972,20 @@ class Route53DomainsDomainRegistrantContact:
         zip_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
-        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
-        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
-        :param extra_param: extra_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
-        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
-        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
-        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
+        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
+        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
+        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
+        :param extra_param: extra_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
+        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
+        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
+        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c23655c91b468b1e46cf10d8430cff2d2046b895a8bc880873ca16587760fd2)
@@ -3035,37 +3035,37 @@ class Route53DomainsDomainRegistrantContact:
 
     @builtins.property
     def address_line1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
         result = self._values.get("address_line1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_line2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
         result = self._values.get("address_line2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def contact_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
         result = self._values.get("contact_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3075,50 +3075,50 @@ class Route53DomainsDomainRegistrantContact:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainRegistrantContactExtraParam"]]]:
         '''extra_param block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
         '''
         result = self._values.get("extra_param")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainRegistrantContactExtraParam"]]], result)
 
     @builtins.property
     def fax(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
         result = self._values.get("fax")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
         result = self._values.get("first_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def last_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
         result = self._values.get("last_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def organization_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
         result = self._values.get("organization_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zip_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
         result = self._values.get("zip_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3142,8 +3142,8 @@ class Route53DomainsDomainRegistrantContact:
 class Route53DomainsDomainRegistrantContactExtraParam:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e83219826eb86a8790e90cf77b8393fb3e2311173b2bf8795b0e401d3521135)
@@ -3156,14 +3156,14 @@ class Route53DomainsDomainRegistrantContactExtraParam:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3830,20 +3830,20 @@ class Route53DomainsDomainTechContact:
         zip_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
-        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
-        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
-        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
-        :param extra_param: extra_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
-        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
-        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
-        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
+        :param address_line1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.
+        :param address_line2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.
+        :param contact_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.
+        :param country_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.
+        :param extra_param: extra_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
+        :param fax: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.
+        :param organization_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.
+        :param zip_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7792be75064d7d84413ec9edc3ab0dc14b916032b09e808bda8fa7675108953)
@@ -3893,37 +3893,37 @@ class Route53DomainsDomainTechContact:
 
     @builtins.property
     def address_line1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_1 Route53DomainsDomain#address_line_1}.'''
         result = self._values.get("address_line1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_line2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#address_line_2 Route53DomainsDomain#address_line_2}.'''
         result = self._values.get("address_line2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#city Route53DomainsDomain#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def contact_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#contact_type Route53DomainsDomain#contact_type}.'''
         result = self._values.get("contact_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#country_code Route53DomainsDomain#country_code}.'''
         result = self._values.get("country_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#email Route53DomainsDomain#email}.'''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3933,50 +3933,50 @@ class Route53DomainsDomainTechContact:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainTechContactExtraParam"]]]:
         '''extra_param block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#extra_param Route53DomainsDomain#extra_param}
         '''
         result = self._values.get("extra_param")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53DomainsDomainTechContactExtraParam"]]], result)
 
     @builtins.property
     def fax(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#fax Route53DomainsDomain#fax}.'''
         result = self._values.get("fax")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#first_name Route53DomainsDomain#first_name}.'''
         result = self._values.get("first_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def last_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#last_name Route53DomainsDomain#last_name}.'''
         result = self._values.get("last_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def organization_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#organization_name Route53DomainsDomain#organization_name}.'''
         result = self._values.get("organization_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#phone_number Route53DomainsDomain#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#state Route53DomainsDomain#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def zip_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#zip_code Route53DomainsDomain#zip_code}.'''
         result = self._values.get("zip_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4000,8 +4000,8 @@ class Route53DomainsDomainTechContact:
 class Route53DomainsDomainTechContactExtraParam:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8662d843437b7705bdae9c1c78b9053b1f9ba31d5cacb354cbae33db5ed98fc5)
@@ -4014,14 +4014,14 @@ class Route53DomainsDomainTechContactExtraParam:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#name Route53DomainsDomain#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#value Route53DomainsDomain#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4662,9 +4662,9 @@ class Route53DomainsDomainTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#create Route53DomainsDomain#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#delete Route53DomainsDomain#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#update Route53DomainsDomain#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#create Route53DomainsDomain#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#delete Route53DomainsDomain#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#update Route53DomainsDomain#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1287208e6c930fc4eaf84f9ed80d60bd9236a9e9693b1290dfcaa0938b3b85b1)
@@ -4683,7 +4683,7 @@ class Route53DomainsDomainTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#create Route53DomainsDomain#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#create Route53DomainsDomain#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4692,7 +4692,7 @@ class Route53DomainsDomainTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#delete Route53DomainsDomain#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#delete Route53DomainsDomain#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4701,7 +4701,7 @@ class Route53DomainsDomainTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53domains_domain#update Route53DomainsDomain#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53domains_domain#update Route53DomainsDomain#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

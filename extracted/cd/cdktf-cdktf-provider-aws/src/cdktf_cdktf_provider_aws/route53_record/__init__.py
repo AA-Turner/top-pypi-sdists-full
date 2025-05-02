@@ -1,7 +1,7 @@
 r'''
 # `aws_route53_record`
 
-Refer to the Terraform Registry for docs: [`aws_route53_record`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record).
+Refer to the Terraform Registry for docs: [`aws_route53_record`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Route53Record(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.route53Record.Route53Record",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record aws_route53_record}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record aws_route53_record}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class Route53Record(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record aws_route53_record} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record aws_route53_record} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#name Route53Record#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#type Route53Record#type}.
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
-        :param alias: alias block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#alias Route53Record#alias}
-        :param allow_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#allow_overwrite Route53Record#allow_overwrite}.
-        :param cidr_routing_policy: cidr_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#cidr_routing_policy Route53Record#cidr_routing_policy}
-        :param failover_routing_policy: failover_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#failover_routing_policy Route53Record#failover_routing_policy}
-        :param geolocation_routing_policy: geolocation_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#geolocation_routing_policy Route53Record#geolocation_routing_policy}
-        :param geoproximity_routing_policy: geoproximity_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#geoproximity_routing_policy Route53Record#geoproximity_routing_policy}
-        :param health_check_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#health_check_id Route53Record#health_check_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#id Route53Record#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param latency_routing_policy: latency_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#latency_routing_policy Route53Record#latency_routing_policy}
-        :param multivalue_answer_routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#multivalue_answer_routing_policy Route53Record#multivalue_answer_routing_policy}.
-        :param records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#records Route53Record#records}.
-        :param set_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#set_identifier Route53Record#set_identifier}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#timeouts Route53Record#timeouts}
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#ttl Route53Record#ttl}.
-        :param weighted_routing_policy: weighted_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#weighted_routing_policy Route53Record#weighted_routing_policy}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#name Route53Record#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#type Route53Record#type}.
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
+        :param alias: alias block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#alias Route53Record#alias}
+        :param allow_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#allow_overwrite Route53Record#allow_overwrite}.
+        :param cidr_routing_policy: cidr_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#cidr_routing_policy Route53Record#cidr_routing_policy}
+        :param failover_routing_policy: failover_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#failover_routing_policy Route53Record#failover_routing_policy}
+        :param geolocation_routing_policy: geolocation_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#geolocation_routing_policy Route53Record#geolocation_routing_policy}
+        :param geoproximity_routing_policy: geoproximity_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#geoproximity_routing_policy Route53Record#geoproximity_routing_policy}
+        :param health_check_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#health_check_id Route53Record#health_check_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#id Route53Record#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param latency_routing_policy: latency_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#latency_routing_policy Route53Record#latency_routing_policy}
+        :param multivalue_answer_routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#multivalue_answer_routing_policy Route53Record#multivalue_answer_routing_policy}.
+        :param records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#records Route53Record#records}.
+        :param set_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#set_identifier Route53Record#set_identifier}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#timeouts Route53Record#timeouts}
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#ttl Route53Record#ttl}.
+        :param weighted_routing_policy: weighted_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#weighted_routing_policy Route53Record#weighted_routing_policy}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class Route53Record(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Route53Record to import.
-        :param import_from_id: The id of the existing Route53Record that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Route53Record that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Route53Record to import is found.
         '''
         if __debug__:
@@ -174,9 +174,9 @@ class Route53Record(
         zone_id: builtins.str,
     ) -> None:
         '''
-        :param evaluate_target_health: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#evaluate_target_health Route53Record#evaluate_target_health}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#name Route53Record#name}.
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
+        :param evaluate_target_health: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#evaluate_target_health Route53Record#evaluate_target_health}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#name Route53Record#name}.
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
         '''
         value = Route53RecordAlias(
             evaluate_target_health=evaluate_target_health, name=name, zone_id=zone_id
@@ -192,8 +192,8 @@ class Route53Record(
         location_name: builtins.str,
     ) -> None:
         '''
-        :param collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#collection_id Route53Record#collection_id}.
-        :param location_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#location_name Route53Record#location_name}.
+        :param collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#collection_id Route53Record#collection_id}.
+        :param location_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#location_name Route53Record#location_name}.
         '''
         value = Route53RecordCidrRoutingPolicy(
             collection_id=collection_id, location_name=location_name
@@ -204,7 +204,7 @@ class Route53Record(
     @jsii.member(jsii_name="putFailoverRoutingPolicy")
     def put_failover_routing_policy(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#type Route53Record#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#type Route53Record#type}.
         '''
         value = Route53RecordFailoverRoutingPolicy(type=type)
 
@@ -219,9 +219,9 @@ class Route53Record(
         subdivision: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param continent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#continent Route53Record#continent}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#country Route53Record#country}.
-        :param subdivision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#subdivision Route53Record#subdivision}.
+        :param continent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#continent Route53Record#continent}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#country Route53Record#country}.
+        :param subdivision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#subdivision Route53Record#subdivision}.
         '''
         value = Route53RecordGeolocationRoutingPolicy(
             continent=continent, country=country, subdivision=subdivision
@@ -239,10 +239,10 @@ class Route53Record(
         local_zone_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#aws_region Route53Record#aws_region}.
-        :param bias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#bias Route53Record#bias}.
-        :param coordinates: coordinates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#coordinates Route53Record#coordinates}
-        :param local_zone_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#local_zone_group Route53Record#local_zone_group}.
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#aws_region Route53Record#aws_region}.
+        :param bias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#bias Route53Record#bias}.
+        :param coordinates: coordinates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#coordinates Route53Record#coordinates}
+        :param local_zone_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#local_zone_group Route53Record#local_zone_group}.
         '''
         value = Route53RecordGeoproximityRoutingPolicy(
             aws_region=aws_region,
@@ -256,7 +256,7 @@ class Route53Record(
     @jsii.member(jsii_name="putLatencyRoutingPolicy")
     def put_latency_routing_policy(self, *, region: builtins.str) -> None:
         '''
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#region Route53Record#region}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#region Route53Record#region}.
         '''
         value = Route53RecordLatencyRoutingPolicy(region=region)
 
@@ -271,9 +271,9 @@ class Route53Record(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#create Route53Record#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#delete Route53Record#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#update Route53Record#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#create Route53Record#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#delete Route53Record#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#update Route53Record#update}.
         '''
         value = Route53RecordTimeouts(create=create, delete=delete, update=update)
 
@@ -282,7 +282,7 @@ class Route53Record(
     @jsii.member(jsii_name="putWeightedRoutingPolicy")
     def put_weighted_routing_policy(self, *, weight: jsii.Number) -> None:
         '''
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#weight Route53Record#weight}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#weight Route53Record#weight}.
         '''
         value = Route53RecordWeightedRoutingPolicy(weight=weight)
 
@@ -673,9 +673,9 @@ class Route53RecordAlias:
         zone_id: builtins.str,
     ) -> None:
         '''
-        :param evaluate_target_health: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#evaluate_target_health Route53Record#evaluate_target_health}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#name Route53Record#name}.
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
+        :param evaluate_target_health: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#evaluate_target_health Route53Record#evaluate_target_health}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#name Route53Record#name}.
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16ad3458a72faf84e447106807b17f77177e205dcbf6498b3b7d74ee4c28b6d6)
@@ -692,21 +692,21 @@ class Route53RecordAlias:
     def evaluate_target_health(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#evaluate_target_health Route53Record#evaluate_target_health}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#evaluate_target_health Route53Record#evaluate_target_health}.'''
         result = self._values.get("evaluate_target_health")
         assert result is not None, "Required property 'evaluate_target_health' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#name Route53Record#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#name Route53Record#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.'''
         result = self._values.get("zone_id")
         assert result is not None, "Required property 'zone_id' is missing"
         return typing.cast(builtins.str, result)
@@ -827,8 +827,8 @@ class Route53RecordCidrRoutingPolicy:
         location_name: builtins.str,
     ) -> None:
         '''
-        :param collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#collection_id Route53Record#collection_id}.
-        :param location_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#location_name Route53Record#location_name}.
+        :param collection_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#collection_id Route53Record#collection_id}.
+        :param location_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#location_name Route53Record#location_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51fead99d5c5788ddc3c35d54f0f39e374e580c041ec8ede7c05d6786efccce8)
@@ -841,14 +841,14 @@ class Route53RecordCidrRoutingPolicy:
 
     @builtins.property
     def collection_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#collection_id Route53Record#collection_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#collection_id Route53Record#collection_id}.'''
         result = self._values.get("collection_id")
         assert result is not None, "Required property 'collection_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#location_name Route53Record#location_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#location_name Route53Record#location_name}.'''
         result = self._values.get("location_name")
         assert result is not None, "Required property 'location_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1004,24 +1004,24 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#name Route53Record#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#type Route53Record#type}.
-        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
-        :param alias: alias block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#alias Route53Record#alias}
-        :param allow_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#allow_overwrite Route53Record#allow_overwrite}.
-        :param cidr_routing_policy: cidr_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#cidr_routing_policy Route53Record#cidr_routing_policy}
-        :param failover_routing_policy: failover_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#failover_routing_policy Route53Record#failover_routing_policy}
-        :param geolocation_routing_policy: geolocation_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#geolocation_routing_policy Route53Record#geolocation_routing_policy}
-        :param geoproximity_routing_policy: geoproximity_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#geoproximity_routing_policy Route53Record#geoproximity_routing_policy}
-        :param health_check_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#health_check_id Route53Record#health_check_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#id Route53Record#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param latency_routing_policy: latency_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#latency_routing_policy Route53Record#latency_routing_policy}
-        :param multivalue_answer_routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#multivalue_answer_routing_policy Route53Record#multivalue_answer_routing_policy}.
-        :param records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#records Route53Record#records}.
-        :param set_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#set_identifier Route53Record#set_identifier}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#timeouts Route53Record#timeouts}
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#ttl Route53Record#ttl}.
-        :param weighted_routing_policy: weighted_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#weighted_routing_policy Route53Record#weighted_routing_policy}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#name Route53Record#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#type Route53Record#type}.
+        :param zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.
+        :param alias: alias block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#alias Route53Record#alias}
+        :param allow_overwrite: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#allow_overwrite Route53Record#allow_overwrite}.
+        :param cidr_routing_policy: cidr_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#cidr_routing_policy Route53Record#cidr_routing_policy}
+        :param failover_routing_policy: failover_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#failover_routing_policy Route53Record#failover_routing_policy}
+        :param geolocation_routing_policy: geolocation_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#geolocation_routing_policy Route53Record#geolocation_routing_policy}
+        :param geoproximity_routing_policy: geoproximity_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#geoproximity_routing_policy Route53Record#geoproximity_routing_policy}
+        :param health_check_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#health_check_id Route53Record#health_check_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#id Route53Record#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param latency_routing_policy: latency_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#latency_routing_policy Route53Record#latency_routing_policy}
+        :param multivalue_answer_routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#multivalue_answer_routing_policy Route53Record#multivalue_answer_routing_policy}.
+        :param records: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#records Route53Record#records}.
+        :param set_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#set_identifier Route53Record#set_identifier}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#timeouts Route53Record#timeouts}
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#ttl Route53Record#ttl}.
+        :param weighted_routing_policy: weighted_routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#weighted_routing_policy Route53Record#weighted_routing_policy}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1184,21 +1184,21 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#name Route53Record#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#name Route53Record#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#type Route53Record#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#type Route53Record#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#zone_id Route53Record#zone_id}.'''
         result = self._values.get("zone_id")
         assert result is not None, "Required property 'zone_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1207,7 +1207,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alias(self) -> typing.Optional[Route53RecordAlias]:
         '''alias block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#alias Route53Record#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#alias Route53Record#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[Route53RecordAlias], result)
@@ -1216,7 +1216,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_overwrite(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#allow_overwrite Route53Record#allow_overwrite}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#allow_overwrite Route53Record#allow_overwrite}.'''
         result = self._values.get("allow_overwrite")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1224,7 +1224,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cidr_routing_policy(self) -> typing.Optional[Route53RecordCidrRoutingPolicy]:
         '''cidr_routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#cidr_routing_policy Route53Record#cidr_routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#cidr_routing_policy Route53Record#cidr_routing_policy}
         '''
         result = self._values.get("cidr_routing_policy")
         return typing.cast(typing.Optional[Route53RecordCidrRoutingPolicy], result)
@@ -1235,7 +1235,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Route53RecordFailoverRoutingPolicy"]:
         '''failover_routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#failover_routing_policy Route53Record#failover_routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#failover_routing_policy Route53Record#failover_routing_policy}
         '''
         result = self._values.get("failover_routing_policy")
         return typing.cast(typing.Optional["Route53RecordFailoverRoutingPolicy"], result)
@@ -1246,7 +1246,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Route53RecordGeolocationRoutingPolicy"]:
         '''geolocation_routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#geolocation_routing_policy Route53Record#geolocation_routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#geolocation_routing_policy Route53Record#geolocation_routing_policy}
         '''
         result = self._values.get("geolocation_routing_policy")
         return typing.cast(typing.Optional["Route53RecordGeolocationRoutingPolicy"], result)
@@ -1257,20 +1257,20 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Route53RecordGeoproximityRoutingPolicy"]:
         '''geoproximity_routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#geoproximity_routing_policy Route53Record#geoproximity_routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#geoproximity_routing_policy Route53Record#geoproximity_routing_policy}
         '''
         result = self._values.get("geoproximity_routing_policy")
         return typing.cast(typing.Optional["Route53RecordGeoproximityRoutingPolicy"], result)
 
     @builtins.property
     def health_check_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#health_check_id Route53Record#health_check_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#health_check_id Route53Record#health_check_id}.'''
         result = self._values.get("health_check_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#id Route53Record#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#id Route53Record#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1284,7 +1284,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Route53RecordLatencyRoutingPolicy"]:
         '''latency_routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#latency_routing_policy Route53Record#latency_routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#latency_routing_policy Route53Record#latency_routing_policy}
         '''
         result = self._values.get("latency_routing_policy")
         return typing.cast(typing.Optional["Route53RecordLatencyRoutingPolicy"], result)
@@ -1293,19 +1293,19 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def multivalue_answer_routing_policy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#multivalue_answer_routing_policy Route53Record#multivalue_answer_routing_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#multivalue_answer_routing_policy Route53Record#multivalue_answer_routing_policy}.'''
         result = self._values.get("multivalue_answer_routing_policy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def records(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#records Route53Record#records}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#records Route53Record#records}.'''
         result = self._values.get("records")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def set_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#set_identifier Route53Record#set_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#set_identifier Route53Record#set_identifier}.'''
         result = self._values.get("set_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1313,14 +1313,14 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Route53RecordTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#timeouts Route53Record#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#timeouts Route53Record#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Route53RecordTimeouts"], result)
 
     @builtins.property
     def ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#ttl Route53Record#ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#ttl Route53Record#ttl}.'''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1330,7 +1330,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Route53RecordWeightedRoutingPolicy"]:
         '''weighted_routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#weighted_routing_policy Route53Record#weighted_routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#weighted_routing_policy Route53Record#weighted_routing_policy}
         '''
         result = self._values.get("weighted_routing_policy")
         return typing.cast(typing.Optional["Route53RecordWeightedRoutingPolicy"], result)
@@ -1355,7 +1355,7 @@ class Route53RecordConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class Route53RecordFailoverRoutingPolicy:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#type Route53Record#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#type Route53Record#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ce0183eff110b972fee5a66acf0258247d1029d0f2a719bf041bb22d7f900bc)
@@ -1366,7 +1366,7 @@ class Route53RecordFailoverRoutingPolicy:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#type Route53Record#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#type Route53Record#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1454,9 +1454,9 @@ class Route53RecordGeolocationRoutingPolicy:
         subdivision: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param continent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#continent Route53Record#continent}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#country Route53Record#country}.
-        :param subdivision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#subdivision Route53Record#subdivision}.
+        :param continent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#continent Route53Record#continent}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#country Route53Record#country}.
+        :param subdivision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#subdivision Route53Record#subdivision}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b6b879ebb9bb510894d0f3fd3daa9a59d5c73af6a5a1e92636c597f68c25981)
@@ -1473,19 +1473,19 @@ class Route53RecordGeolocationRoutingPolicy:
 
     @builtins.property
     def continent(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#continent Route53Record#continent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#continent Route53Record#continent}.'''
         result = self._values.get("continent")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#country Route53Record#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#country Route53Record#country}.'''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subdivision(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#subdivision Route53Record#subdivision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#subdivision Route53Record#subdivision}.'''
         result = self._values.get("subdivision")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1620,10 +1620,10 @@ class Route53RecordGeoproximityRoutingPolicy:
         local_zone_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#aws_region Route53Record#aws_region}.
-        :param bias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#bias Route53Record#bias}.
-        :param coordinates: coordinates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#coordinates Route53Record#coordinates}
-        :param local_zone_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#local_zone_group Route53Record#local_zone_group}.
+        :param aws_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#aws_region Route53Record#aws_region}.
+        :param bias: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#bias Route53Record#bias}.
+        :param coordinates: coordinates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#coordinates Route53Record#coordinates}
+        :param local_zone_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#local_zone_group Route53Record#local_zone_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b50160216a95f8d82fd4c7215efa405a1e2be58c4093c8ec511950874d4213e)
@@ -1643,13 +1643,13 @@ class Route53RecordGeoproximityRoutingPolicy:
 
     @builtins.property
     def aws_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#aws_region Route53Record#aws_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#aws_region Route53Record#aws_region}.'''
         result = self._values.get("aws_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bias(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#bias Route53Record#bias}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#bias Route53Record#bias}.'''
         result = self._values.get("bias")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1659,14 +1659,14 @@ class Route53RecordGeoproximityRoutingPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordGeoproximityRoutingPolicyCoordinates"]]]:
         '''coordinates block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#coordinates Route53Record#coordinates}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#coordinates Route53Record#coordinates}
         '''
         result = self._values.get("coordinates")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53RecordGeoproximityRoutingPolicyCoordinates"]]], result)
 
     @builtins.property
     def local_zone_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#local_zone_group Route53Record#local_zone_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#local_zone_group Route53Record#local_zone_group}.'''
         result = self._values.get("local_zone_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1690,8 +1690,8 @@ class Route53RecordGeoproximityRoutingPolicy:
 class Route53RecordGeoproximityRoutingPolicyCoordinates:
     def __init__(self, *, latitude: builtins.str, longitude: builtins.str) -> None:
         '''
-        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#latitude Route53Record#latitude}.
-        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#longitude Route53Record#longitude}.
+        :param latitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#latitude Route53Record#latitude}.
+        :param longitude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#longitude Route53Record#longitude}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9065bf3533ee669bfb1ae8e00d85090060189d057f2734b34aaf69ce27738c1b)
@@ -1704,14 +1704,14 @@ class Route53RecordGeoproximityRoutingPolicyCoordinates:
 
     @builtins.property
     def latitude(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#latitude Route53Record#latitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#latitude Route53Record#latitude}.'''
         result = self._values.get("latitude")
         assert result is not None, "Required property 'latitude' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def longitude(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#longitude Route53Record#longitude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#longitude Route53Record#longitude}.'''
         result = self._values.get("longitude")
         assert result is not None, "Required property 'longitude' is missing"
         return typing.cast(builtins.str, result)
@@ -2035,7 +2035,7 @@ class Route53RecordGeoproximityRoutingPolicyOutputReference(
 class Route53RecordLatencyRoutingPolicy:
     def __init__(self, *, region: builtins.str) -> None:
         '''
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#region Route53Record#region}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#region Route53Record#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93407d6d78c0b77af3feea7161e9af605afe9e663fb253ef2ef1ca1503a59584)
@@ -2046,7 +2046,7 @@ class Route53RecordLatencyRoutingPolicy:
 
     @builtins.property
     def region(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#region Route53Record#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#region Route53Record#region}.'''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
         return typing.cast(builtins.str, result)
@@ -2130,9 +2130,9 @@ class Route53RecordTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#create Route53Record#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#delete Route53Record#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#update Route53Record#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#create Route53Record#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#delete Route53Record#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#update Route53Record#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0850c80b403b5bcff834140534cec276c7c59f30858dbc6358257b22648468a)
@@ -2149,19 +2149,19 @@ class Route53RecordTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#create Route53Record#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#create Route53Record#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#delete Route53Record#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#delete Route53Record#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#update Route53Record#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#update Route53Record#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2286,7 +2286,7 @@ class Route53RecordTimeoutsOutputReference(
 class Route53RecordWeightedRoutingPolicy:
     def __init__(self, *, weight: jsii.Number) -> None:
         '''
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#weight Route53Record#weight}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#weight Route53Record#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c83b655b37b076e5c3f4c03bb57e015b3849de49ef591587f99466c5249f0bcd)
@@ -2297,7 +2297,7 @@ class Route53RecordWeightedRoutingPolicy:
 
     @builtins.property
     def weight(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/route53_record#weight Route53Record#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_record#weight Route53Record#weight}.'''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
         return typing.cast(jsii.Number, result)

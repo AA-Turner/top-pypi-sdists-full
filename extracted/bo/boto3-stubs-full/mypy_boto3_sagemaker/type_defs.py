@@ -185,6 +185,7 @@ from .literals import (
     MonitoringProblemTypeType,
     MonitoringScheduleSortKeyType,
     MonitoringTypeType,
+    NodeUnavailabilityTypeType,
     NotebookInstanceAcceleratorTypeType,
     NotebookInstanceLifecycleConfigSortKeyType,
     NotebookInstanceLifecycleConfigSortOrderType,
@@ -335,6 +336,7 @@ __all__ = (
     "AdditionalModelDataSourceTypeDef",
     "AdditionalS3DataSourceTypeDef",
     "AgentVersionTypeDef",
+    "AlarmDetailsTypeDef",
     "AlarmTypeDef",
     "AlgorithmSpecificationOutputTypeDef",
     "AlgorithmSpecificationTypeDef",
@@ -428,6 +430,7 @@ __all__ = (
     "CandidatePropertiesTypeDef",
     "CanvasAppSettingsOutputTypeDef",
     "CanvasAppSettingsTypeDef",
+    "CapacitySizeConfigTypeDef",
     "CapacitySizeTypeDef",
     "CaptureContentTypeHeaderOutputTypeDef",
     "CaptureContentTypeHeaderTypeDef",
@@ -729,6 +732,9 @@ __all__ = (
     "DeploymentConfigOutputTypeDef",
     "DeploymentConfigTypeDef",
     "DeploymentConfigUnionTypeDef",
+    "DeploymentConfigurationOutputTypeDef",
+    "DeploymentConfigurationTypeDef",
+    "DeploymentConfigurationUnionTypeDef",
     "DeploymentRecommendationTypeDef",
     "DeploymentStageStatusSummaryTypeDef",
     "DeploymentStageTypeDef",
@@ -1633,6 +1639,7 @@ __all__ = (
     "RetryPipelineExecutionRequestTypeDef",
     "RetryPipelineExecutionResponseTypeDef",
     "RetryStrategyTypeDef",
+    "RollingDeploymentPolicyTypeDef",
     "RollingUpdatePolicyTypeDef",
     "S3DataSourceOutputTypeDef",
     "S3DataSourceTypeDef",
@@ -1644,6 +1651,9 @@ __all__ = (
     "ScalingPolicyObjectiveTypeDef",
     "ScalingPolicyTypeDef",
     "ScheduleConfigTypeDef",
+    "ScheduledUpdateConfigOutputTypeDef",
+    "ScheduledUpdateConfigTypeDef",
+    "ScheduledUpdateConfigUnionTypeDef",
     "SchedulerConfigOutputTypeDef",
     "SchedulerConfigTypeDef",
     "SchedulerConfigUnionTypeDef",
@@ -1813,6 +1823,7 @@ __all__ = (
     "UpdateClusterResponseTypeDef",
     "UpdateClusterSchedulerConfigRequestTypeDef",
     "UpdateClusterSchedulerConfigResponseTypeDef",
+    "UpdateClusterSoftwareInstanceGroupSpecificationTypeDef",
     "UpdateClusterSoftwareRequestTypeDef",
     "UpdateClusterSoftwareResponseTypeDef",
     "UpdateCodeRepositoryInputTypeDef",
@@ -1942,6 +1953,10 @@ class AdditionalS3DataSourceTypeDef(TypedDict):
 class AgentVersionTypeDef(TypedDict):
     Version: str
     AgentCount: int
+
+
+class AlarmDetailsTypeDef(TypedDict):
+    AlarmName: str
 
 
 class AlarmTypeDef(TypedDict):
@@ -2239,6 +2254,13 @@ class WorkspaceSettingsTypeDef(TypedDict):
     S3KmsKeyId: NotRequired[str]
 
 
+CapacitySizeConfigTypeDef = TypedDict(
+    "CapacitySizeConfigTypeDef",
+    {
+        "Type": NodeUnavailabilityTypeType,
+        "Value": int,
+    },
+)
 CapacitySizeTypeDef = TypedDict(
     "CapacitySizeTypeDef",
     {
@@ -5250,8 +5272,8 @@ class UpdateArtifactRequestTypeDef(TypedDict):
     PropertiesToRemove: NotRequired[Sequence[str]]
 
 
-class UpdateClusterSoftwareRequestTypeDef(TypedDict):
-    ClusterName: str
+class UpdateClusterSoftwareInstanceGroupSpecificationTypeDef(TypedDict):
+    InstanceGroupName: str
 
 
 class UpdateContextRequestTypeDef(TypedDict):
@@ -6473,6 +6495,11 @@ class CanvasAppSettingsTypeDef(TypedDict):
     EmrServerlessSettings: NotRequired[EmrServerlessSettingsTypeDef]
 
 
+class RollingDeploymentPolicyTypeDef(TypedDict):
+    MaximumBatchSize: CapacitySizeConfigTypeDef
+    RollbackMaximumBatchSize: NotRequired[CapacitySizeConfigTypeDef]
+
+
 class RollingUpdatePolicyTypeDef(TypedDict):
     MaximumBatchSize: CapacitySizeTypeDef
     WaitIntervalInSeconds: int
@@ -6552,6 +6579,7 @@ class ClusterNodeSummaryTypeDef(TypedDict):
     InstanceType: ClusterInstanceTypeType
     LaunchTime: datetime
     InstanceStatus: ClusterInstanceStatusDetailsTypeDef
+    LastSoftwareUpdateTime: NotRequired[datetime]
 
 
 class ClusterOrchestratorTypeDef(TypedDict):
@@ -10122,6 +10150,18 @@ class AutoMLCandidateTypeDef(TypedDict):
     ]
 
 
+class DeploymentConfigurationOutputTypeDef(TypedDict):
+    RollingUpdatePolicy: NotRequired[RollingDeploymentPolicyTypeDef]
+    WaitIntervalInSeconds: NotRequired[int]
+    AutoRollbackConfiguration: NotRequired[List[AlarmDetailsTypeDef]]
+
+
+class DeploymentConfigurationTypeDef(TypedDict):
+    RollingUpdatePolicy: NotRequired[RollingDeploymentPolicyTypeDef]
+    WaitIntervalInSeconds: NotRequired[int]
+    AutoRollbackConfiguration: NotRequired[Sequence[AlarmDetailsTypeDef]]
+
+
 class BlueGreenUpdatePolicyTypeDef(TypedDict):
     TrafficRoutingConfiguration: TrafficRoutingConfigTypeDef
     TerminationWaitInSeconds: NotRequired[int]
@@ -10167,41 +10207,13 @@ class ClarifyExplainerConfigTypeDef(TypedDict):
     InferenceConfig: NotRequired[ClarifyInferenceConfigTypeDef]
 
 
-class ClusterInstanceGroupDetailsTypeDef(TypedDict):
-    CurrentCount: NotRequired[int]
-    TargetCount: NotRequired[int]
-    InstanceGroupName: NotRequired[str]
-    InstanceType: NotRequired[ClusterInstanceTypeType]
-    LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
-    ExecutionRole: NotRequired[str]
-    ThreadsPerCore: NotRequired[int]
-    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
-    OnStartDeepHealthChecks: NotRequired[List[DeepHealthCheckTypeType]]
-    Status: NotRequired[InstanceGroupStatusType]
-    TrainingPlanArn: NotRequired[str]
-    TrainingPlanStatus: NotRequired[str]
-    OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-
-class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
-    InstanceCount: int
-    InstanceGroupName: str
-    InstanceType: ClusterInstanceTypeType
-    LifeCycleConfig: ClusterLifeCycleConfigTypeDef
-    ExecutionRole: str
-    ThreadsPerCore: NotRequired[int]
-    InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
-    OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]
-    TrainingPlanArn: NotRequired[str]
-    OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
-
-
 class ClusterNodeDetailsTypeDef(TypedDict):
     InstanceGroupName: NotRequired[str]
     InstanceId: NotRequired[str]
     InstanceStatus: NotRequired[ClusterInstanceStatusDetailsTypeDef]
     InstanceType: NotRequired[ClusterInstanceTypeType]
     LaunchTime: NotRequired[datetime]
+    LastSoftwareUpdateTime: NotRequired[datetime]
     LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
     OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
     ThreadsPerCore: NotRequired[int]
@@ -11464,6 +11476,16 @@ class ListCandidatesForAutoMLJobResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ScheduledUpdateConfigOutputTypeDef(TypedDict):
+    ScheduleExpression: str
+    DeploymentConfig: NotRequired[DeploymentConfigurationOutputTypeDef]
+
+
+DeploymentConfigurationUnionTypeDef = Union[
+    DeploymentConfigurationTypeDef, DeploymentConfigurationOutputTypeDef
+]
+
+
 class DeploymentConfigOutputTypeDef(TypedDict):
     BlueGreenUpdatePolicy: NotRequired[BlueGreenUpdatePolicyTypeDef]
     RollingUpdatePolicy: NotRequired[RollingUpdatePolicyTypeDef]
@@ -11522,35 +11544,6 @@ class ExplainerConfigOutputTypeDef(TypedDict):
 
 class ExplainerConfigTypeDef(TypedDict):
     ClarifyExplainerConfig: NotRequired[ClarifyExplainerConfigTypeDef]
-
-
-class DescribeClusterResponseTypeDef(TypedDict):
-    ClusterArn: str
-    ClusterName: str
-    ClusterStatus: ClusterStatusType
-    CreationTime: datetime
-    FailureMessage: str
-    InstanceGroups: List[ClusterInstanceGroupDetailsTypeDef]
-    VpcConfig: VpcConfigOutputTypeDef
-    Orchestrator: ClusterOrchestratorTypeDef
-    NodeRecovery: ClusterNodeRecoveryType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateClusterRequestTypeDef(TypedDict):
-    ClusterName: str
-    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
-    VpcConfig: NotRequired[VpcConfigUnionTypeDef]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
-    NodeRecovery: NotRequired[ClusterNodeRecoveryType]
-
-
-class UpdateClusterRequestTypeDef(TypedDict):
-    ClusterName: str
-    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
-    NodeRecovery: NotRequired[ClusterNodeRecoveryType]
-    InstanceGroupsToDelete: NotRequired[Sequence[str]]
 
 
 class DescribeClusterNodeResponseTypeDef(TypedDict):
@@ -12405,6 +12398,34 @@ class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ClusterInstanceGroupDetailsTypeDef(TypedDict):
+    CurrentCount: NotRequired[int]
+    TargetCount: NotRequired[int]
+    InstanceGroupName: NotRequired[str]
+    InstanceType: NotRequired[ClusterInstanceTypeType]
+    LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
+    ExecutionRole: NotRequired[str]
+    ThreadsPerCore: NotRequired[int]
+    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[List[DeepHealthCheckTypeType]]
+    Status: NotRequired[InstanceGroupStatusType]
+    TrainingPlanArn: NotRequired[str]
+    TrainingPlanStatus: NotRequired[str]
+    OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
+
+
+class ScheduledUpdateConfigTypeDef(TypedDict):
+    ScheduleExpression: str
+    DeploymentConfig: NotRequired[DeploymentConfigurationUnionTypeDef]
+
+
+class UpdateClusterSoftwareRequestTypeDef(TypedDict):
+    ClusterName: str
+    InstanceGroups: NotRequired[Sequence[UpdateClusterSoftwareInstanceGroupSpecificationTypeDef]]
+    DeploymentConfig: NotRequired[DeploymentConfigurationUnionTypeDef]
+
+
 DeploymentConfigUnionTypeDef = Union[DeploymentConfigTypeDef, DeploymentConfigOutputTypeDef]
 
 
@@ -12970,6 +12991,24 @@ class CreateAutoMLJobV2RequestTypeDef(TypedDict):
     AutoMLComputeConfig: NotRequired[AutoMLComputeConfigTypeDef]
 
 
+class DescribeClusterResponseTypeDef(TypedDict):
+    ClusterArn: str
+    ClusterName: str
+    ClusterStatus: ClusterStatusType
+    CreationTime: datetime
+    FailureMessage: str
+    InstanceGroups: List[ClusterInstanceGroupDetailsTypeDef]
+    VpcConfig: VpcConfigOutputTypeDef
+    Orchestrator: ClusterOrchestratorTypeDef
+    NodeRecovery: ClusterNodeRecoveryType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ScheduledUpdateConfigUnionTypeDef = Union[
+    ScheduledUpdateConfigTypeDef, ScheduledUpdateConfigOutputTypeDef
+]
+
+
 class CreateEndpointInputTypeDef(TypedDict):
     EndpointName: str
     EndpointConfigName: str
@@ -13229,6 +13268,20 @@ class ModelPackageValidationSpecificationTypeDef(TypedDict):
     ValidationProfiles: Sequence[ModelPackageValidationProfileTypeDef]
 
 
+class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
+    InstanceCount: int
+    InstanceGroupName: str
+    InstanceType: ClusterInstanceTypeType
+    LifeCycleConfig: ClusterLifeCycleConfigTypeDef
+    ExecutionRole: str
+    ThreadsPerCore: NotRequired[int]
+    InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]
+    TrainingPlanArn: NotRequired[str]
+    OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
+
+
 class AlgorithmValidationSpecificationOutputTypeDef(TypedDict):
     ValidationRole: str
     ValidationProfiles: List[AlgorithmValidationProfileOutputTypeDef]
@@ -13403,6 +13456,22 @@ class ModelPackageTypeDef(TypedDict):
 ModelPackageValidationSpecificationUnionTypeDef = Union[
     ModelPackageValidationSpecificationTypeDef, ModelPackageValidationSpecificationOutputTypeDef
 ]
+
+
+class CreateClusterRequestTypeDef(TypedDict):
+    ClusterName: str
+    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
+    VpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
+    NodeRecovery: NotRequired[ClusterNodeRecoveryType]
+
+
+class UpdateClusterRequestTypeDef(TypedDict):
+    ClusterName: str
+    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
+    NodeRecovery: NotRequired[ClusterNodeRecoveryType]
+    InstanceGroupsToDelete: NotRequired[Sequence[str]]
 
 
 class DescribeAlgorithmOutputTypeDef(TypedDict):

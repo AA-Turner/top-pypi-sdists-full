@@ -2247,6 +2247,15 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Securities.Se
         """Get a list of the complete security objects for this collection, including non active or delisted securities"""
         ...
 
+    def __contains__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Check if this collection contains this symbol.
+        
+        :param symbol: Symbol we're checking for.
+        :returns: Bool true if contains this symbol pair.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Securities.Security:
         """
         Indexer method for the security manager to access the securities objects by their symbol.
@@ -2261,6 +2270,9 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Securities.Se
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Securities.Security) -> None:
@@ -3044,6 +3056,15 @@ class CashBook(System.Object, System.Collections.Generic.IDictionary[str, QuantC
         """Gets the values."""
         ...
 
+    def __contains__(self, symbol: str) -> bool:
+        """
+        Determines whether the current instance contains an entry with the specified symbol.
+        
+        :param symbol: Key.
+        :returns: true, if key was contained, false otherwise.
+        """
+        ...
+
     def __getitem__(self, symbol: str) -> QuantConnect.Securities.Cash:
         """
         Gets or sets the QuantConnect.Securities.Cash with the specified symbol.
@@ -3057,6 +3078,9 @@ class CashBook(System.Object, System.Collections.Generic.IDictionary[str, QuantC
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: str, value: QuantConnect.Securities.Cash) -> None:
@@ -3775,6 +3799,15 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Secu
     def margin_call_model(self, value: QuantConnect.Securities.IMarginCallModel) -> None:
         ...
 
+    def __contains__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Check if the portfolio contains this symbol string.
+        
+        :param symbol: String search symbol for the security
+        :returns: Boolean true if portfolio contains this symbol.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Securities.SecurityHolding:
         """
         Indexer for the PortfolioManager class to access the underlying security holdings objects.
@@ -3789,6 +3822,9 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Secu
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Securities.SecurityHolding) -> None:
@@ -6220,6 +6256,15 @@ class UniverseManager(System.Object, System.Collections.Generic.IDictionary[Quan
         """Gets an System.Collections.Generic.ICollection`1 containing the values in the System.Collections.Generic.IDictionary`2."""
         ...
 
+    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determines whether the System.Collections.Generic.IDictionary`2 contains an element with the specified key.
+        
+        :param key: The key to locate in the System.Collections.Generic.IDictionary`2.
+        :returns: true if the System.Collections.Generic.IDictionary`2 contains an element with the key; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.UniverseSelection.Universe:
         """
         Gets or sets the element with the specified key.
@@ -6234,6 +6279,9 @@ class UniverseManager(System.Object, System.Collections.Generic.IDictionary[Quan
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.UniverseSelection.Universe) -> None:

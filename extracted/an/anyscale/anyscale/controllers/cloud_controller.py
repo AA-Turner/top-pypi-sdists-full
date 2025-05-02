@@ -4,6 +4,7 @@ Fetches data required and formats output for `anyscale cloud` commands.
 
 import copy
 from datetime import datetime, timedelta
+import difflib
 import json
 from os import getenv
 import pathlib
@@ -14,9 +15,11 @@ from typing import Any, Dict, List, MutableSequence, Optional, Tuple
 import uuid
 
 import boto3
+from boto3.resources.base import ServiceResource as Boto3Resource
 from botocore.exceptions import ClientError, NoCredentialsError
 import click
 from click import Abort, ClickException
+import colorama
 from rich.progress import Progress, track
 import yaml
 
@@ -24,10 +27,12 @@ from anyscale import __version__ as anyscale_version
 from anyscale.aws_iam_policies import get_anyscale_iam_permissions_ec2_restricted
 from anyscale.cli_logger import CloudSetupLogger
 from anyscale.client.openapi_client.models import (
+    AWSConfig,
     AWSMemoryDBClusterConfig,
     CloudAnalyticsEventCloudResource,
     CloudAnalyticsEventCommandName,
     CloudAnalyticsEventName,
+    CloudDeployment,
     CloudDeploymentConfig,
     CloudProviders,
     CloudState,
@@ -39,6 +44,8 @@ from anyscale.client.openapi_client.models import (
     CreateCloudResourceGCP,
     EditableCloudResource,
     EditableCloudResourceGCP,
+    FileStorage,
+    GCPConfig,
     NFSMountTarget,
     SubnetIdWithAvailabilityZoneAWS,
     UpdateCloudWithCloudResource,
@@ -1388,7 +1395,7 @@ class CloudController(BaseController):
                 cloud_id, CloudProviders.AWS, functions_to_verify, yes,
             )
 
-    def get_cloud_deployments(self, cloud_id: str, cloud_name: str) -> Dict[str, Any]:
+    def get_cloud_deployments(self, cloud_id: str) -> Dict[str, Any]:
         cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(
             cloud_id=cloud_id,
         ).result
@@ -1404,7 +1411,7 @@ class CloudController(BaseController):
             ).results
         except Exception as e:  # noqa: BLE001
             raise ClickException(
-                f"Failed to get cloud deployments for cloud {cloud_name} ({cloud_id}). Error: {e}"
+                f"Failed to get cloud deployments for cloud {cloud.name} ({cloud_id}). Error: {e}"
             )
 
         # Avoid displaying fields with empty values (since the values for optional fields default to None).
@@ -1419,11 +1426,354 @@ class CloudController(BaseController):
 
         return {
             "id": cloud_id,
-            "name": cloud_name,
+            "name": cloud.name,
             "deployments": [
                 remove_empty_values(deployment.to_dict()) for deployment in deployments
             ],
         }
+
+    def update_aws_anyscale_iam_role(
+        self,
+        cloud_id: str,
+        region: str,
+        anyscale_iam_role_id: Optional[str],
+        external_id: Optional[str],
+    ) -> Tuple[Optional[Boto3Resource], Optional[str]]:
+        """
+        Updates the Anyscale IAM role's assume policy to include the cloud ID as the external ID.
+        Returns the role and the original policy document.
+        """
+        if not anyscale_iam_role_id:
+            # anyscale_iam_role_id is optional for k8s
+            return None, None
+
+        organization_id = get_organization_id(self.api_client)
+        if external_id and not external_id.startswith(organization_id):
+            raise ClickException(
+                f"Invalid external ID: external ID must start with the organization ID: {organization_id}"
+            )
+
+        # Update anyscale IAM role's assume policy to include the cloud id as the external ID
+        role = _get_role(
+            AwsRoleArn.from_string(anyscale_iam_role_id).to_role_name(), region
+        )
+        if role is None:
+            self.log.log_resource_error(
+                CloudAnalyticsEventCloudResource.AWS_IAM_ROLE,
+                CloudSetupError.RESOURCE_NOT_FOUND,
+            )
+            raise ClickException(f"Failed to access IAM role {anyscale_iam_role_id}.")
+
+        iam_role_original_policy = role.assume_role_policy_document  # type: ignore
+        if external_id is None:
+            try:
+                new_policy = _update_external_ids_for_policy(
+                    iam_role_original_policy, cloud_id
+                )
+                role.AssumeRolePolicy().update(PolicyDocument=json.dumps(new_policy))  # type: ignore
+            except ClientError as e:
+                self.log.log_resource_exception(
+                    CloudAnalyticsEventCloudResource.AWS_IAM_ROLE, e
+                )
+                raise e
+        else:
+            fetched_external_ids = [
+                statement.setdefault("Condition", {})
+                .setdefault("StringEquals", {})
+                .setdefault("sts:ExternalId", [])
+                for statement in iam_role_original_policy.get("Statement", [])  # type: ignore
+            ]
+            external_id_in_policy = all(
+                external_id == fetched_external_id
+                if isinstance(fetched_external_id, str)
+                else external_id in fetched_external_id
+                for fetched_external_id in fetched_external_ids
+            )
+            if not external_id_in_policy:
+                raise ClickException(
+                    f"External ID {external_id} is not in the assume role policy of {anyscale_iam_role_id}."
+                )
+
+        return role, iam_role_original_policy
+
+    def _generate_diff(self, existing: Dict[str, Any], new: Dict[str, Any]) -> str:
+        """
+        Generates a diff between the existing and new dicts.
+        """
+
+        diff = difflib.unified_diff(
+            yaml.dump(existing).splitlines(keepends=True),
+            yaml.dump(new).splitlines(keepends=True),
+            lineterm="",
+        )
+
+        formatted_diff = ""
+        for d in diff:
+            if d.startswith("+") and not d.startswith("+++"):
+                formatted_diff += "{}{}{}".format(
+                    colorama.Fore.GREEN, d, colorama.Style.RESET_ALL
+                )
+            elif d.startswith("-") and not d.startswith("---"):
+                formatted_diff += "{}{}{}".format(
+                    colorama.Fore.RED, d, colorama.Style.RESET_ALL
+                )
+            else:
+                formatted_diff += d
+
+        return formatted_diff.strip()
+
+    def _compare_cloud_deployments(
+        self,
+        deployments: List[CloudDeployment],
+        existing_deployments: Dict[str, CloudDeployment],
+    ) -> List[CloudDeployment]:
+        """
+        Compares the new deployments with the existing deployments and returns a list of updated/added deployments.
+        """
+
+        deployment_ids = {
+            deployment.cloud_deployment_id
+            for deployment in deployments
+            if deployment.cloud_deployment_id
+        }
+
+        if existing_deployments.keys() - deployment_ids:
+            raise ClickException("Deleting cloud deployments is not supported.")
+
+        unknown_deployments = deployment_ids - existing_deployments.keys()
+        if unknown_deployments:
+            raise ClickException(
+                f"Cloud deployment(s) {unknown_deployments} do not exist. Do not include a deployment ID when adding a new deployment."
+            )
+
+        updated_deployments: List[CloudDeployment] = []
+        for d in deployments:
+            if d.cloud_deployment_id:
+                if d == existing_deployments[d.cloud_deployment_id]:
+                    continue
+                if d.provider == CloudProviders.PCP:
+                    raise ClickException(
+                        "Updating machine pool deployments is not supported."
+                    )
+            else:
+                if d.provider == CloudProviders.PCP:
+                    raise ClickException(
+                        "Please use `anyscale machine-pool attach` to attach a machine pool to a cloud."
+                    )
+            updated_deployments.append(d)
+
+        return updated_deployments
+
+    def _preprocess_aws(self, cloud_id: str, deployment: CloudDeployment,) -> None:
+        if not deployment.aws_config and not deployment.file_storage:
+            return
+
+        if not validate_aws_credentials(self.log):
+            raise ClickException(
+                "Updating cloud deployments requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
+            )
+
+        # Get EFS mount target IP.
+        if deployment.file_storage:
+            file_storage = FileStorage(**deployment.file_storage)
+            assert file_storage.file_storage_id
+
+            try:
+                boto3_session = boto3.Session(region_name=deployment.region)
+                efs_mount_target_ip = _get_aws_efs_mount_target_ip(
+                    boto3_session, file_storage.file_storage_id,
+                )
+                if not efs_mount_target_ip:
+                    raise ClickException(
+                        f"EFS mount target IP not found for {file_storage.file_storage_id}."
+                    )
+                file_storage.mount_targets = [
+                    NFSMountTarget(address=efs_mount_target_ip)
+                ]
+            except ClientError as e:
+                self.log.log_resource_exception(
+                    CloudAnalyticsEventCloudResource.AWS_EFS, e
+                )
+                raise e
+
+            deployment.file_storage = file_storage
+
+        if deployment.aws_config:
+            aws_config = AWSConfig(**deployment.aws_config)
+            assert deployment.region
+
+            # Update Anyscale IAM role's assume policy to include the cloud ID as the external ID.
+            self.update_aws_anyscale_iam_role(
+                cloud_id,
+                deployment.region,
+                aws_config.anyscale_iam_role_id,
+                aws_config.external_id,
+            )
+            if aws_config.external_id is None:
+                aws_config.external_id = cloud_id
+
+            # Get zones corresponding to subnet IDs.
+            if aws_config.subnet_ids:
+                subnets_with_azs = associate_aws_subnets_with_azs(
+                    aws_config.subnet_ids, deployment.region, self.log
+                )
+                aws_config.zones = [s.availability_zone for s in subnets_with_azs]
+
+            # Get memorydb config.
+            if aws_config.memorydb_cluster_name:
+                memorydb_cluster_config = _get_memorydb_cluster_config(
+                    aws_config.memorydb_cluster_name, deployment.region, self.log,
+                )
+                assert memorydb_cluster_config
+                aws_config.memorydb_cluster_arn = memorydb_cluster_config.id
+                aws_config.memorydb_cluster_endpoint = memorydb_cluster_config.endpoint
+
+            deployment.aws_config = aws_config
+
+    def _preprocess_gcp(
+        self, deployment: CloudDeployment,
+    ):
+        if not deployment.gcp_config:
+            return
+
+        gcp_config = GCPConfig(**deployment.gcp_config)
+        if not deployment.file_storage and not gcp_config.memorystore_instance_name:
+            return
+
+        if not gcp_config.project_id:
+            raise ClickException(
+                '"project_id" is required to configure filestore or memorystore'
+            )
+
+        gcp_utils = try_import_gcp_utils()
+        factory = gcp_utils.get_google_cloud_client_factory(
+            self.log, gcp_config.project_id
+        )
+
+        # Get Filestore mount target IP and root dir.
+        if deployment.file_storage:
+            fs = FileStorage(**deployment.file_storage)
+            if fs.file_storage_id:
+                if not gcp_config.vpc_name:
+                    raise ClickException(
+                        '"vpc_name" is required to configure filestore'
+                    )
+                filestore_config = gcp_utils.get_gcp_filestore_config_from_full_name(
+                    factory, gcp_config.vpc_name, fs.file_storage_id, self.log,
+                )
+                if not filestore_config:
+                    raise ClickException(
+                        f"Filestore config not found for {fs.file_storage_id}."
+                    )
+                fs.mount_path = filestore_config.root_dir
+                fs.mount_targets = [
+                    NFSMountTarget(address=filestore_config.mount_target_ip)
+                ]
+
+                deployment.file_storage = fs
+
+        # Get Memorystore config.
+        if gcp_config.memorystore_instance_name:
+            memorystore_config = gcp_utils.get_gcp_memorystore_config(
+                factory, gcp_config.memorystore_instance_name
+            )
+            assert memorystore_config
+            gcp_config.memorystore_endpoint = memorystore_config.endpoint
+
+            deployment.gcp_config = gcp_config
+
+    def update_cloud_deployments(  # noqa: PLR0912
+        self, spec_file: str, yes: bool = False,
+    ):
+        # Read the spec file.
+        path = pathlib.Path(spec_file)
+        if not path.exists():
+            raise ClickException(f"{spec_file} does not exist.")
+        if not path.is_file():
+            raise ClickException(f"{spec_file} is not a file.")
+
+        spec = yaml.safe_load(path.read_text())
+        if not all(k in spec for k in ["id", "name", "deployments"]):
+            raise ClickException(
+                "Cloud ID, name, and deployments must be specified in the spec file."
+            )
+
+        # Get the existing spec.
+        existing_spec = self.get_cloud_deployments(cloud_id=spec["id"],)
+        if existing_spec["name"] != spec["name"]:
+            raise ClickException("Changing the name of a cloud is not supported.")
+
+        # Diff the existing and new specs
+        diff = self._generate_diff(existing_spec, spec)
+        if not diff:
+            self.log.info("No changes detected.")
+            return
+
+        # Get updated/new deployments.
+        try:
+            deployments = [CloudDeployment(**d) for d in spec["deployments"]]
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(f"Failed to parse deployments: {e}")
+
+        existing_deployments = {
+            deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
+            for deployment in existing_spec["deployments"]
+        }
+
+        # Figure out which deployments have been updated/added.
+        updated_deployments = self._compare_cloud_deployments(
+            deployments, existing_deployments,
+        )
+
+        # Log the diff and confirm.
+        self.log.info(f"Detected the following changes:\n{diff}")
+
+        existing_deployment_ids = {
+            d.cloud_deployment_id for d in updated_deployments if d.cloud_deployment_id
+        }
+        if len(updated_deployments) - len(existing_deployment_ids):
+            self.log.info(
+                f"{len(updated_deployments) - len(existing_deployment_ids)} new deployment(s) will be added."
+            )
+        if existing_deployment_ids:
+            self.log.info(
+                f"{len(existing_deployment_ids)} existing deployment(s) will be updated ({', '.join(existing_deployment_ids)})"
+            )
+
+        # Log an additional warning if a new deployment is being added but a deployment with the same AWS/GCP region already exists.
+        existing_stack_provider_regions = {
+            (d.compute_stack, d.provider, d.region)
+            for d in existing_deployments.values()
+            if d.provider in (CloudProviders.AWS, CloudProviders.GCP)
+        }
+        for d in updated_deployments:
+            if (
+                not d.cloud_deployment_id
+                and (d.compute_stack, d.provider, d.region)
+                in existing_stack_provider_regions
+            ):
+                self.log.warning(
+                    f"A {d.provider} {d.compute_stack} deployment in region {d.region} already exists."
+                )
+
+        confirm("Would you like to proceed with updating this cloud?", yes)
+
+        # Preprocess the deployments if necessary.
+        for deployment in updated_deployments:
+            if deployment.provider == CloudProviders.AWS:
+                self._preprocess_aws(cloud_id=spec["id"], deployment=deployment)
+            elif deployment.provider == CloudProviders.GCP:
+                self._preprocess_gcp(deployment=deployment)
+
+        # Update the deployments.
+        try:
+            self.api_client.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put(
+                cloud_id=spec["id"], cloud_deployment=updated_deployments,
+            )
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(f"Failed to update cloud deployments: {e}")
+
+        self.log.info(f"Successfully updated cloud {spec['name']}!")
 
     def get_cloud_config(
         self, cloud_name: Optional[str] = None, cloud_id: Optional[str] = None,
@@ -1982,12 +2332,6 @@ class CloudController(BaseController):
         if not cloud_storage_bucket_name.startswith(S3_STORAGE_PREFIX):
             cloud_storage_bucket_name = S3_STORAGE_PREFIX + cloud_storage_bucket_name
 
-        organization_id = get_organization_id(self.api_client)
-        if external_id and not external_id.startswith(organization_id):
-            raise ClickException(
-                f"Cloud registration failed! `--external-id` must start with the organization ID: {organization_id}"
-            )
-
         self.cloud_event_producer.init_trace_context(
             CloudAnalyticsEventCommandName.REGISTER, CloudProviders.AWS
         )
@@ -2040,47 +2384,12 @@ class CloudController(BaseController):
             iam_role_original_policy = None
             if has_anyscale_iam_role:
                 # Update anyscale IAM role's assume policy to include the cloud id as the external ID
-                role = _get_role(
-                    AwsRoleArn.from_string(anyscale_iam_role_id).to_role_name(), region
+                role, iam_role_original_policy = self.update_aws_anyscale_iam_role(
+                    cloud_id=cloud_id,
+                    region=region,
+                    anyscale_iam_role_id=anyscale_iam_role_id,
+                    external_id=external_id,
                 )
-                if role is None:
-                    self.log.log_resource_error(
-                        CloudAnalyticsEventCloudResource.AWS_IAM_ROLE,
-                        CloudSetupError.RESOURCE_NOT_FOUND,
-                    )
-                    raise ClickException(
-                        f"Failed to access IAM role {anyscale_iam_role_id}."
-                    )
-
-                iam_role_original_policy = role.assume_role_policy_document  # type: ignore
-                if external_id is None:
-                    try:
-                        new_policy = _update_external_ids_for_policy(
-                            iam_role_original_policy, cloud_id
-                        )
-                        role.AssumeRolePolicy().update(PolicyDocument=json.dumps(new_policy))  # type: ignore
-                    except ClientError as e:
-                        self.log.log_resource_exception(
-                            CloudAnalyticsEventCloudResource.AWS_IAM_ROLE, e
-                        )
-                        raise e
-                else:
-                    fetched_external_ids = [
-                        statement.setdefault("Condition", {})
-                        .setdefault("StringEquals", {})
-                        .setdefault("sts:ExternalId", [])
-                        for statement in iam_role_original_policy.get("Statement", [])  # type: ignore
-                    ]
-                    external_id_in_policy = all(
-                        external_id == fetched_external_id
-                        if isinstance(fetched_external_id, str)
-                        else external_id in fetched_external_id
-                        for fetched_external_id in fetched_external_ids
-                    )
-                    if not external_id_in_policy:
-                        raise ClickException(
-                            f"External ID {external_id} is not in the assume role policy of {anyscale_iam_role_id}."
-                        )
 
             # When running on the VM compute stack, validate and retrieve the EFS mount target IP.
             # When running on the K8S compute stack, EFS is optional; if efs_id is provided, then

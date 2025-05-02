@@ -28,8 +28,30 @@ from orbax.checkpoint.experimental.v1._src.path import types as path_types
 
 PYTREE_CHECKPOINTABLE_KEY = 'pytree'
 
+METRICS_CHECKPOINTABLE_KEY = 'metrics'
+
 RESERVED_CHECKPOINTABLE_KEYS = frozenset({
+    METRICS_CHECKPOINTABLE_KEY,
 })
+
+
+def validate_checkpoint(path: path_types.PathLike):
+  """Validates a checkpoint path written by `ocp.save_checkpointables`.
+
+  Args:
+    path: The path to the checkpoint directory.
+
+  Raises:
+    FileNotFoundError: If the path does not exist, or if `pytree` is not found
+      in the directory
+    NotADirectoryError: If the path is not a directory.
+    ValueError: If the metadata cannot be read.
+  """
+  path = epath.Path(path)
+  if not path.exists():
+    raise FileNotFoundError(f'Checkpoint path {path} does not exist.')
+  if not path.is_dir():
+    raise NotADirectoryError(f'Checkpoint path {path} is not a directory.')
 
 
 def validate_pytree_checkpoint(path: path_types.PathLike):
@@ -46,25 +68,13 @@ def validate_pytree_checkpoint(path: path_types.PathLike):
       read.
   """
   path = epath.Path(path)
-  if not path.exists():
-    raise FileNotFoundError(f'Checkpoint path {path} does not exist.')
-  if not path.is_dir():
-    raise NotADirectoryError(f'Checkpoint path {path} is not a directory.')
-  metadata_store = checkpoint_metadata.metadata_store(enable_write=False)
-  # Path points to a single step checkpoint with valid metadata.
-  checkpoint_metadata_path = checkpoint_metadata.step_metadata_file_path(path)
-  if not checkpoint_metadata_path.exists():
-    raise FileNotFoundError(
-        f'Checkpoint path {path} does not contain a valid metadata file.'
-    )
-  if metadata_store.read(checkpoint_metadata_path) is None:
-    raise ValueError(
-        f'Failed to read valid metadata for checkpoint path {path}.'
-    )
+  validate_checkpoint(path)
   if not (path / PYTREE_CHECKPOINTABLE_KEY).exists():
     raise FileNotFoundError(
-        f'Checkpoint path {path} does not contain a PyTree checkpointable'
-        f' (called "{PYTREE_CHECKPOINTABLE_KEY}").'
+        f'Checkpoint path {path} must contain a subdirectory named'
+        f' "{PYTREE_CHECKPOINTABLE_KEY}". Please try inspecting the'
+        ' checkpointable metadata using `ocp.checkpointables_metadata()` or'
+        ' try loading the checkpoint using `ocp.load_checkpointables()`.'
     )
   if not format_utils._has_pytree_metadata_file(  # pylint: disable=protected-access
       path / PYTREE_CHECKPOINTABLE_KEY
@@ -80,4 +90,16 @@ def validate_pytree_checkpoint(path: path_types.PathLike):
         ' sign of a malformed checkpoint, unless your checkpoint consists'
         ' entirely of strings or other non-standard PyTree leaves.',
         path,
+    )
+  metadata_store = checkpoint_metadata.metadata_store(enable_write=False)
+  # Path points to a single step checkpoint with valid metadata.
+  checkpoint_metadata_path = checkpoint_metadata.step_metadata_file_path(path)
+  if not checkpoint_metadata_path.exists():
+    raise FileNotFoundError(
+        f'Checkpoint path {path} does not contain a valid metadata file:'
+        f' {checkpoint_metadata_path.name}'
+    )
+  if metadata_store.read(checkpoint_metadata_path) is None:
+    raise ValueError(
+        f'Failed to read valid metadata for checkpoint path {path}.'
     )

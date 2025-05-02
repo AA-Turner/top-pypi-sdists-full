@@ -1,0 +1,73 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = [
+  "flit-core>=3.7",
+]
+
+[project]
+name = "python-docs-theme"
+description = "The Sphinx theme for the CPython docs and related projects"
+readme = "README.md"
+license = "PSF-2.0"
+license-files = [ "LICENSE" ]
+authors = [ { name = "PyPA", email = "distutils-sig@python.org" } ]
+requires-python = ">=3.12"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Sphinx :: Theme",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Documentation",
+  "Topic :: Software Development :: Documentation",
+]
+dynamic = [ "version" ]
+
+dependencies = [
+  "sphinx>=7.3",
+]
+
+urls.Code = "https://github.com/python/python-docs-theme"
+urls.Download = "https://pypi.org/project/python-docs-theme/"
+urls.Homepage = "https://github.com/python/python-docs-theme/"
+urls."Issue tracker" = "https://github.com/python/python-docs-theme/issues"
+entry-points."sphinx.html_themes".python_docs_theme = "python_docs_theme"
+
+[tool.flit.module]
+name = "python_docs_theme"
+
+[tool.flit.sdist]
+include = [ "python_docs_theme/" ]
+
+[tool.ruff]
+fix = true
+
+lint.select = [
+  "C4",     # flake8-comprehensions
+  "E",      # pycodestyle errors
+  "F",      # pyflakes errors
+  "I",      # isort
+  "ISC",    # flake8-implicit-str-concat
+  "LOG",    # flake8-logging
+  "PGH",    # pygrep-hooks
+  "PYI",    # flake8-pyi
+  "RUF022", # unsorted-dunder-all
+  "RUF100", # unused noqa (yesqa)
+  "UP",     # pyupgrade
+  "W",      # pycodestyle warnings
+  "YTT",    # flake8-2020
+]
+lint.ignore = [
+  "E203", # Whitespace before ':'
+  "E221", # Multiple spaces before operator
+  "E226", # Missing whitespace around arithmetic operator
+  "E241", # Multiple spaces after ','
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.14"

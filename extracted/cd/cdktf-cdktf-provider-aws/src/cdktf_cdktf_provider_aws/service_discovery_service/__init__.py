@@ -1,7 +1,7 @@
 r'''
 # `aws_service_discovery_service`
 
-Refer to the Terraform Registry for docs: [`aws_service_discovery_service`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service).
+Refer to the Terraform Registry for docs: [`aws_service_discovery_service`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceDiscoveryService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.serviceDiscoveryService.ServiceDiscoveryService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service aws_service_discovery_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service aws_service_discovery_service}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ServiceDiscoveryService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service aws_service_discovery_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service aws_service_discovery_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#name ServiceDiscoveryService#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#description ServiceDiscoveryService#description}.
-        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#dns_config ServiceDiscoveryService#dns_config}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#force_destroy ServiceDiscoveryService#force_destroy}.
-        :param health_check_config: health_check_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#health_check_config ServiceDiscoveryService#health_check_config}
-        :param health_check_custom_config: health_check_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#health_check_custom_config ServiceDiscoveryService#health_check_custom_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#id ServiceDiscoveryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#tags ServiceDiscoveryService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#tags_all ServiceDiscoveryService#tags_all}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#name ServiceDiscoveryService#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#description ServiceDiscoveryService#description}.
+        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#dns_config ServiceDiscoveryService#dns_config}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#force_destroy ServiceDiscoveryService#force_destroy}.
+        :param health_check_config: health_check_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#health_check_config ServiceDiscoveryService#health_check_config}
+        :param health_check_custom_config: health_check_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#health_check_custom_config ServiceDiscoveryService#health_check_custom_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#id ServiceDiscoveryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#tags ServiceDiscoveryService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#tags_all ServiceDiscoveryService#tags_all}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ServiceDiscoveryService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceDiscoveryService to import.
-        :param import_from_id: The id of the existing ServiceDiscoveryService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceDiscoveryService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceDiscoveryService to import is found.
         '''
         if __debug__:
@@ -153,9 +153,9 @@ class ServiceDiscoveryService(
         routing_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dns_records: dns_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#dns_records ServiceDiscoveryService#dns_records}
-        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
-        :param routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#routing_policy ServiceDiscoveryService#routing_policy}.
+        :param dns_records: dns_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#dns_records ServiceDiscoveryService#dns_records}
+        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
+        :param routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#routing_policy ServiceDiscoveryService#routing_policy}.
         '''
         value = ServiceDiscoveryServiceDnsConfig(
             dns_records=dns_records,
@@ -174,9 +174,9 @@ class ServiceDiscoveryService(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
-        :param resource_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#resource_path ServiceDiscoveryService#resource_path}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
+        :param resource_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#resource_path ServiceDiscoveryService#resource_path}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
         '''
         value = ServiceDiscoveryServiceHealthCheckConfig(
             failure_threshold=failure_threshold, resource_path=resource_path, type=type
@@ -191,7 +191,7 @@ class ServiceDiscoveryService(
         failure_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
         '''
         value = ServiceDiscoveryServiceHealthCheckCustomConfig(
             failure_threshold=failure_threshold
@@ -494,17 +494,17 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#name ServiceDiscoveryService#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#description ServiceDiscoveryService#description}.
-        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#dns_config ServiceDiscoveryService#dns_config}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#force_destroy ServiceDiscoveryService#force_destroy}.
-        :param health_check_config: health_check_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#health_check_config ServiceDiscoveryService#health_check_config}
-        :param health_check_custom_config: health_check_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#health_check_custom_config ServiceDiscoveryService#health_check_custom_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#id ServiceDiscoveryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#tags ServiceDiscoveryService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#tags_all ServiceDiscoveryService#tags_all}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#name ServiceDiscoveryService#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#description ServiceDiscoveryService#description}.
+        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#dns_config ServiceDiscoveryService#dns_config}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#force_destroy ServiceDiscoveryService#force_destroy}.
+        :param health_check_config: health_check_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#health_check_config ServiceDiscoveryService#health_check_config}
+        :param health_check_custom_config: health_check_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#health_check_custom_config ServiceDiscoveryService#health_check_custom_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#id ServiceDiscoveryService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#tags ServiceDiscoveryService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#tags_all ServiceDiscoveryService#tags_all}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -638,14 +638,14 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#name ServiceDiscoveryService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#name ServiceDiscoveryService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#description ServiceDiscoveryService#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#description ServiceDiscoveryService#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -653,7 +653,7 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns_config(self) -> typing.Optional["ServiceDiscoveryServiceDnsConfig"]:
         '''dns_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#dns_config ServiceDiscoveryService#dns_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#dns_config ServiceDiscoveryService#dns_config}
         '''
         result = self._values.get("dns_config")
         return typing.cast(typing.Optional["ServiceDiscoveryServiceDnsConfig"], result)
@@ -662,7 +662,7 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#force_destroy ServiceDiscoveryService#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#force_destroy ServiceDiscoveryService#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -672,7 +672,7 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceDiscoveryServiceHealthCheckConfig"]:
         '''health_check_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#health_check_config ServiceDiscoveryService#health_check_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#health_check_config ServiceDiscoveryService#health_check_config}
         '''
         result = self._values.get("health_check_config")
         return typing.cast(typing.Optional["ServiceDiscoveryServiceHealthCheckConfig"], result)
@@ -683,14 +683,14 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServiceDiscoveryServiceHealthCheckCustomConfig"]:
         '''health_check_custom_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#health_check_custom_config ServiceDiscoveryService#health_check_custom_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#health_check_custom_config ServiceDiscoveryService#health_check_custom_config}
         '''
         result = self._values.get("health_check_custom_config")
         return typing.cast(typing.Optional["ServiceDiscoveryServiceHealthCheckCustomConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#id ServiceDiscoveryService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#id ServiceDiscoveryService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -700,25 +700,25 @@ class ServiceDiscoveryServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def namespace_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.'''
         result = self._values.get("namespace_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#tags ServiceDiscoveryService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#tags ServiceDiscoveryService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#tags_all ServiceDiscoveryService#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#tags_all ServiceDiscoveryService#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -752,9 +752,9 @@ class ServiceDiscoveryServiceDnsConfig:
         routing_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dns_records: dns_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#dns_records ServiceDiscoveryService#dns_records}
-        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
-        :param routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#routing_policy ServiceDiscoveryService#routing_policy}.
+        :param dns_records: dns_records block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#dns_records ServiceDiscoveryService#dns_records}
+        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.
+        :param routing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#routing_policy ServiceDiscoveryService#routing_policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__257c066a8a556cad8ff0c844021dfeec2f5fdc782e6065aea1a1e6eb482aff8f)
@@ -774,7 +774,7 @@ class ServiceDiscoveryServiceDnsConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceDiscoveryServiceDnsConfigDnsRecords"]]:
         '''dns_records block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#dns_records ServiceDiscoveryService#dns_records}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#dns_records ServiceDiscoveryService#dns_records}
         '''
         result = self._values.get("dns_records")
         assert result is not None, "Required property 'dns_records' is missing"
@@ -782,14 +782,14 @@ class ServiceDiscoveryServiceDnsConfig:
 
     @builtins.property
     def namespace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#namespace_id ServiceDiscoveryService#namespace_id}.'''
         result = self._values.get("namespace_id")
         assert result is not None, "Required property 'namespace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def routing_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#routing_policy ServiceDiscoveryService#routing_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#routing_policy ServiceDiscoveryService#routing_policy}.'''
         result = self._values.get("routing_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -813,8 +813,8 @@ class ServiceDiscoveryServiceDnsConfig:
 class ServiceDiscoveryServiceDnsConfigDnsRecords:
     def __init__(self, *, ttl: jsii.Number, type: builtins.str) -> None:
         '''
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#ttl ServiceDiscoveryService#ttl}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#ttl ServiceDiscoveryService#ttl}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__482d576f91fe8162767be6feef7c6b0d493b11d371b3cf83e60bb2d477f21174)
@@ -827,14 +827,14 @@ class ServiceDiscoveryServiceDnsConfigDnsRecords:
 
     @builtins.property
     def ttl(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#ttl ServiceDiscoveryService#ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#ttl ServiceDiscoveryService#ttl}.'''
         result = self._values.get("ttl")
         assert result is not None, "Required property 'ttl' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1139,9 +1139,9 @@ class ServiceDiscoveryServiceHealthCheckConfig:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
-        :param resource_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#resource_path ServiceDiscoveryService#resource_path}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
+        :param resource_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#resource_path ServiceDiscoveryService#resource_path}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d544178bc1a50b9f788ebbedd4b80592c6feeffb86066fe62a5163de6609b7ab)
@@ -1158,19 +1158,19 @@ class ServiceDiscoveryServiceHealthCheckConfig:
 
     @builtins.property
     def failure_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.'''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def resource_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#resource_path ServiceDiscoveryService#resource_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#resource_path ServiceDiscoveryService#resource_path}.'''
         result = self._values.get("resource_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#type ServiceDiscoveryService#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1299,7 +1299,7 @@ class ServiceDiscoveryServiceHealthCheckCustomConfig:
         failure_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
+        :param failure_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa574b6c9e2e72edc4f4d292a6d90396166baebd9cb298da9f9837a6ef9f2d61)
@@ -1310,7 +1310,7 @@ class ServiceDiscoveryServiceHealthCheckCustomConfig:
 
     @builtins.property
     def failure_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/service_discovery_service#failure_threshold ServiceDiscoveryService#failure_threshold}.'''
         result = self._values.get("failure_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 

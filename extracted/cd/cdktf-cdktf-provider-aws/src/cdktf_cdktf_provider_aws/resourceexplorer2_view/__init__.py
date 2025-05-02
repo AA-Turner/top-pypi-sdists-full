@@ -1,7 +1,7 @@
 r'''
 # `aws_resourceexplorer2_view`
 
-Refer to the Terraform Registry for docs: [`aws_resourceexplorer2_view`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view).
+Refer to the Terraform Registry for docs: [`aws_resourceexplorer2_view`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Resourceexplorer2View(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.resourceexplorer2View.Resourceexplorer2View",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view aws_resourceexplorer2_view}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view aws_resourceexplorer2_view}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class Resourceexplorer2View(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view aws_resourceexplorer2_view} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view aws_resourceexplorer2_view} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.
-        :param default_view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#default_view Resourceexplorer2View#default_view}.
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#filters Resourceexplorer2View#filters}
-        :param included_property: included_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#included_property Resourceexplorer2View#included_property}
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#scope Resourceexplorer2View#scope}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#tags Resourceexplorer2View#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.
+        :param default_view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#default_view Resourceexplorer2View#default_view}.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#filters Resourceexplorer2View#filters}
+        :param included_property: included_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#included_property Resourceexplorer2View#included_property}
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#scope Resourceexplorer2View#scope}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#tags Resourceexplorer2View#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class Resourceexplorer2View(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Resourceexplorer2View to import.
-        :param import_from_id: The id of the existing Resourceexplorer2View that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Resourceexplorer2View that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Resourceexplorer2View to import is found.
         '''
         if __debug__:
@@ -346,12 +346,12 @@ class Resourceexplorer2ViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.
-        :param default_view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#default_view Resourceexplorer2View#default_view}.
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#filters Resourceexplorer2View#filters}
-        :param included_property: included_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#included_property Resourceexplorer2View#included_property}
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#scope Resourceexplorer2View#scope}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#tags Resourceexplorer2View#tags}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.
+        :param default_view: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#default_view Resourceexplorer2View#default_view}.
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#filters Resourceexplorer2View#filters}
+        :param included_property: included_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#included_property Resourceexplorer2View#included_property}
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#scope Resourceexplorer2View#scope}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#tags Resourceexplorer2View#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -464,7 +464,7 @@ class Resourceexplorer2ViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -473,7 +473,7 @@ class Resourceexplorer2ViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_view(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#default_view Resourceexplorer2View#default_view}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#default_view Resourceexplorer2View#default_view}.'''
         result = self._values.get("default_view")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -483,7 +483,7 @@ class Resourceexplorer2ViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Resourceexplorer2ViewFilters"]]]:
         '''filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#filters Resourceexplorer2View#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#filters Resourceexplorer2View#filters}
         '''
         result = self._values.get("filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Resourceexplorer2ViewFilters"]]], result)
@@ -494,20 +494,20 @@ class Resourceexplorer2ViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Resourceexplorer2ViewIncludedProperty"]]]:
         '''included_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#included_property Resourceexplorer2View#included_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#included_property Resourceexplorer2View#included_property}
         '''
         result = self._values.get("included_property")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Resourceexplorer2ViewIncludedProperty"]]], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#scope Resourceexplorer2View#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#scope Resourceexplorer2View#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#tags Resourceexplorer2View#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#tags Resourceexplorer2View#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -531,7 +531,7 @@ class Resourceexplorer2ViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class Resourceexplorer2ViewFilters:
     def __init__(self, *, filter_string: builtins.str) -> None:
         '''
-        :param filter_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#filter_string Resourceexplorer2View#filter_string}.
+        :param filter_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#filter_string Resourceexplorer2View#filter_string}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a59fcda0b389925e854627727c59bb9b8f42978fbfdf035052bda4763df2dd81)
@@ -542,7 +542,7 @@ class Resourceexplorer2ViewFilters:
 
     @builtins.property
     def filter_string(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#filter_string Resourceexplorer2View#filter_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#filter_string Resourceexplorer2View#filter_string}.'''
         result = self._values.get("filter_string")
         assert result is not None, "Required property 'filter_string' is missing"
         return typing.cast(builtins.str, result)
@@ -718,7 +718,7 @@ class Resourceexplorer2ViewFiltersOutputReference(
 class Resourceexplorer2ViewIncludedProperty:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b71b07d86282e6aa111f5b0b936f1e7c3868c1e07a4306448333d754a383813)
@@ -729,7 +729,7 @@ class Resourceexplorer2ViewIncludedProperty:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/resourceexplorer2_view#name Resourceexplorer2View#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)

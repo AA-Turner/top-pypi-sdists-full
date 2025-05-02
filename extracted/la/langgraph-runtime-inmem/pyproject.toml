@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "langgraph-runtime-inmem"
+version = "0.0.8"
+description = "Inmem implementation for the LangGraph API server."
+authors = [
+    "Will Fu-Hinthorn <will@langchain.dev>",
+]
+license = "Elastic-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11.0"
+blockbuster = ">=1.5.24,<2.0.0"
+langgraph = { version = ">=0.2", python = "<4.0" }
+structlog = ">23"
+sse-starlette = ">=2"
+starlette = ">=0.37"
+langgraph-checkpoint = { version = ">=2.0.25", python = "<4.0" }
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.11.7"
+anyio = "^4.4.0"
+pytest-watcher = { version = "^0.4.2", python = "<4.0" }
+langgraph-cli = { version = "^0.1.72", python = "<4.0" }
+pytest-repeat = "^0.9.3"
+pytest-retry = "^1.6.3"
+pytest-httpserver = "^1.1.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+lint.select = ["E", "F", "UP", "B", "I"]
+lint.ignore = ["E501", "B008"]
+target-version = "py311"
+
+[tool.poetry_bumpversion.file."langgraph_runtime_inmem/__init__.py"]
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'

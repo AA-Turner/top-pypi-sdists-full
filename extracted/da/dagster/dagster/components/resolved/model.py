@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Callable, Optional, TypeVar, U
 from pydantic import BaseModel, ConfigDict
 
 from dagster import _check as check
+from dagster._annotations import preview, public
 
 try:
     # this type only exists in python 3.10+
@@ -17,14 +18,12 @@ if TYPE_CHECKING:
     from dagster.components.resolved.context import ResolutionContext
 
 
+@public
+@preview(emit_runtime_warning=False)
 class Model(BaseModel):
     """pydantic BaseModel configured to disallow extra fields in order to help catch errors earlier."""
 
     model_config = ConfigDict(extra="forbid")
-
-
-def _recurse(context: "ResolutionContext", field_value):
-    return context.resolve_value(field_value)
 
 
 @dataclass
@@ -37,15 +36,25 @@ class AttrWithContextFn:
     callable: Callable[["ResolutionContext", Any], Any]
 
 
+default_resolver = AttrWithContextFn(
+    lambda context, field_value: context.resolve_value(field_value)
+)
+
+
+@public
+@preview(emit_runtime_warning=False)
 class Resolver:
     """Contains information on how to resolve a field from a model."""
 
     def __init__(
         self,
         fn: Union[ParentFn, AttrWithContextFn, Callable[["ResolutionContext", Any], Any]],
+        *,
         model_field_name: Optional[str] = None,
         model_field_type: Optional[type] = None,
         can_inject: bool = False,
+        description: Optional[str] = None,
+        examples: Optional[list[Any]] = None,
     ):
         """Resolve this field by invoking the function which will receive the corresponding field value
         from the model.
@@ -64,6 +73,8 @@ class Resolver:
         self.model_field_name = model_field_name
         self.model_field_type = model_field_type
         self.can_inject = can_inject
+        self.description = description
+        self.examples = examples
 
         super().__init__()
 
@@ -73,9 +84,23 @@ class Resolver:
         return Resolver(ParentFn(fn), **kwargs)
 
     @staticmethod
-    def default(**kwargs):
+    def default(
+        *,
+        model_field_name: Optional[str] = None,
+        model_field_type: Optional[type] = None,
+        can_inject: bool = False,
+        description: Optional[str] = None,
+        examples: Optional[list[Any]] = None,
+    ):
         """Default recursive resolution."""
-        return Resolver(_recurse, **kwargs)
+        return Resolver(
+            default_resolver,
+            model_field_name=model_field_name,
+            model_field_type=model_field_type,
+            can_inject=can_inject,
+            description=description,
+            examples=examples,
+        )
 
     def execute(
         self,
@@ -103,6 +128,22 @@ class Resolver:
             ) from None
 
         raise ValueError(f"Unsupported Resolver type: {self.fn}")
+
+    def is_default(self):
+        return self.fn is default_resolver
+
+    def with_outer_resolver(self, outer: "Resolver"):
+        description = outer.description or self.description
+        examples = outer.examples or self.examples
+        can_inject = outer.can_inject or self.can_inject
+        return Resolver(
+            self.fn,
+            model_field_name=self.model_field_name,
+            model_field_type=self.model_field_type,
+            can_inject=can_inject,
+            description=description,
+            examples=examples,
+        )
 
 
 T = TypeVar("T")

@@ -1,7 +1,7 @@
 r'''
 # `aws_bedrock_custom_model`
 
-Refer to the Terraform Registry for docs: [`aws_bedrock_custom_model`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model).
+Refer to the Terraform Registry for docs: [`aws_bedrock_custom_model`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BedrockCustomModel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.bedrockCustomModel.BedrockCustomModel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model aws_bedrock_custom_model}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model aws_bedrock_custom_model}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class BedrockCustomModel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model aws_bedrock_custom_model} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model aws_bedrock_custom_model} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_model_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#base_model_identifier BedrockCustomModel#base_model_identifier}.
-        :param custom_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#custom_model_name BedrockCustomModel#custom_model_name}.
-        :param hyperparameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#hyperparameters BedrockCustomModel#hyperparameters}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#job_name BedrockCustomModel#job_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#role_arn BedrockCustomModel#role_arn}.
-        :param customization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#customization_type BedrockCustomModel#customization_type}.
-        :param custom_model_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#custom_model_kms_key_id BedrockCustomModel#custom_model_kms_key_id}.
-        :param output_data_config: output_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#output_data_config BedrockCustomModel#output_data_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#tags BedrockCustomModel#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#timeouts BedrockCustomModel#timeouts}
-        :param training_data_config: training_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#training_data_config BedrockCustomModel#training_data_config}
-        :param validation_data_config: validation_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#validation_data_config BedrockCustomModel#validation_data_config}
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#vpc_config BedrockCustomModel#vpc_config}
+        :param base_model_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#base_model_identifier BedrockCustomModel#base_model_identifier}.
+        :param custom_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#custom_model_name BedrockCustomModel#custom_model_name}.
+        :param hyperparameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#hyperparameters BedrockCustomModel#hyperparameters}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#job_name BedrockCustomModel#job_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#role_arn BedrockCustomModel#role_arn}.
+        :param customization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#customization_type BedrockCustomModel#customization_type}.
+        :param custom_model_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#custom_model_kms_key_id BedrockCustomModel#custom_model_kms_key_id}.
+        :param output_data_config: output_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#output_data_config BedrockCustomModel#output_data_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#tags BedrockCustomModel#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#timeouts BedrockCustomModel#timeouts}
+        :param training_data_config: training_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#training_data_config BedrockCustomModel#training_data_config}
+        :param validation_data_config: validation_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#validation_data_config BedrockCustomModel#validation_data_config}
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#vpc_config BedrockCustomModel#vpc_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class BedrockCustomModel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BedrockCustomModel to import.
-        :param import_from_id: The id of the existing BedrockCustomModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BedrockCustomModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BedrockCustomModel to import is found.
         '''
         if __debug__:
@@ -171,8 +171,8 @@ class BedrockCustomModel(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#create BedrockCustomModel#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#delete BedrockCustomModel#delete}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#create BedrockCustomModel#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#delete BedrockCustomModel#delete}
         '''
         value = BedrockCustomModelTimeouts(create=create, delete=delete)
 
@@ -558,19 +558,19 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_model_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#base_model_identifier BedrockCustomModel#base_model_identifier}.
-        :param custom_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#custom_model_name BedrockCustomModel#custom_model_name}.
-        :param hyperparameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#hyperparameters BedrockCustomModel#hyperparameters}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#job_name BedrockCustomModel#job_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#role_arn BedrockCustomModel#role_arn}.
-        :param customization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#customization_type BedrockCustomModel#customization_type}.
-        :param custom_model_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#custom_model_kms_key_id BedrockCustomModel#custom_model_kms_key_id}.
-        :param output_data_config: output_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#output_data_config BedrockCustomModel#output_data_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#tags BedrockCustomModel#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#timeouts BedrockCustomModel#timeouts}
-        :param training_data_config: training_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#training_data_config BedrockCustomModel#training_data_config}
-        :param validation_data_config: validation_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#validation_data_config BedrockCustomModel#validation_data_config}
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#vpc_config BedrockCustomModel#vpc_config}
+        :param base_model_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#base_model_identifier BedrockCustomModel#base_model_identifier}.
+        :param custom_model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#custom_model_name BedrockCustomModel#custom_model_name}.
+        :param hyperparameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#hyperparameters BedrockCustomModel#hyperparameters}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#job_name BedrockCustomModel#job_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#role_arn BedrockCustomModel#role_arn}.
+        :param customization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#customization_type BedrockCustomModel#customization_type}.
+        :param custom_model_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#custom_model_kms_key_id BedrockCustomModel#custom_model_kms_key_id}.
+        :param output_data_config: output_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#output_data_config BedrockCustomModel#output_data_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#tags BedrockCustomModel#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#timeouts BedrockCustomModel#timeouts}
+        :param training_data_config: training_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#training_data_config BedrockCustomModel#training_data_config}
+        :param validation_data_config: validation_data_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#validation_data_config BedrockCustomModel#validation_data_config}
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#vpc_config BedrockCustomModel#vpc_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -702,48 +702,48 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def base_model_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#base_model_identifier BedrockCustomModel#base_model_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#base_model_identifier BedrockCustomModel#base_model_identifier}.'''
         result = self._values.get("base_model_identifier")
         assert result is not None, "Required property 'base_model_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def custom_model_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#custom_model_name BedrockCustomModel#custom_model_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#custom_model_name BedrockCustomModel#custom_model_name}.'''
         result = self._values.get("custom_model_name")
         assert result is not None, "Required property 'custom_model_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hyperparameters(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#hyperparameters BedrockCustomModel#hyperparameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#hyperparameters BedrockCustomModel#hyperparameters}.'''
         result = self._values.get("hyperparameters")
         assert result is not None, "Required property 'hyperparameters' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
 
     @builtins.property
     def job_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#job_name BedrockCustomModel#job_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#job_name BedrockCustomModel#job_name}.'''
         result = self._values.get("job_name")
         assert result is not None, "Required property 'job_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#role_arn BedrockCustomModel#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#role_arn BedrockCustomModel#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def customization_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#customization_type BedrockCustomModel#customization_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#customization_type BedrockCustomModel#customization_type}.'''
         result = self._values.get("customization_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def custom_model_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#custom_model_kms_key_id BedrockCustomModel#custom_model_kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#custom_model_kms_key_id BedrockCustomModel#custom_model_kms_key_id}.'''
         result = self._values.get("custom_model_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -753,14 +753,14 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelOutputDataConfig"]]]:
         '''output_data_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#output_data_config BedrockCustomModel#output_data_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#output_data_config BedrockCustomModel#output_data_config}
         '''
         result = self._values.get("output_data_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelOutputDataConfig"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#tags BedrockCustomModel#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#tags BedrockCustomModel#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -768,7 +768,7 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BedrockCustomModelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#timeouts BedrockCustomModel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#timeouts BedrockCustomModel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BedrockCustomModelTimeouts"], result)
@@ -779,7 +779,7 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelTrainingDataConfig"]]]:
         '''training_data_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#training_data_config BedrockCustomModel#training_data_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#training_data_config BedrockCustomModel#training_data_config}
         '''
         result = self._values.get("training_data_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelTrainingDataConfig"]]], result)
@@ -790,7 +790,7 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelValidationDataConfig"]]]:
         '''validation_data_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#validation_data_config BedrockCustomModel#validation_data_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#validation_data_config BedrockCustomModel#validation_data_config}
         '''
         result = self._values.get("validation_data_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelValidationDataConfig"]]], result)
@@ -801,7 +801,7 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelVpcConfig"]]]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#vpc_config BedrockCustomModel#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#vpc_config BedrockCustomModel#vpc_config}
         '''
         result = self._values.get("vpc_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelVpcConfig"]]], result)
@@ -826,7 +826,7 @@ class BedrockCustomModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class BedrockCustomModelOutputDataConfig:
     def __init__(self, *, s3_uri: builtins.str) -> None:
         '''
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ee386772b04f6ccdc8f610af73392424dadbc1fc8d07a070f7fbb15e03dfd02)
@@ -837,7 +837,7 @@ class BedrockCustomModelOutputDataConfig:
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1021,8 +1021,8 @@ class BedrockCustomModelTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#create BedrockCustomModel#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#delete BedrockCustomModel#delete}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#create BedrockCustomModel#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#delete BedrockCustomModel#delete}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef6ed45108cf6a7d57f8794065a2a44b2ea9bd12f493732af5630453950132e8)
@@ -1038,7 +1038,7 @@ class BedrockCustomModelTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#create BedrockCustomModel#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#create BedrockCustomModel#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1047,7 +1047,7 @@ class BedrockCustomModelTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#delete BedrockCustomModel#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#delete BedrockCustomModel#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1152,7 +1152,7 @@ class BedrockCustomModelTimeoutsOutputReference(
 class BedrockCustomModelTrainingDataConfig:
     def __init__(self, *, s3_uri: builtins.str) -> None:
         '''
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6447644a3689f2ff45fde323aabe1b68f8fdc0dd4c20e9c823e9c6437fcbbdac)
@@ -1163,7 +1163,7 @@ class BedrockCustomModelTrainingDataConfig:
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1490,7 +1490,7 @@ class BedrockCustomModelValidationDataConfig:
         validator: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockCustomModelValidationDataConfigValidator", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param validator: validator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#validator BedrockCustomModel#validator}
+        :param validator: validator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#validator BedrockCustomModel#validator}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d8e334078676cdd4c433d3f5f1f31d0e50eca797ecf59245d4a65284dace08c)
@@ -1505,7 +1505,7 @@ class BedrockCustomModelValidationDataConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelValidationDataConfigValidator"]]]:
         '''validator block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#validator BedrockCustomModel#validator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#validator BedrockCustomModel#validator}
         '''
         result = self._values.get("validator")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockCustomModelValidationDataConfigValidator"]]], result)
@@ -1696,7 +1696,7 @@ class BedrockCustomModelValidationDataConfigOutputReference(
 class BedrockCustomModelValidationDataConfigValidator:
     def __init__(self, *, s3_uri: builtins.str) -> None:
         '''
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b21847a06a02b39c1767d6d61c27e32a998c371ced3422b18c3f1c6905151f2)
@@ -1707,7 +1707,7 @@ class BedrockCustomModelValidationDataConfigValidator:
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#s3_uri BedrockCustomModel#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -2035,8 +2035,8 @@ class BedrockCustomModelVpcConfig:
         subnet_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#security_group_ids BedrockCustomModel#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#subnet_ids BedrockCustomModel#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#security_group_ids BedrockCustomModel#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#subnet_ids BedrockCustomModel#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06472e05f55d10f5f7c4f32f0d7017c9b04b2631d5064110c601de8c96ef0fd8)
@@ -2049,14 +2049,14 @@ class BedrockCustomModelVpcConfig:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#security_group_ids BedrockCustomModel#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#security_group_ids BedrockCustomModel#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/bedrock_custom_model#subnet_ids BedrockCustomModel#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/bedrock_custom_model#subnet_ids BedrockCustomModel#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)

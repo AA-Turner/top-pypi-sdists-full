@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_data_source`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_data_source`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source).
+Refer to the Terraform Registry for docs: [`aws_quicksight_data_source`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightDataSource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightDataSource.QuicksightDataSource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source aws_quicksight_data_source}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source aws_quicksight_data_source}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class QuicksightDataSource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source aws_quicksight_data_source} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source aws_quicksight_data_source} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#data_source_id QuicksightDataSource#data_source_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#name QuicksightDataSource#name}.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#parameters QuicksightDataSource#parameters}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#type QuicksightDataSource#type}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aws_account_id QuicksightDataSource#aws_account_id}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#credentials QuicksightDataSource#credentials}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#id QuicksightDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#permission QuicksightDataSource#permission}
-        :param ssl_properties: ssl_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#ssl_properties QuicksightDataSource#ssl_properties}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#tags QuicksightDataSource#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#tags_all QuicksightDataSource#tags_all}.
-        :param vpc_connection_properties: vpc_connection_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#vpc_connection_properties QuicksightDataSource#vpc_connection_properties}
+        :param data_source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#data_source_id QuicksightDataSource#data_source_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#name QuicksightDataSource#name}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#parameters QuicksightDataSource#parameters}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#type QuicksightDataSource#type}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aws_account_id QuicksightDataSource#aws_account_id}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#credentials QuicksightDataSource#credentials}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#id QuicksightDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#permission QuicksightDataSource#permission}
+        :param ssl_properties: ssl_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#ssl_properties QuicksightDataSource#ssl_properties}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#tags QuicksightDataSource#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#tags_all QuicksightDataSource#tags_all}.
+        :param vpc_connection_properties: vpc_connection_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#vpc_connection_properties QuicksightDataSource#vpc_connection_properties}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class QuicksightDataSource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightDataSource to import.
-        :param import_from_id: The id of the existing QuicksightDataSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightDataSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightDataSource to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class QuicksightDataSource(
         secret_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param copy_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#copy_source_arn QuicksightDataSource#copy_source_arn}.
-        :param credential_pair: credential_pair block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#credential_pair QuicksightDataSource#credential_pair}
-        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#secret_arn QuicksightDataSource#secret_arn}.
+        :param copy_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#copy_source_arn QuicksightDataSource#copy_source_arn}.
+        :param credential_pair: credential_pair block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#credential_pair QuicksightDataSource#credential_pair}
+        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#secret_arn QuicksightDataSource#secret_arn}.
         '''
         value = QuicksightDataSourceCredentials(
             copy_source_arn=copy_source_arn,
@@ -195,27 +195,27 @@ class QuicksightDataSource(
         twitter: typing.Optional[typing.Union["QuicksightDataSourceParametersTwitter", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amazon_elasticsearch: amazon_elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#amazon_elasticsearch QuicksightDataSource#amazon_elasticsearch}
-        :param athena: athena block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#athena QuicksightDataSource#athena}
-        :param aurora: aurora block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aurora QuicksightDataSource#aurora}
-        :param aurora_postgresql: aurora_postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aurora_postgresql QuicksightDataSource#aurora_postgresql}
-        :param aws_iot_analytics: aws_iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aws_iot_analytics QuicksightDataSource#aws_iot_analytics}
-        :param databricks: databricks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#databricks QuicksightDataSource#databricks}
-        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#jira QuicksightDataSource#jira}
-        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#maria_db QuicksightDataSource#maria_db}
-        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#mysql QuicksightDataSource#mysql}
-        :param oracle: oracle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#oracle QuicksightDataSource#oracle}
-        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#postgresql QuicksightDataSource#postgresql}
-        :param presto: presto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#presto QuicksightDataSource#presto}
-        :param rds: rds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#rds QuicksightDataSource#rds}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#redshift QuicksightDataSource#redshift}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#s3 QuicksightDataSource#s3}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#service_now QuicksightDataSource#service_now}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#snowflake QuicksightDataSource#snowflake}
-        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#spark QuicksightDataSource#spark}
-        :param sql_server: sql_server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#sql_server QuicksightDataSource#sql_server}
-        :param teradata: teradata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#teradata QuicksightDataSource#teradata}
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#twitter QuicksightDataSource#twitter}
+        :param amazon_elasticsearch: amazon_elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#amazon_elasticsearch QuicksightDataSource#amazon_elasticsearch}
+        :param athena: athena block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#athena QuicksightDataSource#athena}
+        :param aurora: aurora block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aurora QuicksightDataSource#aurora}
+        :param aurora_postgresql: aurora_postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aurora_postgresql QuicksightDataSource#aurora_postgresql}
+        :param aws_iot_analytics: aws_iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aws_iot_analytics QuicksightDataSource#aws_iot_analytics}
+        :param databricks: databricks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#databricks QuicksightDataSource#databricks}
+        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#jira QuicksightDataSource#jira}
+        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#maria_db QuicksightDataSource#maria_db}
+        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#mysql QuicksightDataSource#mysql}
+        :param oracle: oracle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#oracle QuicksightDataSource#oracle}
+        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#postgresql QuicksightDataSource#postgresql}
+        :param presto: presto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#presto QuicksightDataSource#presto}
+        :param rds: rds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#rds QuicksightDataSource#rds}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#redshift QuicksightDataSource#redshift}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#s3 QuicksightDataSource#s3}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#service_now QuicksightDataSource#service_now}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#snowflake QuicksightDataSource#snowflake}
+        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#spark QuicksightDataSource#spark}
+        :param sql_server: sql_server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#sql_server QuicksightDataSource#sql_server}
+        :param teradata: teradata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#teradata QuicksightDataSource#teradata}
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#twitter QuicksightDataSource#twitter}
         '''
         value = QuicksightDataSourceParameters(
             amazon_elasticsearch=amazon_elasticsearch,
@@ -263,7 +263,7 @@ class QuicksightDataSource(
         disable_ssl: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param disable_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#disable_ssl QuicksightDataSource#disable_ssl}.
+        :param disable_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#disable_ssl QuicksightDataSource#disable_ssl}.
         '''
         value = QuicksightDataSourceSslProperties(disable_ssl=disable_ssl)
 
@@ -276,7 +276,7 @@ class QuicksightDataSource(
         vpc_connection_arn: builtins.str,
     ) -> None:
         '''
-        :param vpc_connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#vpc_connection_arn QuicksightDataSource#vpc_connection_arn}.
+        :param vpc_connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#vpc_connection_arn QuicksightDataSource#vpc_connection_arn}.
         '''
         value = QuicksightDataSourceVpcConnectionProperties(
             vpc_connection_arn=vpc_connection_arn
@@ -571,18 +571,18 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#data_source_id QuicksightDataSource#data_source_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#name QuicksightDataSource#name}.
-        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#parameters QuicksightDataSource#parameters}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#type QuicksightDataSource#type}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aws_account_id QuicksightDataSource#aws_account_id}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#credentials QuicksightDataSource#credentials}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#id QuicksightDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#permission QuicksightDataSource#permission}
-        :param ssl_properties: ssl_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#ssl_properties QuicksightDataSource#ssl_properties}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#tags QuicksightDataSource#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#tags_all QuicksightDataSource#tags_all}.
-        :param vpc_connection_properties: vpc_connection_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#vpc_connection_properties QuicksightDataSource#vpc_connection_properties}
+        :param data_source_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#data_source_id QuicksightDataSource#data_source_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#name QuicksightDataSource#name}.
+        :param parameters: parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#parameters QuicksightDataSource#parameters}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#type QuicksightDataSource#type}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aws_account_id QuicksightDataSource#aws_account_id}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#credentials QuicksightDataSource#credentials}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#id QuicksightDataSource#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permission: permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#permission QuicksightDataSource#permission}
+        :param ssl_properties: ssl_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#ssl_properties QuicksightDataSource#ssl_properties}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#tags QuicksightDataSource#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#tags_all QuicksightDataSource#tags_all}.
+        :param vpc_connection_properties: vpc_connection_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#vpc_connection_properties QuicksightDataSource#vpc_connection_properties}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -718,14 +718,14 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def data_source_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#data_source_id QuicksightDataSource#data_source_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#data_source_id QuicksightDataSource#data_source_id}.'''
         result = self._values.get("data_source_id")
         assert result is not None, "Required property 'data_source_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#name QuicksightDataSource#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#name QuicksightDataSource#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -734,7 +734,7 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parameters(self) -> "QuicksightDataSourceParameters":
         '''parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#parameters QuicksightDataSource#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#parameters QuicksightDataSource#parameters}
         '''
         result = self._values.get("parameters")
         assert result is not None, "Required property 'parameters' is missing"
@@ -742,14 +742,14 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#type QuicksightDataSource#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#type QuicksightDataSource#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aws_account_id QuicksightDataSource#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aws_account_id QuicksightDataSource#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -757,14 +757,14 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def credentials(self) -> typing.Optional["QuicksightDataSourceCredentials"]:
         '''credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#credentials QuicksightDataSource#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#credentials QuicksightDataSource#credentials}
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["QuicksightDataSourceCredentials"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#id QuicksightDataSource#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#id QuicksightDataSource#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -778,7 +778,7 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSourcePermission"]]]:
         '''permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#permission QuicksightDataSource#permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#permission QuicksightDataSource#permission}
         '''
         result = self._values.get("permission")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightDataSourcePermission"]]], result)
@@ -787,20 +787,20 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ssl_properties(self) -> typing.Optional["QuicksightDataSourceSslProperties"]:
         '''ssl_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#ssl_properties QuicksightDataSource#ssl_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#ssl_properties QuicksightDataSource#ssl_properties}
         '''
         result = self._values.get("ssl_properties")
         return typing.cast(typing.Optional["QuicksightDataSourceSslProperties"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#tags QuicksightDataSource#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#tags QuicksightDataSource#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#tags_all QuicksightDataSource#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#tags_all QuicksightDataSource#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -810,7 +810,7 @@ class QuicksightDataSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["QuicksightDataSourceVpcConnectionProperties"]:
         '''vpc_connection_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#vpc_connection_properties QuicksightDataSource#vpc_connection_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#vpc_connection_properties QuicksightDataSource#vpc_connection_properties}
         '''
         result = self._values.get("vpc_connection_properties")
         return typing.cast(typing.Optional["QuicksightDataSourceVpcConnectionProperties"], result)
@@ -845,9 +845,9 @@ class QuicksightDataSourceCredentials:
         secret_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param copy_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#copy_source_arn QuicksightDataSource#copy_source_arn}.
-        :param credential_pair: credential_pair block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#credential_pair QuicksightDataSource#credential_pair}
-        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#secret_arn QuicksightDataSource#secret_arn}.
+        :param copy_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#copy_source_arn QuicksightDataSource#copy_source_arn}.
+        :param credential_pair: credential_pair block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#credential_pair QuicksightDataSource#credential_pair}
+        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#secret_arn QuicksightDataSource#secret_arn}.
         '''
         if isinstance(credential_pair, dict):
             credential_pair = QuicksightDataSourceCredentialsCredentialPair(**credential_pair)
@@ -866,7 +866,7 @@ class QuicksightDataSourceCredentials:
 
     @builtins.property
     def copy_source_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#copy_source_arn QuicksightDataSource#copy_source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#copy_source_arn QuicksightDataSource#copy_source_arn}.'''
         result = self._values.get("copy_source_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -876,14 +876,14 @@ class QuicksightDataSourceCredentials:
     ) -> typing.Optional["QuicksightDataSourceCredentialsCredentialPair"]:
         '''credential_pair block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#credential_pair QuicksightDataSource#credential_pair}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#credential_pair QuicksightDataSource#credential_pair}
         '''
         result = self._values.get("credential_pair")
         return typing.cast(typing.Optional["QuicksightDataSourceCredentialsCredentialPair"], result)
 
     @builtins.property
     def secret_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#secret_arn QuicksightDataSource#secret_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#secret_arn QuicksightDataSource#secret_arn}.'''
         result = self._values.get("secret_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -907,8 +907,8 @@ class QuicksightDataSourceCredentials:
 class QuicksightDataSourceCredentialsCredentialPair:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#password QuicksightDataSource#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#username QuicksightDataSource#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#password QuicksightDataSource#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#username QuicksightDataSource#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1757a11c4883c42ef32dca254fca25071c4cc9a74465542166c5ccaf4bf97fa9)
@@ -921,14 +921,14 @@ class QuicksightDataSourceCredentialsCredentialPair:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#password QuicksightDataSource#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#password QuicksightDataSource#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#username QuicksightDataSource#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#username QuicksightDataSource#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -1045,8 +1045,8 @@ class QuicksightDataSourceCredentialsOutputReference(
         username: builtins.str,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#password QuicksightDataSource#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#username QuicksightDataSource#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#password QuicksightDataSource#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#username QuicksightDataSource#username}.
         '''
         value = QuicksightDataSourceCredentialsCredentialPair(
             password=password, username=username
@@ -1184,27 +1184,27 @@ class QuicksightDataSourceParameters:
         twitter: typing.Optional[typing.Union["QuicksightDataSourceParametersTwitter", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param amazon_elasticsearch: amazon_elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#amazon_elasticsearch QuicksightDataSource#amazon_elasticsearch}
-        :param athena: athena block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#athena QuicksightDataSource#athena}
-        :param aurora: aurora block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aurora QuicksightDataSource#aurora}
-        :param aurora_postgresql: aurora_postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aurora_postgresql QuicksightDataSource#aurora_postgresql}
-        :param aws_iot_analytics: aws_iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aws_iot_analytics QuicksightDataSource#aws_iot_analytics}
-        :param databricks: databricks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#databricks QuicksightDataSource#databricks}
-        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#jira QuicksightDataSource#jira}
-        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#maria_db QuicksightDataSource#maria_db}
-        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#mysql QuicksightDataSource#mysql}
-        :param oracle: oracle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#oracle QuicksightDataSource#oracle}
-        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#postgresql QuicksightDataSource#postgresql}
-        :param presto: presto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#presto QuicksightDataSource#presto}
-        :param rds: rds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#rds QuicksightDataSource#rds}
-        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#redshift QuicksightDataSource#redshift}
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#s3 QuicksightDataSource#s3}
-        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#service_now QuicksightDataSource#service_now}
-        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#snowflake QuicksightDataSource#snowflake}
-        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#spark QuicksightDataSource#spark}
-        :param sql_server: sql_server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#sql_server QuicksightDataSource#sql_server}
-        :param teradata: teradata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#teradata QuicksightDataSource#teradata}
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#twitter QuicksightDataSource#twitter}
+        :param amazon_elasticsearch: amazon_elasticsearch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#amazon_elasticsearch QuicksightDataSource#amazon_elasticsearch}
+        :param athena: athena block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#athena QuicksightDataSource#athena}
+        :param aurora: aurora block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aurora QuicksightDataSource#aurora}
+        :param aurora_postgresql: aurora_postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aurora_postgresql QuicksightDataSource#aurora_postgresql}
+        :param aws_iot_analytics: aws_iot_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aws_iot_analytics QuicksightDataSource#aws_iot_analytics}
+        :param databricks: databricks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#databricks QuicksightDataSource#databricks}
+        :param jira: jira block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#jira QuicksightDataSource#jira}
+        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#maria_db QuicksightDataSource#maria_db}
+        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#mysql QuicksightDataSource#mysql}
+        :param oracle: oracle block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#oracle QuicksightDataSource#oracle}
+        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#postgresql QuicksightDataSource#postgresql}
+        :param presto: presto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#presto QuicksightDataSource#presto}
+        :param rds: rds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#rds QuicksightDataSource#rds}
+        :param redshift: redshift block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#redshift QuicksightDataSource#redshift}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#s3 QuicksightDataSource#s3}
+        :param service_now: service_now block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#service_now QuicksightDataSource#service_now}
+        :param snowflake: snowflake block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#snowflake QuicksightDataSource#snowflake}
+        :param spark: spark block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#spark QuicksightDataSource#spark}
+        :param sql_server: sql_server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#sql_server QuicksightDataSource#sql_server}
+        :param teradata: teradata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#teradata QuicksightDataSource#teradata}
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#twitter QuicksightDataSource#twitter}
         '''
         if isinstance(amazon_elasticsearch, dict):
             amazon_elasticsearch = QuicksightDataSourceParametersAmazonElasticsearch(**amazon_elasticsearch)
@@ -1321,7 +1321,7 @@ class QuicksightDataSourceParameters:
     ) -> typing.Optional["QuicksightDataSourceParametersAmazonElasticsearch"]:
         '''amazon_elasticsearch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#amazon_elasticsearch QuicksightDataSource#amazon_elasticsearch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#amazon_elasticsearch QuicksightDataSource#amazon_elasticsearch}
         '''
         result = self._values.get("amazon_elasticsearch")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersAmazonElasticsearch"], result)
@@ -1330,7 +1330,7 @@ class QuicksightDataSourceParameters:
     def athena(self) -> typing.Optional["QuicksightDataSourceParametersAthena"]:
         '''athena block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#athena QuicksightDataSource#athena}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#athena QuicksightDataSource#athena}
         '''
         result = self._values.get("athena")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersAthena"], result)
@@ -1339,7 +1339,7 @@ class QuicksightDataSourceParameters:
     def aurora(self) -> typing.Optional["QuicksightDataSourceParametersAurora"]:
         '''aurora block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aurora QuicksightDataSource#aurora}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aurora QuicksightDataSource#aurora}
         '''
         result = self._values.get("aurora")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersAurora"], result)
@@ -1350,7 +1350,7 @@ class QuicksightDataSourceParameters:
     ) -> typing.Optional["QuicksightDataSourceParametersAuroraPostgresql"]:
         '''aurora_postgresql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aurora_postgresql QuicksightDataSource#aurora_postgresql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aurora_postgresql QuicksightDataSource#aurora_postgresql}
         '''
         result = self._values.get("aurora_postgresql")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersAuroraPostgresql"], result)
@@ -1361,7 +1361,7 @@ class QuicksightDataSourceParameters:
     ) -> typing.Optional["QuicksightDataSourceParametersAwsIotAnalytics"]:
         '''aws_iot_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#aws_iot_analytics QuicksightDataSource#aws_iot_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#aws_iot_analytics QuicksightDataSource#aws_iot_analytics}
         '''
         result = self._values.get("aws_iot_analytics")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersAwsIotAnalytics"], result)
@@ -1370,7 +1370,7 @@ class QuicksightDataSourceParameters:
     def databricks(self) -> typing.Optional["QuicksightDataSourceParametersDatabricks"]:
         '''databricks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#databricks QuicksightDataSource#databricks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#databricks QuicksightDataSource#databricks}
         '''
         result = self._values.get("databricks")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersDatabricks"], result)
@@ -1379,7 +1379,7 @@ class QuicksightDataSourceParameters:
     def jira(self) -> typing.Optional["QuicksightDataSourceParametersJira"]:
         '''jira block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#jira QuicksightDataSource#jira}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#jira QuicksightDataSource#jira}
         '''
         result = self._values.get("jira")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersJira"], result)
@@ -1388,7 +1388,7 @@ class QuicksightDataSourceParameters:
     def maria_db(self) -> typing.Optional["QuicksightDataSourceParametersMariaDb"]:
         '''maria_db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#maria_db QuicksightDataSource#maria_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#maria_db QuicksightDataSource#maria_db}
         '''
         result = self._values.get("maria_db")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersMariaDb"], result)
@@ -1397,7 +1397,7 @@ class QuicksightDataSourceParameters:
     def mysql(self) -> typing.Optional["QuicksightDataSourceParametersMysql"]:
         '''mysql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#mysql QuicksightDataSource#mysql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#mysql QuicksightDataSource#mysql}
         '''
         result = self._values.get("mysql")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersMysql"], result)
@@ -1406,7 +1406,7 @@ class QuicksightDataSourceParameters:
     def oracle(self) -> typing.Optional["QuicksightDataSourceParametersOracle"]:
         '''oracle block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#oracle QuicksightDataSource#oracle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#oracle QuicksightDataSource#oracle}
         '''
         result = self._values.get("oracle")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersOracle"], result)
@@ -1415,7 +1415,7 @@ class QuicksightDataSourceParameters:
     def postgresql(self) -> typing.Optional["QuicksightDataSourceParametersPostgresql"]:
         '''postgresql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#postgresql QuicksightDataSource#postgresql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#postgresql QuicksightDataSource#postgresql}
         '''
         result = self._values.get("postgresql")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersPostgresql"], result)
@@ -1424,7 +1424,7 @@ class QuicksightDataSourceParameters:
     def presto(self) -> typing.Optional["QuicksightDataSourceParametersPresto"]:
         '''presto block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#presto QuicksightDataSource#presto}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#presto QuicksightDataSource#presto}
         '''
         result = self._values.get("presto")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersPresto"], result)
@@ -1433,7 +1433,7 @@ class QuicksightDataSourceParameters:
     def rds(self) -> typing.Optional["QuicksightDataSourceParametersRds"]:
         '''rds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#rds QuicksightDataSource#rds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#rds QuicksightDataSource#rds}
         '''
         result = self._values.get("rds")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersRds"], result)
@@ -1442,7 +1442,7 @@ class QuicksightDataSourceParameters:
     def redshift(self) -> typing.Optional["QuicksightDataSourceParametersRedshift"]:
         '''redshift block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#redshift QuicksightDataSource#redshift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#redshift QuicksightDataSource#redshift}
         '''
         result = self._values.get("redshift")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersRedshift"], result)
@@ -1451,7 +1451,7 @@ class QuicksightDataSourceParameters:
     def s3(self) -> typing.Optional["QuicksightDataSourceParametersS3"]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#s3 QuicksightDataSource#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#s3 QuicksightDataSource#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersS3"], result)
@@ -1462,7 +1462,7 @@ class QuicksightDataSourceParameters:
     ) -> typing.Optional["QuicksightDataSourceParametersServiceNow"]:
         '''service_now block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#service_now QuicksightDataSource#service_now}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#service_now QuicksightDataSource#service_now}
         '''
         result = self._values.get("service_now")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersServiceNow"], result)
@@ -1471,7 +1471,7 @@ class QuicksightDataSourceParameters:
     def snowflake(self) -> typing.Optional["QuicksightDataSourceParametersSnowflake"]:
         '''snowflake block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#snowflake QuicksightDataSource#snowflake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#snowflake QuicksightDataSource#snowflake}
         '''
         result = self._values.get("snowflake")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersSnowflake"], result)
@@ -1480,7 +1480,7 @@ class QuicksightDataSourceParameters:
     def spark(self) -> typing.Optional["QuicksightDataSourceParametersSpark"]:
         '''spark block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#spark QuicksightDataSource#spark}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#spark QuicksightDataSource#spark}
         '''
         result = self._values.get("spark")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersSpark"], result)
@@ -1489,7 +1489,7 @@ class QuicksightDataSourceParameters:
     def sql_server(self) -> typing.Optional["QuicksightDataSourceParametersSqlServer"]:
         '''sql_server block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#sql_server QuicksightDataSource#sql_server}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#sql_server QuicksightDataSource#sql_server}
         '''
         result = self._values.get("sql_server")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersSqlServer"], result)
@@ -1498,7 +1498,7 @@ class QuicksightDataSourceParameters:
     def teradata(self) -> typing.Optional["QuicksightDataSourceParametersTeradata"]:
         '''teradata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#teradata QuicksightDataSource#teradata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#teradata QuicksightDataSource#teradata}
         '''
         result = self._values.get("teradata")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersTeradata"], result)
@@ -1507,7 +1507,7 @@ class QuicksightDataSourceParameters:
     def twitter(self) -> typing.Optional["QuicksightDataSourceParametersTwitter"]:
         '''twitter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#twitter QuicksightDataSource#twitter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#twitter QuicksightDataSource#twitter}
         '''
         result = self._values.get("twitter")
         return typing.cast(typing.Optional["QuicksightDataSourceParametersTwitter"], result)
@@ -1532,7 +1532,7 @@ class QuicksightDataSourceParameters:
 class QuicksightDataSourceParametersAmazonElasticsearch:
     def __init__(self, *, domain: builtins.str) -> None:
         '''
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#domain QuicksightDataSource#domain}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#domain QuicksightDataSource#domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__482dcbb621ac863d7c60c3318c6307ab17613ebd14f228c5313361616f257721)
@@ -1543,7 +1543,7 @@ class QuicksightDataSourceParametersAmazonElasticsearch:
 
     @builtins.property
     def domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#domain QuicksightDataSource#domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#domain QuicksightDataSource#domain}.'''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
         return typing.cast(builtins.str, result)
@@ -1623,7 +1623,7 @@ class QuicksightDataSourceParametersAmazonElasticsearchOutputReference(
 class QuicksightDataSourceParametersAthena:
     def __init__(self, *, work_group: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param work_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#work_group QuicksightDataSource#work_group}.
+        :param work_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#work_group QuicksightDataSource#work_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__331d741e9d006e66ec2cf88a16dd5b4fea4a9e02ce95b713af7f7acf22bd2b98)
@@ -1634,7 +1634,7 @@ class QuicksightDataSourceParametersAthena:
 
     @builtins.property
     def work_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#work_group QuicksightDataSource#work_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#work_group QuicksightDataSource#work_group}.'''
         result = self._values.get("work_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1721,9 +1721,9 @@ class QuicksightDataSourceParametersAurora:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8e9e20a0a9f58b039eb7242d392da6a7776dfb4f4a0d7a6869c4367e918b2fe1)
@@ -1738,21 +1738,21 @@ class QuicksightDataSourceParametersAurora:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -1870,9 +1870,9 @@ class QuicksightDataSourceParametersAuroraPostgresql:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78b4b587098f8296e1e6250d67c8768247564d9cf7b1a8a9972ec6de3348395a)
@@ -1887,21 +1887,21 @@ class QuicksightDataSourceParametersAuroraPostgresql:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -2015,7 +2015,7 @@ class QuicksightDataSourceParametersAuroraPostgresqlOutputReference(
 class QuicksightDataSourceParametersAwsIotAnalytics:
     def __init__(self, *, data_set_name: builtins.str) -> None:
         '''
-        :param data_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#data_set_name QuicksightDataSource#data_set_name}.
+        :param data_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#data_set_name QuicksightDataSource#data_set_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43255c026201428a863309e7b49ea5cba708cdd358af2df67c972fa44d33ffa1)
@@ -2026,7 +2026,7 @@ class QuicksightDataSourceParametersAwsIotAnalytics:
 
     @builtins.property
     def data_set_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#data_set_name QuicksightDataSource#data_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#data_set_name QuicksightDataSource#data_set_name}.'''
         result = self._values.get("data_set_name")
         assert result is not None, "Required property 'data_set_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2116,9 +2116,9 @@ class QuicksightDataSourceParametersDatabricks:
         sql_endpoint_path: builtins.str,
     ) -> None:
         '''
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
-        :param sql_endpoint_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#sql_endpoint_path QuicksightDataSource#sql_endpoint_path}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param sql_endpoint_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#sql_endpoint_path QuicksightDataSource#sql_endpoint_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be59de086d21a97d98cc6bda4d78d2065b04d86e3ba343caa44a56e5f83a5e19)
@@ -2133,21 +2133,21 @@ class QuicksightDataSourceParametersDatabricks:
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def sql_endpoint_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#sql_endpoint_path QuicksightDataSource#sql_endpoint_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#sql_endpoint_path QuicksightDataSource#sql_endpoint_path}.'''
         result = self._values.get("sql_endpoint_path")
         assert result is not None, "Required property 'sql_endpoint_path' is missing"
         return typing.cast(builtins.str, result)
@@ -2261,7 +2261,7 @@ class QuicksightDataSourceParametersDatabricksOutputReference(
 class QuicksightDataSourceParametersJira:
     def __init__(self, *, site_base_url: builtins.str) -> None:
         '''
-        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
+        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c22096c6bc2976622761062db6c5a248dfed94c1364ae3f77e7a820b05958be)
@@ -2272,7 +2272,7 @@ class QuicksightDataSourceParametersJira:
 
     @builtins.property
     def site_base_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.'''
         result = self._values.get("site_base_url")
         assert result is not None, "Required property 'site_base_url' is missing"
         return typing.cast(builtins.str, result)
@@ -2356,9 +2356,9 @@ class QuicksightDataSourceParametersMariaDb:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__adf049f2a33ff28a01c76065c46ac5e7ef9aa9ff26134ddf442ee4d0bf833c37)
@@ -2373,21 +2373,21 @@ class QuicksightDataSourceParametersMariaDb:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -2505,9 +2505,9 @@ class QuicksightDataSourceParametersMysql:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0479c145f28b151552baf9a6f9c914f210c685f21e1ed3daffc456a23c4036cc)
@@ -2522,21 +2522,21 @@ class QuicksightDataSourceParametersMysql:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -2654,9 +2654,9 @@ class QuicksightDataSourceParametersOracle:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7726c7b82c7a3af38b50c900715fd4f7e5f35188cf1c921b42628241122152b)
@@ -2671,21 +2671,21 @@ class QuicksightDataSourceParametersOracle:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -2812,7 +2812,7 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putAmazonElasticsearch")
     def put_amazon_elasticsearch(self, *, domain: builtins.str) -> None:
         '''
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#domain QuicksightDataSource#domain}.
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#domain QuicksightDataSource#domain}.
         '''
         value = QuicksightDataSourceParametersAmazonElasticsearch(domain=domain)
 
@@ -2821,7 +2821,7 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putAthena")
     def put_athena(self, *, work_group: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param work_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#work_group QuicksightDataSource#work_group}.
+        :param work_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#work_group QuicksightDataSource#work_group}.
         '''
         value = QuicksightDataSourceParametersAthena(work_group=work_group)
 
@@ -2836,9 +2836,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersAurora(
             database=database, host=host, port=port
@@ -2855,9 +2855,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersAuroraPostgresql(
             database=database, host=host, port=port
@@ -2868,7 +2868,7 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putAwsIotAnalytics")
     def put_aws_iot_analytics(self, *, data_set_name: builtins.str) -> None:
         '''
-        :param data_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#data_set_name QuicksightDataSource#data_set_name}.
+        :param data_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#data_set_name QuicksightDataSource#data_set_name}.
         '''
         value = QuicksightDataSourceParametersAwsIotAnalytics(
             data_set_name=data_set_name
@@ -2885,9 +2885,9 @@ class QuicksightDataSourceParametersOutputReference(
         sql_endpoint_path: builtins.str,
     ) -> None:
         '''
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
-        :param sql_endpoint_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#sql_endpoint_path QuicksightDataSource#sql_endpoint_path}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param sql_endpoint_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#sql_endpoint_path QuicksightDataSource#sql_endpoint_path}.
         '''
         value = QuicksightDataSourceParametersDatabricks(
             host=host, port=port, sql_endpoint_path=sql_endpoint_path
@@ -2898,7 +2898,7 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putJira")
     def put_jira(self, *, site_base_url: builtins.str) -> None:
         '''
-        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
+        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
         '''
         value = QuicksightDataSourceParametersJira(site_base_url=site_base_url)
 
@@ -2913,9 +2913,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersMariaDb(
             database=database, host=host, port=port
@@ -2932,9 +2932,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersMysql(
             database=database, host=host, port=port
@@ -2951,9 +2951,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersOracle(
             database=database, host=host, port=port
@@ -2970,9 +2970,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersPostgresql(
             database=database, host=host, port=port
@@ -2989,9 +2989,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#catalog QuicksightDataSource#catalog}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#catalog QuicksightDataSource#catalog}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersPresto(
             catalog=catalog, host=host, port=port
@@ -3002,8 +3002,8 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putRds")
     def put_rds(self, *, database: builtins.str, instance_id: builtins.str) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#instance_id QuicksightDataSource#instance_id}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#instance_id QuicksightDataSource#instance_id}.
         '''
         value = QuicksightDataSourceParametersRds(
             database=database, instance_id=instance_id
@@ -3021,10 +3021,10 @@ class QuicksightDataSourceParametersOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#cluster_id QuicksightDataSource#cluster_id}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#cluster_id QuicksightDataSource#cluster_id}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersRedshift(
             database=database, cluster_id=cluster_id, host=host, port=port
@@ -3040,8 +3040,8 @@ class QuicksightDataSourceParametersOutputReference(
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param manifest_file_location: manifest_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#manifest_file_location QuicksightDataSource#manifest_file_location}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#role_arn QuicksightDataSource#role_arn}.
+        :param manifest_file_location: manifest_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#manifest_file_location QuicksightDataSource#manifest_file_location}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#role_arn QuicksightDataSource#role_arn}.
         '''
         value = QuicksightDataSourceParametersS3(
             manifest_file_location=manifest_file_location, role_arn=role_arn
@@ -3052,7 +3052,7 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putServiceNow")
     def put_service_now(self, *, site_base_url: builtins.str) -> None:
         '''
-        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
+        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
         '''
         value = QuicksightDataSourceParametersServiceNow(site_base_url=site_base_url)
 
@@ -3067,9 +3067,9 @@ class QuicksightDataSourceParametersOutputReference(
         warehouse: builtins.str,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#warehouse QuicksightDataSource#warehouse}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#warehouse QuicksightDataSource#warehouse}.
         '''
         value = QuicksightDataSourceParametersSnowflake(
             database=database, host=host, warehouse=warehouse
@@ -3080,8 +3080,8 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putSpark")
     def put_spark(self, *, host: builtins.str, port: jsii.Number) -> None:
         '''
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersSpark(host=host, port=port)
 
@@ -3096,9 +3096,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersSqlServer(
             database=database, host=host, port=port
@@ -3115,9 +3115,9 @@ class QuicksightDataSourceParametersOutputReference(
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         value = QuicksightDataSourceParametersTeradata(
             database=database, host=host, port=port
@@ -3128,8 +3128,8 @@ class QuicksightDataSourceParametersOutputReference(
     @jsii.member(jsii_name="putTwitter")
     def put_twitter(self, *, max_rows: jsii.Number, query: builtins.str) -> None:
         '''
-        :param max_rows: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#max_rows QuicksightDataSource#max_rows}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#query QuicksightDataSource#query}.
+        :param max_rows: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#max_rows QuicksightDataSource#max_rows}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#query QuicksightDataSource#query}.
         '''
         value = QuicksightDataSourceParametersTwitter(max_rows=max_rows, query=query)
 
@@ -3485,9 +3485,9 @@ class QuicksightDataSourceParametersPostgresql:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5fe278e6076b8fc0aa5dbc12b7c291f1891e0f25c57954801f96d3645562891)
@@ -3502,21 +3502,21 @@ class QuicksightDataSourceParametersPostgresql:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -3636,9 +3636,9 @@ class QuicksightDataSourceParametersPresto:
         port: jsii.Number,
     ) -> None:
         '''
-        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#catalog QuicksightDataSource#catalog}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param catalog: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#catalog QuicksightDataSource#catalog}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b1999b008b32640a2bedd02bfcc29ac828a69dfdf5ddbd507d76d2f2ed5a098)
@@ -3653,21 +3653,21 @@ class QuicksightDataSourceParametersPresto:
 
     @builtins.property
     def catalog(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#catalog QuicksightDataSource#catalog}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#catalog QuicksightDataSource#catalog}.'''
         result = self._values.get("catalog")
         assert result is not None, "Required property 'catalog' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -3779,8 +3779,8 @@ class QuicksightDataSourceParametersPrestoOutputReference(
 class QuicksightDataSourceParametersRds:
     def __init__(self, *, database: builtins.str, instance_id: builtins.str) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#instance_id QuicksightDataSource#instance_id}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#instance_id QuicksightDataSource#instance_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ea6d4fe70a38653655d3ca94126a1b45fec63504237685896b4e64ca9dd7241)
@@ -3793,14 +3793,14 @@ class QuicksightDataSourceParametersRds:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#instance_id QuicksightDataSource#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#instance_id QuicksightDataSource#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3907,10 +3907,10 @@ class QuicksightDataSourceParametersRedshift:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#cluster_id QuicksightDataSource#cluster_id}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#cluster_id QuicksightDataSource#cluster_id}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1dd9cc108b60c0ef5aeb41fc268ffb62d44bd0e21606f8f979a87fb11f70c318)
@@ -3930,26 +3930,26 @@ class QuicksightDataSourceParametersRedshift:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cluster_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#cluster_id QuicksightDataSource#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#cluster_id QuicksightDataSource#cluster_id}.'''
         result = self._values.get("cluster_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4097,8 +4097,8 @@ class QuicksightDataSourceParametersS3:
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param manifest_file_location: manifest_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#manifest_file_location QuicksightDataSource#manifest_file_location}
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#role_arn QuicksightDataSource#role_arn}.
+        :param manifest_file_location: manifest_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#manifest_file_location QuicksightDataSource#manifest_file_location}
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#role_arn QuicksightDataSource#role_arn}.
         '''
         if isinstance(manifest_file_location, dict):
             manifest_file_location = QuicksightDataSourceParametersS3ManifestFileLocation(**manifest_file_location)
@@ -4118,7 +4118,7 @@ class QuicksightDataSourceParametersS3:
     ) -> "QuicksightDataSourceParametersS3ManifestFileLocation":
         '''manifest_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#manifest_file_location QuicksightDataSource#manifest_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#manifest_file_location QuicksightDataSource#manifest_file_location}
         '''
         result = self._values.get("manifest_file_location")
         assert result is not None, "Required property 'manifest_file_location' is missing"
@@ -4126,7 +4126,7 @@ class QuicksightDataSourceParametersS3:
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#role_arn QuicksightDataSource#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#role_arn QuicksightDataSource#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4150,8 +4150,8 @@ class QuicksightDataSourceParametersS3:
 class QuicksightDataSourceParametersS3ManifestFileLocation:
     def __init__(self, *, bucket: builtins.str, key: builtins.str) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#bucket QuicksightDataSource#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#key QuicksightDataSource#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#bucket QuicksightDataSource#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#key QuicksightDataSource#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7727425112c7dfe781657c10ae11ca29867c485a0ece801723695fcaf3d45b10)
@@ -4164,14 +4164,14 @@ class QuicksightDataSourceParametersS3ManifestFileLocation:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#bucket QuicksightDataSource#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#bucket QuicksightDataSource#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#key QuicksightDataSource#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#key QuicksightDataSource#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -4288,8 +4288,8 @@ class QuicksightDataSourceParametersS3OutputReference(
         key: builtins.str,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#bucket QuicksightDataSource#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#key QuicksightDataSource#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#bucket QuicksightDataSource#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#key QuicksightDataSource#key}.
         '''
         value = QuicksightDataSourceParametersS3ManifestFileLocation(
             bucket=bucket, key=key
@@ -4356,7 +4356,7 @@ class QuicksightDataSourceParametersS3OutputReference(
 class QuicksightDataSourceParametersServiceNow:
     def __init__(self, *, site_base_url: builtins.str) -> None:
         '''
-        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
+        :param site_base_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94b81526d92f18fd878014fb2dd85e2f9034682d3c7b410a0557d46c0e1d0ff3)
@@ -4367,7 +4367,7 @@ class QuicksightDataSourceParametersServiceNow:
 
     @builtins.property
     def site_base_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#site_base_url QuicksightDataSource#site_base_url}.'''
         result = self._values.get("site_base_url")
         assert result is not None, "Required property 'site_base_url' is missing"
         return typing.cast(builtins.str, result)
@@ -4453,9 +4453,9 @@ class QuicksightDataSourceParametersSnowflake:
         warehouse: builtins.str,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#warehouse QuicksightDataSource#warehouse}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param warehouse: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#warehouse QuicksightDataSource#warehouse}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c9838118b8380ea240cc3c1690dbff0c1d1972c2483bf3481d57f4fbac08e2c)
@@ -4470,21 +4470,21 @@ class QuicksightDataSourceParametersSnowflake:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def warehouse(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#warehouse QuicksightDataSource#warehouse}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#warehouse QuicksightDataSource#warehouse}.'''
         result = self._values.get("warehouse")
         assert result is not None, "Required property 'warehouse' is missing"
         return typing.cast(builtins.str, result)
@@ -4598,8 +4598,8 @@ class QuicksightDataSourceParametersSnowflakeOutputReference(
 class QuicksightDataSourceParametersSpark:
     def __init__(self, *, host: builtins.str, port: jsii.Number) -> None:
         '''
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2f4c3c86ac2a2094504bec475c860eb60f00bf2e569c5cadbdde4e7ae537635)
@@ -4612,14 +4612,14 @@ class QuicksightDataSourceParametersSpark:
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -4720,9 +4720,9 @@ class QuicksightDataSourceParametersSqlServer:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f438995ac4ee18828919d5e3c9e8da73495f7bcdd79e5a9e5109d2ccb47c6856)
@@ -4737,21 +4737,21 @@ class QuicksightDataSourceParametersSqlServer:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -4871,9 +4871,9 @@ class QuicksightDataSourceParametersTeradata:
         port: jsii.Number,
     ) -> None:
         '''
-        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
+        :param database: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2878b47dae0b269a02aff20e8a9d7a04329feeb2deca1962cb2f14a5170e272)
@@ -4888,21 +4888,21 @@ class QuicksightDataSourceParametersTeradata:
 
     @builtins.property
     def database(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#database QuicksightDataSource#database}.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#host QuicksightDataSource#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#port QuicksightDataSource#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -5014,8 +5014,8 @@ class QuicksightDataSourceParametersTeradataOutputReference(
 class QuicksightDataSourceParametersTwitter:
     def __init__(self, *, max_rows: jsii.Number, query: builtins.str) -> None:
         '''
-        :param max_rows: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#max_rows QuicksightDataSource#max_rows}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#query QuicksightDataSource#query}.
+        :param max_rows: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#max_rows QuicksightDataSource#max_rows}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#query QuicksightDataSource#query}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b05ea844c5f9abfabdcf525cc03ee07654a20ae1308a7f51717de2bcea8e9dd)
@@ -5028,14 +5028,14 @@ class QuicksightDataSourceParametersTwitter:
 
     @builtins.property
     def max_rows(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#max_rows QuicksightDataSource#max_rows}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#max_rows QuicksightDataSource#max_rows}.'''
         result = self._values.get("max_rows")
         assert result is not None, "Required property 'max_rows' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def query(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#query QuicksightDataSource#query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#query QuicksightDataSource#query}.'''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
         return typing.cast(builtins.str, result)
@@ -5135,8 +5135,8 @@ class QuicksightDataSourcePermission:
         principal: builtins.str,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#actions QuicksightDataSource#actions}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#principal QuicksightDataSource#principal}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#actions QuicksightDataSource#actions}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#principal QuicksightDataSource#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95e902d8df847d5d7a05eed76b016c638914ffdbf0bc1b433569ca21416b035d)
@@ -5149,14 +5149,14 @@ class QuicksightDataSourcePermission:
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#actions QuicksightDataSource#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#actions QuicksightDataSource#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#principal QuicksightDataSource#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#principal QuicksightDataSource#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -5356,7 +5356,7 @@ class QuicksightDataSourceSslProperties:
         disable_ssl: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param disable_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#disable_ssl QuicksightDataSource#disable_ssl}.
+        :param disable_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#disable_ssl QuicksightDataSource#disable_ssl}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c3b1c93a579b71c958e6f5b7991900ac8b3eb2475b01bcdb2419f57509b9d01)
@@ -5367,7 +5367,7 @@ class QuicksightDataSourceSslProperties:
 
     @builtins.property
     def disable_ssl(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#disable_ssl QuicksightDataSource#disable_ssl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#disable_ssl QuicksightDataSource#disable_ssl}.'''
         result = self._values.get("disable_ssl")
         assert result is not None, "Required property 'disable_ssl' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -5450,7 +5450,7 @@ class QuicksightDataSourceSslPropertiesOutputReference(
 class QuicksightDataSourceVpcConnectionProperties:
     def __init__(self, *, vpc_connection_arn: builtins.str) -> None:
         '''
-        :param vpc_connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#vpc_connection_arn QuicksightDataSource#vpc_connection_arn}.
+        :param vpc_connection_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#vpc_connection_arn QuicksightDataSource#vpc_connection_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0944d0e0802e54fdb3531ba341d42c80843048c06deacdc65db2d31a774726d1)
@@ -5461,7 +5461,7 @@ class QuicksightDataSourceVpcConnectionProperties:
 
     @builtins.property
     def vpc_connection_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_data_source#vpc_connection_arn QuicksightDataSource#vpc_connection_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_data_source#vpc_connection_arn QuicksightDataSource#vpc_connection_arn}.'''
         result = self._values.get("vpc_connection_arn")
         assert result is not None, "Required property 'vpc_connection_arn' is missing"
         return typing.cast(builtins.str, result)

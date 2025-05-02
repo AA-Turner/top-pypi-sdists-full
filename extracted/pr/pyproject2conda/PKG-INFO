@@ -1,0 +1,1307 @@
+Metadata-Version: 2.4
+Name: pyproject2conda
+Version: 0.19.1
+Summary: A script to convert a Python project declared on a pyproject.toml to a conda environment.
+Project-URL: Documentation, https://pages.nist.gov/pyproject2conda/
+Project-URL: Homepage, https://github.com/usnistgov/pyproject2conda
+Author-email: "William P. Krekelberg" <wpk@nist.gov>
+License-Expression: NIST-PD
+License-File: LICENSE
+Keywords: pyproject2conda
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: Public Domain
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Requires-Dist: packaging
+Requires-Dist: tomli; python_version < '3.11'
+Requires-Dist: typer
+Requires-Dist: typing-extensions; python_version < '3.11'
+Description-Content-Type: text/markdown
+
+<!-- markdownlint-disable MD041 -->
+
+[![Repo][repo-badge]][repo-link] [![Docs][docs-badge]][docs-link]
+[![PyPI license][license-badge]][license-link]
+[![PyPI version][pypi-badge]][pypi-link]
+[![Conda (channel only)][conda-badge]][conda-link]
+[![Code style: black][black-badge]][black-link]
+
+<!--
+  For more badges, see
+  https://shields.io/category/other
+  https://naereen.github.io/badges/
+  [pypi-badge]: https://badge.fury.io/py/pyproject2conda
+-->
+
+[black-badge]: https://img.shields.io/badge/code%20style-black-000000.svg
+[black-link]: https://github.com/psf/black
+[pypi-badge]: https://img.shields.io/pypi/v/pyproject2conda
+[pypi-link]: https://pypi.org/project/pyproject2conda
+[docs-badge]: https://img.shields.io/badge/docs-sphinx-informational
+[docs-link]: https://pages.nist.gov/pyproject2conda/
+[repo-badge]: https://img.shields.io/badge/--181717?logo=github&logoColor=ffffff
+[repo-link]: https://github.com/usnistgov/pyproject2conda
+[conda-badge]: https://img.shields.io/conda/v/conda-forge/pyproject2conda
+[conda-link]: https://anaconda.org/conda-forge/pyproject2conda
+[license-badge]: https://img.shields.io/pypi/l/cmomy?color=informational
+[license-link]: https://github.com/usnistgov/pyproject2conda/blob/main/LICENSE
+[pre-commit]: https://pre-commit.com/
+
+<!-- other links -->
+
+[poetry2conda]: https://github.com/dojeda/poetry2conda
+
+# `pyproject2conda`
+
+A script to convert `pyproject.toml` dependencies to `environment.yaml` files.
+
+## Overview
+
+The main goal of `pyproject2conda` is to provide a means to keep all basic
+dependency information, for both `pip` based and `conda` based environments, in
+`pyproject.toml`. I often use a mix of pip and conda when developing packages,
+and in my everyday workflow. Some packages just aren't available on both. If you
+use poetry, I'd highly recommend [poetry2conda].
+
+## Features
+
+- Automatic creation of `environment.yaml`and `requirements.txt` files from
+  `pyproject.toml`.
+- Simple remapping of `pypi` package name to `conda` package name when creating
+  `environment.yaml` files.
+- [pre-commit] hooks to automatically keep dependency files up to data.
+
+## Status
+
+This package is actively used by the author, but is still very much a work in
+progress. Please feel free to create a pull request for wanted features and
+suggestions!
+
+## Pre-commit hooks
+
+`pyproject2conda` works with [pre-commit]. Hooks are available for the
+`project`, `yaml`, and `requirements` subcommands described below:
+
+```yaml
+- repo: https://github.com/usnistgov/pyproject2conda
+  rev: { version } # replace with current version
+  hooks:
+    - id: pyproject2conda-project
+    - id: pyproject2conda-yaml
+    - id: pyproject2conda-requirements
+```
+
+For `yaml` and `requirements`, you can override the default behavior (of
+creating environment/requirement files from the `dependency-group` `dev`) by
+passing in `args`. For example, you could use the following to create an
+environment file with the extra `dev-complete`
+
+```yaml
+- repo: https://github.com/usnistgov/pyproject2conda
+  rev: { version } # replace with current version
+  hooks:
+    - id: pyproject2conda-yaml
+      args: ["-e", "dev-complete", "-o", "environment-dev.yaml", "-w", "force"]
+```
+
+Note that if called from pre-commit (detected by the presence of `PRE_COMMIT`
+environment variable), the default is to set `--custom-command="pre-commit"`.
+You can explicitly pass in `--custom-command` to override this.
+
+## Quick start
+
+<!-- start-installation -->
+
+Use one of the following to install `pyproject2conda`:
+
+<!-- markdownlint-disable MD014 -->
+
+```bash
+$ pip/pipx/uvx install pyproject2conda
+```
+
+or
+
+```bash
+$ conda/condax install -c conda-forge pyproject2conda
+```
+
+[rich]: https://github.com/Textualize/rich
+[shellingham]: https://github.com/sarugaku/shellingham
+[typer]: https://github.com/fastapi/typer
+
+If using pip, to install with [rich] and [shellingham] support, either install
+them your self, or use:
+
+```bash
+$ pip/pipx/uvx install pyproject2conda[all]
+```
+
+<!-- markdownlint-enable MD014 -->
+
+The conda-forge distribution of [typer] (which `pyproject2conda` uses) installs
+[rich] and [shellingham] by default.
+
+<!-- end-installation -->
+
+## Example usage
+
+### Basic usage
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog
+import sys
+
+sys.path.insert(0, ".")
+from tools.cog_utils import wrap_command, get_pyproject, run_command, cat_lines
+sys.path.pop(0)
+]]] -->
+<!-- [[[end]]] -->
+
+Consider the `toml` file
+[test-pyproject.toml](https://github.com/usnistgov/pyproject2conda/blob/main/tests/data/test-pyproject.toml).
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog cat_lines(begin=None, end="[tool.pyproject2conda]", begin_dot=False)]]] -->
+
+```toml
+[project]
+name = "hello"
+requires-python = ">=3.8,<3.11"
+dependencies = [
+"athing", #
+"bthing",
+"cthing; python_version < '3.10'",
+]
+
+[project.optional-dependencies]
+test = [
+"pandas", #
+"pytest",
+]
+dev-extras = ["matplotlib"]
+dev = ["hello[test]", "hello[dev-extras]"]
+dist-pypi = [
+# this is intended to be parsed with --skip-package option
+"setuptools",
+"build",
+]
+
+[tool.pyproject2conda.dependencies]
+athing = { pip = true }
+bthing = { skip = true, packages = "bthing-conda" }
+cthing = { channel = "conda-forge" }
+pytest = { channel = "conda-forge" }
+matplotlib = { skip = true, packages = [
+"additional-thing; python_version < '3.9'",
+"conda-matplotlib"
+] }
+build = { channel = "pip" }
+
+# ...
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+Note the table `[tool.pyproject2conda.dependencies]`. This table takes as keys
+the dependency names from `project.dependencies` or
+`project.optional-dependencies`, and as values a mapping with keys:
+
+- `pip`: if `true`, specify install via pip in `environment.yaml` file
+- `skip`: if `true`, skip the dependency
+- `channel`: conda-channel to use for this dependency
+- `packages`: Additional packages to include in `environment.yaml` file
+
+So, if we run the following, we get:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml
+channels:
+  - conda-forge
+dependencies:
+  - bthing-conda
+  - conda-forge::cthing
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+By default, the python version is not included in the resulting conda output. To
+include the specification from `pyproject.toml`, use `--python-include infer`
+option:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml --python-include infer")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml --python-include infer
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.8,<3.11
+  - bthing-conda
+  - conda-forge::cthing
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+### Specify python version
+
+To specify a specific value of python in the output, pass a value with:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml --python-include python=3.9")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml --python-include \
+    python=3.9
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - bthing-conda
+  - conda-forge::cthing
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+Note that this is for including python in the resulting environment file.
+
+You can also constrain packages by the python version using the standard
+`pyproject.toml` syntax `"...; python_version < 'some-version-number'"`. For is
+parsed for both the pip packages and conda packages:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml --python-version 3.10")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml --python-version 3.10
+channels:
+  - conda-forge
+dependencies:
+  - bthing-conda
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+It is common to want to specify the python version and include it in the
+resulting environment file. You could, for example use:
+
+<!-- markdownlint-disable MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml --python-version 3.10 --python-include python=3.10")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml --python-version 3.10 \
+    --python-include python=3.10
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - bthing-conda
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+<!-- markdownlint-enable MD013 -->
+
+Because this is common, you can also just pass the option `-p/--python`:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml --python 3.10")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml --python 3.10
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - bthing-conda
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+Passing `--python="default"` will extract the python version from
+`.python-version` file. Passing `--python` value `"lowest"` or `"highest"` will
+extract the lowest or highest python version, respectively, from the
+`project.classifiers` table of the `pyproject.toml` file. Using the option
+`python="all"` in `pyproject.toml` will include all python versions in the
+`project.classifiers` table.
+
+### Adding extra conda dependencies and pip requirements
+
+You can also add additional conda and pip dependencies with the flags
+`-d/--deps` and `-r/--reqs`, respectively. Adding the last example:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml -d dep -r req")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml -d dep -r req
+channels:
+  - conda-forge
+dependencies:
+  - bthing-conda
+  - conda-forge::cthing
+  - dep
+  - pip
+  - pip:
+      - athing
+      - req
+```
+
+<!-- [[[end]]] -->
+
+These will also obey dependencies like `dep:python_version<={version}`. Pass the
+flags multiple times to pass multiple dependencies.
+
+### Command "aliases"
+
+The name `pyproject2conda` can be a bit long to type. For this reason, the
+package also ships with the alias `p2c`, which has the exact same functionality.
+Additionally, the subcommands can be shortened to a unique match:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("p2c y -f tests/data/test-pyproject.toml --python 3.10")]]] -->
+
+```bash
+$ p2c y -f tests/data/test-pyproject.toml --python 3.10
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - bthing-conda
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+You can also call with `python -m pyproject2conda`.
+
+### Installing extras
+
+Given the extra dependency:
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable MD013 -->
+<!-- [[[cog cat_lines(begin="[project.optional-dependencies]", end="[tool.pyproject2conda.dependencies]")]]] -->
+
+```toml
+# ...
+[project.optional-dependencies]
+test = [
+"pandas", #
+"pytest",
+]
+dev-extras = ["matplotlib"]
+dev = ["hello[test]", "hello[dev-extras]"]
+dist-pypi = [
+# this is intended to be parsed with --skip-package option
+"setuptools",
+"build",
+]
+
+# ...
+```
+
+<!-- [[[end]]] -->
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+and running the following gives:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml -e test")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml -e test
+channels:
+  - conda-forge
+dependencies:
+  - bthing-conda
+  - conda-forge::cthing
+  - conda-forge::pytest
+  - pandas
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+`pyproject2conda` also works with self referenced dependencies:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml -e dev")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml -e dev
+channels:
+  - conda-forge
+dependencies:
+  - additional-thing
+  - bthing-conda
+  - conda-forge::cthing
+  - conda-forge::pytest
+  - conda-matplotlib
+  - pandas
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+### Installing from `dependency-groups`
+
+`pyproject2conda` also support the [PEP 735](https://peps.python.org/pep-0735/)
+`dependency-groups` table. For example, if we have the follinging
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable MD013 -->
+<!-- [[[cog cat_lines(begin="[dependency-groups]", end="[tool.pyproject2conda.dependencies]", path="tests/data/test-pyproject-groups.toml")]]] -->
+
+```toml
+# ...
+[dependency-groups]
+test = ["pandas", "pytest"]
+dev-extras = ["matplotlib"]
+dev = [{ include-group = "test" }, { include-group = "dev-extras" }]
+dist-pypi = [
+# this is intended to be parsed with --skip-package option
+"setuptools",
+"build",
+]
+optional-opt1 = [ "hello[opt1]" ]
+optional-opt2 = [ "hello[opt2]" ]
+optional-all = [ "hello[all]" ]
+
+# ...
+```
+
+<!-- [[[end]]] -->
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+Then, we can build a requirement file, specifying groups with `-g/--group` flag.
+
+<!-- markdownlint-disable-next-line MD013 -->
+  <!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject-groups.toml --group dev")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject-groups.toml --group dev
+channels:
+  - conda-forge
+dependencies:
+  - additional-thing
+  - bthing-conda
+  - conda-forge::cthing
+  - conda-forge::pytest
+  - conda-matplotlib
+  - pandas
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+The advantage of using `dependency-groups` as opposed to
+`package.optional-dependencies` is that they work for non-package projects, and
+are not included in the metadata of distributed packages.
+
+### Header in output
+
+By default, `pyproject2conda` includes a header in most output files to note
+that the files are auto generated. No header is included by default when writing
+to standard output. To override this behavior, pass `--header/--noheader`:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml --header")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml --header
+#
+# This file is autogenerated by pyproject2conda
+# with the following command:
+#
+#     $ pyproject2conda yaml -f tests/data/test-pyproject.toml --header
+#
+# You should not manually edit this file.
+# Instead edit the corresponding pyproject.toml file.
+#
+channels:
+  - conda-forge
+dependencies:
+  - bthing-conda
+  - conda-forge::cthing
+  - pip
+  - pip:
+      - athing
+```
+
+<!-- [[[end]]] -->
+
+You can customize the command in the header with the `--custom-command` option.
+
+### Usage within python
+
+`pyproject2conda` can also be used within python:
+
+```pycon
+>>> from pyproject2conda.requirements import ParseDepends
+>>> p = ParseDepends.from_path("./tests/data/test-pyproject.toml")
+
+# Basic environment
+>>> print(p.to_conda_yaml(python_include="infer").strip())
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.8,<3.11
+  - bthing-conda
+  - conda-forge::cthing
+  - pip
+  - pip:
+      - athing
+
+# Environment with extras
+>>> print(p.to_conda_yaml(extras="test").strip())
+channels:
+  - conda-forge
+dependencies:
+  - bthing-conda
+  - conda-forge::cthing
+  - conda-forge::pytest
+  - pandas
+  - pip
+  - pip:
+      - athing
+
+```
+
+### Configuration
+
+`pyproject2conda` can be configured with a `[tool.pyproject2conda]` section in
+`pyproject.toml`. To specify conda channels use:
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog cat_lines(begin="[tool.pyproject2conda]", end=None)]]] -->
+
+```toml
+# ...
+[tool.pyproject2conda]
+channels = ['conda-forge']
+# these are the same as the default values of `p2c project`
+template_python = "py{py}-{env}"
+template = "{env}"
+style = "yaml"
+# options
+python = ["3.10"]
+# Note that this is relative to the location of pyproject.toml
+user_config = "config/userconfig.toml"
+# These environments will be created with the package, package dependencies, and
+# dependencies from groups or extras with environment name so the below is the
+# same as
+#
+# [tool.pyproject2conda.envs.test]
+# extras_or_groups = "test"
+#
+default_envs = ["test", "dev", "dist-pypi"]
+
+[tool.pyproject2conda.envs.base]
+style = ["requirements"]
+
+# This will have no extras or groups
+#
+# A value of `extras = true` will would be equivalent to
+# passing extras_or_groups = <env-name>
+[tool.pyproject2conda.envs."test-extras"]
+extras = ["test"]
+style = ["yaml", "requirements"]
+
+[[tool.pyproject2conda.overrides]]
+envs = ['test-extras', "dist-pypi"]
+skip_package = true
+
+[[tool.pyproject2conda.overrides]]
+envs = ["test", "test-extras"]
+python = ["3.10", "3.11"]
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+Note that specifying channels at the command line overrides
+`tool.pyproject2conda.channels`.
+
+You can also specify environments without the package dependences (those under
+`project.dependencies`) by passing the `--skip-package` flag. This is useful for
+defining environments for build, etc, that do not require the package be
+installed. For example:
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog cat_lines(begin="dist-pypi = [", end="[tool.pyproject2conda]")]]] -->
+
+```toml
+# ...
+dist-pypi = [
+# this is intended to be parsed with --skip-package option
+"setuptools",
+"build",
+]
+
+[tool.pyproject2conda.dependencies]
+athing = { pip = true }
+bthing = { skip = true, packages = "bthing-conda" }
+cthing = { channel = "conda-forge" }
+pytest = { channel = "conda-forge" }
+matplotlib = { skip = true, packages = [
+"additional-thing; python_version < '3.9'",
+"conda-matplotlib"
+] }
+build = { channel = "pip" }
+
+# ...
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+These can be accessed using either of the following:
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("pyproject2conda yaml -f tests/data/test-pyproject.toml -e dist-pypi --skip-package")]]] -->
+
+```bash
+$ pyproject2conda yaml -f tests/data/test-pyproject.toml -e dist-pypi --skip- \
+    package
+channels:
+  - conda-forge
+dependencies:
+  - setuptools
+  - pip
+  - pip:
+      - build
+```
+
+<!-- [[[end]]] -->
+
+or
+
+```pycon
+>>> from pyproject2conda.requirements import ParseDepends
+>>> p = ParseDepends.from_path("./tests/data/test-pyproject.toml")
+
+# Basic environment
+>>> print(p.to_conda_yaml(extras="dist-pypi", skip_package=True).strip())
+channels:
+  - conda-forge
+dependencies:
+  - setuptools
+  - pip
+  - pip:
+      - build
+
+```
+
+### Creating multiple environments from `pyproject.toml`
+
+`pyproject2conda` provides a means to create all needed environment/requirement
+files in one go. We configure the environments using the `pyproject.toml` files
+in the `[tool.pyproject2conda]` section. For example, example the configuration:
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog cat_lines(begin="[tool.pyproject2conda]", end=None)]]] -->
+
+```toml
+# ...
+[tool.pyproject2conda]
+channels = ['conda-forge']
+# these are the same as the default values of `p2c project`
+template_python = "py{py}-{env}"
+template = "{env}"
+style = "yaml"
+# options
+python = ["3.10"]
+# Note that this is relative to the location of pyproject.toml
+user_config = "config/userconfig.toml"
+# These environments will be created with the package, package dependencies, and
+# dependencies from groups or extras with environment name so the below is the
+# same as
+#
+# [tool.pyproject2conda.envs.test]
+# extras_or_groups = "test"
+#
+default_envs = ["test", "dev", "dist-pypi"]
+
+[tool.pyproject2conda.envs.base]
+style = ["requirements"]
+
+# This will have no extras or groups
+#
+# A value of `extras = true` will would be equivalent to
+# passing extras_or_groups = <env-name>
+[tool.pyproject2conda.envs."test-extras"]
+extras = ["test"]
+style = ["yaml", "requirements"]
+
+[[tool.pyproject2conda.overrides]]
+envs = ['test-extras', "dist-pypi"]
+skip_package = true
+
+[[tool.pyproject2conda.overrides]]
+envs = ["test", "test-extras"]
+python = ["3.10", "3.11"]
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+run through the command `pyproject2conda project` (or `p2c project`):
+
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("p2c project -f tests/data/test-pyproject.toml --dry ", wrapper="bash", bounds=(None, 45))]]] -->
+
+```bash
+$ p2c project -f tests/data/test-pyproject.toml --dry
+# --------------------
+# Creating requirements base.txt
+athing
+bthing
+cthing; python_version < "3.10"
+# --------------------
+# Creating yaml py310-test-extras.yaml
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - conda-forge::pytest
+  - pandas
+# --------------------
+# Creating yaml py311-test-extras.yaml
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - conda-forge::pytest
+  - pandas
+# --------------------
+# Creating requirements test-extras.txt
+pandas
+pytest
+# --------------------
+# Creating yaml py310-test.yaml
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - bthing-conda
+  - conda-forge::pytest
+  - pandas
+  - pip
+  - pip:
+      - athing
+# --------------------
+# Creating yaml py311-test.yaml
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - bthing-conda
+  - conda-forge::pytest
+
+ ...
+```
+
+<!-- [[[end]]] -->
+
+Note that here, we have used the `--dry` option to just print the output. In
+production, you'd omit this flag, and files according to `--template` and
+`--template-python` would be used.
+
+The options under `[tool.pyproject2conda]` follow the command line options
+(replace `-` with `_`). To specify an environment, you can either use the
+`[tool.pyproject.envs."environment-name"]` method, or, if the environment is the
+same as an `project.optional-dependencies` or `dependency-grroups`, you can just
+specify it under `tool.pyproject2conda.default_envs`:
+
+```toml
+[tool.pyproject2conda]
+# ...
+default_envs = ["test"]
+
+```
+
+is equivalent to
+
+```toml
+[tool.pyproject2conda.envs.test]
+extras = ["tests"]
+
+```
+
+To specify a conda environment (`yaml`) file, pass `style = "yaml"` (the
+default). To specify a requirements file, pass `style = "requirements"`. You can
+specify both to make both.
+
+Options in a given `tool.pyproject2conda.envs."environment-name"` section
+override those at the `tool.pyproject2conda` level. So, for example:
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog cat_lines(begin='[tool.pyproject2conda.envs."test-extras"]', end='[[tool.pyproject2conda.overrides]]', begin_dot=False)]]] -->
+
+```toml
+# ...
+[tool.pyproject2conda.envs."test-extras"]
+extras = ["test"]
+style = ["yaml", "requirements"]
+
+# ...
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+will override use the two styles instead of the default of `yaml`.
+
+You can also override options for multiple environments using the
+`[[tools.pyproject2conda.overrides]]` list. Just specify the override option(s)
+and the environments to apply them to. For example, above we specify that the
+base option is `False` for envs `test-extras` and `dist-pypi`, and that the
+python version should be `3.10` and `3.11` for envs `test` and `test-extras`.
+Note that each "overrides" table must specify the options to be overridden, and
+the environments that these overrides apply to. Also, note that subsequent
+overrides override previous overrides/options (last option wins).
+
+So in all, options are picked up, in order, from the overrides list, then the
+environment definition, and finally, from the default options.
+
+You can also define "user defined" configurations. This can be done through the
+option `--user-config`. This allows you to define your own environments outside
+of the (most likely source controlled) `pyproject.toml` file. For example, we
+have the option `user_config=config/userconfig.toml`.
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog cat_lines(path="./tests/data/config/userconfig.toml", begin=None, end=None)]]] -->
+
+```toml
+[tool.pyproject2conda.envs."user-dev"]
+extras_or_groups = ["dev", "dist-pypi"]
+deps = ["extra-dep"]
+reqs = ["extra-req"]
+name = "hello"
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+Note that the full path of this file is note that the path of the `user_config`
+file is relative to them`pyproject.toml` file. So, if the `pyproject.toml` file
+is at `a/path/pyproject.toml`, the path of user configuration files will be
+`a/path/config/userconfig.toml`. We then can run the following:
+
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable-next-line MD013 -->
+<!-- [[[cog run_command("p2c project -f tests/data/test-pyproject.toml --dry --envs user-dev", wrapper="bash")]]] -->
+```bash
+$ p2c project -f tests/data/test-pyproject.toml --dry --envs user-dev
+# --------------------
+# Creating yaml py310-user-dev.yaml
+name: hello
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - bthing-conda
+  - conda-forge::pytest
+  - conda-matplotlib
+  - extra-dep
+  - pandas
+  - setuptools
+  - pip
+  - pip:
+      - athing
+      - build
+      - extra-req
+```
+
+<!-- [[[end]]] -->
+<!-- prettier-ignore-end -->
+
+### CLI options
+
+See
+[command line interface documentation](https://pages.nist.gov/pyproject2conda/reference/cli.html#)
+for details on the commands and options.
+
+<!-- markdownlint-disable MD013 -->
+<!-- prettier-ignore-start -->
+<!-- [cog
+  import os
+  os.environ["P2C_RICH_CLICK_MAX_WIDTH"] = "90"
+
+  run_command("pyproject2conda --help", wrapper="bash")
+
+  cmds = [
+    "list",
+    "yaml",
+    "requirements",
+    "project",
+    "conda-requirements",
+    "json"
+  ]
+
+  for cmd in cmds:
+    print(f"#### {cmd}\n")
+    run_command(f"pyproject2conda {cmd} --help", wrapper="bash")
+
+] -->
+
+<!-- [end] -->
+<!-- prettier-ignore-end -->
+
+<!-- markdownlint-enable MD013 -->
+
+## Related work
+
+The application `pyproject2conda` is used in the development of the following
+packages:
+
+- [`cmomy`](https://github.com/usnistgov/cmomy)
+- [`thermoextrap`](https://github.com/usnistgov/thermoextrap)
+- [`tmmc-lnpy`](https://github.com/usnistgov/tmmc-lnpy)
+- [`module-utilities`](https://github.com/usnistgov/module-utilities)
+- [`analphipy`](https://github.com/conda-forge/analphipy-feedstock)
+- `pyproject2conda` itself!
+
+<!-- end-docs -->
+
+## Documentation
+
+See the [documentation][docs-link] for a look at `pyproject2conda` in action.
+
+## License
+
+This is free software. See [LICENSE][license-link].
+
+## Contact
+
+The author can be reached at <wpk@nist.gov>.
+
+## Credits
+
+This package was created using
+[Cookiecutter](https://github.com/audreyr/cookiecutter) with the
+[usnistgov/cookiecutter-nist-python](https://github.com/usnistgov/cookiecutter-nist-python)
+template.
+
+<!--  LocalWords:  conda subcommands
+ -->
+<!-- markdownlint-disable MD024 -->
+<!-- markdownlint-disable MD013 -->
+<!-- prettier-ignore-start -->
+
+# Changelog
+
+Changelog for `pyproject2conda`
+
+## Unreleased
+
+[changelog.d]: https://github.com/usnistgov/pyproject2conda/tree/main/changelog.d
+
+See the fragment files in [changelog.d]
+
+<!-- prettier-ignore-end -->
+
+<!-- markdownlint-enable MD013 -->
+
+<!-- scriv-insert-here -->
+
+## v0.19.1 — 2025-02-19
+
+### Changed
+
+- Bugfix in pre-commit hooks. Now respects `header = false` in environments.
+
+## v0.19.0 — 2025-01-29
+
+### Added
+
+- Added pre-commit hooks `pyproject2conda-project`, `pyproject2conda-yaml`, and
+  `pyproject2conda-requirements`.
+
+### Changed
+
+- Changed default of `--overwrite` to `force`. This simplifies using with
+  `pre-commit`.
+- `--commit-command` defaults to `pre-commit` when run under pre-commit
+
+## v0.18.0 — 2025-01-24
+
+### Added
+
+- Can now specify current package in dependency-groups like with extras. For
+  example, with:
+
+```toml
+[project]
+name = "mypackage"
+...
+
+optional-dependencies.opt = [ "opt1" ]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "mypackage[opt]"
+]
+```
+
+Will render optional dependencies from `opt` extra when using group `dev`
+
+- Added flag `--pip-only` to treat all requirements as pip requirements in
+  `environment.yaml` files. Closes #8
+
+## v0.16.0 — 2024-12-31
+
+### Changed
+
+- Read default version from first found file, in order,
+  `.python-version-default` and `.python-version`. This allows for "default"
+  version being different from pinned version specifier, as the latter can be a
+  range of python values.
+
+## v0.15.0 — 2024-12-17
+
+### Added
+
+- Can now pass requirements for package with `--req/-r "-e ."` for example.
+
+## v0.14.0 — 2024-12-16
+
+### Added
+
+- `--python` flag now accepts options `default`, `all`, `lowest`, and `highest`.
+  `default` sets python to value found in `.python-version` file in current
+  directory. Other options extract values entries of form
+  `"Programming Language :: Python :: 3.10"'`, etc,from
+  `pyproject.toml:project.classifiers` table.
+
+  - `all`: All specified python version
+  - `lowest`: Lowest python version
+  - `highest`: Highest python version
+
+- Added `--reqs-ext` and `--yaml-ext` options.
+
+## v0.13.0 — 2024-11-04
+
+### Changed
+
+- Allow `overrides` for all options.
+- `overrides` override environment options.
+
+## v0.12.0 — 2024-11-04
+
+### Removed
+
+- Removed comments based (`# p2c: ...`) support. Specify changes with
+  `tool.pyproject2conda.dependencies` table only. This greatly simplifies the
+  code, and has become the primary way to use the `pyproject2conda`.
+
+### Added
+
+- Added [PEP 735](https://peps.python.org/pep-0735/) support. This includes
+  adding option `--group` to the cli, and `groups` key to
+  `tools.pyproject2conda.envs....` tables. There is also an option
+  `--extra-or-group` (or `extras_or_groups` in pyproject.toml) that will first
+  try to find dependencies from "extras" and then from "groups".
+
+### Changed
+
+- Passing no extras to an environment now defaults to no added extras or groups.
+  Old behavior (to default to the extra with the same name as the environment)
+  was lead to complications with support of `dependency-groups`. Explicitly pass
+  the extra or group if to get the old behavior.
+- `default_envs` now passed the environment name as `extras_or_groups`.
+  Therefore, if the name of the environment is an extra, it will be used.
+  Otherwise, it will be from a group of that name.
+
+- Removed option `--base/--no-base`. Replaced with `--skip-package`. Default is
+  to include package dependencies. Pass `--skip-package` (or
+  `skip_package = true` in `pyproject.toml`) to skip package dependencies.
+
+## v0.11.0 — 2023-11-28
+
+### Added
+
+- Can now access "build-system.requires" as an extra. This can be useful for
+  creating isolated environments to build a package.
+
+### Changed
+
+- Can now specify `pip` as a conda dependency. This is needed for cases that
+  there are no pip dependencies in the environment, but you want it there for
+  installing local packages. This may be the case if using `conda-lock` on an
+  environment. Note that, much like python is always first in the dependency
+  list, pip is always last.
+
+## v0.10.0 — 2023-11-17
+
+### Added
+
+- Can now specify conda changes using `tool.pyproject2conda.dependencies` table.
+  This is an alternative to using `# p2c:` comments.
+- Refactored code. Split `parser` to `requirements` and `overrides`. Also
+  cleaned up the parsing logic to hopefully make future changes simpler.
+
+## v0.9.0 — 2023-11-14
+
+### Added
+
+- Default is now to remove whitespace from dependencies. For example, the
+  dependency `module > 0.1` will become `module>0.1`. To override this
+  behaviour, pass the option `--no-remove-whitespace`.
+- Now supports python version `>3.8,<=3.12`
+- Can now specify `extras = false` in pyprojec.toml to skip any extras. The
+  default (`extras = true`) is the same as `extras = [env_name]` where
+  `env_name` is the name of the environment (e.g.,
+  `tool.pyproject2conda.envs.env_name`).
+
+## v0.8.0 — 2023-10-02
+
+### Added
+
+- Added option to either raise error, or print message for environments with no
+  dependencies.
+
+### Changed
+
+- pyproject2conda now works with `pyproject.toml` files with no dependencies.
+
+## v0.7.0 — 2023-09-26
+
+### Added
+
+- Now use `logging` to print info output.
+
+### Changed
+
+- cli now uses `typer`. Since the program was already typed, this simplifies the
+  interface.
+- Program can now be called with any of `pyproject2conda`, `p2c`, or
+  `python -m pyproject2conda`.
+- Added cli options to web documentation.
+- Fixed small typos and typing issues.
+- The cli option `--python-include` now requires an argument. This is due to
+  `typer` not liking options with zero or one arguments. Instead of the bare
+  flag `--python-include` including the python spec from `pyproject.toml`, you
+  have to pass `--python-include infer` to get that behavior.
+- Added extra `all` to pip install options. The default is to not include `rich`
+  or `shellingham`. Using `pip install pyproject2conda[all]` includes these
+  optional packages. Note that the conda-forge recipe is based on the plain
+  install (i.e., no `rich` or `shellingham`). However, the conda-froge recipe
+  for `typer` does include these. That means, if you want to install
+  `pyproject2conda` without the optional extras, you'll have to use pip.
+
+## v0.6.1 — 2023-09-22
+
+### Changed
+
+- Fixed edge case where `--overwrite=check` and have a `user_config`. Now when
+  using `p2c project` with a `user_config` and `overwrite=check`, the timestamp
+  of the output file will be compared to both the `filename=pyproject.toml` and
+  `user_config`.
+
+## v0.6.0 — 2023-09-19
+
+### Added
+
+- Added `project` subcommand. This uses a configuration in `pyproject.toml` to
+  build multiple enivonments in one go.
+- Added `--deps` and `--reqs` flags to include extra conda and pip requirements.
+- Added `--overwrite` to check if output file exists.
+- Now (correctly) using rich_click.
+- Added tests for all new cases, and some edge cases.
+
+## v0.5.1 — 2023-09-09
+
+### Added
+
+- Added `--sort/--no-sort` flag to cli. Default is to sort dependencies. This
+  fixes issues with changing order in `pyproject.toml` leading to different yaml
+  files.
+
+### Changed
+
+- Changed structure of the repo to better support some third party tools.
+- Moved nox environments from `.nox` to `.nox/{project-name}/envs`. This fixes
+  issues with ipykernel giving odd names for locally installed environments.
+- Moved repo specific dot files to the `config` directory (e.g.,
+  `.noxconfig.toml` to `config/userconfig.toml`). This cleans up the top level
+  of the repo.
+- added some support for using `nbqa` to run mypy/pyright on notebooks.
+- Added ability to bootstrap development environment using pipx. This should
+  simplify initial setup. See Contributing for more info.
+
+- Main repo now on usnistgov.
+This software was developed by employees of the National Institute of Standards
+and Technology (NIST), an agency of the Federal Government. Pursuant to title 17
+United States Code Section 105, works of NIST employees are not subject to
+copyright protection in the United States and are considered to be in the public
+domain. Permission to freely use, copy, modify, and distribute this software and
+its documentation without fee is hereby granted, provided that this notice and
+disclaimer of warranty appears in all copies.
+
+THE SOFTWARE IS PROVIDED 'AS IS' WITHOUT ANY WARRANTY OF ANY KIND, EITHER
+EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTY
+THAT THE SOFTWARE WILL CONFORM TO SPECIFICATIONS, ANY IMPLIED WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND FREEDOM FROM
+INFRINGEMENT, AND ANY WARRANTY THAT THE DOCUMENTATION WILL CONFORM TO THE
+SOFTWARE, OR ANY WARRANTY THAT THE SOFTWARE WILL BE ERROR FREE. IN NO EVENT
+SHALL NIST BE LIABLE FOR ANY DAMAGES, INCLUDING, BUT NOT LIMITED TO, DIRECT,
+INDIRECT, SPECIAL OR CONSEQUENTIAL DAMAGES, ARISING OUT OF, RESULTING FROM, OR
+IN ANY WAY CONNECTED WITH THIS SOFTWARE, WHETHER OR NOT BASED UPON WARRANTY,
+CONTRACT, TORT, OR OTHERWISE, WHETHER OR NOT INJURY WAS SUSTAINED BY PERSONS OR
+PROPERTY OR OTHERWISE, AND WHETHER OR NOT LOSS WAS SUSTAINED FROM, OR AROSE OUT
+OF THE RESULTS OF, OR USE OF, THE SOFTWARE OR SERVICES PROVIDED HEREUNDER.
+
+Distributions of NIST software should also include copyright and licensing
+statements of any third-party software that are legally bundled with the code in
+compliance with the conditions of those licenses.

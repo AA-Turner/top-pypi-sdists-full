@@ -1,7 +1,7 @@
 r'''
 # `aws_lakeformation_opt_in`
 
-Refer to the Terraform Registry for docs: [`aws_lakeformation_opt_in`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in).
+Refer to the Terraform Registry for docs: [`aws_lakeformation_opt_in`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LakeformationOptIn(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lakeformationOptIn.LakeformationOptIn",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in aws_lakeformation_opt_in}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in aws_lakeformation_opt_in}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class LakeformationOptIn(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in aws_lakeformation_opt_in} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in aws_lakeformation_opt_in} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#condition LakeformationOptIn#condition}
-        :param principal: principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#principal LakeformationOptIn#principal}
-        :param resource_data: resource_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_data LakeformationOptIn#resource_data}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#condition LakeformationOptIn#condition}
+        :param principal: principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#principal LakeformationOptIn#principal}
+        :param resource_data: resource_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_data LakeformationOptIn#resource_data}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class LakeformationOptIn(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LakeformationOptIn to import.
-        :param import_from_id: The id of the existing LakeformationOptIn that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LakeformationOptIn that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LakeformationOptIn to import is found.
         '''
         if __debug__:
@@ -430,9 +430,9 @@ class LakeformationOptInConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#condition LakeformationOptIn#condition}
-        :param principal: principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#principal LakeformationOptIn#principal}
-        :param resource_data: resource_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_data LakeformationOptIn#resource_data}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#condition LakeformationOptIn#condition}
+        :param principal: principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#principal LakeformationOptIn#principal}
+        :param resource_data: resource_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_data LakeformationOptIn#resource_data}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -540,7 +540,7 @@ class LakeformationOptInConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LakeformationOptInCondition]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#condition LakeformationOptIn#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#condition LakeformationOptIn#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LakeformationOptInCondition]]], result)
@@ -551,7 +551,7 @@ class LakeformationOptInConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInPrincipal"]]]:
         '''principal block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#principal LakeformationOptIn#principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#principal LakeformationOptIn#principal}
         '''
         result = self._values.get("principal")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInPrincipal"]]], result)
@@ -562,7 +562,7 @@ class LakeformationOptInConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceData"]]]:
         '''resource_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_data LakeformationOptIn#resource_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_data LakeformationOptIn#resource_data}
         '''
         result = self._values.get("resource_data")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceData"]]], result)
@@ -587,7 +587,7 @@ class LakeformationOptInConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class LakeformationOptInPrincipal:
     def __init__(self, *, data_lake_principal_identifier: builtins.str) -> None:
         '''
-        :param data_lake_principal_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#data_lake_principal_identifier LakeformationOptIn#data_lake_principal_identifier}.
+        :param data_lake_principal_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#data_lake_principal_identifier LakeformationOptIn#data_lake_principal_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__633a93f2eb75c117f167cf8b550a9b22e94792acc663348097db9d5b89a03db2)
@@ -598,7 +598,7 @@ class LakeformationOptInPrincipal:
 
     @builtins.property
     def data_lake_principal_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#data_lake_principal_identifier LakeformationOptIn#data_lake_principal_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#data_lake_principal_identifier LakeformationOptIn#data_lake_principal_identifier}.'''
         result = self._values.get("data_lake_principal_identifier")
         assert result is not None, "Required property 'data_lake_principal_identifier' is missing"
         return typing.cast(builtins.str, result)
@@ -796,15 +796,15 @@ class LakeformationOptInResourceData:
         table_with_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LakeformationOptInResourceDataTableWithColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param catalog: catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog LakeformationOptIn#catalog}
-        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database LakeformationOptIn#database}
-        :param data_cells_filter: data_cells_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#data_cells_filter LakeformationOptIn#data_cells_filter}
-        :param data_location: data_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#data_location LakeformationOptIn#data_location}
-        :param lf_tag: lf_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#lf_tag LakeformationOptIn#lf_tag}
-        :param lf_tag_expression: lf_tag_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#lf_tag_expression LakeformationOptIn#lf_tag_expression}
-        :param lf_tag_policy: lf_tag_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#lf_tag_policy LakeformationOptIn#lf_tag_policy}
-        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table LakeformationOptIn#table}
-        :param table_with_columns: table_with_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table_with_columns LakeformationOptIn#table_with_columns}
+        :param catalog: catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog LakeformationOptIn#catalog}
+        :param database: database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database LakeformationOptIn#database}
+        :param data_cells_filter: data_cells_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#data_cells_filter LakeformationOptIn#data_cells_filter}
+        :param data_location: data_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#data_location LakeformationOptIn#data_location}
+        :param lf_tag: lf_tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#lf_tag LakeformationOptIn#lf_tag}
+        :param lf_tag_expression: lf_tag_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#lf_tag_expression LakeformationOptIn#lf_tag_expression}
+        :param lf_tag_policy: lf_tag_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#lf_tag_policy LakeformationOptIn#lf_tag_policy}
+        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table LakeformationOptIn#table}
+        :param table_with_columns: table_with_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table_with_columns LakeformationOptIn#table_with_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57e0ffb669985090b73e86149ee83b2d7c0c6a86cbd30a6f83730f36f590d29a)
@@ -843,7 +843,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataCatalog"]]]:
         '''catalog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog LakeformationOptIn#catalog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog LakeformationOptIn#catalog}
         '''
         result = self._values.get("catalog")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataCatalog"]]], result)
@@ -854,7 +854,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataDatabase"]]]:
         '''database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database LakeformationOptIn#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database LakeformationOptIn#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataDatabase"]]], result)
@@ -865,7 +865,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataDataCellsFilter"]]]:
         '''data_cells_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#data_cells_filter LakeformationOptIn#data_cells_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#data_cells_filter LakeformationOptIn#data_cells_filter}
         '''
         result = self._values.get("data_cells_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataDataCellsFilter"]]], result)
@@ -876,7 +876,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataDataLocation"]]]:
         '''data_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#data_location LakeformationOptIn#data_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#data_location LakeformationOptIn#data_location}
         '''
         result = self._values.get("data_location")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataDataLocation"]]], result)
@@ -887,7 +887,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataLfTag"]]]:
         '''lf_tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#lf_tag LakeformationOptIn#lf_tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#lf_tag LakeformationOptIn#lf_tag}
         '''
         result = self._values.get("lf_tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataLfTag"]]], result)
@@ -898,7 +898,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataLfTagExpression"]]]:
         '''lf_tag_expression block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#lf_tag_expression LakeformationOptIn#lf_tag_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#lf_tag_expression LakeformationOptIn#lf_tag_expression}
         '''
         result = self._values.get("lf_tag_expression")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataLfTagExpression"]]], result)
@@ -909,7 +909,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataLfTagPolicy"]]]:
         '''lf_tag_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#lf_tag_policy LakeformationOptIn#lf_tag_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#lf_tag_policy LakeformationOptIn#lf_tag_policy}
         '''
         result = self._values.get("lf_tag_policy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataLfTagPolicy"]]], result)
@@ -920,7 +920,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataTable"]]]:
         '''table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table LakeformationOptIn#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table LakeformationOptIn#table}
         '''
         result = self._values.get("table")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataTable"]]], result)
@@ -931,7 +931,7 @@ class LakeformationOptInResourceData:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataTableWithColumns"]]]:
         '''table_with_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table_with_columns LakeformationOptIn#table_with_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table_with_columns LakeformationOptIn#table_with_columns}
         '''
         result = self._values.get("table_with_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataTableWithColumns"]]], result)
@@ -956,7 +956,7 @@ class LakeformationOptInResourceData:
 class LakeformationOptInResourceDataCatalog:
     def __init__(self, *, id: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#id LakeformationOptIn#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#id LakeformationOptIn#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f409f6f7a8bffc16889555290566a808e278cc261e7403a6f3f1edec6680726)
@@ -967,7 +967,7 @@ class LakeformationOptInResourceDataCatalog:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#id LakeformationOptIn#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#id LakeformationOptIn#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1165,10 +1165,10 @@ class LakeformationOptInResourceDataDataCellsFilter:
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
-        :param table_catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table_catalog_id LakeformationOptIn#table_catalog_id}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table_name LakeformationOptIn#table_name}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
+        :param table_catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table_catalog_id LakeformationOptIn#table_catalog_id}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table_name LakeformationOptIn#table_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b1159bf16247e8704fb61591dd5656f1bea83f4b49f03d25c6fe639916d4453)
@@ -1188,25 +1188,25 @@ class LakeformationOptInResourceDataDataCellsFilter:
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.'''
         result = self._values.get("database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def table_catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table_catalog_id LakeformationOptIn#table_catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table_catalog_id LakeformationOptIn#table_catalog_id}.'''
         result = self._values.get("table_catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#table_name LakeformationOptIn#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#table_name LakeformationOptIn#table_name}.'''
         result = self._values.get("table_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1456,8 +1456,8 @@ class LakeformationOptInResourceDataDataLocation:
         catalog_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_arn LakeformationOptIn#resource_arn}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_arn LakeformationOptIn#resource_arn}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__caf188a3830ed493c008120cd47c1866f617945576ca01b87304dbb7dc27ed88)
@@ -1471,14 +1471,14 @@ class LakeformationOptInResourceDataDataLocation:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_arn LakeformationOptIn#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_arn LakeformationOptIn#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1682,8 +1682,8 @@ class LakeformationOptInResourceDataDatabase:
         catalog_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7276071e96b94686154178d47a23b84ee9b91fa4d096257d1739894d8aee1649)
@@ -1697,14 +1697,14 @@ class LakeformationOptInResourceDataDatabase:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1909,9 +1909,9 @@ class LakeformationOptInResourceDataLfTag:
         catalog_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#key LakeformationOptIn#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#value LakeformationOptIn#value}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#key LakeformationOptIn#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#value LakeformationOptIn#value}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9e8806dde0a475c7400951e54c910f9da94e7414ef7f059b1f58eab0ea87acf)
@@ -1927,21 +1927,21 @@ class LakeformationOptInResourceDataLfTag:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#key LakeformationOptIn#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#key LakeformationOptIn#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#value LakeformationOptIn#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#value LakeformationOptIn#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1970,8 +1970,8 @@ class LakeformationOptInResourceDataLfTagExpression:
         catalog_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46d01b97de8aac079864fded4c3d922e04285b225ff97010b196b7ca77f70142)
@@ -1985,14 +1985,14 @@ class LakeformationOptInResourceDataLfTagExpression:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2395,10 +2395,10 @@ class LakeformationOptInResourceDataLfTagPolicy:
         expression_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_type LakeformationOptIn#resource_type}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#expression LakeformationOptIn#expression}.
-        :param expression_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#expression_name LakeformationOptIn#expression_name}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_type LakeformationOptIn#resource_type}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#expression LakeformationOptIn#expression}.
+        :param expression_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#expression_name LakeformationOptIn#expression_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cad4114ce5c3b8e6e0a34ae74d122c78792cda5a7490fae7a9e211c76a01538)
@@ -2418,26 +2418,26 @@ class LakeformationOptInResourceDataLfTagPolicy:
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#resource_type LakeformationOptIn#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#resource_type LakeformationOptIn#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def expression(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#expression LakeformationOptIn#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#expression LakeformationOptIn#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def expression_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#expression_name LakeformationOptIn#expression_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#expression_name LakeformationOptIn#expression_name}.'''
         result = self._values.get("expression_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3090,10 +3090,10 @@ class LakeformationOptInResourceDataTable:
         wildcard: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
-        :param wildcard: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#wildcard LakeformationOptIn#wildcard}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
+        :param wildcard: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#wildcard LakeformationOptIn#wildcard}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04ff70008bda89a462f9d5782bfd1f8c1ba4f4fe62906424a117d023bcc0494d)
@@ -3113,20 +3113,20 @@ class LakeformationOptInResourceDataTable:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3134,7 +3134,7 @@ class LakeformationOptInResourceDataTable:
     def wildcard(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#wildcard LakeformationOptIn#wildcard}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#wildcard LakeformationOptIn#wildcard}.'''
         result = self._values.get("wildcard")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3394,11 +3394,11 @@ class LakeformationOptInResourceDataTableWithColumns:
         column_wildcard: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LakeformationOptInResourceDataTableWithColumnsColumnWildcard", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
-        :param column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#column_names LakeformationOptIn#column_names}.
-        :param column_wildcard: column_wildcard block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#column_wildcard LakeformationOptIn#column_wildcard}
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.
+        :param column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#column_names LakeformationOptIn#column_names}.
+        :param column_wildcard: column_wildcard block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#column_wildcard LakeformationOptIn#column_wildcard}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cf0780a294706bed0b0d0730c091e6236e15e2e709d7994338607cfef0a1883)
@@ -3420,27 +3420,27 @@ class LakeformationOptInResourceDataTableWithColumns:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#database_name LakeformationOptIn#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#name LakeformationOptIn#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#catalog_id LakeformationOptIn#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def column_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#column_names LakeformationOptIn#column_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#column_names LakeformationOptIn#column_names}.'''
         result = self._values.get("column_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3450,7 +3450,7 @@ class LakeformationOptInResourceDataTableWithColumns:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataTableWithColumnsColumnWildcard"]]]:
         '''column_wildcard block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#column_wildcard LakeformationOptIn#column_wildcard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#column_wildcard LakeformationOptIn#column_wildcard}
         '''
         result = self._values.get("column_wildcard")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LakeformationOptInResourceDataTableWithColumnsColumnWildcard"]]], result)
@@ -3479,7 +3479,7 @@ class LakeformationOptInResourceDataTableWithColumnsColumnWildcard:
         excluded_column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#excluded_column_names LakeformationOptIn#excluded_column_names}.
+        :param excluded_column_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#excluded_column_names LakeformationOptIn#excluded_column_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97ff88d5b9666669ab321333b1d5a95ae49b8002ab3f411a02fcd3db565eb034)
@@ -3490,7 +3490,7 @@ class LakeformationOptInResourceDataTableWithColumnsColumnWildcard:
 
     @builtins.property
     def excluded_column_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lakeformation_opt_in#excluded_column_names LakeformationOptIn#excluded_column_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lakeformation_opt_in#excluded_column_names LakeformationOptIn#excluded_column_names}.'''
         result = self._values.get("excluded_column_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

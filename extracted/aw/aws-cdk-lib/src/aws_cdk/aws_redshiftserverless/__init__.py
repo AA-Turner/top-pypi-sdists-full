@@ -1435,6 +1435,15 @@ class CfnWorkgroup(
         return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrWorkgroup"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrWorkgroupBaseCapacity")
+    def attr_workgroup_base_capacity(self) -> jsii.Number:
+        '''The base data warehouse capacity of the workgroup in Redshift Processing Units (RPUs).
+
+        :cloudformationAttribute: Workgroup.BaseCapacity
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrWorkgroupBaseCapacity"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrWorkgroupConfigParameters")
     def attr_workgroup_config_parameters(self) -> _IResolvable_da3f097b:
         '''
@@ -1495,6 +1504,17 @@ class CfnWorkgroup(
         :cloudformationAttribute: Workgroup.EnhancedVpcRouting
         '''
         return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrWorkgroupEnhancedVpcRouting"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkgroupMaxCapacity")
+    def attr_workgroup_max_capacity(self) -> jsii.Number:
+        '''The maximum data-warehouse capacity Amazon Redshift Serverless uses to serve queries.
+
+        The max capacity is specified in RPUs.
+
+        :cloudformationAttribute: Workgroup.MaxCapacity
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrWorkgroupMaxCapacity"))
 
     @builtins.property
     @jsii.member(jsii_name="attrWorkgroupNamespaceName")

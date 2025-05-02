@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudfront_distribution`
 
-Refer to the Terraform Registry for docs: [`aws_cloudfront_distribution`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution).
+Refer to the Terraform Registry for docs: [`aws_cloudfront_distribution`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudfrontDistribution(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudfrontDistribution.CloudfrontDistribution",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution aws_cloudfront_distribution}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution aws_cloudfront_distribution}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class CloudfrontDistribution(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution aws_cloudfront_distribution} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution aws_cloudfront_distribution} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_cache_behavior CloudfrontDistribution#default_cache_behavior}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
-        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin CloudfrontDistribution#origin}
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#restrictions CloudfrontDistribution#restrictions}
-        :param viewer_certificate: viewer_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_certificate CloudfrontDistribution#viewer_certificate}
-        :param aliases: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#aliases CloudfrontDistribution#aliases}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#comment CloudfrontDistribution#comment}.
-        :param continuous_deployment_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#continuous_deployment_policy_id CloudfrontDistribution#continuous_deployment_policy_id}.
-        :param custom_error_response: custom_error_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_error_response CloudfrontDistribution#custom_error_response}
-        :param default_root_object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_root_object CloudfrontDistribution#default_root_object}.
-        :param http_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#http_version CloudfrontDistribution#http_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#id CloudfrontDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_ipv6_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#is_ipv6_enabled CloudfrontDistribution#is_ipv6_enabled}.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#logging_config CloudfrontDistribution#logging_config}
-        :param ordered_cache_behavior: ordered_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#ordered_cache_behavior CloudfrontDistribution#ordered_cache_behavior}
-        :param origin_group: origin_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_group CloudfrontDistribution#origin_group}
-        :param price_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#price_class CloudfrontDistribution#price_class}.
-        :param retain_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#retain_on_delete CloudfrontDistribution#retain_on_delete}.
-        :param staging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#staging CloudfrontDistribution#staging}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#tags CloudfrontDistribution#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#tags_all CloudfrontDistribution#tags_all}.
-        :param wait_for_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#wait_for_deployment CloudfrontDistribution#wait_for_deployment}.
-        :param web_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#web_acl_id CloudfrontDistribution#web_acl_id}.
+        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_cache_behavior CloudfrontDistribution#default_cache_behavior}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin CloudfrontDistribution#origin}
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#restrictions CloudfrontDistribution#restrictions}
+        :param viewer_certificate: viewer_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_certificate CloudfrontDistribution#viewer_certificate}
+        :param aliases: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#aliases CloudfrontDistribution#aliases}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#comment CloudfrontDistribution#comment}.
+        :param continuous_deployment_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#continuous_deployment_policy_id CloudfrontDistribution#continuous_deployment_policy_id}.
+        :param custom_error_response: custom_error_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_error_response CloudfrontDistribution#custom_error_response}
+        :param default_root_object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_root_object CloudfrontDistribution#default_root_object}.
+        :param http_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#http_version CloudfrontDistribution#http_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#id CloudfrontDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_ipv6_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#is_ipv6_enabled CloudfrontDistribution#is_ipv6_enabled}.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#logging_config CloudfrontDistribution#logging_config}
+        :param ordered_cache_behavior: ordered_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#ordered_cache_behavior CloudfrontDistribution#ordered_cache_behavior}
+        :param origin_group: origin_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_group CloudfrontDistribution#origin_group}
+        :param price_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#price_class CloudfrontDistribution#price_class}.
+        :param retain_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#retain_on_delete CloudfrontDistribution#retain_on_delete}.
+        :param staging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#staging CloudfrontDistribution#staging}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#tags CloudfrontDistribution#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#tags_all CloudfrontDistribution#tags_all}.
+        :param wait_for_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#wait_for_deployment CloudfrontDistribution#wait_for_deployment}.
+        :param web_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#web_acl_id CloudfrontDistribution#web_acl_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class CloudfrontDistribution(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudfrontDistribution to import.
-        :param import_from_id: The id of the existing CloudfrontDistribution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudfrontDistribution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudfrontDistribution to import is found.
         '''
         if __debug__:
@@ -219,26 +219,26 @@ class CloudfrontDistribution(
         trusted_signers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.
-        :param cached_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.
-        :param target_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.
-        :param viewer_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.
-        :param cache_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.
-        :param compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.
-        :param field_level_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.
-        :param forwarded_values: forwarded_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
-        :param function_association: function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
-        :param grpc_config: grpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
-        :param lambda_function_association: lambda_function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
-        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.
-        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.
-        :param origin_request_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.
-        :param realtime_log_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.
-        :param response_headers_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.
-        :param smooth_streaming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.
-        :param trusted_key_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.
-        :param trusted_signers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.
+        :param cached_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.
+        :param target_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.
+        :param viewer_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.
+        :param cache_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.
+        :param compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.
+        :param field_level_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.
+        :param forwarded_values: forwarded_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
+        :param function_association: function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
+        :param grpc_config: grpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
+        :param lambda_function_association: lambda_function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
+        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.
+        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.
+        :param origin_request_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.
+        :param realtime_log_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.
+        :param response_headers_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.
+        :param smooth_streaming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.
+        :param trusted_key_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.
+        :param trusted_signers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.
         '''
         value = CloudfrontDistributionDefaultCacheBehavior(
             allowed_methods=allowed_methods,
@@ -274,9 +274,9 @@ class CloudfrontDistribution(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#bucket CloudfrontDistribution#bucket}.
-        :param include_cookies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_cookies CloudfrontDistribution#include_cookies}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#prefix CloudfrontDistribution#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#bucket CloudfrontDistribution#bucket}.
+        :param include_cookies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_cookies CloudfrontDistribution#include_cookies}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#prefix CloudfrontDistribution#prefix}.
         '''
         value = CloudfrontDistributionLoggingConfig(
             bucket=bucket, include_cookies=include_cookies, prefix=prefix
@@ -330,7 +330,7 @@ class CloudfrontDistribution(
         geo_restriction: typing.Union["CloudfrontDistributionRestrictionsGeoRestriction", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param geo_restriction: geo_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#geo_restriction CloudfrontDistribution#geo_restriction}
+        :param geo_restriction: geo_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#geo_restriction CloudfrontDistribution#geo_restriction}
         '''
         value = CloudfrontDistributionRestrictions(geo_restriction=geo_restriction)
 
@@ -347,11 +347,11 @@ class CloudfrontDistribution(
         ssl_support_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param acm_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#acm_certificate_arn CloudfrontDistribution#acm_certificate_arn}.
-        :param cloudfront_default_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cloudfront_default_certificate CloudfrontDistribution#cloudfront_default_certificate}.
-        :param iam_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#iam_certificate_id CloudfrontDistribution#iam_certificate_id}.
-        :param minimum_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#minimum_protocol_version CloudfrontDistribution#minimum_protocol_version}.
-        :param ssl_support_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#ssl_support_method CloudfrontDistribution#ssl_support_method}.
+        :param acm_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#acm_certificate_arn CloudfrontDistribution#acm_certificate_arn}.
+        :param cloudfront_default_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cloudfront_default_certificate CloudfrontDistribution#cloudfront_default_certificate}.
+        :param iam_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#iam_certificate_id CloudfrontDistribution#iam_certificate_id}.
+        :param minimum_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#minimum_protocol_version CloudfrontDistribution#minimum_protocol_version}.
+        :param ssl_support_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#ssl_support_method CloudfrontDistribution#ssl_support_method}.
         '''
         value = CloudfrontDistributionViewerCertificate(
             acm_certificate_arn=acm_certificate_arn,
@@ -968,29 +968,29 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_cache_behavior CloudfrontDistribution#default_cache_behavior}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
-        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin CloudfrontDistribution#origin}
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#restrictions CloudfrontDistribution#restrictions}
-        :param viewer_certificate: viewer_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_certificate CloudfrontDistribution#viewer_certificate}
-        :param aliases: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#aliases CloudfrontDistribution#aliases}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#comment CloudfrontDistribution#comment}.
-        :param continuous_deployment_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#continuous_deployment_policy_id CloudfrontDistribution#continuous_deployment_policy_id}.
-        :param custom_error_response: custom_error_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_error_response CloudfrontDistribution#custom_error_response}
-        :param default_root_object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_root_object CloudfrontDistribution#default_root_object}.
-        :param http_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#http_version CloudfrontDistribution#http_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#id CloudfrontDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_ipv6_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#is_ipv6_enabled CloudfrontDistribution#is_ipv6_enabled}.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#logging_config CloudfrontDistribution#logging_config}
-        :param ordered_cache_behavior: ordered_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#ordered_cache_behavior CloudfrontDistribution#ordered_cache_behavior}
-        :param origin_group: origin_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_group CloudfrontDistribution#origin_group}
-        :param price_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#price_class CloudfrontDistribution#price_class}.
-        :param retain_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#retain_on_delete CloudfrontDistribution#retain_on_delete}.
-        :param staging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#staging CloudfrontDistribution#staging}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#tags CloudfrontDistribution#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#tags_all CloudfrontDistribution#tags_all}.
-        :param wait_for_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#wait_for_deployment CloudfrontDistribution#wait_for_deployment}.
-        :param web_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#web_acl_id CloudfrontDistribution#web_acl_id}.
+        :param default_cache_behavior: default_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_cache_behavior CloudfrontDistribution#default_cache_behavior}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param origin: origin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin CloudfrontDistribution#origin}
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#restrictions CloudfrontDistribution#restrictions}
+        :param viewer_certificate: viewer_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_certificate CloudfrontDistribution#viewer_certificate}
+        :param aliases: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#aliases CloudfrontDistribution#aliases}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#comment CloudfrontDistribution#comment}.
+        :param continuous_deployment_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#continuous_deployment_policy_id CloudfrontDistribution#continuous_deployment_policy_id}.
+        :param custom_error_response: custom_error_response block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_error_response CloudfrontDistribution#custom_error_response}
+        :param default_root_object: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_root_object CloudfrontDistribution#default_root_object}.
+        :param http_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#http_version CloudfrontDistribution#http_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#id CloudfrontDistribution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_ipv6_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#is_ipv6_enabled CloudfrontDistribution#is_ipv6_enabled}.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#logging_config CloudfrontDistribution#logging_config}
+        :param ordered_cache_behavior: ordered_cache_behavior block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#ordered_cache_behavior CloudfrontDistribution#ordered_cache_behavior}
+        :param origin_group: origin_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_group CloudfrontDistribution#origin_group}
+        :param price_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#price_class CloudfrontDistribution#price_class}.
+        :param retain_on_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#retain_on_delete CloudfrontDistribution#retain_on_delete}.
+        :param staging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#staging CloudfrontDistribution#staging}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#tags CloudfrontDistribution#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#tags_all CloudfrontDistribution#tags_all}.
+        :param wait_for_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#wait_for_deployment CloudfrontDistribution#wait_for_deployment}.
+        :param web_acl_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#web_acl_id CloudfrontDistribution#web_acl_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1160,7 +1160,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_cache_behavior(self) -> "CloudfrontDistributionDefaultCacheBehavior":
         '''default_cache_behavior block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_cache_behavior CloudfrontDistribution#default_cache_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_cache_behavior CloudfrontDistribution#default_cache_behavior}
         '''
         result = self._values.get("default_cache_behavior")
         assert result is not None, "Required property 'default_cache_behavior' is missing"
@@ -1168,7 +1168,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1179,7 +1179,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrigin"]]:
         '''origin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin CloudfrontDistribution#origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin CloudfrontDistribution#origin}
         '''
         result = self._values.get("origin")
         assert result is not None, "Required property 'origin' is missing"
@@ -1189,7 +1189,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restrictions(self) -> "CloudfrontDistributionRestrictions":
         '''restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#restrictions CloudfrontDistribution#restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#restrictions CloudfrontDistribution#restrictions}
         '''
         result = self._values.get("restrictions")
         assert result is not None, "Required property 'restrictions' is missing"
@@ -1199,7 +1199,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def viewer_certificate(self) -> "CloudfrontDistributionViewerCertificate":
         '''viewer_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_certificate CloudfrontDistribution#viewer_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_certificate CloudfrontDistribution#viewer_certificate}
         '''
         result = self._values.get("viewer_certificate")
         assert result is not None, "Required property 'viewer_certificate' is missing"
@@ -1207,19 +1207,19 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def aliases(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#aliases CloudfrontDistribution#aliases}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#aliases CloudfrontDistribution#aliases}.'''
         result = self._values.get("aliases")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#comment CloudfrontDistribution#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#comment CloudfrontDistribution#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def continuous_deployment_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#continuous_deployment_policy_id CloudfrontDistribution#continuous_deployment_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#continuous_deployment_policy_id CloudfrontDistribution#continuous_deployment_policy_id}.'''
         result = self._values.get("continuous_deployment_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1229,26 +1229,26 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionCustomErrorResponse"]]]:
         '''custom_error_response block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_error_response CloudfrontDistribution#custom_error_response}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_error_response CloudfrontDistribution#custom_error_response}
         '''
         result = self._values.get("custom_error_response")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionCustomErrorResponse"]]], result)
 
     @builtins.property
     def default_root_object(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_root_object CloudfrontDistribution#default_root_object}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_root_object CloudfrontDistribution#default_root_object}.'''
         result = self._values.get("default_root_object")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def http_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#http_version CloudfrontDistribution#http_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#http_version CloudfrontDistribution#http_version}.'''
         result = self._values.get("http_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#id CloudfrontDistribution#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#id CloudfrontDistribution#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1260,7 +1260,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_ipv6_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#is_ipv6_enabled CloudfrontDistribution#is_ipv6_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#is_ipv6_enabled CloudfrontDistribution#is_ipv6_enabled}.'''
         result = self._values.get("is_ipv6_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1268,7 +1268,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging_config(self) -> typing.Optional["CloudfrontDistributionLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#logging_config CloudfrontDistribution#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#logging_config CloudfrontDistribution#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["CloudfrontDistributionLoggingConfig"], result)
@@ -1279,7 +1279,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrderedCacheBehavior"]]]:
         '''ordered_cache_behavior block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#ordered_cache_behavior CloudfrontDistribution#ordered_cache_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#ordered_cache_behavior CloudfrontDistribution#ordered_cache_behavior}
         '''
         result = self._values.get("ordered_cache_behavior")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrderedCacheBehavior"]]], result)
@@ -1290,14 +1290,14 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOriginGroup"]]]:
         '''origin_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_group CloudfrontDistribution#origin_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_group CloudfrontDistribution#origin_group}
         '''
         result = self._values.get("origin_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOriginGroup"]]], result)
 
     @builtins.property
     def price_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#price_class CloudfrontDistribution#price_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#price_class CloudfrontDistribution#price_class}.'''
         result = self._values.get("price_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1305,7 +1305,7 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retain_on_delete(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#retain_on_delete CloudfrontDistribution#retain_on_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#retain_on_delete CloudfrontDistribution#retain_on_delete}.'''
         result = self._values.get("retain_on_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1313,19 +1313,19 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def staging(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#staging CloudfrontDistribution#staging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#staging CloudfrontDistribution#staging}.'''
         result = self._values.get("staging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#tags CloudfrontDistribution#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#tags CloudfrontDistribution#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#tags_all CloudfrontDistribution#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#tags_all CloudfrontDistribution#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1333,13 +1333,13 @@ class CloudfrontDistributionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait_for_deployment(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#wait_for_deployment CloudfrontDistribution#wait_for_deployment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#wait_for_deployment CloudfrontDistribution#wait_for_deployment}.'''
         result = self._values.get("wait_for_deployment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def web_acl_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#web_acl_id CloudfrontDistribution#web_acl_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#web_acl_id CloudfrontDistribution#web_acl_id}.'''
         result = self._values.get("web_acl_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1375,10 +1375,10 @@ class CloudfrontDistributionCustomErrorResponse:
         response_page_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#error_code CloudfrontDistribution#error_code}.
-        :param error_caching_min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#error_caching_min_ttl CloudfrontDistribution#error_caching_min_ttl}.
-        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_code CloudfrontDistribution#response_code}.
-        :param response_page_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_page_path CloudfrontDistribution#response_page_path}.
+        :param error_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#error_code CloudfrontDistribution#error_code}.
+        :param error_caching_min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#error_caching_min_ttl CloudfrontDistribution#error_caching_min_ttl}.
+        :param response_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_code CloudfrontDistribution#response_code}.
+        :param response_page_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_page_path CloudfrontDistribution#response_page_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06de3d12c26a5f284aef45715172c7d765260fc991f321ebd23b74b6b78c9a5e)
@@ -1398,26 +1398,26 @@ class CloudfrontDistributionCustomErrorResponse:
 
     @builtins.property
     def error_code(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#error_code CloudfrontDistribution#error_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#error_code CloudfrontDistribution#error_code}.'''
         result = self._values.get("error_code")
         assert result is not None, "Required property 'error_code' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def error_caching_min_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#error_caching_min_ttl CloudfrontDistribution#error_caching_min_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#error_caching_min_ttl CloudfrontDistribution#error_caching_min_ttl}.'''
         result = self._values.get("error_caching_min_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def response_code(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_code CloudfrontDistribution#response_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_code CloudfrontDistribution#response_code}.'''
         result = self._values.get("response_code")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def response_page_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_page_path CloudfrontDistribution#response_page_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_page_path CloudfrontDistribution#response_page_path}.'''
         result = self._values.get("response_page_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1702,26 +1702,26 @@ class CloudfrontDistributionDefaultCacheBehavior:
         trusted_signers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.
-        :param cached_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.
-        :param target_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.
-        :param viewer_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.
-        :param cache_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.
-        :param compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.
-        :param field_level_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.
-        :param forwarded_values: forwarded_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
-        :param function_association: function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
-        :param grpc_config: grpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
-        :param lambda_function_association: lambda_function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
-        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.
-        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.
-        :param origin_request_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.
-        :param realtime_log_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.
-        :param response_headers_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.
-        :param smooth_streaming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.
-        :param trusted_key_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.
-        :param trusted_signers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.
+        :param cached_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.
+        :param target_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.
+        :param viewer_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.
+        :param cache_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.
+        :param compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.
+        :param field_level_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.
+        :param forwarded_values: forwarded_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
+        :param function_association: function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
+        :param grpc_config: grpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
+        :param lambda_function_association: lambda_function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
+        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.
+        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.
+        :param origin_request_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.
+        :param realtime_log_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.
+        :param response_headers_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.
+        :param smooth_streaming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.
+        :param trusted_key_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.
+        :param trusted_signers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.
         '''
         if isinstance(forwarded_values, dict):
             forwarded_values = CloudfrontDistributionDefaultCacheBehaviorForwardedValues(**forwarded_values)
@@ -1790,35 +1790,35 @@ class CloudfrontDistributionDefaultCacheBehavior:
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def cached_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.'''
         result = self._values.get("cached_methods")
         assert result is not None, "Required property 'cached_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def target_origin_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.'''
         result = self._values.get("target_origin_id")
         assert result is not None, "Required property 'target_origin_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def viewer_protocol_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.'''
         result = self._values.get("viewer_protocol_policy")
         assert result is not None, "Required property 'viewer_protocol_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cache_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.'''
         result = self._values.get("cache_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1826,19 +1826,19 @@ class CloudfrontDistributionDefaultCacheBehavior:
     def compress(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.'''
         result = self._values.get("compress")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def default_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.'''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def field_level_encryption_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.'''
         result = self._values.get("field_level_encryption_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1848,7 +1848,7 @@ class CloudfrontDistributionDefaultCacheBehavior:
     ) -> typing.Optional["CloudfrontDistributionDefaultCacheBehaviorForwardedValues"]:
         '''forwarded_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
         '''
         result = self._values.get("forwarded_values")
         return typing.cast(typing.Optional["CloudfrontDistributionDefaultCacheBehaviorForwardedValues"], result)
@@ -1859,7 +1859,7 @@ class CloudfrontDistributionDefaultCacheBehavior:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionDefaultCacheBehaviorFunctionAssociation"]]]:
         '''function_association block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
         '''
         result = self._values.get("function_association")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionDefaultCacheBehaviorFunctionAssociation"]]], result)
@@ -1870,7 +1870,7 @@ class CloudfrontDistributionDefaultCacheBehavior:
     ) -> typing.Optional["CloudfrontDistributionDefaultCacheBehaviorGrpcConfig"]:
         '''grpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
         '''
         result = self._values.get("grpc_config")
         return typing.cast(typing.Optional["CloudfrontDistributionDefaultCacheBehaviorGrpcConfig"], result)
@@ -1881,38 +1881,38 @@ class CloudfrontDistributionDefaultCacheBehavior:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionDefaultCacheBehaviorLambdaFunctionAssociation"]]]:
         '''lambda_function_association block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
         '''
         result = self._values.get("lambda_function_association")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionDefaultCacheBehaviorLambdaFunctionAssociation"]]], result)
 
     @builtins.property
     def max_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.'''
         result = self._values.get("max_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.'''
         result = self._values.get("min_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def origin_request_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.'''
         result = self._values.get("origin_request_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def realtime_log_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.'''
         result = self._values.get("realtime_log_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_headers_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.'''
         result = self._values.get("response_headers_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1920,19 +1920,19 @@ class CloudfrontDistributionDefaultCacheBehavior:
     def smooth_streaming(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.'''
         result = self._values.get("smooth_streaming")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def trusted_key_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.'''
         result = self._values.get("trusted_key_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def trusted_signers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.'''
         result = self._values.get("trusted_signers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1968,10 +1968,10 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValues:
         query_string_cache_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
-        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
+        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
         '''
         if isinstance(cookies, dict):
             cookies = CloudfrontDistributionDefaultCacheBehaviorForwardedValuesCookies(**cookies)
@@ -1996,7 +1996,7 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValues:
     ) -> "CloudfrontDistributionDefaultCacheBehaviorForwardedValuesCookies":
         '''cookies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
         '''
         result = self._values.get("cookies")
         assert result is not None, "Required property 'cookies' is missing"
@@ -2004,20 +2004,20 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValues:
 
     @builtins.property
     def query_string(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.'''
         result = self._values.get("query_string")
         assert result is not None, "Required property 'query_string' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def query_string_cache_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.'''
         result = self._values.get("query_string_cache_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2046,8 +2046,8 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValuesCookies:
         whitelisted_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
-        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
+        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
+        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02c5a9c7364a43ea13dd7e35e27b162fa86fc4af8da0dd408c83995b450c464c)
@@ -2061,14 +2061,14 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValuesCookies:
 
     @builtins.property
     def forward(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.'''
         result = self._values.get("forward")
         assert result is not None, "Required property 'forward' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def whitelisted_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.'''
         result = self._values.get("whitelisted_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2188,8 +2188,8 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValuesOutputReference(
         whitelisted_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
-        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
+        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
+        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
         '''
         value = CloudfrontDistributionDefaultCacheBehaviorForwardedValuesCookies(
             forward=forward, whitelisted_names=whitelisted_names
@@ -2303,8 +2303,8 @@ class CloudfrontDistributionDefaultCacheBehaviorForwardedValuesOutputReference(
 class CloudfrontDistributionDefaultCacheBehaviorFunctionAssociation:
     def __init__(self, *, event_type: builtins.str, function_arn: builtins.str) -> None:
         '''
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3e8f9ed2626622f102d9101fb286dea96482191aa4b4937416071e45d4f9780)
@@ -2317,14 +2317,14 @@ class CloudfrontDistributionDefaultCacheBehaviorFunctionAssociation:
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def function_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2524,7 +2524,7 @@ class CloudfrontDistributionDefaultCacheBehaviorGrpcConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61c50e3e68cb1d7b51695af0d66ad071f9b19b19282f39ecc7f09288ed8092e5)
@@ -2537,7 +2537,7 @@ class CloudfrontDistributionDefaultCacheBehaviorGrpcConfig:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2635,9 +2635,9 @@ class CloudfrontDistributionDefaultCacheBehaviorLambdaFunctionAssociation:
         include_body: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.
-        :param include_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.
+        :param include_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9cb84447a12b1011af0725774396935592be01994781e9272248aa1ec340e0b1)
@@ -2653,14 +2653,14 @@ class CloudfrontDistributionDefaultCacheBehaviorLambdaFunctionAssociation:
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2669,7 +2669,7 @@ class CloudfrontDistributionDefaultCacheBehaviorLambdaFunctionAssociation:
     def include_body(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.'''
         result = self._values.get("include_body")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2912,10 +2912,10 @@ class CloudfrontDistributionDefaultCacheBehaviorOutputReference(
         query_string_cache_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
-        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
+        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
         '''
         value = CloudfrontDistributionDefaultCacheBehaviorForwardedValues(
             cookies=cookies,
@@ -2946,7 +2946,7 @@ class CloudfrontDistributionDefaultCacheBehaviorOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
         '''
         value = CloudfrontDistributionDefaultCacheBehaviorGrpcConfig(enabled=enabled)
 
@@ -3405,9 +3405,9 @@ class CloudfrontDistributionLoggingConfig:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#bucket CloudfrontDistribution#bucket}.
-        :param include_cookies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_cookies CloudfrontDistribution#include_cookies}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#prefix CloudfrontDistribution#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#bucket CloudfrontDistribution#bucket}.
+        :param include_cookies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_cookies CloudfrontDistribution#include_cookies}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#prefix CloudfrontDistribution#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__631df8ec244aa098b38e28462814511f2c7e02a2ed4bfa288d1d261b02ecfa18)
@@ -3424,7 +3424,7 @@ class CloudfrontDistributionLoggingConfig:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#bucket CloudfrontDistribution#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#bucket CloudfrontDistribution#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -3433,13 +3433,13 @@ class CloudfrontDistributionLoggingConfig:
     def include_cookies(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_cookies CloudfrontDistribution#include_cookies}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_cookies CloudfrontDistribution#include_cookies}.'''
         result = self._values.get("include_cookies")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#prefix CloudfrontDistribution#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#prefix CloudfrontDistribution#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3611,27 +3611,27 @@ class CloudfrontDistributionOrderedCacheBehavior:
         trusted_signers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.
-        :param cached_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.
-        :param path_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#path_pattern CloudfrontDistribution#path_pattern}.
-        :param target_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.
-        :param viewer_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.
-        :param cache_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.
-        :param compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.
-        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.
-        :param field_level_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.
-        :param forwarded_values: forwarded_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
-        :param function_association: function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
-        :param grpc_config: grpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
-        :param lambda_function_association: lambda_function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
-        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.
-        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.
-        :param origin_request_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.
-        :param realtime_log_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.
-        :param response_headers_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.
-        :param smooth_streaming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.
-        :param trusted_key_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.
-        :param trusted_signers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.
+        :param cached_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.
+        :param path_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#path_pattern CloudfrontDistribution#path_pattern}.
+        :param target_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.
+        :param viewer_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.
+        :param cache_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.
+        :param compress: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.
+        :param default_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.
+        :param field_level_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.
+        :param forwarded_values: forwarded_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
+        :param function_association: function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
+        :param grpc_config: grpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
+        :param lambda_function_association: lambda_function_association block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
+        :param max_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.
+        :param min_ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.
+        :param origin_request_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.
+        :param realtime_log_config_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.
+        :param response_headers_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.
+        :param smooth_streaming: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.
+        :param trusted_key_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.
+        :param trusted_signers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.
         '''
         if isinstance(forwarded_values, dict):
             forwarded_values = CloudfrontDistributionOrderedCacheBehaviorForwardedValues(**forwarded_values)
@@ -3702,42 +3702,42 @@ class CloudfrontDistributionOrderedCacheBehavior:
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#allowed_methods CloudfrontDistribution#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def cached_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cached_methods CloudfrontDistribution#cached_methods}.'''
         result = self._values.get("cached_methods")
         assert result is not None, "Required property 'cached_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def path_pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#path_pattern CloudfrontDistribution#path_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#path_pattern CloudfrontDistribution#path_pattern}.'''
         result = self._values.get("path_pattern")
         assert result is not None, "Required property 'path_pattern' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_origin_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#target_origin_id CloudfrontDistribution#target_origin_id}.'''
         result = self._values.get("target_origin_id")
         assert result is not None, "Required property 'target_origin_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def viewer_protocol_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#viewer_protocol_policy CloudfrontDistribution#viewer_protocol_policy}.'''
         result = self._values.get("viewer_protocol_policy")
         assert result is not None, "Required property 'viewer_protocol_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cache_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cache_policy_id CloudfrontDistribution#cache_policy_id}.'''
         result = self._values.get("cache_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3745,19 +3745,19 @@ class CloudfrontDistributionOrderedCacheBehavior:
     def compress(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#compress CloudfrontDistribution#compress}.'''
         result = self._values.get("compress")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def default_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#default_ttl CloudfrontDistribution#default_ttl}.'''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def field_level_encryption_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#field_level_encryption_id CloudfrontDistribution#field_level_encryption_id}.'''
         result = self._values.get("field_level_encryption_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3767,7 +3767,7 @@ class CloudfrontDistributionOrderedCacheBehavior:
     ) -> typing.Optional["CloudfrontDistributionOrderedCacheBehaviorForwardedValues"]:
         '''forwarded_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forwarded_values CloudfrontDistribution#forwarded_values}
         '''
         result = self._values.get("forwarded_values")
         return typing.cast(typing.Optional["CloudfrontDistributionOrderedCacheBehaviorForwardedValues"], result)
@@ -3778,7 +3778,7 @@ class CloudfrontDistributionOrderedCacheBehavior:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrderedCacheBehaviorFunctionAssociation"]]]:
         '''function_association block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_association CloudfrontDistribution#function_association}
         '''
         result = self._values.get("function_association")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrderedCacheBehaviorFunctionAssociation"]]], result)
@@ -3789,7 +3789,7 @@ class CloudfrontDistributionOrderedCacheBehavior:
     ) -> typing.Optional["CloudfrontDistributionOrderedCacheBehaviorGrpcConfig"]:
         '''grpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#grpc_config CloudfrontDistribution#grpc_config}
         '''
         result = self._values.get("grpc_config")
         return typing.cast(typing.Optional["CloudfrontDistributionOrderedCacheBehaviorGrpcConfig"], result)
@@ -3800,38 +3800,38 @@ class CloudfrontDistributionOrderedCacheBehavior:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrderedCacheBehaviorLambdaFunctionAssociation"]]]:
         '''lambda_function_association block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_function_association CloudfrontDistribution#lambda_function_association}
         '''
         result = self._values.get("lambda_function_association")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOrderedCacheBehaviorLambdaFunctionAssociation"]]], result)
 
     @builtins.property
     def max_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#max_ttl CloudfrontDistribution#max_ttl}.'''
         result = self._values.get("max_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_ttl(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#min_ttl CloudfrontDistribution#min_ttl}.'''
         result = self._values.get("min_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def origin_request_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_request_policy_id CloudfrontDistribution#origin_request_policy_id}.'''
         result = self._values.get("origin_request_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def realtime_log_config_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#realtime_log_config_arn CloudfrontDistribution#realtime_log_config_arn}.'''
         result = self._values.get("realtime_log_config_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_headers_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#response_headers_policy_id CloudfrontDistribution#response_headers_policy_id}.'''
         result = self._values.get("response_headers_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3839,19 +3839,19 @@ class CloudfrontDistributionOrderedCacheBehavior:
     def smooth_streaming(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#smooth_streaming CloudfrontDistribution#smooth_streaming}.'''
         result = self._values.get("smooth_streaming")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def trusted_key_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_key_groups CloudfrontDistribution#trusted_key_groups}.'''
         result = self._values.get("trusted_key_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def trusted_signers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#trusted_signers CloudfrontDistribution#trusted_signers}.'''
         result = self._values.get("trusted_signers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3887,10 +3887,10 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValues:
         query_string_cache_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
-        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
+        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
         '''
         if isinstance(cookies, dict):
             cookies = CloudfrontDistributionOrderedCacheBehaviorForwardedValuesCookies(**cookies)
@@ -3915,7 +3915,7 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValues:
     ) -> "CloudfrontDistributionOrderedCacheBehaviorForwardedValuesCookies":
         '''cookies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
         '''
         result = self._values.get("cookies")
         assert result is not None, "Required property 'cookies' is missing"
@@ -3923,20 +3923,20 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValues:
 
     @builtins.property
     def query_string(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.'''
         result = self._values.get("query_string")
         assert result is not None, "Required property 'query_string' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def query_string_cache_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.'''
         result = self._values.get("query_string_cache_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3965,8 +3965,8 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValuesCookies:
         whitelisted_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
-        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
+        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
+        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28c7b6553114dcb2e684a853f4a8c6afa308a47206179486fa34d1dc82b5e928)
@@ -3980,14 +3980,14 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValuesCookies:
 
     @builtins.property
     def forward(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.'''
         result = self._values.get("forward")
         assert result is not None, "Required property 'forward' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def whitelisted_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.'''
         result = self._values.get("whitelisted_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4107,8 +4107,8 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValuesOutputReference(
         whitelisted_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
-        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
+        :param forward: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#forward CloudfrontDistribution#forward}.
+        :param whitelisted_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#whitelisted_names CloudfrontDistribution#whitelisted_names}.
         '''
         value = CloudfrontDistributionOrderedCacheBehaviorForwardedValuesCookies(
             forward=forward, whitelisted_names=whitelisted_names
@@ -4222,8 +4222,8 @@ class CloudfrontDistributionOrderedCacheBehaviorForwardedValuesOutputReference(
 class CloudfrontDistributionOrderedCacheBehaviorFunctionAssociation:
     def __init__(self, *, event_type: builtins.str, function_arn: builtins.str) -> None:
         '''
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
-        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
+        :param function_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86eb10d34438f611222a33cde0c66152240f44a9c1e65596beb093922c6456d8)
@@ -4236,14 +4236,14 @@ class CloudfrontDistributionOrderedCacheBehaviorFunctionAssociation:
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def function_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#function_arn CloudfrontDistribution#function_arn}.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4443,7 +4443,7 @@ class CloudfrontDistributionOrderedCacheBehaviorGrpcConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d360ab1d137522b344ec6f031d0c92f063127d77059abc6baf41beadd93cf503)
@@ -4456,7 +4456,7 @@ class CloudfrontDistributionOrderedCacheBehaviorGrpcConfig:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4554,9 +4554,9 @@ class CloudfrontDistributionOrderedCacheBehaviorLambdaFunctionAssociation:
         include_body: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.
-        :param include_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.
+        :param include_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bfa30076009cba8fc5475fd3c4e00a5026a1b5e24b6fe976cb0923d50922ac7)
@@ -4572,14 +4572,14 @@ class CloudfrontDistributionOrderedCacheBehaviorLambdaFunctionAssociation:
 
     @builtins.property
     def event_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#event_type CloudfrontDistribution#event_type}.'''
         result = self._values.get("event_type")
         assert result is not None, "Required property 'event_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#lambda_arn CloudfrontDistribution#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4588,7 +4588,7 @@ class CloudfrontDistributionOrderedCacheBehaviorLambdaFunctionAssociation:
     def include_body(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#include_body CloudfrontDistribution#include_body}.'''
         result = self._values.get("include_body")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4930,10 +4930,10 @@ class CloudfrontDistributionOrderedCacheBehaviorOutputReference(
         query_string_cache_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
-        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
-        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
+        :param cookies: cookies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cookies CloudfrontDistribution#cookies}
+        :param query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string CloudfrontDistribution#query_string}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#headers CloudfrontDistribution#headers}.
+        :param query_string_cache_keys: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#query_string_cache_keys CloudfrontDistribution#query_string_cache_keys}.
         '''
         value = CloudfrontDistributionOrderedCacheBehaviorForwardedValues(
             cookies=cookies,
@@ -4964,7 +4964,7 @@ class CloudfrontDistributionOrderedCacheBehaviorOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
         '''
         value = CloudfrontDistributionOrderedCacheBehaviorGrpcConfig(enabled=enabled)
 
@@ -5456,17 +5456,17 @@ class CloudfrontDistributionOrigin:
         vpc_origin_config: typing.Optional[typing.Union["CloudfrontDistributionOriginVpcOriginConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#domain_name CloudfrontDistribution#domain_name}.
-        :param origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.
-        :param connection_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#connection_attempts CloudfrontDistribution#connection_attempts}.
-        :param connection_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#connection_timeout CloudfrontDistribution#connection_timeout}.
-        :param custom_header: custom_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_header CloudfrontDistribution#custom_header}
-        :param custom_origin_config: custom_origin_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_origin_config CloudfrontDistribution#custom_origin_config}
-        :param origin_access_control_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_access_control_id CloudfrontDistribution#origin_access_control_id}.
-        :param origin_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_path CloudfrontDistribution#origin_path}.
-        :param origin_shield: origin_shield block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_shield CloudfrontDistribution#origin_shield}
-        :param s3_origin_config: s3_origin_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#s3_origin_config CloudfrontDistribution#s3_origin_config}
-        :param vpc_origin_config: vpc_origin_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#vpc_origin_config CloudfrontDistribution#vpc_origin_config}
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#domain_name CloudfrontDistribution#domain_name}.
+        :param origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.
+        :param connection_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#connection_attempts CloudfrontDistribution#connection_attempts}.
+        :param connection_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#connection_timeout CloudfrontDistribution#connection_timeout}.
+        :param custom_header: custom_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_header CloudfrontDistribution#custom_header}
+        :param custom_origin_config: custom_origin_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_origin_config CloudfrontDistribution#custom_origin_config}
+        :param origin_access_control_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_access_control_id CloudfrontDistribution#origin_access_control_id}.
+        :param origin_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_path CloudfrontDistribution#origin_path}.
+        :param origin_shield: origin_shield block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_shield CloudfrontDistribution#origin_shield}
+        :param s3_origin_config: s3_origin_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#s3_origin_config CloudfrontDistribution#s3_origin_config}
+        :param vpc_origin_config: vpc_origin_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#vpc_origin_config CloudfrontDistribution#vpc_origin_config}
         '''
         if isinstance(custom_origin_config, dict):
             custom_origin_config = CloudfrontDistributionOriginCustomOriginConfig(**custom_origin_config)
@@ -5514,27 +5514,27 @@ class CloudfrontDistributionOrigin:
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#domain_name CloudfrontDistribution#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#domain_name CloudfrontDistribution#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def origin_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.'''
         result = self._values.get("origin_id")
         assert result is not None, "Required property 'origin_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def connection_attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#connection_attempts CloudfrontDistribution#connection_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#connection_attempts CloudfrontDistribution#connection_attempts}.'''
         result = self._values.get("connection_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def connection_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#connection_timeout CloudfrontDistribution#connection_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#connection_timeout CloudfrontDistribution#connection_timeout}.'''
         result = self._values.get("connection_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5544,7 +5544,7 @@ class CloudfrontDistributionOrigin:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOriginCustomHeader"]]]:
         '''custom_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_header CloudfrontDistribution#custom_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_header CloudfrontDistribution#custom_header}
         '''
         result = self._values.get("custom_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOriginCustomHeader"]]], result)
@@ -5555,20 +5555,20 @@ class CloudfrontDistributionOrigin:
     ) -> typing.Optional["CloudfrontDistributionOriginCustomOriginConfig"]:
         '''custom_origin_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#custom_origin_config CloudfrontDistribution#custom_origin_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#custom_origin_config CloudfrontDistribution#custom_origin_config}
         '''
         result = self._values.get("custom_origin_config")
         return typing.cast(typing.Optional["CloudfrontDistributionOriginCustomOriginConfig"], result)
 
     @builtins.property
     def origin_access_control_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_access_control_id CloudfrontDistribution#origin_access_control_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_access_control_id CloudfrontDistribution#origin_access_control_id}.'''
         result = self._values.get("origin_access_control_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def origin_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_path CloudfrontDistribution#origin_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_path CloudfrontDistribution#origin_path}.'''
         result = self._values.get("origin_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5578,7 +5578,7 @@ class CloudfrontDistributionOrigin:
     ) -> typing.Optional["CloudfrontDistributionOriginOriginShield"]:
         '''origin_shield block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_shield CloudfrontDistribution#origin_shield}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_shield CloudfrontDistribution#origin_shield}
         '''
         result = self._values.get("origin_shield")
         return typing.cast(typing.Optional["CloudfrontDistributionOriginOriginShield"], result)
@@ -5589,7 +5589,7 @@ class CloudfrontDistributionOrigin:
     ) -> typing.Optional["CloudfrontDistributionOriginS3OriginConfig"]:
         '''s3_origin_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#s3_origin_config CloudfrontDistribution#s3_origin_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#s3_origin_config CloudfrontDistribution#s3_origin_config}
         '''
         result = self._values.get("s3_origin_config")
         return typing.cast(typing.Optional["CloudfrontDistributionOriginS3OriginConfig"], result)
@@ -5600,7 +5600,7 @@ class CloudfrontDistributionOrigin:
     ) -> typing.Optional["CloudfrontDistributionOriginVpcOriginConfig"]:
         '''vpc_origin_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#vpc_origin_config CloudfrontDistribution#vpc_origin_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#vpc_origin_config CloudfrontDistribution#vpc_origin_config}
         '''
         result = self._values.get("vpc_origin_config")
         return typing.cast(typing.Optional["CloudfrontDistributionOriginVpcOriginConfig"], result)
@@ -5625,8 +5625,8 @@ class CloudfrontDistributionOrigin:
 class CloudfrontDistributionOriginCustomHeader:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#name CloudfrontDistribution#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#value CloudfrontDistribution#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#name CloudfrontDistribution#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#value CloudfrontDistribution#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdce0aa1694ba707f84a411c98a483ca0d30bc2342367875e470e2f8ebebe2ed)
@@ -5639,14 +5639,14 @@ class CloudfrontDistributionOriginCustomHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#name CloudfrontDistribution#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#name CloudfrontDistribution#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#value CloudfrontDistribution#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#value CloudfrontDistribution#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -5858,12 +5858,12 @@ class CloudfrontDistributionOriginCustomOriginConfig:
         origin_read_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#http_port CloudfrontDistribution#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#https_port CloudfrontDistribution#https_port}.
-        :param origin_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_protocol_policy CloudfrontDistribution#origin_protocol_policy}.
-        :param origin_ssl_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_ssl_protocols CloudfrontDistribution#origin_ssl_protocols}.
-        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
-        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#http_port CloudfrontDistribution#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#https_port CloudfrontDistribution#https_port}.
+        :param origin_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_protocol_policy CloudfrontDistribution#origin_protocol_policy}.
+        :param origin_ssl_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_ssl_protocols CloudfrontDistribution#origin_ssl_protocols}.
+        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
+        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8c6be43f4e54f8d40c8c2a141699bec4138917ee81936b1aca16d44fcab1302)
@@ -5886,41 +5886,41 @@ class CloudfrontDistributionOriginCustomOriginConfig:
 
     @builtins.property
     def http_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#http_port CloudfrontDistribution#http_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#http_port CloudfrontDistribution#http_port}.'''
         result = self._values.get("http_port")
         assert result is not None, "Required property 'http_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def https_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#https_port CloudfrontDistribution#https_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#https_port CloudfrontDistribution#https_port}.'''
         result = self._values.get("https_port")
         assert result is not None, "Required property 'https_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def origin_protocol_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_protocol_policy CloudfrontDistribution#origin_protocol_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_protocol_policy CloudfrontDistribution#origin_protocol_policy}.'''
         result = self._values.get("origin_protocol_policy")
         assert result is not None, "Required property 'origin_protocol_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def origin_ssl_protocols(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_ssl_protocols CloudfrontDistribution#origin_ssl_protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_ssl_protocols CloudfrontDistribution#origin_ssl_protocols}.'''
         result = self._values.get("origin_ssl_protocols")
         assert result is not None, "Required property 'origin_ssl_protocols' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def origin_keepalive_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.'''
         result = self._values.get("origin_keepalive_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def origin_read_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.'''
         result = self._values.get("origin_read_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6102,9 +6102,9 @@ class CloudfrontDistributionOriginGroup:
         origin_id: builtins.str,
     ) -> None:
         '''
-        :param failover_criteria: failover_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#failover_criteria CloudfrontDistribution#failover_criteria}
-        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#member CloudfrontDistribution#member}
-        :param origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.
+        :param failover_criteria: failover_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#failover_criteria CloudfrontDistribution#failover_criteria}
+        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#member CloudfrontDistribution#member}
+        :param origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.
         '''
         if isinstance(failover_criteria, dict):
             failover_criteria = CloudfrontDistributionOriginGroupFailoverCriteria(**failover_criteria)
@@ -6123,7 +6123,7 @@ class CloudfrontDistributionOriginGroup:
     def failover_criteria(self) -> "CloudfrontDistributionOriginGroupFailoverCriteria":
         '''failover_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#failover_criteria CloudfrontDistribution#failover_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#failover_criteria CloudfrontDistribution#failover_criteria}
         '''
         result = self._values.get("failover_criteria")
         assert result is not None, "Required property 'failover_criteria' is missing"
@@ -6135,7 +6135,7 @@ class CloudfrontDistributionOriginGroup:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudfrontDistributionOriginGroupMember"]]:
         '''member block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#member CloudfrontDistribution#member}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#member CloudfrontDistribution#member}
         '''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
@@ -6143,7 +6143,7 @@ class CloudfrontDistributionOriginGroup:
 
     @builtins.property
     def origin_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.'''
         result = self._values.get("origin_id")
         assert result is not None, "Required property 'origin_id' is missing"
         return typing.cast(builtins.str, result)
@@ -6168,7 +6168,7 @@ class CloudfrontDistributionOriginGroup:
 class CloudfrontDistributionOriginGroupFailoverCriteria:
     def __init__(self, *, status_codes: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param status_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#status_codes CloudfrontDistribution#status_codes}.
+        :param status_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#status_codes CloudfrontDistribution#status_codes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b7671426291e622799b45a8fab06c9f038cc02737e2ae021deca26c6824c849)
@@ -6179,7 +6179,7 @@ class CloudfrontDistributionOriginGroupFailoverCriteria:
 
     @builtins.property
     def status_codes(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#status_codes CloudfrontDistribution#status_codes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#status_codes CloudfrontDistribution#status_codes}.'''
         result = self._values.get("status_codes")
         assert result is not None, "Required property 'status_codes' is missing"
         return typing.cast(typing.List[jsii.Number], result)
@@ -6352,7 +6352,7 @@ class CloudfrontDistributionOriginGroupList(
 class CloudfrontDistributionOriginGroupMember:
     def __init__(self, *, origin_id: builtins.str) -> None:
         '''
-        :param origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.
+        :param origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d74cd53159fa0ff385d4b666a78b4ffd009d508d3dd33899d084455517ddcaf4)
@@ -6363,7 +6363,7 @@ class CloudfrontDistributionOriginGroupMember:
 
     @builtins.property
     def origin_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_id CloudfrontDistribution#origin_id}.'''
         result = self._values.get("origin_id")
         assert result is not None, "Required property 'origin_id' is missing"
         return typing.cast(builtins.str, result)
@@ -6567,7 +6567,7 @@ class CloudfrontDistributionOriginGroupOutputReference(
         status_codes: typing.Sequence[jsii.Number],
     ) -> None:
         '''
-        :param status_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#status_codes CloudfrontDistribution#status_codes}.
+        :param status_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#status_codes CloudfrontDistribution#status_codes}.
         '''
         value = CloudfrontDistributionOriginGroupFailoverCriteria(
             status_codes=status_codes
@@ -6752,8 +6752,8 @@ class CloudfrontDistributionOriginOriginShield:
         origin_shield_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
-        :param origin_shield_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_shield_region CloudfrontDistribution#origin_shield_region}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param origin_shield_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_shield_region CloudfrontDistribution#origin_shield_region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a74486a15a9d8eb1737403c3eeb2359abc8900e1168ad40b6bf55b7b189720b)
@@ -6767,14 +6767,14 @@ class CloudfrontDistributionOriginOriginShield:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def origin_shield_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_shield_region CloudfrontDistribution#origin_shield_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_shield_region CloudfrontDistribution#origin_shield_region}.'''
         result = self._values.get("origin_shield_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6922,12 +6922,12 @@ class CloudfrontDistributionOriginOutputReference(
         origin_read_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#http_port CloudfrontDistribution#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#https_port CloudfrontDistribution#https_port}.
-        :param origin_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_protocol_policy CloudfrontDistribution#origin_protocol_policy}.
-        :param origin_ssl_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_ssl_protocols CloudfrontDistribution#origin_ssl_protocols}.
-        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
-        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#http_port CloudfrontDistribution#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#https_port CloudfrontDistribution#https_port}.
+        :param origin_protocol_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_protocol_policy CloudfrontDistribution#origin_protocol_policy}.
+        :param origin_ssl_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_ssl_protocols CloudfrontDistribution#origin_ssl_protocols}.
+        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
+        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
         '''
         value = CloudfrontDistributionOriginCustomOriginConfig(
             http_port=http_port,
@@ -6948,8 +6948,8 @@ class CloudfrontDistributionOriginOutputReference(
         origin_shield_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
-        :param origin_shield_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_shield_region CloudfrontDistribution#origin_shield_region}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#enabled CloudfrontDistribution#enabled}.
+        :param origin_shield_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_shield_region CloudfrontDistribution#origin_shield_region}.
         '''
         value = CloudfrontDistributionOriginOriginShield(
             enabled=enabled, origin_shield_region=origin_shield_region
@@ -6960,7 +6960,7 @@ class CloudfrontDistributionOriginOutputReference(
     @jsii.member(jsii_name="putS3OriginConfig")
     def put_s3_origin_config(self, *, origin_access_identity: builtins.str) -> None:
         '''
-        :param origin_access_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_access_identity CloudfrontDistribution#origin_access_identity}.
+        :param origin_access_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_access_identity CloudfrontDistribution#origin_access_identity}.
         '''
         value = CloudfrontDistributionOriginS3OriginConfig(
             origin_access_identity=origin_access_identity
@@ -6977,9 +6977,9 @@ class CloudfrontDistributionOriginOutputReference(
         origin_read_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param vpc_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#vpc_origin_id CloudfrontDistribution#vpc_origin_id}.
-        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
-        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
+        :param vpc_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#vpc_origin_id CloudfrontDistribution#vpc_origin_id}.
+        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
+        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
         '''
         value = CloudfrontDistributionOriginVpcOriginConfig(
             vpc_origin_id=vpc_origin_id,
@@ -7219,7 +7219,7 @@ class CloudfrontDistributionOriginOutputReference(
 class CloudfrontDistributionOriginS3OriginConfig:
     def __init__(self, *, origin_access_identity: builtins.str) -> None:
         '''
-        :param origin_access_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_access_identity CloudfrontDistribution#origin_access_identity}.
+        :param origin_access_identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_access_identity CloudfrontDistribution#origin_access_identity}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc617e5b223abb3c31e59e9695085d1884c5aa31432f8d9f939a398f8a19d72c)
@@ -7230,7 +7230,7 @@ class CloudfrontDistributionOriginS3OriginConfig:
 
     @builtins.property
     def origin_access_identity(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_access_identity CloudfrontDistribution#origin_access_identity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_access_identity CloudfrontDistribution#origin_access_identity}.'''
         result = self._values.get("origin_access_identity")
         assert result is not None, "Required property 'origin_access_identity' is missing"
         return typing.cast(builtins.str, result)
@@ -7320,9 +7320,9 @@ class CloudfrontDistributionOriginVpcOriginConfig:
         origin_read_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param vpc_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#vpc_origin_id CloudfrontDistribution#vpc_origin_id}.
-        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
-        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
+        :param vpc_origin_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#vpc_origin_id CloudfrontDistribution#vpc_origin_id}.
+        :param origin_keepalive_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.
+        :param origin_read_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd0e199c0ac19b2c3d86d7e3babae64439a313d29da1e4807f6aa9842b0fc0af)
@@ -7339,20 +7339,20 @@ class CloudfrontDistributionOriginVpcOriginConfig:
 
     @builtins.property
     def vpc_origin_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#vpc_origin_id CloudfrontDistribution#vpc_origin_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#vpc_origin_id CloudfrontDistribution#vpc_origin_id}.'''
         result = self._values.get("vpc_origin_id")
         assert result is not None, "Required property 'vpc_origin_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def origin_keepalive_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_keepalive_timeout CloudfrontDistribution#origin_keepalive_timeout}.'''
         result = self._values.get("origin_keepalive_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def origin_read_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#origin_read_timeout CloudfrontDistribution#origin_read_timeout}.'''
         result = self._values.get("origin_read_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7477,7 +7477,7 @@ class CloudfrontDistributionRestrictions:
         geo_restriction: typing.Union["CloudfrontDistributionRestrictionsGeoRestriction", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param geo_restriction: geo_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#geo_restriction CloudfrontDistribution#geo_restriction}
+        :param geo_restriction: geo_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#geo_restriction CloudfrontDistribution#geo_restriction}
         '''
         if isinstance(geo_restriction, dict):
             geo_restriction = CloudfrontDistributionRestrictionsGeoRestriction(**geo_restriction)
@@ -7492,7 +7492,7 @@ class CloudfrontDistributionRestrictions:
     def geo_restriction(self) -> "CloudfrontDistributionRestrictionsGeoRestriction":
         '''geo_restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#geo_restriction CloudfrontDistribution#geo_restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#geo_restriction CloudfrontDistribution#geo_restriction}
         '''
         result = self._values.get("geo_restriction")
         assert result is not None, "Required property 'geo_restriction' is missing"
@@ -7523,8 +7523,8 @@ class CloudfrontDistributionRestrictionsGeoRestriction:
         locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param restriction_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#restriction_type CloudfrontDistribution#restriction_type}.
-        :param locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#locations CloudfrontDistribution#locations}.
+        :param restriction_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#restriction_type CloudfrontDistribution#restriction_type}.
+        :param locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#locations CloudfrontDistribution#locations}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a15477f3766317ef42bc6e89ea380a5f9de62740244e76ac6849c5d8bbec6d4)
@@ -7538,14 +7538,14 @@ class CloudfrontDistributionRestrictionsGeoRestriction:
 
     @builtins.property
     def restriction_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#restriction_type CloudfrontDistribution#restriction_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#restriction_type CloudfrontDistribution#restriction_type}.'''
         result = self._values.get("restriction_type")
         assert result is not None, "Required property 'restriction_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def locations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#locations CloudfrontDistribution#locations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#locations CloudfrontDistribution#locations}.'''
         result = self._values.get("locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7665,8 +7665,8 @@ class CloudfrontDistributionRestrictionsOutputReference(
         locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param restriction_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#restriction_type CloudfrontDistribution#restriction_type}.
-        :param locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#locations CloudfrontDistribution#locations}.
+        :param restriction_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#restriction_type CloudfrontDistribution#restriction_type}.
+        :param locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#locations CloudfrontDistribution#locations}.
         '''
         value = CloudfrontDistributionRestrictionsGeoRestriction(
             restriction_type=restriction_type, locations=locations
@@ -8326,11 +8326,11 @@ class CloudfrontDistributionViewerCertificate:
         ssl_support_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param acm_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#acm_certificate_arn CloudfrontDistribution#acm_certificate_arn}.
-        :param cloudfront_default_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cloudfront_default_certificate CloudfrontDistribution#cloudfront_default_certificate}.
-        :param iam_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#iam_certificate_id CloudfrontDistribution#iam_certificate_id}.
-        :param minimum_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#minimum_protocol_version CloudfrontDistribution#minimum_protocol_version}.
-        :param ssl_support_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#ssl_support_method CloudfrontDistribution#ssl_support_method}.
+        :param acm_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#acm_certificate_arn CloudfrontDistribution#acm_certificate_arn}.
+        :param cloudfront_default_certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cloudfront_default_certificate CloudfrontDistribution#cloudfront_default_certificate}.
+        :param iam_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#iam_certificate_id CloudfrontDistribution#iam_certificate_id}.
+        :param minimum_protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#minimum_protocol_version CloudfrontDistribution#minimum_protocol_version}.
+        :param ssl_support_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#ssl_support_method CloudfrontDistribution#ssl_support_method}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d21dfee159319c30400e4e029072a5aee8f1e261992bda37e6a4e3907442e555)
@@ -8353,7 +8353,7 @@ class CloudfrontDistributionViewerCertificate:
 
     @builtins.property
     def acm_certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#acm_certificate_arn CloudfrontDistribution#acm_certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#acm_certificate_arn CloudfrontDistribution#acm_certificate_arn}.'''
         result = self._values.get("acm_certificate_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8361,25 +8361,25 @@ class CloudfrontDistributionViewerCertificate:
     def cloudfront_default_certificate(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#cloudfront_default_certificate CloudfrontDistribution#cloudfront_default_certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#cloudfront_default_certificate CloudfrontDistribution#cloudfront_default_certificate}.'''
         result = self._values.get("cloudfront_default_certificate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def iam_certificate_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#iam_certificate_id CloudfrontDistribution#iam_certificate_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#iam_certificate_id CloudfrontDistribution#iam_certificate_id}.'''
         result = self._values.get("iam_certificate_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def minimum_protocol_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#minimum_protocol_version CloudfrontDistribution#minimum_protocol_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#minimum_protocol_version CloudfrontDistribution#minimum_protocol_version}.'''
         result = self._values.get("minimum_protocol_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_support_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudfront_distribution#ssl_support_method CloudfrontDistribution#ssl_support_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudfront_distribution#ssl_support_method CloudfrontDistribution#ssl_support_method}.'''
         result = self._values.get("ssl_support_method")
         return typing.cast(typing.Optional[builtins.str], result)
 

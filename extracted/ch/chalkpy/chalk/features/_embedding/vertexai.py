@@ -11,10 +11,7 @@ from chalk.features._vector import Vector
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
-    from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel
-else:
-    TextEmbeddingInput = None
-    TextEmbeddingModel = None
+    from vertexai.language_models import TextEmbeddingInput
 
 
 _MAX_BATCH_SIZE = 5
@@ -43,10 +40,11 @@ class VertexAIProvider(EmbeddingProvider):
         super().__init__()
 
         try:
-            global TextEmbeddingInput, TextEmbeddingModel
             from vertexai.language_models import TextEmbeddingInput, TextEmbeddingModel
         except ImportError:
             raise missing_dependency_exception("chalkpy[vertexai]")
+        self.text_embedding_input = TextEmbeddingInput
+        self.text_embedding_model = TextEmbeddingModel
 
         if model not in _MODEL_SPECS:
             supported_models_str = ", ".join(f"'{model}'" for model in _MODEL_SPECS)
@@ -61,8 +59,7 @@ class VertexAIProvider(EmbeddingProvider):
 
     @functools.cached_property
     def _model(self):
-        assert TextEmbeddingModel
-        return TextEmbeddingModel.from_pretrained(self.model)
+        return self.text_embedding_model.from_pretrained(self.model)
 
     def get_provider_name(self) -> str:
         return "vertexai"
@@ -80,7 +77,6 @@ class VertexAIProvider(EmbeddingProvider):
         raise NotImplementedError("use async_generate_embedding instead")
 
     async def async_generate_embedding(self, input: pa.Table):
-        assert TextEmbeddingInput
         inputs: list[str | None] = input.column(0).to_pylist()
         # Step over `input` in chunks of MAX_BATCH_SIZE; the max vertexai array length
         for i in range(0, len(inputs), _MAX_BATCH_SIZE):
@@ -91,7 +87,7 @@ class VertexAIProvider(EmbeddingProvider):
                 if inp is None or inp == "":
                     none_indices.add(idx)
                 else:
-                    non_null_chunked_input.append(TextEmbeddingInput(inp, _DEFAULT_TASK_TYPE))
+                    non_null_chunked_input.append(self.text_embedding_input(inp, _DEFAULT_TASK_TYPE))
             try:
                 if len(non_null_chunked_input) > 0:
                     response_data = await self._model.get_embeddings_async(

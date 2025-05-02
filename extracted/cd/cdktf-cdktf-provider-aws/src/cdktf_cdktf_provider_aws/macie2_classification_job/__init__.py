@@ -1,7 +1,7 @@
 r'''
 # `aws_macie2_classification_job`
 
-Refer to the Terraform Registry for docs: [`aws_macie2_classification_job`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job).
+Refer to the Terraform Registry for docs: [`aws_macie2_classification_job`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Macie2ClassificationJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.macie2ClassificationJob.Macie2ClassificationJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job aws_macie2_classification_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job aws_macie2_classification_job}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class Macie2ClassificationJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job aws_macie2_classification_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job aws_macie2_classification_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#job_type Macie2ClassificationJob#job_type}.
-        :param s3_job_definition: s3_job_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#s3_job_definition Macie2ClassificationJob#s3_job_definition}
-        :param custom_data_identifier_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#custom_data_identifier_ids Macie2ClassificationJob#custom_data_identifier_ids}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#description Macie2ClassificationJob#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#id Macie2ClassificationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_run: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#initial_run Macie2ClassificationJob#initial_run}.
-        :param job_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#job_status Macie2ClassificationJob#job_status}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#name Macie2ClassificationJob#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#name_prefix Macie2ClassificationJob#name_prefix}.
-        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#sampling_percentage Macie2ClassificationJob#sampling_percentage}.
-        :param schedule_frequency: schedule_frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#schedule_frequency Macie2ClassificationJob#schedule_frequency}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tags Macie2ClassificationJob#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tags_all Macie2ClassificationJob#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#timeouts Macie2ClassificationJob#timeouts}
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#job_type Macie2ClassificationJob#job_type}.
+        :param s3_job_definition: s3_job_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#s3_job_definition Macie2ClassificationJob#s3_job_definition}
+        :param custom_data_identifier_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#custom_data_identifier_ids Macie2ClassificationJob#custom_data_identifier_ids}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#description Macie2ClassificationJob#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#id Macie2ClassificationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_run: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#initial_run Macie2ClassificationJob#initial_run}.
+        :param job_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#job_status Macie2ClassificationJob#job_status}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#name Macie2ClassificationJob#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#name_prefix Macie2ClassificationJob#name_prefix}.
+        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#sampling_percentage Macie2ClassificationJob#sampling_percentage}.
+        :param schedule_frequency: schedule_frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#schedule_frequency Macie2ClassificationJob#schedule_frequency}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tags Macie2ClassificationJob#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tags_all Macie2ClassificationJob#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#timeouts Macie2ClassificationJob#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class Macie2ClassificationJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Macie2ClassificationJob to import.
-        :param import_from_id: The id of the existing Macie2ClassificationJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Macie2ClassificationJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Macie2ClassificationJob to import is found.
         '''
         if __debug__:
@@ -162,9 +162,9 @@ class Macie2ClassificationJob(
         scoping: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionScoping", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_criteria: bucket_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#bucket_criteria Macie2ClassificationJob#bucket_criteria}
-        :param bucket_definitions: bucket_definitions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#bucket_definitions Macie2ClassificationJob#bucket_definitions}
-        :param scoping: scoping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#scoping Macie2ClassificationJob#scoping}
+        :param bucket_criteria: bucket_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#bucket_criteria Macie2ClassificationJob#bucket_criteria}
+        :param bucket_definitions: bucket_definitions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#bucket_definitions Macie2ClassificationJob#bucket_definitions}
+        :param scoping: scoping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#scoping Macie2ClassificationJob#scoping}
         '''
         value = Macie2ClassificationJobS3JobDefinition(
             bucket_criteria=bucket_criteria,
@@ -183,9 +183,9 @@ class Macie2ClassificationJob(
         weekly_schedule: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param daily_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#daily_schedule Macie2ClassificationJob#daily_schedule}.
-        :param monthly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#monthly_schedule Macie2ClassificationJob#monthly_schedule}.
-        :param weekly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#weekly_schedule Macie2ClassificationJob#weekly_schedule}.
+        :param daily_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#daily_schedule Macie2ClassificationJob#daily_schedule}.
+        :param monthly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#monthly_schedule Macie2ClassificationJob#monthly_schedule}.
+        :param weekly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#weekly_schedule Macie2ClassificationJob#weekly_schedule}.
         '''
         value = Macie2ClassificationJobScheduleFrequency(
             daily_schedule=daily_schedule,
@@ -203,8 +203,8 @@ class Macie2ClassificationJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#create Macie2ClassificationJob#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#update Macie2ClassificationJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#create Macie2ClassificationJob#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#update Macie2ClassificationJob#update}.
         '''
         value = Macie2ClassificationJobTimeouts(create=create, update=update)
 
@@ -589,20 +589,20 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#job_type Macie2ClassificationJob#job_type}.
-        :param s3_job_definition: s3_job_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#s3_job_definition Macie2ClassificationJob#s3_job_definition}
-        :param custom_data_identifier_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#custom_data_identifier_ids Macie2ClassificationJob#custom_data_identifier_ids}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#description Macie2ClassificationJob#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#id Macie2ClassificationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_run: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#initial_run Macie2ClassificationJob#initial_run}.
-        :param job_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#job_status Macie2ClassificationJob#job_status}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#name Macie2ClassificationJob#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#name_prefix Macie2ClassificationJob#name_prefix}.
-        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#sampling_percentage Macie2ClassificationJob#sampling_percentage}.
-        :param schedule_frequency: schedule_frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#schedule_frequency Macie2ClassificationJob#schedule_frequency}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tags Macie2ClassificationJob#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tags_all Macie2ClassificationJob#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#timeouts Macie2ClassificationJob#timeouts}
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#job_type Macie2ClassificationJob#job_type}.
+        :param s3_job_definition: s3_job_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#s3_job_definition Macie2ClassificationJob#s3_job_definition}
+        :param custom_data_identifier_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#custom_data_identifier_ids Macie2ClassificationJob#custom_data_identifier_ids}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#description Macie2ClassificationJob#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#id Macie2ClassificationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_run: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#initial_run Macie2ClassificationJob#initial_run}.
+        :param job_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#job_status Macie2ClassificationJob#job_status}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#name Macie2ClassificationJob#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#name_prefix Macie2ClassificationJob#name_prefix}.
+        :param sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#sampling_percentage Macie2ClassificationJob#sampling_percentage}.
+        :param schedule_frequency: schedule_frequency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#schedule_frequency Macie2ClassificationJob#schedule_frequency}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tags Macie2ClassificationJob#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tags_all Macie2ClassificationJob#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#timeouts Macie2ClassificationJob#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -744,7 +744,7 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def job_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#job_type Macie2ClassificationJob#job_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#job_type Macie2ClassificationJob#job_type}.'''
         result = self._values.get("job_type")
         assert result is not None, "Required property 'job_type' is missing"
         return typing.cast(builtins.str, result)
@@ -753,7 +753,7 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def s3_job_definition(self) -> "Macie2ClassificationJobS3JobDefinition":
         '''s3_job_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#s3_job_definition Macie2ClassificationJob#s3_job_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#s3_job_definition Macie2ClassificationJob#s3_job_definition}
         '''
         result = self._values.get("s3_job_definition")
         assert result is not None, "Required property 's3_job_definition' is missing"
@@ -761,19 +761,19 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def custom_data_identifier_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#custom_data_identifier_ids Macie2ClassificationJob#custom_data_identifier_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#custom_data_identifier_ids Macie2ClassificationJob#custom_data_identifier_ids}.'''
         result = self._values.get("custom_data_identifier_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#description Macie2ClassificationJob#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#description Macie2ClassificationJob#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#id Macie2ClassificationJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#id Macie2ClassificationJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -785,31 +785,31 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def initial_run(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#initial_run Macie2ClassificationJob#initial_run}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#initial_run Macie2ClassificationJob#initial_run}.'''
         result = self._values.get("initial_run")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def job_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#job_status Macie2ClassificationJob#job_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#job_status Macie2ClassificationJob#job_status}.'''
         result = self._values.get("job_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#name Macie2ClassificationJob#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#name Macie2ClassificationJob#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#name_prefix Macie2ClassificationJob#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#name_prefix Macie2ClassificationJob#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sampling_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#sampling_percentage Macie2ClassificationJob#sampling_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#sampling_percentage Macie2ClassificationJob#sampling_percentage}.'''
         result = self._values.get("sampling_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -819,20 +819,20 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Macie2ClassificationJobScheduleFrequency"]:
         '''schedule_frequency block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#schedule_frequency Macie2ClassificationJob#schedule_frequency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#schedule_frequency Macie2ClassificationJob#schedule_frequency}
         '''
         result = self._values.get("schedule_frequency")
         return typing.cast(typing.Optional["Macie2ClassificationJobScheduleFrequency"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tags Macie2ClassificationJob#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tags Macie2ClassificationJob#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tags_all Macie2ClassificationJob#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tags_all Macie2ClassificationJob#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -840,7 +840,7 @@ class Macie2ClassificationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Macie2ClassificationJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#timeouts Macie2ClassificationJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#timeouts Macie2ClassificationJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Macie2ClassificationJobTimeouts"], result)
@@ -875,9 +875,9 @@ class Macie2ClassificationJobS3JobDefinition:
         scoping: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionScoping", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_criteria: bucket_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#bucket_criteria Macie2ClassificationJob#bucket_criteria}
-        :param bucket_definitions: bucket_definitions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#bucket_definitions Macie2ClassificationJob#bucket_definitions}
-        :param scoping: scoping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#scoping Macie2ClassificationJob#scoping}
+        :param bucket_criteria: bucket_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#bucket_criteria Macie2ClassificationJob#bucket_criteria}
+        :param bucket_definitions: bucket_definitions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#bucket_definitions Macie2ClassificationJob#bucket_definitions}
+        :param scoping: scoping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#scoping Macie2ClassificationJob#scoping}
         '''
         if isinstance(bucket_criteria, dict):
             bucket_criteria = Macie2ClassificationJobS3JobDefinitionBucketCriteria(**bucket_criteria)
@@ -902,7 +902,7 @@ class Macie2ClassificationJobS3JobDefinition:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteria"]:
         '''bucket_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#bucket_criteria Macie2ClassificationJob#bucket_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#bucket_criteria Macie2ClassificationJob#bucket_criteria}
         '''
         result = self._values.get("bucket_criteria")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteria"], result)
@@ -913,7 +913,7 @@ class Macie2ClassificationJobS3JobDefinition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketDefinitions"]]]:
         '''bucket_definitions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#bucket_definitions Macie2ClassificationJob#bucket_definitions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#bucket_definitions Macie2ClassificationJob#bucket_definitions}
         '''
         result = self._values.get("bucket_definitions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketDefinitions"]]], result)
@@ -924,7 +924,7 @@ class Macie2ClassificationJobS3JobDefinition:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScoping"]:
         '''scoping block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#scoping Macie2ClassificationJob#scoping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#scoping Macie2ClassificationJob#scoping}
         '''
         result = self._values.get("scoping")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScoping"], result)
@@ -954,8 +954,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteria:
         includes: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
-        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
+        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
+        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
         '''
         if isinstance(excludes, dict):
             excludes = Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludes(**excludes)
@@ -977,7 +977,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteria:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludes"]:
         '''excludes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludes"], result)
@@ -988,7 +988,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteria:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes"]:
         '''includes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
         '''
         result = self._values.get("includes")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes"], result)
@@ -1017,7 +1017,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludes:
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4b5f05d65c2721145266103c75bc032cbd88b3ab9d1315b55fb049ce1cb80f1)
@@ -1032,7 +1032,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd"]]], result)
@@ -1065,8 +1065,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd:
         tag_criterion: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterion", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param simple_criterion: simple_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
-        :param tag_criterion: tag_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
+        :param simple_criterion: simple_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
+        :param tag_criterion: tag_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
         '''
         if isinstance(simple_criterion, dict):
             simple_criterion = Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndSimpleCriterion(**simple_criterion)
@@ -1088,7 +1088,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndSimpleCriterion"]:
         '''simple_criterion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
         '''
         result = self._values.get("simple_criterion")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndSimpleCriterion"], result)
@@ -1099,7 +1099,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterion"]:
         '''tag_criterion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
         '''
         result = self._values.get("tag_criterion")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterion"], result)
@@ -1244,9 +1244,9 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndOutputRefer
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndSimpleCriterion(
             comparator=comparator, key=key, values=values
@@ -1262,8 +1262,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndOutputRefer
         tag_values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterionTagValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterion(
             comparator=comparator, tag_values=tag_values
@@ -1339,9 +1339,9 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndSimpleCrite
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ea36ffa3cb30a7afd7185dd08b4ebc11781016ad4a5f51a50d9ede111b3c01d)
@@ -1358,19 +1358,19 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndSimpleCrite
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1500,8 +1500,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterio
         tag_values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterionTagValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d11c64b77011f33ffec42761f901141728bab2c500f7fadd2f393a86a882737)
@@ -1515,7 +1515,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterio
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1525,7 +1525,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterio
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterionTagValues"]]]:
         '''tag_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         result = self._values.get("tag_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterionTagValues"]]], result)
@@ -1645,8 +1645,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterio
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__441eb7686726d117b67f558b1e9f344f2b2804210e884dbb6c287c63aeb934f6)
@@ -1660,13 +1660,13 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAndTagCriterio
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1942,7 +1942,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes:
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a24eb836e16e152312aee8a31a78b3c847dbff772464e5d3f29c5aad4d7a602)
@@ -1957,7 +1957,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd"]]], result)
@@ -1990,8 +1990,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd:
         tag_criterion: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterion", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param simple_criterion: simple_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
-        :param tag_criterion: tag_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
+        :param simple_criterion: simple_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
+        :param tag_criterion: tag_criterion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
         '''
         if isinstance(simple_criterion, dict):
             simple_criterion = Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndSimpleCriterion(**simple_criterion)
@@ -2013,7 +2013,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndSimpleCriterion"]:
         '''simple_criterion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_criterion Macie2ClassificationJob#simple_criterion}
         '''
         result = self._values.get("simple_criterion")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndSimpleCriterion"], result)
@@ -2024,7 +2024,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterion"]:
         '''tag_criterion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_criterion Macie2ClassificationJob#tag_criterion}
         '''
         result = self._values.get("tag_criterion")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterion"], result)
@@ -2169,9 +2169,9 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndOutputRefer
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndSimpleCriterion(
             comparator=comparator, key=key, values=values
@@ -2187,8 +2187,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndOutputRefer
         tag_values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterionTagValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterion(
             comparator=comparator, tag_values=tag_values
@@ -2264,9 +2264,9 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndSimpleCrite
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa1373ed675b01025e33806777b0e2ee70184cb252d2a1cf5bbaa7285dd37ea6)
@@ -2283,19 +2283,19 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndSimpleCrite
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2425,8 +2425,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterio
         tag_values: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterionTagValues", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b132989bc20c80d382925e4974a7e3083fa5c9b48721ff1cf14473542b787e9)
@@ -2440,7 +2440,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterio
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2450,7 +2450,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterio
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterionTagValues"]]]:
         '''tag_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         result = self._values.get("tag_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterionTagValues"]]], result)
@@ -2570,8 +2570,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterio
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__caeffee2e9f83f80faaecfb0be3bce0519d4fd46619ceed2ddf253baa280b790)
@@ -2585,13 +2585,13 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAndTagCriterio
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2882,7 +2882,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaOutputReference(
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludesAnd, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteriaExcludes(and_=and_)
 
@@ -2895,7 +2895,7 @@ class Macie2ClassificationJobS3JobDefinitionBucketCriteriaOutputReference(
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludesAnd, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes(and_=and_)
 
@@ -2968,8 +2968,8 @@ class Macie2ClassificationJobS3JobDefinitionBucketDefinitions:
         buckets: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#account_id Macie2ClassificationJob#account_id}.
-        :param buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#buckets Macie2ClassificationJob#buckets}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#account_id Macie2ClassificationJob#account_id}.
+        :param buckets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#buckets Macie2ClassificationJob#buckets}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0749a2f40360dd2866cee3123009bc78e57ea68b9080e9e9c33da749395be3d1)
@@ -2982,14 +2982,14 @@ class Macie2ClassificationJobS3JobDefinitionBucketDefinitions:
 
     @builtins.property
     def account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#account_id Macie2ClassificationJob#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#account_id Macie2ClassificationJob#account_id}.'''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def buckets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#buckets Macie2ClassificationJob#buckets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#buckets Macie2ClassificationJob#buckets}.'''
         result = self._values.get("buckets")
         assert result is not None, "Required property 'buckets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3205,8 +3205,8 @@ class Macie2ClassificationJobS3JobDefinitionOutputReference(
         includes: typing.Optional[typing.Union[Macie2ClassificationJobS3JobDefinitionBucketCriteriaIncludes, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
-        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
+        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
+        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
         '''
         value = Macie2ClassificationJobS3JobDefinitionBucketCriteria(
             excludes=excludes, includes=includes
@@ -3235,8 +3235,8 @@ class Macie2ClassificationJobS3JobDefinitionOutputReference(
         includes: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionScopingIncludes", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
-        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
+        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
+        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
         '''
         value = Macie2ClassificationJobS3JobDefinitionScoping(
             excludes=excludes, includes=includes
@@ -3325,8 +3325,8 @@ class Macie2ClassificationJobS3JobDefinitionScoping:
         includes: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionScopingIncludes", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
-        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
+        :param excludes: excludes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
+        :param includes: includes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
         '''
         if isinstance(excludes, dict):
             excludes = Macie2ClassificationJobS3JobDefinitionScopingExcludes(**excludes)
@@ -3348,7 +3348,7 @@ class Macie2ClassificationJobS3JobDefinitionScoping:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingExcludes"]:
         '''excludes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#excludes Macie2ClassificationJob#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingExcludes"], result)
@@ -3359,7 +3359,7 @@ class Macie2ClassificationJobS3JobDefinitionScoping:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingIncludes"]:
         '''includes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#includes Macie2ClassificationJob#includes}
         '''
         result = self._values.get("includes")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingIncludes"], result)
@@ -3388,7 +3388,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludes:
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4dba534096041adfe43905ed364573baa4117ff5efe41d26fb6c02ae17547478)
@@ -3403,7 +3403,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd"]]], result)
@@ -3436,8 +3436,8 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd:
         tag_scope_term: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param simple_scope_term: simple_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
-        :param tag_scope_term: tag_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
+        :param simple_scope_term: simple_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
+        :param tag_scope_term: tag_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
         '''
         if isinstance(simple_scope_term, dict):
             simple_scope_term = Macie2ClassificationJobS3JobDefinitionScopingExcludesAndSimpleScopeTerm(**simple_scope_term)
@@ -3459,7 +3459,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndSimpleScopeTerm"]:
         '''simple_scope_term block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
         '''
         result = self._values.get("simple_scope_term")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndSimpleScopeTerm"], result)
@@ -3470,7 +3470,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm"]:
         '''tag_scope_term block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
         '''
         result = self._values.get("tag_scope_term")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm"], result)
@@ -3615,9 +3615,9 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         value = Macie2ClassificationJobS3JobDefinitionScopingExcludesAndSimpleScopeTerm(
             comparator=comparator, key=key, values=values
@@ -3635,10 +3635,10 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndOutputReference(
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
         '''
         value = Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm(
             comparator=comparator, key=key, tag_values=tag_values, target=target
@@ -3714,9 +3714,9 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndSimpleScopeTerm:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2169c8aa72d83203d7bdbf0be49853bcb673efef6d723e93fc78f95987bba57)
@@ -3733,19 +3733,19 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndSimpleScopeTerm:
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3882,10 +3882,10 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm:
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5bf8588b063e92ba2d4311f2dc6b95a8726949ef1f175504a6c34d51deef77b9)
@@ -3905,13 +3905,13 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm:
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3921,14 +3921,14 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTerm:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTermTagValues"]]]:
         '''tag_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         result = self._values.get("tag_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTermTagValues"]]], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4089,8 +4089,8 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTermTagVal
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__678de4371fda9e8a20bb062d4460b38f2e85e199a508ed0ccc788702983f5fe2)
@@ -4104,13 +4104,13 @@ class Macie2ClassificationJobS3JobDefinitionScopingExcludesAndTagScopeTermTagVal
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4384,7 +4384,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludes:
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a64c426832dd79d07ef4054b020b4ddacf36922de943b2c1596303e73d50ea9c)
@@ -4399,7 +4399,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd"]]], result)
@@ -4432,8 +4432,8 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd:
         tag_scope_term: typing.Optional[typing.Union["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param simple_scope_term: simple_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
-        :param tag_scope_term: tag_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
+        :param simple_scope_term: simple_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
+        :param tag_scope_term: tag_scope_term block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
         '''
         if isinstance(simple_scope_term, dict):
             simple_scope_term = Macie2ClassificationJobS3JobDefinitionScopingIncludesAndSimpleScopeTerm(**simple_scope_term)
@@ -4455,7 +4455,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndSimpleScopeTerm"]:
         '''simple_scope_term block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#simple_scope_term Macie2ClassificationJob#simple_scope_term}
         '''
         result = self._values.get("simple_scope_term")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndSimpleScopeTerm"], result)
@@ -4466,7 +4466,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd:
     ) -> typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm"]:
         '''tag_scope_term block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_scope_term Macie2ClassificationJob#tag_scope_term}
         '''
         result = self._values.get("tag_scope_term")
         return typing.cast(typing.Optional["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm"], result)
@@ -4611,9 +4611,9 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         value = Macie2ClassificationJobS3JobDefinitionScopingIncludesAndSimpleScopeTerm(
             comparator=comparator, key=key, values=values
@@ -4631,10 +4631,10 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndOutputReference(
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
         '''
         value = Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm(
             comparator=comparator, key=key, tag_values=tag_values, target=target
@@ -4710,9 +4710,9 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndSimpleScopeTerm:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb33dbb3d2fe67cf29191d5e49fc801f11192de63b641f3bf90604ab8934f618)
@@ -4729,19 +4729,19 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndSimpleScopeTerm:
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#values Macie2ClassificationJob#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4878,10 +4878,10 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm:
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
+        :param comparator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param tag_values: tag_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f40f864ed9573329340db4b9bff8c5a0029406402fe9f7a389ad2cc92d9b6b3)
@@ -4901,13 +4901,13 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm:
 
     @builtins.property
     def comparator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#comparator Macie2ClassificationJob#comparator}.'''
         result = self._values.get("comparator")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4917,14 +4917,14 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTerm:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTermTagValues"]]]:
         '''tag_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#tag_values Macie2ClassificationJob#tag_values}
         '''
         result = self._values.get("tag_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTermTagValues"]]], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#target Macie2ClassificationJob#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5085,8 +5085,8 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTermTagVal
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c19d9460d53d0091a58fd258435ad8db53393dbc14411b9232675d60c9f21309)
@@ -5100,13 +5100,13 @@ class Macie2ClassificationJobS3JobDefinitionScopingIncludesAndTagScopeTermTagVal
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#key Macie2ClassificationJob#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#value Macie2ClassificationJob#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5395,7 +5395,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingOutputReference(
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Macie2ClassificationJobS3JobDefinitionScopingExcludesAnd, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         value = Macie2ClassificationJobS3JobDefinitionScopingExcludes(and_=and_)
 
@@ -5408,7 +5408,7 @@ class Macie2ClassificationJobS3JobDefinitionScopingOutputReference(
         and_: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[Macie2ClassificationJobS3JobDefinitionScopingIncludesAnd, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#and Macie2ClassificationJob#and}
         '''
         value = Macie2ClassificationJobS3JobDefinitionScopingIncludes(and_=and_)
 
@@ -5486,9 +5486,9 @@ class Macie2ClassificationJobScheduleFrequency:
         weekly_schedule: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param daily_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#daily_schedule Macie2ClassificationJob#daily_schedule}.
-        :param monthly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#monthly_schedule Macie2ClassificationJob#monthly_schedule}.
-        :param weekly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#weekly_schedule Macie2ClassificationJob#weekly_schedule}.
+        :param daily_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#daily_schedule Macie2ClassificationJob#daily_schedule}.
+        :param monthly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#monthly_schedule Macie2ClassificationJob#monthly_schedule}.
+        :param weekly_schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#weekly_schedule Macie2ClassificationJob#weekly_schedule}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87fc4fdeae4515d236dbae17e7848c4c7bf0616b51ece9ad224d3892fb701b1e)
@@ -5507,19 +5507,19 @@ class Macie2ClassificationJobScheduleFrequency:
     def daily_schedule(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#daily_schedule Macie2ClassificationJob#daily_schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#daily_schedule Macie2ClassificationJob#daily_schedule}.'''
         result = self._values.get("daily_schedule")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def monthly_schedule(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#monthly_schedule Macie2ClassificationJob#monthly_schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#monthly_schedule Macie2ClassificationJob#monthly_schedule}.'''
         result = self._values.get("monthly_schedule")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weekly_schedule(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#weekly_schedule Macie2ClassificationJob#weekly_schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#weekly_schedule Macie2ClassificationJob#weekly_schedule}.'''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5656,8 +5656,8 @@ class Macie2ClassificationJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#create Macie2ClassificationJob#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#update Macie2ClassificationJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#create Macie2ClassificationJob#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#update Macie2ClassificationJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__656cb70c6ffe9baad8b5828a88a0eb01a69d8eaad0fd114d1a31b719097482ad)
@@ -5671,13 +5671,13 @@ class Macie2ClassificationJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#create Macie2ClassificationJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#create Macie2ClassificationJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_classification_job#update Macie2ClassificationJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_classification_job#update Macie2ClassificationJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -28,6 +28,7 @@ class AudioInference(FireworksClient):
         model: str = "whisper-v3",
         vad_model: str = "silero",
         alignment_model: str = "tdnn_ffn",
+        diarization_model: str = "pyannote",
         request_timeout=600,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
@@ -37,6 +38,7 @@ class AudioInference(FireworksClient):
         self.model = model
         self.vad_model = vad_model
         self.alignment_model = alignment_model
+        self.diarization_model = diarization_model
 
     @staticmethod
     def _audio_to_bytes(audio: Union[str, os.PathLike, UrlPath, bytes]) -> bytes:
@@ -60,12 +62,17 @@ class AudioInference(FireworksClient):
         model: str = None,
         vad_model: str = None,
         alignment_model: str = None,
+        diarization_model: str = None,
         prompt: Optional[str] = None,
         response_format: Optional[str] = None,
-        temperature: Optional[float] = None,
+        temperature: Optional[Union[float, List[float]]] = None,
         preprocessing: Optional[str] = None,
+        max_clip_len: Optional[float] = None,
         language: Optional[str] = None,
         timestamp_granularities: Optional[List[str]] = None,
+        diarize: Optional[str] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
     ) -> TranscriptionResponse:
         """
         Transcribe an audio into text using ASR (audio speech recognition).
@@ -77,12 +84,17 @@ class AudioInference(FireworksClient):
         - model (str, optional): The ASR model name to call. If not present, defaults to `self.model` on the AudioInference object.
         - vad_model (str, optional): The VAD model name to call. If not present, defaults to `self.vad_model` on the AudioInference object.
         - alignment_model (str, optional): The alignment model name to call. If not present, defaults to `self.alignment_model` on the AudioInference object.
+        - diarization_model (str, optional): The diarization model name to call. If not present, defaults to `self.diarization_model` on the AudioInference object.
         - prompt (str, optional): The input prompt with which to prime transcription. This can be used, for example, to continue a prior transcription given new audio data.
         - response_format (str): The format in which to return the response. Can be one of "json", "text", "srt", "verbose_json", or "vtt". If not present, defaults to "json".
-        - temperature (str): Sampling temperature to use when decoding text tokens during transcription. If not present, defaults to "0.0".
+        - temperature (Union[float, List[float]], optional): Sampling temperature to use when decoding text tokens during transcription. Alternatively, a list of temperatures to enable fallback decoding. If not present, defaults to "0.0".
         - preprocessing (str, optional): The preprocessing to apply. Can be one of "none", "dynamic", "soft_dynamic", "bass_dynamic". If not present, defaults to "none".
+        - max_clip_len (float, optional): The desired maximum length of audio segment.
         - language (str, optional): The target languages for transcription. The set of supported target languages can be found at https://tinyurl.com/bdz3y63b.
         - timestamp_granularities (List[str], optional): The timestamp granularities to populate for this transcription. `response_format` must be set "verbose_json" to use timestamp granularities. Either or both of these options are supported: "word", or "segment". If not present, defaults to "segment".
+        - diarize (str, optional): Whether to get speaker diarization for the audio. Can be one of "true", or "false". `response_format` must be set "verbose_json" and `timestamp_granularities` must include "word" to use diarization. If not present, defaults to "false".
+        - min_speakers (int, optional): The minimum number of expected speakers for diarization. `diarize` must be set "true" to use `min_speakers`.
+        - max_speakers (int, optional): The maximum number of expected speakers for diarization. `diarize` must be set "true" to use `max_speakers`.
 
         Returns:
         TranscriptionResponse: An object with transcription.
@@ -96,12 +108,17 @@ class AudioInference(FireworksClient):
                 model,
                 vad_model,
                 alignment_model,
+                diarization_model,
                 prompt,
                 response_format,
                 temperature,
                 preprocessing,
+                max_clip_len,
                 language,
                 timestamp_granularities,
+                diarize,
+                min_speakers,
+                max_speakers,
             )
         )
 
@@ -111,12 +128,17 @@ class AudioInference(FireworksClient):
         model: str = None,
         vad_model: str = None,
         alignment_model: str = None,
+        diarization_model: str = None,
         prompt: Optional[str] = None,
         response_format: Optional[str] = None,
-        temperature: Optional[float] = None,
+        temperature: Optional[Union[float, List[float]]] = None,
         preprocessing: Optional[str] = None,
+        max_clip_len: Optional[float] = None,
         language: Optional[str] = None,
         timestamp_granularities: Optional[List[str]] = None,
+        diarize: Optional[str] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
     ) -> Union[TranscriptionResponse, TranscriptionVerboseResponse, str]:
         """
         Transcribe an audio into text using ASR (audio speech recognition).
@@ -128,12 +150,17 @@ class AudioInference(FireworksClient):
         - model (str, optional): The ASR model name to call. If not present, defaults to `self.model` on the AudioInference object.
         - vad_model (str, optional): The VAD model name to call. If not present, defaults to `self.vad_model` on the AudioInference object.
         - alignment_model (str, optional): The alignment model name to call. If not present, defaults to `self.alignment_model` on the AudioInference object.
+        - diarization_model (str, optional): The diarization model name to call. If not present, defaults to `self.diarization_model` on the AudioInference object.
         - prompt (str, optional): The input prompt with which to prime transcription. This can be used, for example, to continue a prior transcription given new audio data.
         - response_format (str): The format in which to return the response. Can be one of "json", "text", "srt", "verbose_json", or "vtt". If not present, defaults to "json".
-        - temperature (str): Sampling temperature to use when decoding text tokens during transcription. If not present, defaults to "0.0".
+        - temperature (Union[float, List[float]], optional): Sampling temperature to use when decoding text tokens during transcription. Alternatively, a list of temperatures to enable fallback decoding. If not present, defaults to "0.0".
         - preprocessing (str, optional): The preprocessing to apply. Can be one of "none", "dynamic", "soft_dynamic", "bass_dynamic". If not present, defaults to "none".
+        - max_clip_len (float, optional): The desired maximum length of audio segment.
         - language (str, optional): The target languages for transcription. The set of supported target languages can be found at https://tinyurl.com/bdz3y63b.
         - timestamp_granularities (List[str], optional): The timestamp granularities to populate for this transcription. `response_format` must be set "verbose_json" to use timestamp granularities. Either or both of these options are supported: "word", or "segment". If not present, defaults to "segment".
+        - diarize (str, optional): Whether to get speaker diarization for the audio. Can be one of "true", or "false". `response_format` must be set "verbose_json" and `timestamp_granularities` must include "word" to use diarization. If not present, defaults to "false".
+        - min_speakers (int, optional): The minimum number of expected speakers for diarization. `diarize` must be set "true" to use `min_speakers`.
+        - max_speakers (int, optional): The maximum number of expected speakers for diarization. `diarize` must be set "true" to use `max_speakers`.
 
         Returns:
         TranscriptionResponse: An object with transcription.
@@ -145,12 +172,17 @@ class AudioInference(FireworksClient):
             model=model or self.model,
             vad_model=vad_model or self.vad_model,
             alignment_model=alignment_model or self.alignment_model,
+            diarization_model=diarization_model or self.diarization_model,
             prompt=prompt,
             response_format=response_format,
             temperature=temperature,
             preprocessing=preprocessing,
+            max_clip_len=max_clip_len,
             language=language,
             timestamp_granularities=timestamp_granularities,
+            diarize=diarize,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
         )
         data = {
             **request.to_multipart(),
@@ -186,8 +218,10 @@ class AudioInference(FireworksClient):
         alignment_model: str = None,
         prompt: Optional[str] = None,
         response_format: Optional[str] = None,
-        temperature: Optional[float] = None,
+        temperature: Optional[Union[float, List[float]]] = None,
         preprocessing: Optional[str] = None,
+        max_clip_len: Optional[float] = None,
+        timestamp_granularities: Optional[List[str]] = None,
     ) -> TranscriptionResponse:
         """
         Translate an audio into english text using ASR (audio speech recognition).
@@ -201,8 +235,10 @@ class AudioInference(FireworksClient):
         - alignment_model (str, optional): The alignment model name to call. If not present, defaults to `self.alignment_model` on the AudioInference object.
         - prompt (str, optional): The input prompt with which to prime transcription. This can be used, for example, to continue a prior transcription given new audio data.
         - response_format (str): The format in which to return the response. Can be one of "json", "text", "srt", "verbose_json", or "vtt". If not present, defaults to "json".
-        - temperature (str): Sampling temperature to use when decoding text tokens during transcription. If not present, defaults to "0.0".
+        - temperature (Union[float, List[float]], optional): Sampling temperature to use when decoding text tokens during transcription. Alternatively, a list of temperatures to enable fallback decoding. If not present, defaults to "0.0".
         - preprocessing (str, optional): The preprocessing to apply. Can be one of "none", "dynamic", "soft_dynamic", "bass_dynamic". If not present, defaults to "none".
+        - max_clip_len (float, optional): The desired maximum length of audio segment.
+        - timestamp_granularities (List[str], optional): The timestamp granularities to populate for this transcription. `response_format` must be set "verbose_json" to use timestamp granularities. Either or both of these options are supported: "word", or "segment". If not present, defaults to "segment".
 
         Returns:
         TranscriptionResponse: An object with english transcription.
@@ -220,6 +256,8 @@ class AudioInference(FireworksClient):
                 response_format,
                 temperature,
                 preprocessing,
+                max_clip_len,
+                timestamp_granularities,
             )
         )
 
@@ -231,8 +269,10 @@ class AudioInference(FireworksClient):
         alignment_model: str = None,
         prompt: Optional[str] = None,
         response_format: Optional[str] = None,
-        temperature: Optional[float] = None,
+        temperature: Optional[Union[float, List[float]]] = None,
         preprocessing: Optional[str] = None,
+        max_clip_len: Optional[float] = None,
+        timestamp_granularities: Optional[List[str]] = None,
     ) -> Union[TranscriptionResponse, TranscriptionVerboseResponse, str]:
         """
         Translate an audio into english text using ASR (audio speech recognition).
@@ -246,9 +286,11 @@ class AudioInference(FireworksClient):
         - alignment_model (str, optional): The alignment model name to call. If not present, defaults to `self.alignment_model` on the AudioInference object.
         - prompt (str, optional): The input prompt with which to prime transcription. This can be used, for example, to continue a prior transcription given new audio data.
         - response_format (str): The format in which to return the response. Can be one of "json", "text", "srt", "verbose_json", or "vtt". If not present, defaults to "json".
-        - temperature (str): Sampling temperature to use when decoding text tokens during transcription. If not present, defaults to "0.0".
+        - temperature (Union[float, List[float]], optional): Sampling temperature to use when decoding text tokens during transcription. Alternatively, a list of temperatures to enable fallback decoding. If not present, defaults to "0.0".
         - timestamp_granularities (List[str]): The timestamp granularities to populate for this transcription. `response_format` must be set "verbose_json" to use timestamp granularities. Either or both of these options are supported: "word", or "segment". If not present, defaults to "segment".
         - preprocessing (str, optional): The preprocessing to apply. Can be one of "none", "dynamic", "soft_dynamic", "bass_dynamic". If not present, defaults to "none".
+        - max_clip_len (float, optional): The desired maximum length of audio segment.
+        - timestamp_granularities (List[str], optional): The timestamp granularities to populate for this transcription. `response_format` must be set "verbose_json" to use timestamp granularities. Either or both of these options are supported: "word", or "segment". If not present, defaults to "segment".
 
         Returns:
         TranscriptionResponse: An object with english transcription.
@@ -264,6 +306,8 @@ class AudioInference(FireworksClient):
             response_format=response_format,
             temperature=temperature,
             preprocessing=preprocessing,
+            max_clip_len=max_clip_len,
+            timestamp_granularities=timestamp_granularities,
         )
         data = {
             **request.to_multipart(),

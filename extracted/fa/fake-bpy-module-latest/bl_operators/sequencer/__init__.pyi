@@ -12,11 +12,11 @@ class Fade:
     start: typing.Any
     type: typing.Any
 
-    def calculate_max_value(self, sequence, fade_fcurve):
-        """Returns the maximum Y coordinate the fade animation should use for a given sequence
-        Uses either the sequence's value for the animated property, or the next keyframe after the fade
+    def calculate_max_value(self, strip, fade_fcurve):
+        """Returns the maximum Y coordinate the fade animation should use for a given strip
+        Uses either the strip's value for the animated property, or the next keyframe after the fade
 
-                :param sequence:
+                :param strip:
                 :param fade_fcurve:
         """
 
@@ -123,17 +123,17 @@ class SequencerFadesAdd(bpy.types.Operator):
         :rtype: typing.Any
         """
 
-    def calculate_fade_duration(self, context, sequence):
+    def calculate_fade_duration(self, context, strip):
         """
 
         :param context:
-        :param sequence:
+        :param strip:
         """
 
-    def calculate_fades(self, sequence, fade_fcurve, animated_property, duration):
+    def calculate_fades(self, strip, fade_fcurve, animated_property, duration):
         """Returns a list of Fade objects
 
-        :param sequence:
+        :param strip:
         :param fade_fcurve:
         :param animated_property:
         :param duration:
@@ -161,20 +161,20 @@ class SequencerFadesAdd(bpy.types.Operator):
                 :param fades:
         """
 
-    def fade_find_or_create_fcurve(self, context, sequence, animated_property):
+    def fade_find_or_create_fcurve(self, context, strip, animated_property):
         """Iterates over all the fcurves until it finds an fcurve with a data path
-        that corresponds to the sequence.
+        that corresponds to the strip.
         Returns the matching FCurve or creates a new one if the function can't find a match.
 
                 :param context:
-                :param sequence:
+                :param strip:
                 :param animated_property:
         """
 
-    def is_long_enough(self, sequence, duration=0.0):
+    def is_long_enough(self, strip, duration=0.0):
         """
 
-        :param sequence:
+        :param strip:
         :param duration:
         """
 
@@ -186,7 +186,7 @@ class SequencerFadesAdd(bpy.types.Operator):
         """
 
 class SequencerFadesClear(bpy.types.Operator):
-    """Removes fade animation from selected sequences"""
+    """Removes fade animation from selected strips"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

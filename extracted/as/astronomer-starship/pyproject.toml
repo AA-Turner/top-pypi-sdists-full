@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astronomer-starship"
+dynamic = ["version"]
+description = "Migrations to Astro"
+authors = [
+    { name = "Fritz Davenport", email = "fritz@astronomer.io" },
+    { name = "CETA Team", email = "ceta@astronomer.io" },
+    { name = "Astronomer", email = "humans@astronomer.io" }
+]
+readme = "README.md"
+license = { text = "PROPRIETARY" }
+requires-python = ">=3.6"
+dependencies = []
+
+[project.urls]
+Homepage = "https://astronomer.io"
+Source = "https://github.com/astronomer/starship/"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.package-data]
+"astronomer_starship" = ["*.js", "*.html", "*.css"]
+"astronomer_starship.static" = ["*.js", "*.html", "*.css"]
+"astronomer_starship.static.assets" = ["*.js", "*.html", "*.css"]
+"astronomer_starship.templates" = ["*.js", "*.html", "*.css"]
+
+[tool.setuptools.dynamic]
+version = { attr = "astronomer_starship.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["astronomer_starship", "astronomer_starship.*"]
+exclude = [
+    "*venv*", "*venv*.*",
+    "*tests.*", "*tests",
+    "*build", "*build.*",
+    "*dist", "*dist.*",
+    "*node_modules", "*node_modules.*",
+]
+
+[project.optional-dependencies]
+provider = [
+    "apache-airflow-providers-http"
+]
+
+dev = [
+    # package
+    "twine",
+    "build",
+
+    # test
+    "apache-airflow",
+    "pytest>=7",
+    "pytest-cov>=4.0",
+    "pytest-integration>=0.2",
+    "pytest-sugar>=0.9",
+
+    "docker>=6",
+
+    # docs
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pygments",
+
+    # precommit
+    "pre-commit>=3.3; python_version>'3.7'",
+    "detect-secrets>=1.4; python_version>'3.6'",
+
+    # lint
+    "black>=22",
+    "ruff>=0.0.261; python_version>'3.6'",
+    "pylint>=2",
+    "isort>=5",
+]
+
+
+# for pip installing this pyproject.toml
+[project.entry-points."airflow.plugins"]
+"starship" = "astronomer_starship.starship:StarshipPlugin"
+"starship_api" = "astronomer_starship.starship_api:StarshipAPIPlugin"
+
+[project.entry-points.apache_airflow_provider]
+provider_info = "astronomer_starship.__init__:get_provider_info"
+
+[tool.black]
+# https://github.com/psf/black
+color = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = [
+    "B301",
+    "B403",
+    "B310", # urlopen in Aeroscope
+    "B608"  # SQL Injection in DAG History Migration
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.pytest.ini_options]
+norecursedirs = [
+    "tests/docker_test/", "tests/resources/", "hooks", "*.egg", ".eggs",
+    "dist", "build", "docs", ".tox", ".git", "__pycache__"
+]
+doctest_optionflags = ["NUMBER", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
+
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings",
+    "--no-header",
+    "--doctest-modules",
+    "--doctest-continue-on-failure",
+]

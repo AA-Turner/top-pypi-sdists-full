@@ -509,6 +509,7 @@ __all__ = (
     "BaselinePerformanceFactorsUnionTypeDef",
     "BlobAttributeValueTypeDef",
     "BlobTypeDef",
+    "BlockDeviceMappingResponseTypeDef",
     "BlockDeviceMappingTypeDef",
     "BlockPublicAccessStatesTypeDef",
     "BundleInstanceRequestTypeDef",
@@ -1590,6 +1591,7 @@ __all__ = (
     "DnsOptionsSpecificationTypeDef",
     "DnsOptionsTypeDef",
     "DnsServersOptionsModifyStructureTypeDef",
+    "EbsBlockDeviceResponseTypeDef",
     "EbsBlockDeviceTypeDef",
     "EbsInfoTypeDef",
     "EbsInstanceBlockDeviceSpecificationTypeDef",
@@ -1686,8 +1688,10 @@ __all__ = (
     "FilterTypeDef",
     "FirewallStatefulRuleTypeDef",
     "FirewallStatelessRuleTypeDef",
+    "FleetBlockDeviceMappingRequestTypeDef",
     "FleetCapacityReservationTypeDef",
     "FleetDataTypeDef",
+    "FleetEbsBlockDeviceRequestTypeDef",
     "FleetLaunchTemplateConfigRequestTypeDef",
     "FleetLaunchTemplateConfigTypeDef",
     "FleetLaunchTemplateOverridesRequestTypeDef",
@@ -3355,6 +3359,17 @@ class BaselineEbsBandwidthMbpsTypeDef(TypedDict):
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+
+class EbsBlockDeviceResponseTypeDef(TypedDict):
+    Encrypted: NotRequired[bool]
+    DeleteOnTermination: NotRequired[bool]
+    Iops: NotRequired[int]
+    Throughput: NotRequired[int]
+    KmsKeyId: NotRequired[str]
+    SnapshotId: NotRequired[str]
+    VolumeSize: NotRequired[int]
+    VolumeType: NotRequired[VolumeTypeType]
 
 
 class EbsBlockDeviceTypeDef(TypedDict):
@@ -5767,6 +5782,17 @@ VerifiedAccessInstanceUserTrustProviderClientConfigurationTypeDef = TypedDict(
 class FilterPortRangeTypeDef(TypedDict):
     FromPort: NotRequired[int]
     ToPort: NotRequired[int]
+
+
+class FleetEbsBlockDeviceRequestTypeDef(TypedDict):
+    Encrypted: NotRequired[bool]
+    DeleteOnTermination: NotRequired[bool]
+    Iops: NotRequired[int]
+    Throughput: NotRequired[int]
+    KmsKeyId: NotRequired[str]
+    SnapshotId: NotRequired[str]
+    VolumeSize: NotRequired[int]
+    VolumeType: NotRequired[VolumeTypeType]
 
 
 class TargetCapacitySpecificationTypeDef(TypedDict):
@@ -10125,6 +10151,13 @@ class S3StorageTypeDef(TypedDict):
     UploadPolicySignature: NotRequired[str]
 
 
+class BlockDeviceMappingResponseTypeDef(TypedDict):
+    DeviceName: NotRequired[str]
+    VirtualName: NotRequired[str]
+    Ebs: NotRequired[EbsBlockDeviceResponseTypeDef]
+    NoDevice: NotRequired[str]
+
+
 class BlockDeviceMappingTypeDef(TypedDict):
     Ebs: NotRequired[EbsBlockDeviceTypeDef]
     NoDevice: NotRequired[str]
@@ -13757,6 +13790,13 @@ class PathFilterTypeDef(TypedDict):
     SourcePortRange: NotRequired[FilterPortRangeTypeDef]
     DestinationAddress: NotRequired[str]
     DestinationPortRange: NotRequired[FilterPortRangeTypeDef]
+
+
+class FleetBlockDeviceMappingRequestTypeDef(TypedDict):
+    DeviceName: NotRequired[str]
+    VirtualName: NotRequired[str]
+    Ebs: NotRequired[FleetEbsBlockDeviceRequestTypeDef]
+    NoDevice: NotRequired[str]
 
 
 class FleetSpotMaintenanceStrategiesRequestTypeDef(TypedDict):
@@ -19603,6 +19643,7 @@ class FleetLaunchTemplateOverridesTypeDef(TypedDict):
     Placement: NotRequired[PlacementResponseTypeDef]
     InstanceRequirements: NotRequired[InstanceRequirementsOutputTypeDef]
     ImageId: NotRequired[str]
+    BlockDeviceMappings: NotRequired[List[BlockDeviceMappingResponseTypeDef]]
 
 
 class LaunchTemplateOverridesOutputTypeDef(TypedDict):
@@ -19690,6 +19731,7 @@ class FleetLaunchTemplateOverridesRequestTypeDef(TypedDict):
     WeightedCapacity: NotRequired[float]
     Priority: NotRequired[float]
     Placement: NotRequired[PlacementTypeDef]
+    BlockDeviceMappings: NotRequired[Sequence[FleetBlockDeviceMappingRequestTypeDef]]
     InstanceRequirements: NotRequired[InstanceRequirementsRequestTypeDef]
     ImageId: NotRequired[str]
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_s3_bucket_inventory`
 
-Refer to the Terraform Registry for docs: [`aws_s3_bucket_inventory`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory).
+Refer to the Terraform Registry for docs: [`aws_s3_bucket_inventory`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class S3BucketInventory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.s3BucketInventory.S3BucketInventory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory aws_s3_bucket_inventory}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory aws_s3_bucket_inventory}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class S3BucketInventory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory aws_s3_bucket_inventory} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory aws_s3_bucket_inventory} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#destination S3BucketInventory#destination}
-        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#included_object_versions S3BucketInventory#included_object_versions}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#name S3BucketInventory#name}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#schedule S3BucketInventory#schedule}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#enabled S3BucketInventory#enabled}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#filter S3BucketInventory#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#id S3BucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#optional_fields S3BucketInventory#optional_fields}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#destination S3BucketInventory#destination}
+        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#included_object_versions S3BucketInventory#included_object_versions}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#name S3BucketInventory#name}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#schedule S3BucketInventory#schedule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#enabled S3BucketInventory#enabled}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#filter S3BucketInventory#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#id S3BucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#optional_fields S3BucketInventory#optional_fields}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class S3BucketInventory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the S3BucketInventory to import.
-        :param import_from_id: The id of the existing S3BucketInventory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing S3BucketInventory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the S3BucketInventory to import is found.
         '''
         if __debug__:
@@ -145,7 +145,7 @@ class S3BucketInventory(
         bucket: typing.Union["S3BucketInventoryDestinationBucket", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param bucket: bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}
+        :param bucket: bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}
         '''
         value = S3BucketInventoryDestination(bucket=bucket)
 
@@ -154,7 +154,7 @@ class S3BucketInventory(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, prefix: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
         '''
         value = S3BucketInventoryFilter(prefix=prefix)
 
@@ -163,7 +163,7 @@ class S3BucketInventory(
     @jsii.member(jsii_name="putSchedule")
     def put_schedule(self, *, frequency: builtins.str) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#frequency S3BucketInventory#frequency}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#frequency S3BucketInventory#frequency}.
         '''
         value = S3BucketInventorySchedule(frequency=frequency)
 
@@ -387,15 +387,15 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#destination S3BucketInventory#destination}
-        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#included_object_versions S3BucketInventory#included_object_versions}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#name S3BucketInventory#name}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#schedule S3BucketInventory#schedule}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#enabled S3BucketInventory#enabled}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#filter S3BucketInventory#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#id S3BucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#optional_fields S3BucketInventory#optional_fields}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#destination S3BucketInventory#destination}
+        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#included_object_versions S3BucketInventory#included_object_versions}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#name S3BucketInventory#name}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#schedule S3BucketInventory#schedule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#enabled S3BucketInventory#enabled}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#filter S3BucketInventory#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#id S3BucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#optional_fields S3BucketInventory#optional_fields}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -519,7 +519,7 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -528,7 +528,7 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination(self) -> "S3BucketInventoryDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#destination S3BucketInventory#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#destination S3BucketInventory#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -536,14 +536,14 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def included_object_versions(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#included_object_versions S3BucketInventory#included_object_versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#included_object_versions S3BucketInventory#included_object_versions}.'''
         result = self._values.get("included_object_versions")
         assert result is not None, "Required property 'included_object_versions' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#name S3BucketInventory#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#name S3BucketInventory#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -552,7 +552,7 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schedule(self) -> "S3BucketInventorySchedule":
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#schedule S3BucketInventory#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#schedule S3BucketInventory#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -562,7 +562,7 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#enabled S3BucketInventory#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#enabled S3BucketInventory#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -570,14 +570,14 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["S3BucketInventoryFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#filter S3BucketInventory#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#filter S3BucketInventory#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["S3BucketInventoryFilter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#id S3BucketInventory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#id S3BucketInventory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -587,7 +587,7 @@ class S3BucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def optional_fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#optional_fields S3BucketInventory#optional_fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#optional_fields S3BucketInventory#optional_fields}.'''
         result = self._values.get("optional_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -615,7 +615,7 @@ class S3BucketInventoryDestination:
         bucket: typing.Union["S3BucketInventoryDestinationBucket", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param bucket: bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}
+        :param bucket: bucket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}
         '''
         if isinstance(bucket, dict):
             bucket = S3BucketInventoryDestinationBucket(**bucket)
@@ -630,7 +630,7 @@ class S3BucketInventoryDestination:
     def bucket(self) -> "S3BucketInventoryDestinationBucket":
         '''bucket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket S3BucketInventory#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -670,11 +670,11 @@ class S3BucketInventoryDestinationBucket:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket_arn S3BucketInventory#bucket_arn}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#format S3BucketInventory#format}.
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#account_id S3BucketInventory#account_id}.
-        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#encryption S3BucketInventory#encryption}
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
+        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket_arn S3BucketInventory#bucket_arn}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#format S3BucketInventory#format}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#account_id S3BucketInventory#account_id}.
+        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#encryption S3BucketInventory#encryption}
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
         '''
         if isinstance(encryption, dict):
             encryption = S3BucketInventoryDestinationBucketEncryption(**encryption)
@@ -698,21 +698,21 @@ class S3BucketInventoryDestinationBucket:
 
     @builtins.property
     def bucket_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket_arn S3BucketInventory#bucket_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket_arn S3BucketInventory#bucket_arn}.'''
         result = self._values.get("bucket_arn")
         assert result is not None, "Required property 'bucket_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#format S3BucketInventory#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#format S3BucketInventory#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#account_id S3BucketInventory#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#account_id S3BucketInventory#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -722,14 +722,14 @@ class S3BucketInventoryDestinationBucket:
     ) -> typing.Optional["S3BucketInventoryDestinationBucketEncryption"]:
         '''encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#encryption S3BucketInventory#encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#encryption S3BucketInventory#encryption}
         '''
         result = self._values.get("encryption")
         return typing.cast(typing.Optional["S3BucketInventoryDestinationBucketEncryption"], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -758,8 +758,8 @@ class S3BucketInventoryDestinationBucketEncryption:
         sse_s3: typing.Optional[typing.Union["S3BucketInventoryDestinationBucketEncryptionSseS3", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param sse_kms: sse_kms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#sse_kms S3BucketInventory#sse_kms}
-        :param sse_s3: sse_s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#sse_s3 S3BucketInventory#sse_s3}
+        :param sse_kms: sse_kms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#sse_kms S3BucketInventory#sse_kms}
+        :param sse_s3: sse_s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#sse_s3 S3BucketInventory#sse_s3}
         '''
         if isinstance(sse_kms, dict):
             sse_kms = S3BucketInventoryDestinationBucketEncryptionSseKms(**sse_kms)
@@ -781,7 +781,7 @@ class S3BucketInventoryDestinationBucketEncryption:
     ) -> typing.Optional["S3BucketInventoryDestinationBucketEncryptionSseKms"]:
         '''sse_kms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#sse_kms S3BucketInventory#sse_kms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#sse_kms S3BucketInventory#sse_kms}
         '''
         result = self._values.get("sse_kms")
         return typing.cast(typing.Optional["S3BucketInventoryDestinationBucketEncryptionSseKms"], result)
@@ -792,7 +792,7 @@ class S3BucketInventoryDestinationBucketEncryption:
     ) -> typing.Optional["S3BucketInventoryDestinationBucketEncryptionSseS3"]:
         '''sse_s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#sse_s3 S3BucketInventory#sse_s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#sse_s3 S3BucketInventory#sse_s3}
         '''
         result = self._values.get("sse_s3")
         return typing.cast(typing.Optional["S3BucketInventoryDestinationBucketEncryptionSseS3"], result)
@@ -832,7 +832,7 @@ class S3BucketInventoryDestinationBucketEncryptionOutputReference(
     @jsii.member(jsii_name="putSseKms")
     def put_sse_kms(self, *, key_id: builtins.str) -> None:
         '''
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#key_id S3BucketInventory#key_id}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#key_id S3BucketInventory#key_id}.
         '''
         value = S3BucketInventoryDestinationBucketEncryptionSseKms(key_id=key_id)
 
@@ -906,7 +906,7 @@ class S3BucketInventoryDestinationBucketEncryptionOutputReference(
 class S3BucketInventoryDestinationBucketEncryptionSseKms:
     def __init__(self, *, key_id: builtins.str) -> None:
         '''
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#key_id S3BucketInventory#key_id}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#key_id S3BucketInventory#key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e66e12e0f8a959db4d2c89b5e007ba2c05d2ae670f04c42ae65de2e39afd93c)
@@ -917,7 +917,7 @@ class S3BucketInventoryDestinationBucketEncryptionSseKms:
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#key_id S3BucketInventory#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#key_id S3BucketInventory#key_id}.'''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1076,8 +1076,8 @@ class S3BucketInventoryDestinationBucketOutputReference(
         sse_s3: typing.Optional[typing.Union[S3BucketInventoryDestinationBucketEncryptionSseS3, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param sse_kms: sse_kms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#sse_kms S3BucketInventory#sse_kms}
-        :param sse_s3: sse_s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#sse_s3 S3BucketInventory#sse_s3}
+        :param sse_kms: sse_kms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#sse_kms S3BucketInventory#sse_kms}
+        :param sse_s3: sse_s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#sse_s3 S3BucketInventory#sse_s3}
         '''
         value = S3BucketInventoryDestinationBucketEncryption(
             sse_kms=sse_kms, sse_s3=sse_s3
@@ -1224,11 +1224,11 @@ class S3BucketInventoryDestinationOutputReference(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#bucket_arn S3BucketInventory#bucket_arn}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#format S3BucketInventory#format}.
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#account_id S3BucketInventory#account_id}.
-        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#encryption S3BucketInventory#encryption}
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
+        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#bucket_arn S3BucketInventory#bucket_arn}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#format S3BucketInventory#format}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#account_id S3BucketInventory#account_id}.
+        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#encryption S3BucketInventory#encryption}
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
         '''
         value = S3BucketInventoryDestinationBucket(
             bucket_arn=bucket_arn,
@@ -1274,7 +1274,7 @@ class S3BucketInventoryDestinationOutputReference(
 class S3BucketInventoryFilter:
     def __init__(self, *, prefix: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1dd45f1295045883a6dc4769ffc3581f35b0a3cc2e6db50024f0d2d5b5dad58)
@@ -1285,7 +1285,7 @@ class S3BucketInventoryFilter:
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#prefix S3BucketInventory#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1363,7 +1363,7 @@ class S3BucketInventoryFilterOutputReference(
 class S3BucketInventorySchedule:
     def __init__(self, *, frequency: builtins.str) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#frequency S3BucketInventory#frequency}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#frequency S3BucketInventory#frequency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6b83ba2d8ba0272fe71c165930ceec123036ba17d113fa0f33e88d6eaca5506)
@@ -1374,7 +1374,7 @@ class S3BucketInventorySchedule:
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/s3_bucket_inventory#frequency S3BucketInventory#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/s3_bucket_inventory#frequency S3BucketInventory#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)

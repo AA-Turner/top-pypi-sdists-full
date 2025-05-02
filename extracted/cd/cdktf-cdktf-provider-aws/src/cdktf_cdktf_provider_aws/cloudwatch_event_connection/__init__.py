@@ -1,7 +1,7 @@
 r'''
 # `aws_cloudwatch_event_connection`
 
-Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_connection`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection).
+Refer to the Terraform Registry for docs: [`aws_cloudwatch_event_connection`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudwatchEventConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.cloudwatchEventConnection.CloudwatchEventConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection aws_cloudwatch_event_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection aws_cloudwatch_event_connection}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CloudwatchEventConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection aws_cloudwatch_event_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection aws_cloudwatch_event_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#authorization_type CloudwatchEventConnection#authorization_type}.
-        :param auth_parameters: auth_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#auth_parameters CloudwatchEventConnection#auth_parameters}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#name CloudwatchEventConnection#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#description CloudwatchEventConnection#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#id CloudwatchEventConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param invocation_connectivity_parameters: invocation_connectivity_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#invocation_connectivity_parameters CloudwatchEventConnection#invocation_connectivity_parameters}
+        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#authorization_type CloudwatchEventConnection#authorization_type}.
+        :param auth_parameters: auth_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#auth_parameters CloudwatchEventConnection#auth_parameters}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#name CloudwatchEventConnection#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#description CloudwatchEventConnection#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#id CloudwatchEventConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param invocation_connectivity_parameters: invocation_connectivity_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#invocation_connectivity_parameters CloudwatchEventConnection#invocation_connectivity_parameters}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CloudwatchEventConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudwatchEventConnection to import.
-        :param import_from_id: The id of the existing CloudwatchEventConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudwatchEventConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudwatchEventConnection to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class CloudwatchEventConnection(
         oauth: typing.Optional[typing.Union["CloudwatchEventConnectionAuthParametersOauth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#api_key CloudwatchEventConnection#api_key}
-        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#basic CloudwatchEventConnection#basic}
-        :param invocation_http_parameters: invocation_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#invocation_http_parameters CloudwatchEventConnection#invocation_http_parameters}
-        :param oauth: oauth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#oauth CloudwatchEventConnection#oauth}
+        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#api_key CloudwatchEventConnection#api_key}
+        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#basic CloudwatchEventConnection#basic}
+        :param invocation_http_parameters: invocation_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#invocation_http_parameters CloudwatchEventConnection#invocation_http_parameters}
+        :param oauth: oauth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#oauth CloudwatchEventConnection#oauth}
         '''
         value = CloudwatchEventConnectionAuthParameters(
             api_key=api_key,
@@ -160,7 +160,7 @@ class CloudwatchEventConnection(
         resource_parameters: typing.Union["CloudwatchEventConnectionInvocationConnectivityParametersResourceParameters", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param resource_parameters: resource_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#resource_parameters CloudwatchEventConnection#resource_parameters}
+        :param resource_parameters: resource_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#resource_parameters CloudwatchEventConnection#resource_parameters}
         '''
         value = CloudwatchEventConnectionInvocationConnectivityParameters(
             resource_parameters=resource_parameters
@@ -320,10 +320,10 @@ class CloudwatchEventConnectionAuthParameters:
         oauth: typing.Optional[typing.Union["CloudwatchEventConnectionAuthParametersOauth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#api_key CloudwatchEventConnection#api_key}
-        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#basic CloudwatchEventConnection#basic}
-        :param invocation_http_parameters: invocation_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#invocation_http_parameters CloudwatchEventConnection#invocation_http_parameters}
-        :param oauth: oauth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#oauth CloudwatchEventConnection#oauth}
+        :param api_key: api_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#api_key CloudwatchEventConnection#api_key}
+        :param basic: basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#basic CloudwatchEventConnection#basic}
+        :param invocation_http_parameters: invocation_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#invocation_http_parameters CloudwatchEventConnection#invocation_http_parameters}
+        :param oauth: oauth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#oauth CloudwatchEventConnection#oauth}
         '''
         if isinstance(api_key, dict):
             api_key = CloudwatchEventConnectionAuthParametersApiKey(**api_key)
@@ -355,7 +355,7 @@ class CloudwatchEventConnectionAuthParameters:
     ) -> typing.Optional["CloudwatchEventConnectionAuthParametersApiKey"]:
         '''api_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#api_key CloudwatchEventConnection#api_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#api_key CloudwatchEventConnection#api_key}
         '''
         result = self._values.get("api_key")
         return typing.cast(typing.Optional["CloudwatchEventConnectionAuthParametersApiKey"], result)
@@ -364,7 +364,7 @@ class CloudwatchEventConnectionAuthParameters:
     def basic(self) -> typing.Optional["CloudwatchEventConnectionAuthParametersBasic"]:
         '''basic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#basic CloudwatchEventConnection#basic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#basic CloudwatchEventConnection#basic}
         '''
         result = self._values.get("basic")
         return typing.cast(typing.Optional["CloudwatchEventConnectionAuthParametersBasic"], result)
@@ -375,7 +375,7 @@ class CloudwatchEventConnectionAuthParameters:
     ) -> typing.Optional["CloudwatchEventConnectionAuthParametersInvocationHttpParameters"]:
         '''invocation_http_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#invocation_http_parameters CloudwatchEventConnection#invocation_http_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#invocation_http_parameters CloudwatchEventConnection#invocation_http_parameters}
         '''
         result = self._values.get("invocation_http_parameters")
         return typing.cast(typing.Optional["CloudwatchEventConnectionAuthParametersInvocationHttpParameters"], result)
@@ -384,7 +384,7 @@ class CloudwatchEventConnectionAuthParameters:
     def oauth(self) -> typing.Optional["CloudwatchEventConnectionAuthParametersOauth"]:
         '''oauth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#oauth CloudwatchEventConnection#oauth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#oauth CloudwatchEventConnection#oauth}
         '''
         result = self._values.get("oauth")
         return typing.cast(typing.Optional["CloudwatchEventConnectionAuthParametersOauth"], result)
@@ -409,8 +409,8 @@ class CloudwatchEventConnectionAuthParameters:
 class CloudwatchEventConnectionAuthParametersApiKey:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27375aa746762a0cc2c3572523be9312df8dc8de41438e8fcc389ecb32aeb483)
@@ -423,14 +423,14 @@ class CloudwatchEventConnectionAuthParametersApiKey:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -527,8 +527,8 @@ class CloudwatchEventConnectionAuthParametersApiKeyOutputReference(
 class CloudwatchEventConnectionAuthParametersBasic:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#password CloudwatchEventConnection#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#username CloudwatchEventConnection#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#password CloudwatchEventConnection#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#username CloudwatchEventConnection#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05c431663c7bfbe4fa241e3403702da179ad7b695915cc757bc1aca680714b3a)
@@ -541,14 +541,14 @@ class CloudwatchEventConnectionAuthParametersBasic:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#password CloudwatchEventConnection#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#password CloudwatchEventConnection#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#username CloudwatchEventConnection#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#username CloudwatchEventConnection#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
@@ -651,9 +651,9 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParameters:
         query_string: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudwatchEventConnectionAuthParametersInvocationHttpParametersQueryString", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
+        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca69660a2dac713091008a895cf1010b71813285fdd69be5ecc1e42841b91a15)
@@ -674,7 +674,7 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersInvocationHttpParametersBody"]]]:
         '''body block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersInvocationHttpParametersBody"]]], result)
@@ -685,7 +685,7 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersInvocationHttpParametersHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersInvocationHttpParametersHeader"]]], result)
@@ -696,7 +696,7 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersInvocationHttpParametersQueryString"]]]:
         '''query_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
         '''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersInvocationHttpParametersQueryString"]]], result)
@@ -727,9 +727,9 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParametersBody:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6804cd16f6467bf00cef290159bef6fe0ab4d12b279149e8d27a8ba17e948baa)
@@ -748,19 +748,19 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParametersBody:
     def is_value_secret(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
         result = self._values.get("is_value_secret")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -997,9 +997,9 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParametersHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__234484f96c49db72bd87b6854d159bf21848135b8497493b460a7947580597a5)
@@ -1018,19 +1018,19 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParametersHeader:
     def is_value_secret(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
         result = self._values.get("is_value_secret")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1398,9 +1398,9 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParametersQueryString
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b5bd4c997e0e60640113144d7ffcee4e12bdf711bafc779dea3161b0f3b0e64)
@@ -1419,19 +1419,19 @@ class CloudwatchEventConnectionAuthParametersInvocationHttpParametersQueryString
     def is_value_secret(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
         result = self._values.get("is_value_secret")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1674,10 +1674,10 @@ class CloudwatchEventConnectionAuthParametersOauth:
         client_parameters: typing.Optional[typing.Union["CloudwatchEventConnectionAuthParametersOauthClientParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#authorization_endpoint CloudwatchEventConnection#authorization_endpoint}.
-        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#http_method CloudwatchEventConnection#http_method}.
-        :param oauth_http_parameters: oauth_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#oauth_http_parameters CloudwatchEventConnection#oauth_http_parameters}
-        :param client_parameters: client_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_parameters CloudwatchEventConnection#client_parameters}
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#authorization_endpoint CloudwatchEventConnection#authorization_endpoint}.
+        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#http_method CloudwatchEventConnection#http_method}.
+        :param oauth_http_parameters: oauth_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#oauth_http_parameters CloudwatchEventConnection#oauth_http_parameters}
+        :param client_parameters: client_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_parameters CloudwatchEventConnection#client_parameters}
         '''
         if isinstance(oauth_http_parameters, dict):
             oauth_http_parameters = CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters(**oauth_http_parameters)
@@ -1699,14 +1699,14 @@ class CloudwatchEventConnectionAuthParametersOauth:
 
     @builtins.property
     def authorization_endpoint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#authorization_endpoint CloudwatchEventConnection#authorization_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#authorization_endpoint CloudwatchEventConnection#authorization_endpoint}.'''
         result = self._values.get("authorization_endpoint")
         assert result is not None, "Required property 'authorization_endpoint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def http_method(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#http_method CloudwatchEventConnection#http_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#http_method CloudwatchEventConnection#http_method}.'''
         result = self._values.get("http_method")
         assert result is not None, "Required property 'http_method' is missing"
         return typing.cast(builtins.str, result)
@@ -1717,7 +1717,7 @@ class CloudwatchEventConnectionAuthParametersOauth:
     ) -> "CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters":
         '''oauth_http_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#oauth_http_parameters CloudwatchEventConnection#oauth_http_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#oauth_http_parameters CloudwatchEventConnection#oauth_http_parameters}
         '''
         result = self._values.get("oauth_http_parameters")
         assert result is not None, "Required property 'oauth_http_parameters' is missing"
@@ -1729,7 +1729,7 @@ class CloudwatchEventConnectionAuthParametersOauth:
     ) -> typing.Optional["CloudwatchEventConnectionAuthParametersOauthClientParameters"]:
         '''client_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_parameters CloudwatchEventConnection#client_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_parameters CloudwatchEventConnection#client_parameters}
         '''
         result = self._values.get("client_parameters")
         return typing.cast(typing.Optional["CloudwatchEventConnectionAuthParametersOauthClientParameters"], result)
@@ -1754,8 +1754,8 @@ class CloudwatchEventConnectionAuthParametersOauth:
 class CloudwatchEventConnectionAuthParametersOauthClientParameters:
     def __init__(self, *, client_id: builtins.str, client_secret: builtins.str) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_id CloudwatchEventConnection#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_secret CloudwatchEventConnection#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_id CloudwatchEventConnection#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_secret CloudwatchEventConnection#client_secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ee433b280e4791126a9a233d0d82858275cfc8d82727800f3f568cfee03a679)
@@ -1768,14 +1768,14 @@ class CloudwatchEventConnectionAuthParametersOauthClientParameters:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_id CloudwatchEventConnection#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_id CloudwatchEventConnection#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_secret CloudwatchEventConnection#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_secret CloudwatchEventConnection#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
@@ -1878,9 +1878,9 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters:
         query_string: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersQueryString", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
+        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f66104961072ba62be01cda974dce77877ea976580d5fc7465c2903ffd2241d0)
@@ -1901,7 +1901,7 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersBody"]]]:
         '''body block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersBody"]]], result)
@@ -1912,7 +1912,7 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersHeader"]]], result)
@@ -1923,7 +1923,7 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersQueryString"]]]:
         '''query_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
         '''
         result = self._values.get("query_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersQueryString"]]], result)
@@ -1954,9 +1954,9 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersBody:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3e17d93d9fa189e399eb396284380aae8d39244699ecf3d8e0b258b79501948)
@@ -1975,19 +1975,19 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersBody:
     def is_value_secret(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
         result = self._values.get("is_value_secret")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2224,9 +2224,9 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8631c3be50d02b8d44e406f7da376707ecd0c658ba20c69bb0c6c5238f612656)
@@ -2245,19 +2245,19 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersHeader:
     def is_value_secret(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
         result = self._values.get("is_value_secret")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2625,9 +2625,9 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersQueryString
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param is_value_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c65a984b8fe345d12543cd8b8947657fa84e542b20f50a54f0dedd2c0c6f1102)
@@ -2646,19 +2646,19 @@ class CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersQueryString
     def is_value_secret(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#is_value_secret CloudwatchEventConnection#is_value_secret}.'''
         result = self._values.get("is_value_secret")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2909,8 +2909,8 @@ class CloudwatchEventConnectionAuthParametersOauthOutputReference(
         client_secret: builtins.str,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_id CloudwatchEventConnection#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_secret CloudwatchEventConnection#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_id CloudwatchEventConnection#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_secret CloudwatchEventConnection#client_secret}.
         '''
         value = CloudwatchEventConnectionAuthParametersOauthClientParameters(
             client_id=client_id, client_secret=client_secret
@@ -2927,9 +2927,9 @@ class CloudwatchEventConnectionAuthParametersOauthOutputReference(
         query_string: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CloudwatchEventConnectionAuthParametersOauthOauthHttpParametersQueryString, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
+        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
         '''
         value = CloudwatchEventConnectionAuthParametersOauthOauthHttpParameters(
             body=body, header=header, query_string=query_string
@@ -3044,8 +3044,8 @@ class CloudwatchEventConnectionAuthParametersOutputReference(
     @jsii.member(jsii_name="putApiKey")
     def put_api_key(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#key CloudwatchEventConnection#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#value CloudwatchEventConnection#value}.
         '''
         value_ = CloudwatchEventConnectionAuthParametersApiKey(key=key, value=value)
 
@@ -3054,8 +3054,8 @@ class CloudwatchEventConnectionAuthParametersOutputReference(
     @jsii.member(jsii_name="putBasic")
     def put_basic(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#password CloudwatchEventConnection#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#username CloudwatchEventConnection#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#password CloudwatchEventConnection#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#username CloudwatchEventConnection#username}.
         '''
         value = CloudwatchEventConnectionAuthParametersBasic(
             password=password, username=username
@@ -3072,9 +3072,9 @@ class CloudwatchEventConnectionAuthParametersOutputReference(
         query_string: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CloudwatchEventConnectionAuthParametersInvocationHttpParametersQueryString, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
-        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
+        :param body: body block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#body CloudwatchEventConnection#body}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#header CloudwatchEventConnection#header}
+        :param query_string: query_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#query_string CloudwatchEventConnection#query_string}
         '''
         value = CloudwatchEventConnectionAuthParametersInvocationHttpParameters(
             body=body, header=header, query_string=query_string
@@ -3092,10 +3092,10 @@ class CloudwatchEventConnectionAuthParametersOutputReference(
         client_parameters: typing.Optional[typing.Union[CloudwatchEventConnectionAuthParametersOauthClientParameters, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#authorization_endpoint CloudwatchEventConnection#authorization_endpoint}.
-        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#http_method CloudwatchEventConnection#http_method}.
-        :param oauth_http_parameters: oauth_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#oauth_http_parameters CloudwatchEventConnection#oauth_http_parameters}
-        :param client_parameters: client_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#client_parameters CloudwatchEventConnection#client_parameters}
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#authorization_endpoint CloudwatchEventConnection#authorization_endpoint}.
+        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#http_method CloudwatchEventConnection#http_method}.
+        :param oauth_http_parameters: oauth_http_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#oauth_http_parameters CloudwatchEventConnection#oauth_http_parameters}
+        :param client_parameters: client_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#client_parameters CloudwatchEventConnection#client_parameters}
         '''
         value = CloudwatchEventConnectionAuthParametersOauth(
             authorization_endpoint=authorization_endpoint,
@@ -3235,12 +3235,12 @@ class CloudwatchEventConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#authorization_type CloudwatchEventConnection#authorization_type}.
-        :param auth_parameters: auth_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#auth_parameters CloudwatchEventConnection#auth_parameters}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#name CloudwatchEventConnection#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#description CloudwatchEventConnection#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#id CloudwatchEventConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param invocation_connectivity_parameters: invocation_connectivity_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#invocation_connectivity_parameters CloudwatchEventConnection#invocation_connectivity_parameters}
+        :param authorization_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#authorization_type CloudwatchEventConnection#authorization_type}.
+        :param auth_parameters: auth_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#auth_parameters CloudwatchEventConnection#auth_parameters}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#name CloudwatchEventConnection#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#description CloudwatchEventConnection#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#id CloudwatchEventConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param invocation_connectivity_parameters: invocation_connectivity_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#invocation_connectivity_parameters CloudwatchEventConnection#invocation_connectivity_parameters}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3355,7 +3355,7 @@ class CloudwatchEventConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def authorization_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#authorization_type CloudwatchEventConnection#authorization_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#authorization_type CloudwatchEventConnection#authorization_type}.'''
         result = self._values.get("authorization_type")
         assert result is not None, "Required property 'authorization_type' is missing"
         return typing.cast(builtins.str, result)
@@ -3364,7 +3364,7 @@ class CloudwatchEventConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_parameters(self) -> CloudwatchEventConnectionAuthParameters:
         '''auth_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#auth_parameters CloudwatchEventConnection#auth_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#auth_parameters CloudwatchEventConnection#auth_parameters}
         '''
         result = self._values.get("auth_parameters")
         assert result is not None, "Required property 'auth_parameters' is missing"
@@ -3372,20 +3372,20 @@ class CloudwatchEventConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#name CloudwatchEventConnection#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#name CloudwatchEventConnection#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#description CloudwatchEventConnection#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#description CloudwatchEventConnection#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#id CloudwatchEventConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#id CloudwatchEventConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3399,7 +3399,7 @@ class CloudwatchEventConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudwatchEventConnectionInvocationConnectivityParameters"]:
         '''invocation_connectivity_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#invocation_connectivity_parameters CloudwatchEventConnection#invocation_connectivity_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#invocation_connectivity_parameters CloudwatchEventConnection#invocation_connectivity_parameters}
         '''
         result = self._values.get("invocation_connectivity_parameters")
         return typing.cast(typing.Optional["CloudwatchEventConnectionInvocationConnectivityParameters"], result)
@@ -3428,7 +3428,7 @@ class CloudwatchEventConnectionInvocationConnectivityParameters:
         resource_parameters: typing.Union["CloudwatchEventConnectionInvocationConnectivityParametersResourceParameters", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param resource_parameters: resource_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#resource_parameters CloudwatchEventConnection#resource_parameters}
+        :param resource_parameters: resource_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#resource_parameters CloudwatchEventConnection#resource_parameters}
         '''
         if isinstance(resource_parameters, dict):
             resource_parameters = CloudwatchEventConnectionInvocationConnectivityParametersResourceParameters(**resource_parameters)
@@ -3445,7 +3445,7 @@ class CloudwatchEventConnectionInvocationConnectivityParameters:
     ) -> "CloudwatchEventConnectionInvocationConnectivityParametersResourceParameters":
         '''resource_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#resource_parameters CloudwatchEventConnection#resource_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#resource_parameters CloudwatchEventConnection#resource_parameters}
         '''
         result = self._values.get("resource_parameters")
         assert result is not None, "Required property 'resource_parameters' is missing"
@@ -3490,7 +3490,7 @@ class CloudwatchEventConnectionInvocationConnectivityParametersOutputReference(
         resource_configuration_arn: builtins.str,
     ) -> None:
         '''
-        :param resource_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#resource_configuration_arn CloudwatchEventConnection#resource_configuration_arn}.
+        :param resource_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#resource_configuration_arn CloudwatchEventConnection#resource_configuration_arn}.
         '''
         value = CloudwatchEventConnectionInvocationConnectivityParametersResourceParameters(
             resource_configuration_arn=resource_configuration_arn
@@ -3538,7 +3538,7 @@ class CloudwatchEventConnectionInvocationConnectivityParametersOutputReference(
 class CloudwatchEventConnectionInvocationConnectivityParametersResourceParameters:
     def __init__(self, *, resource_configuration_arn: builtins.str) -> None:
         '''
-        :param resource_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#resource_configuration_arn CloudwatchEventConnection#resource_configuration_arn}.
+        :param resource_configuration_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#resource_configuration_arn CloudwatchEventConnection#resource_configuration_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c48082478fd8e9563f6e7348b2a398ef170314cba6286d8eb37b6b91985af172)
@@ -3549,7 +3549,7 @@ class CloudwatchEventConnectionInvocationConnectivityParametersResourceParameter
 
     @builtins.property
     def resource_configuration_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/cloudwatch_event_connection#resource_configuration_arn CloudwatchEventConnection#resource_configuration_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_event_connection#resource_configuration_arn CloudwatchEventConnection#resource_configuration_arn}.'''
         result = self._values.get("resource_configuration_arn")
         assert result is not None, "Required property 'resource_configuration_arn' is missing"
         return typing.cast(builtins.str, result)

@@ -1,7 +1,7 @@
 r'''
 # `aws_ssmcontacts_plan`
 
-Refer to the Terraform Registry for docs: [`aws_ssmcontacts_plan`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan).
+Refer to the Terraform Registry for docs: [`aws_ssmcontacts_plan`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SsmcontactsPlan(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ssmcontactsPlan.SsmcontactsPlan",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan aws_ssmcontacts_plan}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan aws_ssmcontacts_plan}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class SsmcontactsPlan(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan aws_ssmcontacts_plan} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan aws_ssmcontacts_plan} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
-        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#stage SsmcontactsPlan#stage}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#id SsmcontactsPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
+        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#stage SsmcontactsPlan#stage}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#id SsmcontactsPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class SsmcontactsPlan(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SsmcontactsPlan to import.
-        :param import_from_id: The id of the existing SsmcontactsPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SsmcontactsPlan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SsmcontactsPlan to import is found.
         '''
         if __debug__:
@@ -236,9 +236,9 @@ class SsmcontactsPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
-        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#stage SsmcontactsPlan#stage}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#id SsmcontactsPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
+        :param stage: stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#stage SsmcontactsPlan#stage}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#id SsmcontactsPlan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -341,7 +341,7 @@ class SsmcontactsPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def contact_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.'''
         result = self._values.get("contact_id")
         assert result is not None, "Required property 'contact_id' is missing"
         return typing.cast(builtins.str, result)
@@ -352,7 +352,7 @@ class SsmcontactsPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsPlanStage"]]:
         '''stage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#stage SsmcontactsPlan#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#stage SsmcontactsPlan#stage}
         '''
         result = self._values.get("stage")
         assert result is not None, "Required property 'stage' is missing"
@@ -360,7 +360,7 @@ class SsmcontactsPlanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#id SsmcontactsPlan#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#id SsmcontactsPlan#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -393,8 +393,8 @@ class SsmcontactsPlanStage:
         target: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SsmcontactsPlanStageTarget", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param duration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#duration_in_minutes SsmcontactsPlan#duration_in_minutes}.
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#target SsmcontactsPlan#target}
+        :param duration_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#duration_in_minutes SsmcontactsPlan#duration_in_minutes}.
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#target SsmcontactsPlan#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d670a93a5ad1c7881043f5c205aaa509f783972ece790483f9bdcad3bb1865b)
@@ -408,7 +408,7 @@ class SsmcontactsPlanStage:
 
     @builtins.property
     def duration_in_minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#duration_in_minutes SsmcontactsPlan#duration_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#duration_in_minutes SsmcontactsPlan#duration_in_minutes}.'''
         result = self._values.get("duration_in_minutes")
         assert result is not None, "Required property 'duration_in_minutes' is missing"
         return typing.cast(jsii.Number, result)
@@ -419,7 +419,7 @@ class SsmcontactsPlanStage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsPlanStageTarget"]]]:
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#target SsmcontactsPlan#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#target SsmcontactsPlan#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmcontactsPlanStageTarget"]]], result)
@@ -632,8 +632,8 @@ class SsmcontactsPlanStageTarget:
         contact_target_info: typing.Optional[typing.Union["SsmcontactsPlanStageTargetContactTargetInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param channel_target_info: channel_target_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#channel_target_info SsmcontactsPlan#channel_target_info}
-        :param contact_target_info: contact_target_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_target_info SsmcontactsPlan#contact_target_info}
+        :param channel_target_info: channel_target_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#channel_target_info SsmcontactsPlan#channel_target_info}
+        :param contact_target_info: contact_target_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_target_info SsmcontactsPlan#contact_target_info}
         '''
         if isinstance(channel_target_info, dict):
             channel_target_info = SsmcontactsPlanStageTargetChannelTargetInfo(**channel_target_info)
@@ -655,7 +655,7 @@ class SsmcontactsPlanStageTarget:
     ) -> typing.Optional["SsmcontactsPlanStageTargetChannelTargetInfo"]:
         '''channel_target_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#channel_target_info SsmcontactsPlan#channel_target_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#channel_target_info SsmcontactsPlan#channel_target_info}
         '''
         result = self._values.get("channel_target_info")
         return typing.cast(typing.Optional["SsmcontactsPlanStageTargetChannelTargetInfo"], result)
@@ -666,7 +666,7 @@ class SsmcontactsPlanStageTarget:
     ) -> typing.Optional["SsmcontactsPlanStageTargetContactTargetInfo"]:
         '''contact_target_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_target_info SsmcontactsPlan#contact_target_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_target_info SsmcontactsPlan#contact_target_info}
         '''
         result = self._values.get("contact_target_info")
         return typing.cast(typing.Optional["SsmcontactsPlanStageTargetContactTargetInfo"], result)
@@ -699,8 +699,8 @@ class SsmcontactsPlanStageTargetChannelTargetInfo:
         retry_interval_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param contact_channel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_channel_id SsmcontactsPlan#contact_channel_id}.
-        :param retry_interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#retry_interval_in_minutes SsmcontactsPlan#retry_interval_in_minutes}.
+        :param contact_channel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_channel_id SsmcontactsPlan#contact_channel_id}.
+        :param retry_interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#retry_interval_in_minutes SsmcontactsPlan#retry_interval_in_minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2ba86ae9dade3128625e6ae9994aa5fcd0625f641139c592dd9fb214300829b)
@@ -714,14 +714,14 @@ class SsmcontactsPlanStageTargetChannelTargetInfo:
 
     @builtins.property
     def contact_channel_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_channel_id SsmcontactsPlan#contact_channel_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_channel_id SsmcontactsPlan#contact_channel_id}.'''
         result = self._values.get("contact_channel_id")
         assert result is not None, "Required property 'contact_channel_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def retry_interval_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#retry_interval_in_minutes SsmcontactsPlan#retry_interval_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#retry_interval_in_minutes SsmcontactsPlan#retry_interval_in_minutes}.'''
         result = self._values.get("retry_interval_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -826,8 +826,8 @@ class SsmcontactsPlanStageTargetContactTargetInfo:
         contact_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_essential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#is_essential SsmcontactsPlan#is_essential}.
-        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
+        :param is_essential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#is_essential SsmcontactsPlan#is_essential}.
+        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a50a3390111fb6978911f85af597ed8ae36fb241e879d7438d262912264b44e)
@@ -841,14 +841,14 @@ class SsmcontactsPlanStageTargetContactTargetInfo:
 
     @builtins.property
     def is_essential(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#is_essential SsmcontactsPlan#is_essential}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#is_essential SsmcontactsPlan#is_essential}.'''
         result = self._values.get("is_essential")
         assert result is not None, "Required property 'is_essential' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def contact_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.'''
         result = self._values.get("contact_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1069,8 +1069,8 @@ class SsmcontactsPlanStageTargetOutputReference(
         retry_interval_in_minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param contact_channel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_channel_id SsmcontactsPlan#contact_channel_id}.
-        :param retry_interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#retry_interval_in_minutes SsmcontactsPlan#retry_interval_in_minutes}.
+        :param contact_channel_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_channel_id SsmcontactsPlan#contact_channel_id}.
+        :param retry_interval_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#retry_interval_in_minutes SsmcontactsPlan#retry_interval_in_minutes}.
         '''
         value = SsmcontactsPlanStageTargetChannelTargetInfo(
             contact_channel_id=contact_channel_id,
@@ -1087,8 +1087,8 @@ class SsmcontactsPlanStageTargetOutputReference(
         contact_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param is_essential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#is_essential SsmcontactsPlan#is_essential}.
-        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
+        :param is_essential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#is_essential SsmcontactsPlan#is_essential}.
+        :param contact_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssmcontacts_plan#contact_id SsmcontactsPlan#contact_id}.
         '''
         value = SsmcontactsPlanStageTargetContactTargetInfo(
             is_essential=is_essential, contact_id=contact_id

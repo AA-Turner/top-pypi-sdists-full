@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_catalog_database`
 
-Refer to the Terraform Registry for docs: [`aws_glue_catalog_database`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database).
+Refer to the Terraform Registry for docs: [`aws_glue_catalog_database`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueCatalogDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueCatalogDatabase.GlueCatalogDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database aws_glue_catalog_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database aws_glue_catalog_database}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GlueCatalogDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database aws_glue_catalog_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database aws_glue_catalog_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#name GlueCatalogDatabase#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
-        :param create_table_default_permission: create_table_default_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#create_table_default_permission GlueCatalogDatabase#create_table_default_permission}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#description GlueCatalogDatabase#description}.
-        :param federated_database: federated_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#federated_database GlueCatalogDatabase#federated_database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#id GlueCatalogDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#location_uri GlueCatalogDatabase#location_uri}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#parameters GlueCatalogDatabase#parameters}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#tags GlueCatalogDatabase#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#tags_all GlueCatalogDatabase#tags_all}.
-        :param target_database: target_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#target_database GlueCatalogDatabase#target_database}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#name GlueCatalogDatabase#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
+        :param create_table_default_permission: create_table_default_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#create_table_default_permission GlueCatalogDatabase#create_table_default_permission}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#description GlueCatalogDatabase#description}.
+        :param federated_database: federated_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#federated_database GlueCatalogDatabase#federated_database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#id GlueCatalogDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#location_uri GlueCatalogDatabase#location_uri}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#parameters GlueCatalogDatabase#parameters}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#tags GlueCatalogDatabase#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#tags_all GlueCatalogDatabase#tags_all}.
+        :param target_database: target_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#target_database GlueCatalogDatabase#target_database}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GlueCatalogDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueCatalogDatabase to import.
-        :param import_from_id: The id of the existing GlueCatalogDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueCatalogDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueCatalogDatabase to import is found.
         '''
         if __debug__:
@@ -165,8 +165,8 @@ class GlueCatalogDatabase(
         identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#connection_name GlueCatalogDatabase#connection_name}.
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#identifier GlueCatalogDatabase#identifier}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#connection_name GlueCatalogDatabase#connection_name}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#identifier GlueCatalogDatabase#identifier}.
         '''
         value = GlueCatalogDatabaseFederatedDatabase(
             connection_name=connection_name, identifier=identifier
@@ -183,9 +183,9 @@ class GlueCatalogDatabase(
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#database_name GlueCatalogDatabase#database_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#region GlueCatalogDatabase#region}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#database_name GlueCatalogDatabase#database_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#region GlueCatalogDatabase#region}.
         '''
         value = GlueCatalogDatabaseTargetDatabase(
             catalog_id=catalog_id, database_name=database_name, region=region
@@ -487,17 +487,17 @@ class GlueCatalogDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#name GlueCatalogDatabase#name}.
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
-        :param create_table_default_permission: create_table_default_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#create_table_default_permission GlueCatalogDatabase#create_table_default_permission}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#description GlueCatalogDatabase#description}.
-        :param federated_database: federated_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#federated_database GlueCatalogDatabase#federated_database}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#id GlueCatalogDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#location_uri GlueCatalogDatabase#location_uri}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#parameters GlueCatalogDatabase#parameters}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#tags GlueCatalogDatabase#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#tags_all GlueCatalogDatabase#tags_all}.
-        :param target_database: target_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#target_database GlueCatalogDatabase#target_database}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#name GlueCatalogDatabase#name}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
+        :param create_table_default_permission: create_table_default_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#create_table_default_permission GlueCatalogDatabase#create_table_default_permission}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#description GlueCatalogDatabase#description}.
+        :param federated_database: federated_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#federated_database GlueCatalogDatabase#federated_database}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#id GlueCatalogDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#location_uri GlueCatalogDatabase#location_uri}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#parameters GlueCatalogDatabase#parameters}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#tags GlueCatalogDatabase#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#tags_all GlueCatalogDatabase#tags_all}.
+        :param target_database: target_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#target_database GlueCatalogDatabase#target_database}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,14 +629,14 @@ class GlueCatalogDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#name GlueCatalogDatabase#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#name GlueCatalogDatabase#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.'''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -646,14 +646,14 @@ class GlueCatalogDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogDatabaseCreateTableDefaultPermission"]]]:
         '''create_table_default_permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#create_table_default_permission GlueCatalogDatabase#create_table_default_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#create_table_default_permission GlueCatalogDatabase#create_table_default_permission}
         '''
         result = self._values.get("create_table_default_permission")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GlueCatalogDatabaseCreateTableDefaultPermission"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#description GlueCatalogDatabase#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#description GlueCatalogDatabase#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -663,14 +663,14 @@ class GlueCatalogDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GlueCatalogDatabaseFederatedDatabase"]:
         '''federated_database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#federated_database GlueCatalogDatabase#federated_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#federated_database GlueCatalogDatabase#federated_database}
         '''
         result = self._values.get("federated_database")
         return typing.cast(typing.Optional["GlueCatalogDatabaseFederatedDatabase"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#id GlueCatalogDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#id GlueCatalogDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -680,25 +680,25 @@ class GlueCatalogDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#location_uri GlueCatalogDatabase#location_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#location_uri GlueCatalogDatabase#location_uri}.'''
         result = self._values.get("location_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#parameters GlueCatalogDatabase#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#parameters GlueCatalogDatabase#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#tags GlueCatalogDatabase#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#tags GlueCatalogDatabase#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#tags_all GlueCatalogDatabase#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#tags_all GlueCatalogDatabase#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -706,7 +706,7 @@ class GlueCatalogDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_database(self) -> typing.Optional["GlueCatalogDatabaseTargetDatabase"]:
         '''target_database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#target_database GlueCatalogDatabase#target_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#target_database GlueCatalogDatabase#target_database}
         '''
         result = self._values.get("target_database")
         return typing.cast(typing.Optional["GlueCatalogDatabaseTargetDatabase"], result)
@@ -736,8 +736,8 @@ class GlueCatalogDatabaseCreateTableDefaultPermission:
         principal: typing.Optional[typing.Union["GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#permissions GlueCatalogDatabase#permissions}.
-        :param principal: principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#principal GlueCatalogDatabase#principal}
+        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#permissions GlueCatalogDatabase#permissions}.
+        :param principal: principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#principal GlueCatalogDatabase#principal}
         '''
         if isinstance(principal, dict):
             principal = GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal(**principal)
@@ -753,7 +753,7 @@ class GlueCatalogDatabaseCreateTableDefaultPermission:
 
     @builtins.property
     def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#permissions GlueCatalogDatabase#permissions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#permissions GlueCatalogDatabase#permissions}.'''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -763,7 +763,7 @@ class GlueCatalogDatabaseCreateTableDefaultPermission:
     ) -> typing.Optional["GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal"]:
         '''principal block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#principal GlueCatalogDatabase#principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#principal GlueCatalogDatabase#principal}
         '''
         result = self._values.get("principal")
         return typing.cast(typing.Optional["GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal"], result)
@@ -906,7 +906,7 @@ class GlueCatalogDatabaseCreateTableDefaultPermissionOutputReference(
         data_lake_principal_identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_lake_principal_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#data_lake_principal_identifier GlueCatalogDatabase#data_lake_principal_identifier}.
+        :param data_lake_principal_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#data_lake_principal_identifier GlueCatalogDatabase#data_lake_principal_identifier}.
         '''
         value = GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal(
             data_lake_principal_identifier=data_lake_principal_identifier
@@ -983,7 +983,7 @@ class GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal:
         data_lake_principal_identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_lake_principal_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#data_lake_principal_identifier GlueCatalogDatabase#data_lake_principal_identifier}.
+        :param data_lake_principal_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#data_lake_principal_identifier GlueCatalogDatabase#data_lake_principal_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__401bb890ea8052d0cd27fac7b3c0aead5235f813605eb2d06829d36026561c83)
@@ -994,7 +994,7 @@ class GlueCatalogDatabaseCreateTableDefaultPermissionPrincipal:
 
     @builtins.property
     def data_lake_principal_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#data_lake_principal_identifier GlueCatalogDatabase#data_lake_principal_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#data_lake_principal_identifier GlueCatalogDatabase#data_lake_principal_identifier}.'''
         result = self._values.get("data_lake_principal_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1082,8 +1082,8 @@ class GlueCatalogDatabaseFederatedDatabase:
         identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#connection_name GlueCatalogDatabase#connection_name}.
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#identifier GlueCatalogDatabase#identifier}.
+        :param connection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#connection_name GlueCatalogDatabase#connection_name}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#identifier GlueCatalogDatabase#identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__044ad0c84b558608337884494083447d5265a7da8704eea604ed7030aa407c51)
@@ -1097,13 +1097,13 @@ class GlueCatalogDatabaseFederatedDatabase:
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#connection_name GlueCatalogDatabase#connection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#connection_name GlueCatalogDatabase#connection_name}.'''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#identifier GlueCatalogDatabase#identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#identifier GlueCatalogDatabase#identifier}.'''
         result = self._values.get("identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1215,9 +1215,9 @@ class GlueCatalogDatabaseTargetDatabase:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#database_name GlueCatalogDatabase#database_name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#region GlueCatalogDatabase#region}.
+        :param catalog_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#database_name GlueCatalogDatabase#database_name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#region GlueCatalogDatabase#region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3513b17672c61023495396135dbf941341335293de6ced6f539f89bee7ebf3f3)
@@ -1233,21 +1233,21 @@ class GlueCatalogDatabaseTargetDatabase:
 
     @builtins.property
     def catalog_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#catalog_id GlueCatalogDatabase#catalog_id}.'''
         result = self._values.get("catalog_id")
         assert result is not None, "Required property 'catalog_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#database_name GlueCatalogDatabase#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#database_name GlueCatalogDatabase#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_catalog_database#region GlueCatalogDatabase#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_catalog_database#region GlueCatalogDatabase#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_kinesis_analytics_application`
 
-Refer to the Terraform Registry for docs: [`aws_kinesis_analytics_application`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application).
+Refer to the Terraform Registry for docs: [`aws_kinesis_analytics_application`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KinesisAnalyticsApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kinesisAnalyticsApplication.KinesisAnalyticsApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application aws_kinesis_analytics_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application aws_kinesis_analytics_application}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class KinesisAnalyticsApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application aws_kinesis_analytics_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application aws_kinesis_analytics_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
-        :param cloudwatch_logging_options: cloudwatch_logging_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#cloudwatch_logging_options KinesisAnalyticsApplication#cloudwatch_logging_options}
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#code KinesisAnalyticsApplication#code}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#description KinesisAnalyticsApplication#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#id KinesisAnalyticsApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#inputs KinesisAnalyticsApplication#inputs}
-        :param outputs: outputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#outputs KinesisAnalyticsApplication#outputs}
-        :param reference_data_sources: reference_data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#reference_data_sources KinesisAnalyticsApplication#reference_data_sources}
-        :param start_application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#start_application KinesisAnalyticsApplication#start_application}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#tags KinesisAnalyticsApplication#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#tags_all KinesisAnalyticsApplication#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
+        :param cloudwatch_logging_options: cloudwatch_logging_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#cloudwatch_logging_options KinesisAnalyticsApplication#cloudwatch_logging_options}
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#code KinesisAnalyticsApplication#code}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#description KinesisAnalyticsApplication#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#id KinesisAnalyticsApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#inputs KinesisAnalyticsApplication#inputs}
+        :param outputs: outputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#outputs KinesisAnalyticsApplication#outputs}
+        :param reference_data_sources: reference_data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#reference_data_sources KinesisAnalyticsApplication#reference_data_sources}
+        :param start_application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#start_application KinesisAnalyticsApplication#start_application}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#tags KinesisAnalyticsApplication#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#tags_all KinesisAnalyticsApplication#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class KinesisAnalyticsApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KinesisAnalyticsApplication to import.
-        :param import_from_id: The id of the existing KinesisAnalyticsApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KinesisAnalyticsApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KinesisAnalyticsApplication to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class KinesisAnalyticsApplication(
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param log_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#log_stream_arn KinesisAnalyticsApplication#log_stream_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param log_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#log_stream_arn KinesisAnalyticsApplication#log_stream_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationCloudwatchLoggingOptions(
             log_stream_arn=log_stream_arn, role_arn=role_arn
@@ -174,13 +174,13 @@ class KinesisAnalyticsApplication(
         starting_position_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KinesisAnalyticsApplicationInputsStartingPositionConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name_prefix KinesisAnalyticsApplication#name_prefix}.
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
-        :param kinesis_firehose: kinesis_firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
-        :param kinesis_stream: kinesis_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
-        :param parallelism: parallelism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#parallelism KinesisAnalyticsApplication#parallelism}
-        :param processing_configuration: processing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#processing_configuration KinesisAnalyticsApplication#processing_configuration}
-        :param starting_position_configuration: starting_position_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#starting_position_configuration KinesisAnalyticsApplication#starting_position_configuration}
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name_prefix KinesisAnalyticsApplication#name_prefix}.
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        :param kinesis_firehose: kinesis_firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
+        :param kinesis_stream: kinesis_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
+        :param parallelism: parallelism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#parallelism KinesisAnalyticsApplication#parallelism}
+        :param processing_configuration: processing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#processing_configuration KinesisAnalyticsApplication#processing_configuration}
+        :param starting_position_configuration: starting_position_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#starting_position_configuration KinesisAnalyticsApplication#starting_position_configuration}
         '''
         value = KinesisAnalyticsApplicationInputs(
             name_prefix=name_prefix,
@@ -216,9 +216,9 @@ class KinesisAnalyticsApplication(
         table_name: builtins.str,
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#s3 KinesisAnalyticsApplication#s3}
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#table_name KinesisAnalyticsApplication#table_name}.
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#s3 KinesisAnalyticsApplication#s3}
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#table_name KinesisAnalyticsApplication#table_name}.
         '''
         value = KinesisAnalyticsApplicationReferenceDataSources(
             s3=s3, schema=schema, table_name=table_name
@@ -491,8 +491,8 @@ class KinesisAnalyticsApplication(
 class KinesisAnalyticsApplicationCloudwatchLoggingOptions:
     def __init__(self, *, log_stream_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param log_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#log_stream_arn KinesisAnalyticsApplication#log_stream_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param log_stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#log_stream_arn KinesisAnalyticsApplication#log_stream_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5fc482b09d384c43e62def631a7fb8039a30450ecfeda622887bb88254082101)
@@ -505,14 +505,14 @@ class KinesisAnalyticsApplicationCloudwatchLoggingOptions:
 
     @builtins.property
     def log_stream_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#log_stream_arn KinesisAnalyticsApplication#log_stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#log_stream_arn KinesisAnalyticsApplication#log_stream_arn}.'''
         result = self._values.get("log_stream_arn")
         assert result is not None, "Required property 'log_stream_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -661,17 +661,17 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
-        :param cloudwatch_logging_options: cloudwatch_logging_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#cloudwatch_logging_options KinesisAnalyticsApplication#cloudwatch_logging_options}
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#code KinesisAnalyticsApplication#code}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#description KinesisAnalyticsApplication#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#id KinesisAnalyticsApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#inputs KinesisAnalyticsApplication#inputs}
-        :param outputs: outputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#outputs KinesisAnalyticsApplication#outputs}
-        :param reference_data_sources: reference_data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#reference_data_sources KinesisAnalyticsApplication#reference_data_sources}
-        :param start_application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#start_application KinesisAnalyticsApplication#start_application}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#tags KinesisAnalyticsApplication#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#tags_all KinesisAnalyticsApplication#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
+        :param cloudwatch_logging_options: cloudwatch_logging_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#cloudwatch_logging_options KinesisAnalyticsApplication#cloudwatch_logging_options}
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#code KinesisAnalyticsApplication#code}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#description KinesisAnalyticsApplication#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#id KinesisAnalyticsApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#inputs KinesisAnalyticsApplication#inputs}
+        :param outputs: outputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#outputs KinesisAnalyticsApplication#outputs}
+        :param reference_data_sources: reference_data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#reference_data_sources KinesisAnalyticsApplication#reference_data_sources}
+        :param start_application: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#start_application KinesisAnalyticsApplication#start_application}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#tags KinesisAnalyticsApplication#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#tags_all KinesisAnalyticsApplication#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -805,7 +805,7 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -816,26 +816,26 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KinesisAnalyticsApplicationCloudwatchLoggingOptions]:
         '''cloudwatch_logging_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#cloudwatch_logging_options KinesisAnalyticsApplication#cloudwatch_logging_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#cloudwatch_logging_options KinesisAnalyticsApplication#cloudwatch_logging_options}
         '''
         result = self._values.get("cloudwatch_logging_options")
         return typing.cast(typing.Optional[KinesisAnalyticsApplicationCloudwatchLoggingOptions], result)
 
     @builtins.property
     def code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#code KinesisAnalyticsApplication#code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#code KinesisAnalyticsApplication#code}.'''
         result = self._values.get("code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#description KinesisAnalyticsApplication#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#description KinesisAnalyticsApplication#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#id KinesisAnalyticsApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#id KinesisAnalyticsApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -847,7 +847,7 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def inputs(self) -> typing.Optional["KinesisAnalyticsApplicationInputs"]:
         '''inputs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#inputs KinesisAnalyticsApplication#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#inputs KinesisAnalyticsApplication#inputs}
         '''
         result = self._values.get("inputs")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputs"], result)
@@ -858,7 +858,7 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KinesisAnalyticsApplicationOutputs"]]]:
         '''outputs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#outputs KinesisAnalyticsApplication#outputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#outputs KinesisAnalyticsApplication#outputs}
         '''
         result = self._values.get("outputs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KinesisAnalyticsApplicationOutputs"]]], result)
@@ -869,7 +869,7 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KinesisAnalyticsApplicationReferenceDataSources"]:
         '''reference_data_sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#reference_data_sources KinesisAnalyticsApplication#reference_data_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#reference_data_sources KinesisAnalyticsApplication#reference_data_sources}
         '''
         result = self._values.get("reference_data_sources")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationReferenceDataSources"], result)
@@ -878,19 +878,19 @@ class KinesisAnalyticsApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_application(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#start_application KinesisAnalyticsApplication#start_application}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#start_application KinesisAnalyticsApplication#start_application}.'''
         result = self._values.get("start_application")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#tags KinesisAnalyticsApplication#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#tags KinesisAnalyticsApplication#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#tags_all KinesisAnalyticsApplication#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#tags_all KinesisAnalyticsApplication#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -932,13 +932,13 @@ class KinesisAnalyticsApplicationInputs:
         starting_position_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["KinesisAnalyticsApplicationInputsStartingPositionConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name_prefix KinesisAnalyticsApplication#name_prefix}.
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
-        :param kinesis_firehose: kinesis_firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
-        :param kinesis_stream: kinesis_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
-        :param parallelism: parallelism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#parallelism KinesisAnalyticsApplication#parallelism}
-        :param processing_configuration: processing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#processing_configuration KinesisAnalyticsApplication#processing_configuration}
-        :param starting_position_configuration: starting_position_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#starting_position_configuration KinesisAnalyticsApplication#starting_position_configuration}
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name_prefix KinesisAnalyticsApplication#name_prefix}.
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        :param kinesis_firehose: kinesis_firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
+        :param kinesis_stream: kinesis_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
+        :param parallelism: parallelism block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#parallelism KinesisAnalyticsApplication#parallelism}
+        :param processing_configuration: processing_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#processing_configuration KinesisAnalyticsApplication#processing_configuration}
+        :param starting_position_configuration: starting_position_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#starting_position_configuration KinesisAnalyticsApplication#starting_position_configuration}
         '''
         if isinstance(schema, dict):
             schema = KinesisAnalyticsApplicationInputsSchema(**schema)
@@ -976,7 +976,7 @@ class KinesisAnalyticsApplicationInputs:
 
     @builtins.property
     def name_prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name_prefix KinesisAnalyticsApplication#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name_prefix KinesisAnalyticsApplication#name_prefix}.'''
         result = self._values.get("name_prefix")
         assert result is not None, "Required property 'name_prefix' is missing"
         return typing.cast(builtins.str, result)
@@ -985,7 +985,7 @@ class KinesisAnalyticsApplicationInputs:
     def schema(self) -> "KinesisAnalyticsApplicationInputsSchema":
         '''schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -997,7 +997,7 @@ class KinesisAnalyticsApplicationInputs:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsKinesisFirehose"]:
         '''kinesis_firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
         '''
         result = self._values.get("kinesis_firehose")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsKinesisFirehose"], result)
@@ -1008,7 +1008,7 @@ class KinesisAnalyticsApplicationInputs:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsKinesisStream"]:
         '''kinesis_stream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
         '''
         result = self._values.get("kinesis_stream")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsKinesisStream"], result)
@@ -1019,7 +1019,7 @@ class KinesisAnalyticsApplicationInputs:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsParallelism"]:
         '''parallelism block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#parallelism KinesisAnalyticsApplication#parallelism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#parallelism KinesisAnalyticsApplication#parallelism}
         '''
         result = self._values.get("parallelism")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsParallelism"], result)
@@ -1030,7 +1030,7 @@ class KinesisAnalyticsApplicationInputs:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsProcessingConfiguration"]:
         '''processing_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#processing_configuration KinesisAnalyticsApplication#processing_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#processing_configuration KinesisAnalyticsApplication#processing_configuration}
         '''
         result = self._values.get("processing_configuration")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsProcessingConfiguration"], result)
@@ -1041,7 +1041,7 @@ class KinesisAnalyticsApplicationInputs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KinesisAnalyticsApplicationInputsStartingPositionConfiguration"]]]:
         '''starting_position_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#starting_position_configuration KinesisAnalyticsApplication#starting_position_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#starting_position_configuration KinesisAnalyticsApplication#starting_position_configuration}
         '''
         result = self._values.get("starting_position_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KinesisAnalyticsApplicationInputsStartingPositionConfiguration"]]], result)
@@ -1066,8 +1066,8 @@ class KinesisAnalyticsApplicationInputs:
 class KinesisAnalyticsApplicationInputsKinesisFirehose:
     def __init__(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c13d8eabee723d5834b01929a820686107c1e9bb089467326e7f157667e6e02e)
@@ -1080,14 +1080,14 @@ class KinesisAnalyticsApplicationInputsKinesisFirehose:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1184,8 +1184,8 @@ class KinesisAnalyticsApplicationInputsKinesisFirehoseOutputReference(
 class KinesisAnalyticsApplicationInputsKinesisStream:
     def __init__(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c916b479a129f0e2564479cb95f66987e078abe9d8ef230f00c37a1c5059c5fb)
@@ -1198,14 +1198,14 @@ class KinesisAnalyticsApplicationInputsKinesisStream:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1322,8 +1322,8 @@ class KinesisAnalyticsApplicationInputsOutputReference(
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationInputsKinesisFirehose(
             resource_arn=resource_arn, role_arn=role_arn
@@ -1339,8 +1339,8 @@ class KinesisAnalyticsApplicationInputsOutputReference(
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationInputsKinesisStream(
             resource_arn=resource_arn, role_arn=role_arn
@@ -1351,7 +1351,7 @@ class KinesisAnalyticsApplicationInputsOutputReference(
     @jsii.member(jsii_name="putParallelism")
     def put_parallelism(self, *, count: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#count KinesisAnalyticsApplication#count}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#count KinesisAnalyticsApplication#count}.
         '''
         value = KinesisAnalyticsApplicationInputsParallelism(count=count)
 
@@ -1364,7 +1364,7 @@ class KinesisAnalyticsApplicationInputsOutputReference(
         lambda_: typing.Union["KinesisAnalyticsApplicationInputsProcessingConfigurationLambda", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
         '''
         value = KinesisAnalyticsApplicationInputsProcessingConfiguration(
             lambda_=lambda_
@@ -1381,9 +1381,9 @@ class KinesisAnalyticsApplicationInputsOutputReference(
         record_encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
-        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
-        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
+        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
+        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
+        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
         '''
         value = KinesisAnalyticsApplicationInputsSchema(
             record_columns=record_columns,
@@ -1559,7 +1559,7 @@ class KinesisAnalyticsApplicationInputsOutputReference(
 class KinesisAnalyticsApplicationInputsParallelism:
     def __init__(self, *, count: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#count KinesisAnalyticsApplication#count}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#count KinesisAnalyticsApplication#count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d464bc16627118debc2b19acfbcab7e258bd64b3163f05924dfc1f71d87434fc)
@@ -1570,7 +1570,7 @@ class KinesisAnalyticsApplicationInputsParallelism:
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#count KinesisAnalyticsApplication#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#count KinesisAnalyticsApplication#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1657,7 +1657,7 @@ class KinesisAnalyticsApplicationInputsProcessingConfiguration:
         lambda_: typing.Union["KinesisAnalyticsApplicationInputsProcessingConfigurationLambda", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
         '''
         if isinstance(lambda_, dict):
             lambda_ = KinesisAnalyticsApplicationInputsProcessingConfigurationLambda(**lambda_)
@@ -1674,7 +1674,7 @@ class KinesisAnalyticsApplicationInputsProcessingConfiguration:
     ) -> "KinesisAnalyticsApplicationInputsProcessingConfigurationLambda":
         '''lambda block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
         '''
         result = self._values.get("lambda_")
         assert result is not None, "Required property 'lambda_' is missing"
@@ -1700,8 +1700,8 @@ class KinesisAnalyticsApplicationInputsProcessingConfiguration:
 class KinesisAnalyticsApplicationInputsProcessingConfigurationLambda:
     def __init__(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7664cdf98ddfafcbd248308bf4682b39378422b9170d585eef15e9bd8883abde)
@@ -1714,14 +1714,14 @@ class KinesisAnalyticsApplicationInputsProcessingConfigurationLambda:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1833,8 +1833,8 @@ class KinesisAnalyticsApplicationInputsProcessingConfigurationOutputReference(
     @jsii.member(jsii_name="putLambda")
     def put_lambda(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationInputsProcessingConfigurationLambda(
             resource_arn=resource_arn, role_arn=role_arn
@@ -1892,9 +1892,9 @@ class KinesisAnalyticsApplicationInputsSchema:
         record_encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
-        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
-        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
+        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
+        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
+        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
         '''
         if isinstance(record_format, dict):
             record_format = KinesisAnalyticsApplicationInputsSchemaRecordFormat(**record_format)
@@ -1916,7 +1916,7 @@ class KinesisAnalyticsApplicationInputsSchema:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KinesisAnalyticsApplicationInputsSchemaRecordColumns"]]:
         '''record_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
         '''
         result = self._values.get("record_columns")
         assert result is not None, "Required property 'record_columns' is missing"
@@ -1926,7 +1926,7 @@ class KinesisAnalyticsApplicationInputsSchema:
     def record_format(self) -> "KinesisAnalyticsApplicationInputsSchemaRecordFormat":
         '''record_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
         '''
         result = self._values.get("record_format")
         assert result is not None, "Required property 'record_format' is missing"
@@ -1934,7 +1934,7 @@ class KinesisAnalyticsApplicationInputsSchema:
 
     @builtins.property
     def record_encoding(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.'''
         result = self._values.get("record_encoding")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1990,7 +1990,7 @@ class KinesisAnalyticsApplicationInputsSchemaOutputReference(
         mapping_parameters: typing.Optional[typing.Union["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
+        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
         '''
         value = KinesisAnalyticsApplicationInputsSchemaRecordFormat(
             mapping_parameters=mapping_parameters
@@ -2079,9 +2079,9 @@ class KinesisAnalyticsApplicationInputsSchemaRecordColumns:
         mapping: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
-        :param sql_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.
-        :param mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
+        :param sql_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.
+        :param mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5890167aa814bd3070c07c8075611d8c75adff1eb2eef910b867e5f15e4e1cb9)
@@ -2097,21 +2097,21 @@ class KinesisAnalyticsApplicationInputsSchemaRecordColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sql_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.'''
         result = self._values.get("sql_type")
         assert result is not None, "Required property 'sql_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mapping(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.'''
         result = self._values.get("mapping")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2331,7 +2331,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormat:
         mapping_parameters: typing.Optional[typing.Union["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
+        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
         '''
         if isinstance(mapping_parameters, dict):
             mapping_parameters = KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters(**mapping_parameters)
@@ -2348,7 +2348,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormat:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters"]:
         '''mapping_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
         '''
         result = self._values.get("mapping_parameters")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters"], result)
@@ -2378,8 +2378,8 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters:
         json: typing.Optional[typing.Union["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
+        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
         '''
         if isinstance(csv, dict):
             csv = KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsv(**csv)
@@ -2401,7 +2401,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsv"]:
         '''csv block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
         '''
         result = self._values.get("csv")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsv"], result)
@@ -2412,7 +2412,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters:
     ) -> typing.Optional["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson"]:
         '''json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
         '''
         result = self._values.get("json")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson"], result)
@@ -2445,8 +2445,8 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsv:
         record_row_delimiter: builtins.str,
     ) -> None:
         '''
-        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
-        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
+        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
+        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a78fec386106e5123fb35b057363b98a3535966564d726451f149db4104121f5)
@@ -2459,14 +2459,14 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsv:
 
     @builtins.property
     def record_column_delimiter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.'''
         result = self._values.get("record_column_delimiter")
         assert result is not None, "Required property 'record_column_delimiter' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def record_row_delimiter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.'''
         result = self._values.get("record_row_delimiter")
         assert result is not None, "Required property 'record_row_delimiter' is missing"
         return typing.cast(builtins.str, result)
@@ -2563,7 +2563,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsvOut
 class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson:
     def __init__(self, *, record_row_path: builtins.str) -> None:
         '''
-        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
+        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48bbfa38f8712d6f10670573ef4c6d56da775bf160642f3d47e9ada9363ac460)
@@ -2574,7 +2574,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson:
 
     @builtins.property
     def record_row_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.'''
         result = self._values.get("record_row_path")
         assert result is not None, "Required property 'record_row_path' is missing"
         return typing.cast(builtins.str, result)
@@ -2674,8 +2674,8 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersOutput
         record_row_delimiter: builtins.str,
     ) -> None:
         '''
-        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
-        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
+        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
+        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
         '''
         value = KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersCsv(
             record_column_delimiter=record_column_delimiter,
@@ -2687,7 +2687,7 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersOutput
     @jsii.member(jsii_name="putJson")
     def put_json(self, *, record_row_path: builtins.str) -> None:
         '''
-        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
+        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
         '''
         value = KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson(
             record_row_path=record_row_path
@@ -2777,8 +2777,8 @@ class KinesisAnalyticsApplicationInputsSchemaRecordFormatOutputReference(
         json: typing.Optional[typing.Union[KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParametersJson, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
+        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
         '''
         value = KinesisAnalyticsApplicationInputsSchemaRecordFormatMappingParameters(
             csv=csv, json=json
@@ -2839,7 +2839,7 @@ class KinesisAnalyticsApplicationInputsStartingPositionConfiguration:
         starting_position: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#starting_position KinesisAnalyticsApplication#starting_position}.
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#starting_position KinesisAnalyticsApplication#starting_position}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5ed85bbc816bc1568d1c1237580b55929d4b5c864fd9bc3ae8e0c11399ba333)
@@ -2850,7 +2850,7 @@ class KinesisAnalyticsApplicationInputsStartingPositionConfiguration:
 
     @builtins.property
     def starting_position(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#starting_position KinesisAnalyticsApplication#starting_position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#starting_position KinesisAnalyticsApplication#starting_position}.'''
         result = self._values.get("starting_position")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3046,11 +3046,11 @@ class KinesisAnalyticsApplicationOutputs:
         lambda_: typing.Optional[typing.Union["KinesisAnalyticsApplicationOutputsLambda", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
-        :param kinesis_firehose: kinesis_firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
-        :param kinesis_stream: kinesis_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
-        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        :param kinesis_firehose: kinesis_firehose block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
+        :param kinesis_stream: kinesis_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
+        :param lambda_: lambda block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
         '''
         if isinstance(schema, dict):
             schema = KinesisAnalyticsApplicationOutputsSchema(**schema)
@@ -3080,7 +3080,7 @@ class KinesisAnalyticsApplicationOutputs:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3089,7 +3089,7 @@ class KinesisAnalyticsApplicationOutputs:
     def schema(self) -> "KinesisAnalyticsApplicationOutputsSchema":
         '''schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -3101,7 +3101,7 @@ class KinesisAnalyticsApplicationOutputs:
     ) -> typing.Optional["KinesisAnalyticsApplicationOutputsKinesisFirehose"]:
         '''kinesis_firehose block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_firehose KinesisAnalyticsApplication#kinesis_firehose}
         '''
         result = self._values.get("kinesis_firehose")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationOutputsKinesisFirehose"], result)
@@ -3112,7 +3112,7 @@ class KinesisAnalyticsApplicationOutputs:
     ) -> typing.Optional["KinesisAnalyticsApplicationOutputsKinesisStream"]:
         '''kinesis_stream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#kinesis_stream KinesisAnalyticsApplication#kinesis_stream}
         '''
         result = self._values.get("kinesis_stream")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationOutputsKinesisStream"], result)
@@ -3121,7 +3121,7 @@ class KinesisAnalyticsApplicationOutputs:
     def lambda_(self) -> typing.Optional["KinesisAnalyticsApplicationOutputsLambda"]:
         '''lambda block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#lambda KinesisAnalyticsApplication#lambda}
         '''
         result = self._values.get("lambda_")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationOutputsLambda"], result)
@@ -3146,8 +3146,8 @@ class KinesisAnalyticsApplicationOutputs:
 class KinesisAnalyticsApplicationOutputsKinesisFirehose:
     def __init__(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0bd33ab6599ed3bf8c76e168bfe5191c6e1cac0de2ba26ef06a357cba8b23ab)
@@ -3160,14 +3160,14 @@ class KinesisAnalyticsApplicationOutputsKinesisFirehose:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -3264,8 +3264,8 @@ class KinesisAnalyticsApplicationOutputsKinesisFirehoseOutputReference(
 class KinesisAnalyticsApplicationOutputsKinesisStream:
     def __init__(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd8794e5aae52d6aeebafe7df2af47d0591c54e72938bbbce124bfbb8fa7c71c)
@@ -3278,14 +3278,14 @@ class KinesisAnalyticsApplicationOutputsKinesisStream:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -3382,8 +3382,8 @@ class KinesisAnalyticsApplicationOutputsKinesisStreamOutputReference(
 class KinesisAnalyticsApplicationOutputsLambda:
     def __init__(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bb77c7a7d26d0d63b9c3a4ed029ef94e166706fe45d4e894587b1f05abefb12)
@@ -3396,14 +3396,14 @@ class KinesisAnalyticsApplicationOutputsLambda:
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -3619,8 +3619,8 @@ class KinesisAnalyticsApplicationOutputsOutputReference(
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationOutputsKinesisFirehose(
             resource_arn=resource_arn, role_arn=role_arn
@@ -3636,8 +3636,8 @@ class KinesisAnalyticsApplicationOutputsOutputReference(
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationOutputsKinesisStream(
             resource_arn=resource_arn, role_arn=role_arn
@@ -3648,8 +3648,8 @@ class KinesisAnalyticsApplicationOutputsOutputReference(
     @jsii.member(jsii_name="putLambda")
     def put_lambda(self, *, resource_arn: builtins.str, role_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#resource_arn KinesisAnalyticsApplication#resource_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationOutputsLambda(
             resource_arn=resource_arn, role_arn=role_arn
@@ -3660,7 +3660,7 @@ class KinesisAnalyticsApplicationOutputsOutputReference(
     @jsii.member(jsii_name="putSchema")
     def put_schema(self, *, record_format_type: builtins.str) -> None:
         '''
-        :param record_format_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format_type KinesisAnalyticsApplication#record_format_type}.
+        :param record_format_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format_type KinesisAnalyticsApplication#record_format_type}.
         '''
         value = KinesisAnalyticsApplicationOutputsSchema(
             record_format_type=record_format_type
@@ -3778,7 +3778,7 @@ class KinesisAnalyticsApplicationOutputsOutputReference(
 class KinesisAnalyticsApplicationOutputsSchema:
     def __init__(self, *, record_format_type: builtins.str) -> None:
         '''
-        :param record_format_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format_type KinesisAnalyticsApplication#record_format_type}.
+        :param record_format_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format_type KinesisAnalyticsApplication#record_format_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9be3443f7f78bc54c7740c71db98725d7c6514134c3411123f42a6c350f8b1d)
@@ -3789,7 +3789,7 @@ class KinesisAnalyticsApplicationOutputsSchema:
 
     @builtins.property
     def record_format_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format_type KinesisAnalyticsApplication#record_format_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format_type KinesisAnalyticsApplication#record_format_type}.'''
         result = self._values.get("record_format_type")
         assert result is not None, "Required property 'record_format_type' is missing"
         return typing.cast(builtins.str, result)
@@ -3875,9 +3875,9 @@ class KinesisAnalyticsApplicationReferenceDataSources:
         table_name: builtins.str,
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#s3 KinesisAnalyticsApplication#s3}
-        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#table_name KinesisAnalyticsApplication#table_name}.
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#s3 KinesisAnalyticsApplication#s3}
+        :param schema: schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#table_name KinesisAnalyticsApplication#table_name}.
         '''
         if isinstance(s3, dict):
             s3 = KinesisAnalyticsApplicationReferenceDataSourcesS3(**s3)
@@ -3898,7 +3898,7 @@ class KinesisAnalyticsApplicationReferenceDataSources:
     def s3(self) -> "KinesisAnalyticsApplicationReferenceDataSourcesS3":
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#s3 KinesisAnalyticsApplication#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#s3 KinesisAnalyticsApplication#s3}
         '''
         result = self._values.get("s3")
         assert result is not None, "Required property 's3' is missing"
@@ -3908,7 +3908,7 @@ class KinesisAnalyticsApplicationReferenceDataSources:
     def schema(self) -> "KinesisAnalyticsApplicationReferenceDataSourcesSchema":
         '''schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#schema KinesisAnalyticsApplication#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -3916,7 +3916,7 @@ class KinesisAnalyticsApplicationReferenceDataSources:
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#table_name KinesisAnalyticsApplication#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#table_name KinesisAnalyticsApplication#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3962,9 +3962,9 @@ class KinesisAnalyticsApplicationReferenceDataSourcesOutputReference(
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#bucket_arn KinesisAnalyticsApplication#bucket_arn}.
-        :param file_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#file_key KinesisAnalyticsApplication#file_key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#bucket_arn KinesisAnalyticsApplication#bucket_arn}.
+        :param file_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#file_key KinesisAnalyticsApplication#file_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         value = KinesisAnalyticsApplicationReferenceDataSourcesS3(
             bucket_arn=bucket_arn, file_key=file_key, role_arn=role_arn
@@ -3981,9 +3981,9 @@ class KinesisAnalyticsApplicationReferenceDataSourcesOutputReference(
         record_encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
-        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
-        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
+        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
+        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
+        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
         '''
         value = KinesisAnalyticsApplicationReferenceDataSourcesSchema(
             record_columns=record_columns,
@@ -4077,9 +4077,9 @@ class KinesisAnalyticsApplicationReferenceDataSourcesS3:
         role_arn: builtins.str,
     ) -> None:
         '''
-        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#bucket_arn KinesisAnalyticsApplication#bucket_arn}.
-        :param file_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#file_key KinesisAnalyticsApplication#file_key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
+        :param bucket_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#bucket_arn KinesisAnalyticsApplication#bucket_arn}.
+        :param file_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#file_key KinesisAnalyticsApplication#file_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4527d006c73958bd5b0607f7705d4798229dd6fb0feb13dde39169bf7720e10)
@@ -4094,21 +4094,21 @@ class KinesisAnalyticsApplicationReferenceDataSourcesS3:
 
     @builtins.property
     def bucket_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#bucket_arn KinesisAnalyticsApplication#bucket_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#bucket_arn KinesisAnalyticsApplication#bucket_arn}.'''
         result = self._values.get("bucket_arn")
         assert result is not None, "Required property 'bucket_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def file_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#file_key KinesisAnalyticsApplication#file_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#file_key KinesisAnalyticsApplication#file_key}.'''
         result = self._values.get("file_key")
         assert result is not None, "Required property 'file_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#role_arn KinesisAnalyticsApplication#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4232,9 +4232,9 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchema:
         record_encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
-        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
-        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
+        :param record_columns: record_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
+        :param record_format: record_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
+        :param record_encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.
         '''
         if isinstance(record_format, dict):
             record_format = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormat(**record_format)
@@ -4256,7 +4256,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchema:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordColumns"]]:
         '''record_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_columns KinesisAnalyticsApplication#record_columns}
         '''
         result = self._values.get("record_columns")
         assert result is not None, "Required property 'record_columns' is missing"
@@ -4268,7 +4268,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchema:
     ) -> "KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormat":
         '''record_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_format KinesisAnalyticsApplication#record_format}
         '''
         result = self._values.get("record_format")
         assert result is not None, "Required property 'record_format' is missing"
@@ -4276,7 +4276,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchema:
 
     @builtins.property
     def record_encoding(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_encoding KinesisAnalyticsApplication#record_encoding}.'''
         result = self._values.get("record_encoding")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4332,7 +4332,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaOutputReference(
         mapping_parameters: typing.Optional[typing.Union["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
+        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
         '''
         value = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormat(
             mapping_parameters=mapping_parameters
@@ -4421,9 +4421,9 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordColumns:
         mapping: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
-        :param sql_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.
-        :param mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.
+        :param sql_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.
+        :param mapping: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd4230a079c3370c7710a438b584c8b48f1ff892cbca4d96cdb247b25a3ba49f)
@@ -4439,21 +4439,21 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordColumns:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#name KinesisAnalyticsApplication#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sql_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#sql_type KinesisAnalyticsApplication#sql_type}.'''
         result = self._values.get("sql_type")
         assert result is not None, "Required property 'sql_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mapping(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping KinesisAnalyticsApplication#mapping}.'''
         result = self._values.get("mapping")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4673,7 +4673,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormat:
         mapping_parameters: typing.Optional[typing.Union["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParameters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
+        :param mapping_parameters: mapping_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
         '''
         if isinstance(mapping_parameters, dict):
             mapping_parameters = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParameters(**mapping_parameters)
@@ -4690,7 +4690,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormat:
     ) -> typing.Optional["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParameters"]:
         '''mapping_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#mapping_parameters KinesisAnalyticsApplication#mapping_parameters}
         '''
         result = self._values.get("mapping_parameters")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParameters"], result)
@@ -4720,8 +4720,8 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
         json: typing.Optional[typing.Union["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersJson", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
+        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
         '''
         if isinstance(csv, dict):
             csv = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersCsv(**csv)
@@ -4743,7 +4743,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
     ) -> typing.Optional["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersCsv"]:
         '''csv block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
         '''
         result = self._values.get("csv")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersCsv"], result)
@@ -4754,7 +4754,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
     ) -> typing.Optional["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersJson"]:
         '''json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
         '''
         result = self._values.get("json")
         return typing.cast(typing.Optional["KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersJson"], result)
@@ -4787,8 +4787,8 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
         record_row_delimiter: builtins.str,
     ) -> None:
         '''
-        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
-        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
+        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
+        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b3424f3dba7eae5082cf5003937d4b0213d65d4aea29032151d4d01b38500dc)
@@ -4801,14 +4801,14 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
 
     @builtins.property
     def record_column_delimiter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.'''
         result = self._values.get("record_column_delimiter")
         assert result is not None, "Required property 'record_column_delimiter' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def record_row_delimiter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.'''
         result = self._values.get("record_row_delimiter")
         assert result is not None, "Required property 'record_row_delimiter' is missing"
         return typing.cast(builtins.str, result)
@@ -4905,7 +4905,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
 class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersJson:
     def __init__(self, *, record_row_path: builtins.str) -> None:
         '''
-        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
+        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47fc4d7f2e94fa9e768a5d6f958bc4fbb80dd80167ef042b0c9d2152e0e0f032)
@@ -4916,7 +4916,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
 
     @builtins.property
     def record_row_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.'''
         result = self._values.get("record_row_path")
         assert result is not None, "Required property 'record_row_path' is missing"
         return typing.cast(builtins.str, result)
@@ -5016,8 +5016,8 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
         record_row_delimiter: builtins.str,
     ) -> None:
         '''
-        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
-        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
+        :param record_column_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_column_delimiter KinesisAnalyticsApplication#record_column_delimiter}.
+        :param record_row_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_delimiter KinesisAnalyticsApplication#record_row_delimiter}.
         '''
         value = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersCsv(
             record_column_delimiter=record_column_delimiter,
@@ -5029,7 +5029,7 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingPa
     @jsii.member(jsii_name="putJson")
     def put_json(self, *, record_row_path: builtins.str) -> None:
         '''
-        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
+        :param record_row_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#record_row_path KinesisAnalyticsApplication#record_row_path}.
         '''
         value = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersJson(
             record_row_path=record_row_path
@@ -5119,8 +5119,8 @@ class KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatOutputRef
         json: typing.Optional[typing.Union[KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParametersJson, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
-        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
+        :param csv: csv block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#csv KinesisAnalyticsApplication#csv}
+        :param json: json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kinesis_analytics_application#json KinesisAnalyticsApplication#json}
         '''
         value = KinesisAnalyticsApplicationReferenceDataSourcesSchemaRecordFormatMappingParameters(
             csv=csv, json=json

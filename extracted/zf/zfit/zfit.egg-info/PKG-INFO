@@ -1,0 +1,962 @@
+Metadata-Version: 2.2
+Name: zfit
+Version: 0.25.0
+Summary: scalable pythonic model fitting for high energy physics
+Home-page: https://github.com/zfit/zfit
+Author: Jonas Eschle <Jonas.Eschle@cern.ch>, Albert Puig <apuignav@gmail.com>, Rafael Silva Coutinho <rsilvaco@cern.ch>, Matthieu Marinangeli <matthieu.marinangeli@cern.ch>
+Maintainer: zfit
+Maintainer-email: zfit@physik.uzh.ch
+License: BSD-3-Clause
+Keywords: TensorFlow,model,fitting,scalable,HEP,likelihood
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: <3.13,>=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: attrs
+Requires-Dist: boost-histogram
+Requires-Dist: colorama
+Requires-Dist: colored
+Requires-Dist: colorlog
+Requires-Dist: deprecated
+Requires-Dist: dill
+Requires-Dist: dotmap
+Requires-Dist: frozendict
+Requires-Dist: hist
+Requires-Dist: iminuit>=2.3
+Requires-Dist: jacobi
+Requires-Dist: numdifftools
+Requires-Dist: numpy>=1.16
+Requires-Dist: ordered-set
+Requires-Dist: pandas
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyyaml
+Requires-Dist: scipy>=1.2
+Requires-Dist: tabulate
+Requires-Dist: tensorflow<2.20,>=2.16.2
+Requires-Dist: tensorflow-probability[tf]<0.27,>=0.24
+Requires-Dist: texttable
+Requires-Dist: uhi
+Requires-Dist: uproot>=4
+Requires-Dist: xxhash
+Requires-Dist: zfit_interface
+Provides-Extra: ipyopt
+Requires-Dist: ipyopt>=0.12; extra == "ipyopt"
+Provides-Extra: nlopt
+Requires-Dist: nlopt>=2.7.1; extra == "nlopt"
+Provides-Extra: hs3
+Requires-Dist: asdf<4.0.0; extra == "hs3"
+Provides-Extra: uproot
+Requires-Dist: awkward-pandas; extra == "uproot"
+Provides-Extra: all-linux
+Requires-Dist: asdf<4.0.0; extra == "all-linux"
+Requires-Dist: nlopt>=2.7.1; extra == "all-linux"
+Requires-Dist: ipyopt>=0.12; extra == "all-linux"
+Requires-Dist: awkward-pandas; extra == "all-linux"
+Provides-Extra: all-darwin
+Requires-Dist: nlopt>=2.7.1; extra == "all-darwin"
+Requires-Dist: asdf<4.0.0; extra == "all-darwin"
+Requires-Dist: awkward-pandas; extra == "all-darwin"
+Provides-Extra: all-windows
+Requires-Dist: nlopt>=2.7.1; extra == "all-windows"
+Requires-Dist: asdf<4.0.0; extra == "all-windows"
+Requires-Dist: awkward-pandas; extra == "all-windows"
+Provides-Extra: all-silicon
+Requires-Dist: asdf<4.0.0; extra == "all-silicon"
+Requires-Dist: awkward-pandas; extra == "all-silicon"
+Provides-Extra: tests-linux
+Requires-Dist: scikit-hep-testdata; extra == "tests-linux"
+Requires-Dist: pytest-runner>=2.11.1; extra == "tests-linux"
+Requires-Dist: pytest-timeout>=1; extra == "tests-linux"
+Requires-Dist: matplotlib; extra == "tests-linux"
+Requires-Dist: pytest>=3.4.2; extra == "tests-linux"
+Requires-Dist: pytest-randomly; extra == "tests-linux"
+Requires-Dist: nlopt>=2.7.1; extra == "tests-linux"
+Requires-Dist: pytest-xdist; extra == "tests-linux"
+Requires-Dist: pytest-rerunfailures>=6; extra == "tests-linux"
+Requires-Dist: pytest-ordering; extra == "tests-linux"
+Requires-Dist: ipyopt>=0.12; extra == "tests-linux"
+Provides-Extra: tests-darwin
+Requires-Dist: scikit-hep-testdata; extra == "tests-darwin"
+Requires-Dist: pytest-runner>=2.11.1; extra == "tests-darwin"
+Requires-Dist: pytest-timeout>=1; extra == "tests-darwin"
+Requires-Dist: matplotlib; extra == "tests-darwin"
+Requires-Dist: pytest>=3.4.2; extra == "tests-darwin"
+Requires-Dist: pytest-randomly; extra == "tests-darwin"
+Requires-Dist: nlopt>=2.7.1; extra == "tests-darwin"
+Requires-Dist: pytest-xdist; extra == "tests-darwin"
+Requires-Dist: pytest-rerunfailures>=6; extra == "tests-darwin"
+Requires-Dist: pytest-ordering; extra == "tests-darwin"
+Provides-Extra: tests-windows
+Requires-Dist: scikit-hep-testdata; extra == "tests-windows"
+Requires-Dist: pytest-runner>=2.11.1; extra == "tests-windows"
+Requires-Dist: pytest-timeout>=1; extra == "tests-windows"
+Requires-Dist: matplotlib; extra == "tests-windows"
+Requires-Dist: pytest>=3.4.2; extra == "tests-windows"
+Requires-Dist: pytest-randomly; extra == "tests-windows"
+Requires-Dist: nlopt>=2.7.1; extra == "tests-windows"
+Requires-Dist: pytest-xdist; extra == "tests-windows"
+Requires-Dist: pytest-rerunfailures>=6; extra == "tests-windows"
+Requires-Dist: pytest-ordering; extra == "tests-windows"
+Provides-Extra: tests-silicon
+Requires-Dist: scikit-hep-testdata; extra == "tests-silicon"
+Requires-Dist: pytest-runner>=2.11.1; extra == "tests-silicon"
+Requires-Dist: pytest-timeout>=1; extra == "tests-silicon"
+Requires-Dist: matplotlib; extra == "tests-silicon"
+Requires-Dist: pytest>=3.4.2; extra == "tests-silicon"
+Requires-Dist: pytest-randomly; extra == "tests-silicon"
+Requires-Dist: pytest-xdist; extra == "tests-silicon"
+Requires-Dist: pytest-rerunfailures>=6; extra == "tests-silicon"
+Requires-Dist: pytest-ordering; extra == "tests-silicon"
+Provides-Extra: dev-linux
+Requires-Dist: sphinxcontrib-bibtex; extra == "dev-linux"
+Requires-Dist: progressbar2; extra == "dev-linux"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "dev-linux"
+Requires-Dist: sphinx_togglebutton; extra == "dev-linux"
+Requires-Dist: pytest-cases; extra == "dev-linux"
+Requires-Dist: jax<=0.4.28; extra == "dev-linux"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "dev-linux"
+Requires-Dist: setuptools_scm_git_archive; extra == "dev-linux"
+Requires-Dist: flake8>=3.5.0; extra == "dev-linux"
+Requires-Dist: jaxlib<=0.4.28; extra == "dev-linux"
+Requires-Dist: jaxlib; extra == "dev-linux"
+Requires-Dist: pytest-runner>=2.11.1; extra == "dev-linux"
+Requires-Dist: pytest-benchmark; extra == "dev-linux"
+Requires-Dist: Sphinx>=5.0.0; extra == "dev-linux"
+Requires-Dist: myst-nb; extra == "dev-linux"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "dev-linux"
+Requires-Dist: pytest-timeout>=1; extra == "dev-linux"
+Requires-Dist: twine>=1.10.0; extra == "dev-linux"
+Requires-Dist: Jinja2; extra == "dev-linux"
+Requires-Dist: matplotlib; extra == "dev-linux"
+Requires-Dist: pyyaml; extra == "dev-linux"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev-linux"
+Requires-Dist: pytest>=3.4.2; extra == "dev-linux"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "dev-linux"
+Requires-Dist: pytest-randomly; extra == "dev-linux"
+Requires-Dist: ipyopt>=0.12; extra == "dev-linux"
+Requires-Dist: setuptools>=30.3.0; extra == "dev-linux"
+Requires-Dist: coverage>=4.5.1; extra == "dev-linux"
+Requires-Dist: pytest-helpers-namespace; extra == "dev-linux"
+Requires-Dist: docformatter; extra == "dev-linux"
+Requires-Dist: pygit2; extra == "dev-linux"
+Requires-Dist: numba-stats; extra == "dev-linux"
+Requires-Dist: watchdog>=0.8.3; extra == "dev-linux"
+Requires-Dist: sphinx-panels; extra == "dev-linux"
+Requires-Dist: bumpversion>=0.5.3; extra == "dev-linux"
+Requires-Dist: wheel>=0.29.0; extra == "dev-linux"
+Requires-Dist: seed_intersphinx_mapping; extra == "dev-linux"
+Requires-Dist: coverage-lcov; extra == "dev-linux"
+Requires-Dist: jupyter-sphinx; extra == "dev-linux"
+Requires-Dist: mplhep; extra == "dev-linux"
+Requires-Dist: pytest-rerunfailures>=6; extra == "dev-linux"
+Requires-Dist: pytest-xdist; extra == "dev-linux"
+Requires-Dist: scikit-hep-testdata; extra == "dev-linux"
+Requires-Dist: tox>=2.9.1; extra == "dev-linux"
+Requires-Dist: pip>=9.0.1; extra == "dev-linux"
+Requires-Dist: setupext-janitor; extra == "dev-linux"
+Requires-Dist: sphinx-copybutton; extra == "dev-linux"
+Requires-Dist: zfit-physics>=0.6.0; extra == "dev-linux"
+Requires-Dist: nlopt>=2.7.1; extra == "dev-linux"
+Requires-Dist: pyhf>=0.7.0; extra == "dev-linux"
+Requires-Dist: pytest-ordering; extra == "dev-linux"
+Requires-Dist: pre-commit; extra == "dev-linux"
+Requires-Dist: check-manifest; extra == "dev-linux"
+Provides-Extra: dev-darwin
+Requires-Dist: sphinxcontrib-bibtex; extra == "dev-darwin"
+Requires-Dist: progressbar2; extra == "dev-darwin"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "dev-darwin"
+Requires-Dist: sphinx_togglebutton; extra == "dev-darwin"
+Requires-Dist: pytest-cases; extra == "dev-darwin"
+Requires-Dist: jax<=0.4.28; extra == "dev-darwin"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "dev-darwin"
+Requires-Dist: setuptools_scm_git_archive; extra == "dev-darwin"
+Requires-Dist: flake8>=3.5.0; extra == "dev-darwin"
+Requires-Dist: jaxlib<=0.4.28; extra == "dev-darwin"
+Requires-Dist: jaxlib; extra == "dev-darwin"
+Requires-Dist: pytest-runner>=2.11.1; extra == "dev-darwin"
+Requires-Dist: pytest-benchmark; extra == "dev-darwin"
+Requires-Dist: Sphinx>=5.0.0; extra == "dev-darwin"
+Requires-Dist: myst-nb; extra == "dev-darwin"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "dev-darwin"
+Requires-Dist: pytest-timeout>=1; extra == "dev-darwin"
+Requires-Dist: twine>=1.10.0; extra == "dev-darwin"
+Requires-Dist: Jinja2; extra == "dev-darwin"
+Requires-Dist: matplotlib; extra == "dev-darwin"
+Requires-Dist: pyyaml; extra == "dev-darwin"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev-darwin"
+Requires-Dist: pytest>=3.4.2; extra == "dev-darwin"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "dev-darwin"
+Requires-Dist: pytest-randomly; extra == "dev-darwin"
+Requires-Dist: setuptools>=30.3.0; extra == "dev-darwin"
+Requires-Dist: coverage>=4.5.1; extra == "dev-darwin"
+Requires-Dist: pytest-helpers-namespace; extra == "dev-darwin"
+Requires-Dist: docformatter; extra == "dev-darwin"
+Requires-Dist: pygit2; extra == "dev-darwin"
+Requires-Dist: numba-stats; extra == "dev-darwin"
+Requires-Dist: watchdog>=0.8.3; extra == "dev-darwin"
+Requires-Dist: sphinx-panels; extra == "dev-darwin"
+Requires-Dist: bumpversion>=0.5.3; extra == "dev-darwin"
+Requires-Dist: wheel>=0.29.0; extra == "dev-darwin"
+Requires-Dist: seed_intersphinx_mapping; extra == "dev-darwin"
+Requires-Dist: coverage-lcov; extra == "dev-darwin"
+Requires-Dist: jupyter-sphinx; extra == "dev-darwin"
+Requires-Dist: mplhep; extra == "dev-darwin"
+Requires-Dist: pytest-rerunfailures>=6; extra == "dev-darwin"
+Requires-Dist: pytest-xdist; extra == "dev-darwin"
+Requires-Dist: scikit-hep-testdata; extra == "dev-darwin"
+Requires-Dist: tox>=2.9.1; extra == "dev-darwin"
+Requires-Dist: pip>=9.0.1; extra == "dev-darwin"
+Requires-Dist: setupext-janitor; extra == "dev-darwin"
+Requires-Dist: sphinx-copybutton; extra == "dev-darwin"
+Requires-Dist: zfit-physics>=0.6.0; extra == "dev-darwin"
+Requires-Dist: nlopt>=2.7.1; extra == "dev-darwin"
+Requires-Dist: pyhf>=0.7.0; extra == "dev-darwin"
+Requires-Dist: pytest-ordering; extra == "dev-darwin"
+Requires-Dist: pre-commit; extra == "dev-darwin"
+Requires-Dist: check-manifest; extra == "dev-darwin"
+Provides-Extra: dev-windows
+Requires-Dist: sphinxcontrib-bibtex; extra == "dev-windows"
+Requires-Dist: progressbar2; extra == "dev-windows"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "dev-windows"
+Requires-Dist: sphinx_togglebutton; extra == "dev-windows"
+Requires-Dist: pytest-cases; extra == "dev-windows"
+Requires-Dist: jax<=0.4.28; extra == "dev-windows"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "dev-windows"
+Requires-Dist: setuptools_scm_git_archive; extra == "dev-windows"
+Requires-Dist: flake8>=3.5.0; extra == "dev-windows"
+Requires-Dist: jaxlib<=0.4.28; extra == "dev-windows"
+Requires-Dist: jaxlib; extra == "dev-windows"
+Requires-Dist: pytest-runner>=2.11.1; extra == "dev-windows"
+Requires-Dist: pytest-benchmark; extra == "dev-windows"
+Requires-Dist: Sphinx>=5.0.0; extra == "dev-windows"
+Requires-Dist: myst-nb; extra == "dev-windows"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "dev-windows"
+Requires-Dist: pytest-timeout>=1; extra == "dev-windows"
+Requires-Dist: twine>=1.10.0; extra == "dev-windows"
+Requires-Dist: Jinja2; extra == "dev-windows"
+Requires-Dist: matplotlib; extra == "dev-windows"
+Requires-Dist: pyyaml; extra == "dev-windows"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev-windows"
+Requires-Dist: pytest>=3.4.2; extra == "dev-windows"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "dev-windows"
+Requires-Dist: pytest-randomly; extra == "dev-windows"
+Requires-Dist: setuptools>=30.3.0; extra == "dev-windows"
+Requires-Dist: coverage>=4.5.1; extra == "dev-windows"
+Requires-Dist: pytest-helpers-namespace; extra == "dev-windows"
+Requires-Dist: docformatter; extra == "dev-windows"
+Requires-Dist: pygit2; extra == "dev-windows"
+Requires-Dist: numba-stats; extra == "dev-windows"
+Requires-Dist: watchdog>=0.8.3; extra == "dev-windows"
+Requires-Dist: sphinx-panels; extra == "dev-windows"
+Requires-Dist: bumpversion>=0.5.3; extra == "dev-windows"
+Requires-Dist: wheel>=0.29.0; extra == "dev-windows"
+Requires-Dist: seed_intersphinx_mapping; extra == "dev-windows"
+Requires-Dist: coverage-lcov; extra == "dev-windows"
+Requires-Dist: jupyter-sphinx; extra == "dev-windows"
+Requires-Dist: mplhep; extra == "dev-windows"
+Requires-Dist: pytest-rerunfailures>=6; extra == "dev-windows"
+Requires-Dist: pytest-xdist; extra == "dev-windows"
+Requires-Dist: scikit-hep-testdata; extra == "dev-windows"
+Requires-Dist: tox>=2.9.1; extra == "dev-windows"
+Requires-Dist: pip>=9.0.1; extra == "dev-windows"
+Requires-Dist: setupext-janitor; extra == "dev-windows"
+Requires-Dist: sphinx-copybutton; extra == "dev-windows"
+Requires-Dist: zfit-physics>=0.6.0; extra == "dev-windows"
+Requires-Dist: nlopt>=2.7.1; extra == "dev-windows"
+Requires-Dist: pyhf>=0.7.0; extra == "dev-windows"
+Requires-Dist: pytest-ordering; extra == "dev-windows"
+Requires-Dist: pre-commit; extra == "dev-windows"
+Requires-Dist: check-manifest; extra == "dev-windows"
+Provides-Extra: dev-silicon
+Requires-Dist: sphinxcontrib-bibtex; extra == "dev-silicon"
+Requires-Dist: progressbar2; extra == "dev-silicon"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "dev-silicon"
+Requires-Dist: sphinx_togglebutton; extra == "dev-silicon"
+Requires-Dist: pytest-cases; extra == "dev-silicon"
+Requires-Dist: jax<=0.4.28; extra == "dev-silicon"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "dev-silicon"
+Requires-Dist: setuptools_scm_git_archive; extra == "dev-silicon"
+Requires-Dist: flake8>=3.5.0; extra == "dev-silicon"
+Requires-Dist: jaxlib<=0.4.28; extra == "dev-silicon"
+Requires-Dist: jaxlib; extra == "dev-silicon"
+Requires-Dist: pytest-runner>=2.11.1; extra == "dev-silicon"
+Requires-Dist: pytest-benchmark; extra == "dev-silicon"
+Requires-Dist: Sphinx>=5.0.0; extra == "dev-silicon"
+Requires-Dist: myst-nb; extra == "dev-silicon"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "dev-silicon"
+Requires-Dist: pytest-timeout>=1; extra == "dev-silicon"
+Requires-Dist: twine>=1.10.0; extra == "dev-silicon"
+Requires-Dist: Jinja2; extra == "dev-silicon"
+Requires-Dist: matplotlib; extra == "dev-silicon"
+Requires-Dist: pyyaml; extra == "dev-silicon"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev-silicon"
+Requires-Dist: pytest>=3.4.2; extra == "dev-silicon"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "dev-silicon"
+Requires-Dist: pytest-randomly; extra == "dev-silicon"
+Requires-Dist: setuptools>=30.3.0; extra == "dev-silicon"
+Requires-Dist: coverage>=4.5.1; extra == "dev-silicon"
+Requires-Dist: pytest-helpers-namespace; extra == "dev-silicon"
+Requires-Dist: docformatter; extra == "dev-silicon"
+Requires-Dist: pygit2; extra == "dev-silicon"
+Requires-Dist: numba-stats; extra == "dev-silicon"
+Requires-Dist: watchdog>=0.8.3; extra == "dev-silicon"
+Requires-Dist: sphinx-panels; extra == "dev-silicon"
+Requires-Dist: bumpversion>=0.5.3; extra == "dev-silicon"
+Requires-Dist: wheel>=0.29.0; extra == "dev-silicon"
+Requires-Dist: seed_intersphinx_mapping; extra == "dev-silicon"
+Requires-Dist: coverage-lcov; extra == "dev-silicon"
+Requires-Dist: jupyter-sphinx; extra == "dev-silicon"
+Requires-Dist: mplhep; extra == "dev-silicon"
+Requires-Dist: pytest-rerunfailures>=6; extra == "dev-silicon"
+Requires-Dist: pytest-xdist; extra == "dev-silicon"
+Requires-Dist: scikit-hep-testdata; extra == "dev-silicon"
+Requires-Dist: tox>=2.9.1; extra == "dev-silicon"
+Requires-Dist: pip>=9.0.1; extra == "dev-silicon"
+Requires-Dist: setupext-janitor; extra == "dev-silicon"
+Requires-Dist: sphinx-copybutton; extra == "dev-silicon"
+Requires-Dist: zfit-physics>=0.6.0; extra == "dev-silicon"
+Requires-Dist: pyhf>=0.7.0; extra == "dev-silicon"
+Requires-Dist: pytest-ordering; extra == "dev-silicon"
+Requires-Dist: pre-commit; extra == "dev-silicon"
+Requires-Dist: check-manifest; extra == "dev-silicon"
+Provides-Extra: alldev-linux
+Requires-Dist: sphinxcontrib-bibtex; extra == "alldev-linux"
+Requires-Dist: progressbar2; extra == "alldev-linux"
+Requires-Dist: awkward-pandas; extra == "alldev-linux"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "alldev-linux"
+Requires-Dist: sphinx_togglebutton; extra == "alldev-linux"
+Requires-Dist: pre-commit; extra == "alldev-linux"
+Requires-Dist: pytest-cases; extra == "alldev-linux"
+Requires-Dist: jax<=0.4.28; extra == "alldev-linux"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "alldev-linux"
+Requires-Dist: setuptools_scm_git_archive; extra == "alldev-linux"
+Requires-Dist: flake8>=3.5.0; extra == "alldev-linux"
+Requires-Dist: jaxlib<=0.4.28; extra == "alldev-linux"
+Requires-Dist: jaxlib; extra == "alldev-linux"
+Requires-Dist: pytest-runner>=2.11.1; extra == "alldev-linux"
+Requires-Dist: pytest-benchmark; extra == "alldev-linux"
+Requires-Dist: Sphinx>=5.0.0; extra == "alldev-linux"
+Requires-Dist: myst-nb; extra == "alldev-linux"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "alldev-linux"
+Requires-Dist: pytest-timeout>=1; extra == "alldev-linux"
+Requires-Dist: twine>=1.10.0; extra == "alldev-linux"
+Requires-Dist: Jinja2; extra == "alldev-linux"
+Requires-Dist: matplotlib; extra == "alldev-linux"
+Requires-Dist: pyyaml; extra == "alldev-linux"
+Requires-Dist: sphinx-autodoc-typehints; extra == "alldev-linux"
+Requires-Dist: pytest>=3.4.2; extra == "alldev-linux"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "alldev-linux"
+Requires-Dist: pytest-randomly; extra == "alldev-linux"
+Requires-Dist: setuptools>=30.3.0; extra == "alldev-linux"
+Requires-Dist: coverage>=4.5.1; extra == "alldev-linux"
+Requires-Dist: pytest-helpers-namespace; extra == "alldev-linux"
+Requires-Dist: docformatter; extra == "alldev-linux"
+Requires-Dist: pygit2; extra == "alldev-linux"
+Requires-Dist: numba-stats; extra == "alldev-linux"
+Requires-Dist: watchdog>=0.8.3; extra == "alldev-linux"
+Requires-Dist: sphinx-panels; extra == "alldev-linux"
+Requires-Dist: bumpversion>=0.5.3; extra == "alldev-linux"
+Requires-Dist: wheel>=0.29.0; extra == "alldev-linux"
+Requires-Dist: seed_intersphinx_mapping; extra == "alldev-linux"
+Requires-Dist: coverage-lcov; extra == "alldev-linux"
+Requires-Dist: jupyter-sphinx; extra == "alldev-linux"
+Requires-Dist: mplhep; extra == "alldev-linux"
+Requires-Dist: pytest-rerunfailures>=6; extra == "alldev-linux"
+Requires-Dist: pytest-xdist; extra == "alldev-linux"
+Requires-Dist: scikit-hep-testdata; extra == "alldev-linux"
+Requires-Dist: tox>=2.9.1; extra == "alldev-linux"
+Requires-Dist: asdf<4.0.0; extra == "alldev-linux"
+Requires-Dist: pip>=9.0.1; extra == "alldev-linux"
+Requires-Dist: setupext-janitor; extra == "alldev-linux"
+Requires-Dist: sphinx-copybutton; extra == "alldev-linux"
+Requires-Dist: nlopt>=2.7.1; extra == "alldev-linux"
+Requires-Dist: zfit-physics>=0.6.0; extra == "alldev-linux"
+Requires-Dist: pyhf>=0.7.0; extra == "alldev-linux"
+Requires-Dist: pytest-ordering; extra == "alldev-linux"
+Requires-Dist: ipyopt>=0.12; extra == "alldev-linux"
+Requires-Dist: check-manifest; extra == "alldev-linux"
+Provides-Extra: alldev-darwin
+Requires-Dist: sphinxcontrib-bibtex; extra == "alldev-darwin"
+Requires-Dist: progressbar2; extra == "alldev-darwin"
+Requires-Dist: awkward-pandas; extra == "alldev-darwin"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "alldev-darwin"
+Requires-Dist: sphinx_togglebutton; extra == "alldev-darwin"
+Requires-Dist: pre-commit; extra == "alldev-darwin"
+Requires-Dist: pytest-cases; extra == "alldev-darwin"
+Requires-Dist: jax<=0.4.28; extra == "alldev-darwin"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "alldev-darwin"
+Requires-Dist: setuptools_scm_git_archive; extra == "alldev-darwin"
+Requires-Dist: flake8>=3.5.0; extra == "alldev-darwin"
+Requires-Dist: jaxlib<=0.4.28; extra == "alldev-darwin"
+Requires-Dist: jaxlib; extra == "alldev-darwin"
+Requires-Dist: pytest-runner>=2.11.1; extra == "alldev-darwin"
+Requires-Dist: pytest-benchmark; extra == "alldev-darwin"
+Requires-Dist: Sphinx>=5.0.0; extra == "alldev-darwin"
+Requires-Dist: myst-nb; extra == "alldev-darwin"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "alldev-darwin"
+Requires-Dist: pytest-timeout>=1; extra == "alldev-darwin"
+Requires-Dist: twine>=1.10.0; extra == "alldev-darwin"
+Requires-Dist: Jinja2; extra == "alldev-darwin"
+Requires-Dist: matplotlib; extra == "alldev-darwin"
+Requires-Dist: pyyaml; extra == "alldev-darwin"
+Requires-Dist: sphinx-autodoc-typehints; extra == "alldev-darwin"
+Requires-Dist: pytest>=3.4.2; extra == "alldev-darwin"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "alldev-darwin"
+Requires-Dist: pytest-randomly; extra == "alldev-darwin"
+Requires-Dist: setuptools>=30.3.0; extra == "alldev-darwin"
+Requires-Dist: coverage>=4.5.1; extra == "alldev-darwin"
+Requires-Dist: pytest-helpers-namespace; extra == "alldev-darwin"
+Requires-Dist: docformatter; extra == "alldev-darwin"
+Requires-Dist: pygit2; extra == "alldev-darwin"
+Requires-Dist: numba-stats; extra == "alldev-darwin"
+Requires-Dist: watchdog>=0.8.3; extra == "alldev-darwin"
+Requires-Dist: sphinx-panels; extra == "alldev-darwin"
+Requires-Dist: bumpversion>=0.5.3; extra == "alldev-darwin"
+Requires-Dist: wheel>=0.29.0; extra == "alldev-darwin"
+Requires-Dist: seed_intersphinx_mapping; extra == "alldev-darwin"
+Requires-Dist: coverage-lcov; extra == "alldev-darwin"
+Requires-Dist: jupyter-sphinx; extra == "alldev-darwin"
+Requires-Dist: mplhep; extra == "alldev-darwin"
+Requires-Dist: pytest-rerunfailures>=6; extra == "alldev-darwin"
+Requires-Dist: pytest-xdist; extra == "alldev-darwin"
+Requires-Dist: scikit-hep-testdata; extra == "alldev-darwin"
+Requires-Dist: tox>=2.9.1; extra == "alldev-darwin"
+Requires-Dist: pip>=9.0.1; extra == "alldev-darwin"
+Requires-Dist: setupext-janitor; extra == "alldev-darwin"
+Requires-Dist: sphinx-copybutton; extra == "alldev-darwin"
+Requires-Dist: nlopt>=2.7.1; extra == "alldev-darwin"
+Requires-Dist: zfit-physics>=0.6.0; extra == "alldev-darwin"
+Requires-Dist: pyhf>=0.7.0; extra == "alldev-darwin"
+Requires-Dist: pytest-ordering; extra == "alldev-darwin"
+Requires-Dist: asdf<4.0.0; extra == "alldev-darwin"
+Requires-Dist: check-manifest; extra == "alldev-darwin"
+Provides-Extra: alldev-silicon
+Requires-Dist: sphinxcontrib-bibtex; extra == "alldev-silicon"
+Requires-Dist: progressbar2; extra == "alldev-silicon"
+Requires-Dist: awkward-pandas; extra == "alldev-silicon"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "alldev-silicon"
+Requires-Dist: sphinx_togglebutton; extra == "alldev-silicon"
+Requires-Dist: pre-commit; extra == "alldev-silicon"
+Requires-Dist: pytest-cases; extra == "alldev-silicon"
+Requires-Dist: jax<=0.4.28; extra == "alldev-silicon"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "alldev-silicon"
+Requires-Dist: setuptools_scm_git_archive; extra == "alldev-silicon"
+Requires-Dist: flake8>=3.5.0; extra == "alldev-silicon"
+Requires-Dist: jaxlib<=0.4.28; extra == "alldev-silicon"
+Requires-Dist: jaxlib; extra == "alldev-silicon"
+Requires-Dist: pytest-runner>=2.11.1; extra == "alldev-silicon"
+Requires-Dist: pytest-benchmark; extra == "alldev-silicon"
+Requires-Dist: Sphinx>=5.0.0; extra == "alldev-silicon"
+Requires-Dist: myst-nb; extra == "alldev-silicon"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "alldev-silicon"
+Requires-Dist: pytest-timeout>=1; extra == "alldev-silicon"
+Requires-Dist: twine>=1.10.0; extra == "alldev-silicon"
+Requires-Dist: Jinja2; extra == "alldev-silicon"
+Requires-Dist: matplotlib; extra == "alldev-silicon"
+Requires-Dist: pyyaml; extra == "alldev-silicon"
+Requires-Dist: sphinx-autodoc-typehints; extra == "alldev-silicon"
+Requires-Dist: pytest>=3.4.2; extra == "alldev-silicon"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "alldev-silicon"
+Requires-Dist: pytest-randomly; extra == "alldev-silicon"
+Requires-Dist: setuptools>=30.3.0; extra == "alldev-silicon"
+Requires-Dist: coverage>=4.5.1; extra == "alldev-silicon"
+Requires-Dist: pytest-helpers-namespace; extra == "alldev-silicon"
+Requires-Dist: docformatter; extra == "alldev-silicon"
+Requires-Dist: pygit2; extra == "alldev-silicon"
+Requires-Dist: numba-stats; extra == "alldev-silicon"
+Requires-Dist: watchdog>=0.8.3; extra == "alldev-silicon"
+Requires-Dist: sphinx-panels; extra == "alldev-silicon"
+Requires-Dist: bumpversion>=0.5.3; extra == "alldev-silicon"
+Requires-Dist: wheel>=0.29.0; extra == "alldev-silicon"
+Requires-Dist: seed_intersphinx_mapping; extra == "alldev-silicon"
+Requires-Dist: coverage-lcov; extra == "alldev-silicon"
+Requires-Dist: jupyter-sphinx; extra == "alldev-silicon"
+Requires-Dist: mplhep; extra == "alldev-silicon"
+Requires-Dist: pytest-rerunfailures>=6; extra == "alldev-silicon"
+Requires-Dist: pytest-xdist; extra == "alldev-silicon"
+Requires-Dist: scikit-hep-testdata; extra == "alldev-silicon"
+Requires-Dist: tox>=2.9.1; extra == "alldev-silicon"
+Requires-Dist: pip>=9.0.1; extra == "alldev-silicon"
+Requires-Dist: setupext-janitor; extra == "alldev-silicon"
+Requires-Dist: sphinx-copybutton; extra == "alldev-silicon"
+Requires-Dist: zfit-physics>=0.6.0; extra == "alldev-silicon"
+Requires-Dist: pyhf>=0.7.0; extra == "alldev-silicon"
+Requires-Dist: pytest-ordering; extra == "alldev-silicon"
+Requires-Dist: asdf<4.0.0; extra == "alldev-silicon"
+Requires-Dist: check-manifest; extra == "alldev-silicon"
+Provides-Extra: alldev-windows
+Requires-Dist: sphinxcontrib-bibtex; extra == "alldev-windows"
+Requires-Dist: progressbar2; extra == "alldev-windows"
+Requires-Dist: awkward-pandas; extra == "alldev-windows"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "alldev-windows"
+Requires-Dist: sphinx_togglebutton; extra == "alldev-windows"
+Requires-Dist: pre-commit; extra == "alldev-windows"
+Requires-Dist: pytest-cases; extra == "alldev-windows"
+Requires-Dist: jax<=0.4.28; extra == "alldev-windows"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "alldev-windows"
+Requires-Dist: setuptools_scm_git_archive; extra == "alldev-windows"
+Requires-Dist: flake8>=3.5.0; extra == "alldev-windows"
+Requires-Dist: jaxlib<=0.4.28; extra == "alldev-windows"
+Requires-Dist: pytest-runner>=2.11.1; extra == "alldev-windows"
+Requires-Dist: pytest-benchmark; extra == "alldev-windows"
+Requires-Dist: Sphinx>=5.0.0; extra == "alldev-windows"
+Requires-Dist: myst-nb; extra == "alldev-windows"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "alldev-windows"
+Requires-Dist: pytest-timeout>=1; extra == "alldev-windows"
+Requires-Dist: twine>=1.10.0; extra == "alldev-windows"
+Requires-Dist: Jinja2; extra == "alldev-windows"
+Requires-Dist: matplotlib; extra == "alldev-windows"
+Requires-Dist: pyyaml; extra == "alldev-windows"
+Requires-Dist: sphinx-autodoc-typehints; extra == "alldev-windows"
+Requires-Dist: pytest>=3.4.2; extra == "alldev-windows"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "alldev-windows"
+Requires-Dist: pytest-randomly; extra == "alldev-windows"
+Requires-Dist: setuptools>=30.3.0; extra == "alldev-windows"
+Requires-Dist: coverage>=4.5.1; extra == "alldev-windows"
+Requires-Dist: pytest-helpers-namespace; extra == "alldev-windows"
+Requires-Dist: docformatter; extra == "alldev-windows"
+Requires-Dist: pygit2; extra == "alldev-windows"
+Requires-Dist: numba-stats; extra == "alldev-windows"
+Requires-Dist: watchdog>=0.8.3; extra == "alldev-windows"
+Requires-Dist: sphinx-panels; extra == "alldev-windows"
+Requires-Dist: bumpversion>=0.5.3; extra == "alldev-windows"
+Requires-Dist: wheel>=0.29.0; extra == "alldev-windows"
+Requires-Dist: seed_intersphinx_mapping; extra == "alldev-windows"
+Requires-Dist: coverage-lcov; extra == "alldev-windows"
+Requires-Dist: jupyter-sphinx; extra == "alldev-windows"
+Requires-Dist: mplhep; extra == "alldev-windows"
+Requires-Dist: pytest-rerunfailures>=6; extra == "alldev-windows"
+Requires-Dist: pytest-xdist; extra == "alldev-windows"
+Requires-Dist: scikit-hep-testdata; extra == "alldev-windows"
+Requires-Dist: tox>=2.9.1; extra == "alldev-windows"
+Requires-Dist: pip>=9.0.1; extra == "alldev-windows"
+Requires-Dist: setupext-janitor; extra == "alldev-windows"
+Requires-Dist: sphinx-copybutton; extra == "alldev-windows"
+Requires-Dist: nlopt>=2.7.1; extra == "alldev-windows"
+Requires-Dist: zfit-physics>=0.6.0; extra == "alldev-windows"
+Requires-Dist: pyhf>=0.7.0; extra == "alldev-windows"
+Requires-Dist: pytest-ordering; extra == "alldev-windows"
+Requires-Dist: asdf<4.0.0; extra == "alldev-windows"
+Requires-Dist: check-manifest; extra == "alldev-windows"
+Provides-Extra: tests
+Requires-Dist: scikit-hep-testdata; extra == "tests"
+Requires-Dist: pytest-runner>=2.11.1; extra == "tests"
+Requires-Dist: pytest-timeout>=1; extra == "tests"
+Requires-Dist: matplotlib; extra == "tests"
+Requires-Dist: pytest>=3.4.2; extra == "tests"
+Requires-Dist: pytest-randomly; extra == "tests"
+Requires-Dist: nlopt>=2.7.1; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Requires-Dist: pytest-rerunfailures>=6; extra == "tests"
+Requires-Dist: pytest-ordering; extra == "tests"
+Requires-Dist: ipyopt>=0.12; extra == "tests"
+Provides-Extra: dev
+Requires-Dist: sphinxcontrib-bibtex; extra == "dev"
+Requires-Dist: progressbar2; extra == "dev"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "dev"
+Requires-Dist: sphinx_togglebutton; extra == "dev"
+Requires-Dist: pytest-cases; extra == "dev"
+Requires-Dist: jax<=0.4.28; extra == "dev"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "dev"
+Requires-Dist: setuptools_scm_git_archive; extra == "dev"
+Requires-Dist: flake8>=3.5.0; extra == "dev"
+Requires-Dist: jaxlib<=0.4.28; extra == "dev"
+Requires-Dist: jaxlib; extra == "dev"
+Requires-Dist: pytest-runner>=2.11.1; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
+Requires-Dist: Sphinx>=5.0.0; extra == "dev"
+Requires-Dist: myst-nb; extra == "dev"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "dev"
+Requires-Dist: pytest-timeout>=1; extra == "dev"
+Requires-Dist: twine>=1.10.0; extra == "dev"
+Requires-Dist: Jinja2; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: pyyaml; extra == "dev"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev"
+Requires-Dist: pytest>=3.4.2; extra == "dev"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "dev"
+Requires-Dist: pytest-randomly; extra == "dev"
+Requires-Dist: ipyopt>=0.12; extra == "dev"
+Requires-Dist: setuptools>=30.3.0; extra == "dev"
+Requires-Dist: coverage>=4.5.1; extra == "dev"
+Requires-Dist: pytest-helpers-namespace; extra == "dev"
+Requires-Dist: docformatter; extra == "dev"
+Requires-Dist: pygit2; extra == "dev"
+Requires-Dist: numba-stats; extra == "dev"
+Requires-Dist: watchdog>=0.8.3; extra == "dev"
+Requires-Dist: sphinx-panels; extra == "dev"
+Requires-Dist: bumpversion>=0.5.3; extra == "dev"
+Requires-Dist: wheel>=0.29.0; extra == "dev"
+Requires-Dist: seed_intersphinx_mapping; extra == "dev"
+Requires-Dist: coverage-lcov; extra == "dev"
+Requires-Dist: jupyter-sphinx; extra == "dev"
+Requires-Dist: mplhep; extra == "dev"
+Requires-Dist: pytest-rerunfailures>=6; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: scikit-hep-testdata; extra == "dev"
+Requires-Dist: tox>=2.9.1; extra == "dev"
+Requires-Dist: pip>=9.0.1; extra == "dev"
+Requires-Dist: setupext-janitor; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Requires-Dist: zfit-physics>=0.6.0; extra == "dev"
+Requires-Dist: nlopt>=2.7.1; extra == "dev"
+Requires-Dist: pyhf>=0.7.0; extra == "dev"
+Requires-Dist: pytest-ordering; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: check-manifest; extra == "dev"
+Provides-Extra: alldev
+Requires-Dist: sphinxcontrib-bibtex; extra == "alldev"
+Requires-Dist: progressbar2; extra == "alldev"
+Requires-Dist: awkward-pandas; extra == "alldev"
+Requires-Dist: pydata-sphinx-theme>=0.9; extra == "alldev"
+Requires-Dist: sphinx_togglebutton; extra == "alldev"
+Requires-Dist: pre-commit; extra == "alldev"
+Requires-Dist: pytest-cases; extra == "alldev"
+Requires-Dist: jax<=0.4.28; extra == "alldev"
+Requires-Dist: sphinxcontrib-youtube>=1.0.0; extra == "alldev"
+Requires-Dist: setuptools_scm_git_archive; extra == "alldev"
+Requires-Dist: flake8>=3.5.0; extra == "alldev"
+Requires-Dist: jaxlib<=0.4.28; extra == "alldev"
+Requires-Dist: jaxlib; extra == "alldev"
+Requires-Dist: pytest-runner>=2.11.1; extra == "alldev"
+Requires-Dist: pytest-benchmark; extra == "alldev"
+Requires-Dist: Sphinx>=5.0.0; extra == "alldev"
+Requires-Dist: myst-nb; extra == "alldev"
+Requires-Dist: setuptools_scm[toml]>=3.4; extra == "alldev"
+Requires-Dist: pytest-timeout>=1; extra == "alldev"
+Requires-Dist: twine>=1.10.0; extra == "alldev"
+Requires-Dist: Jinja2; extra == "alldev"
+Requires-Dist: matplotlib; extra == "alldev"
+Requires-Dist: pyyaml; extra == "alldev"
+Requires-Dist: sphinx-autodoc-typehints; extra == "alldev"
+Requires-Dist: pytest>=3.4.2; extra == "alldev"
+Requires-Dist: sphinxcontrib-applehelp>1.0.8; extra == "alldev"
+Requires-Dist: pytest-randomly; extra == "alldev"
+Requires-Dist: setuptools>=30.3.0; extra == "alldev"
+Requires-Dist: coverage>=4.5.1; extra == "alldev"
+Requires-Dist: pytest-helpers-namespace; extra == "alldev"
+Requires-Dist: docformatter; extra == "alldev"
+Requires-Dist: pygit2; extra == "alldev"
+Requires-Dist: numba-stats; extra == "alldev"
+Requires-Dist: watchdog>=0.8.3; extra == "alldev"
+Requires-Dist: sphinx-panels; extra == "alldev"
+Requires-Dist: bumpversion>=0.5.3; extra == "alldev"
+Requires-Dist: wheel>=0.29.0; extra == "alldev"
+Requires-Dist: seed_intersphinx_mapping; extra == "alldev"
+Requires-Dist: coverage-lcov; extra == "alldev"
+Requires-Dist: jupyter-sphinx; extra == "alldev"
+Requires-Dist: mplhep; extra == "alldev"
+Requires-Dist: pytest-rerunfailures>=6; extra == "alldev"
+Requires-Dist: pytest-xdist; extra == "alldev"
+Requires-Dist: scikit-hep-testdata; extra == "alldev"
+Requires-Dist: tox>=2.9.1; extra == "alldev"
+Requires-Dist: asdf<4.0.0; extra == "alldev"
+Requires-Dist: pip>=9.0.1; extra == "alldev"
+Requires-Dist: setupext-janitor; extra == "alldev"
+Requires-Dist: sphinx-copybutton; extra == "alldev"
+Requires-Dist: nlopt>=2.7.1; extra == "alldev"
+Requires-Dist: zfit-physics>=0.6.0; extra == "alldev"
+Requires-Dist: pyhf>=0.7.0; extra == "alldev"
+Requires-Dist: pytest-ordering; extra == "alldev"
+Requires-Dist: ipyopt>=0.12; extra == "alldev"
+Requires-Dist: check-manifest; extra == "alldev"
+Provides-Extra: all
+Requires-Dist: asdf<4.0.0; extra == "all"
+Requires-Dist: nlopt>=2.7.1; extra == "all"
+Requires-Dist: ipyopt>=0.12; extra == "all"
+Requires-Dist: awkward-pandas; extra == "all"
+Dynamic: provides-extra
+Dynamic: requires-dist
+
+|zfit_logo|
+
+*******************************
+zfit: scalable pythonic fitting
+*******************************
+
+.. image:: https://scikit-hep.org/assets/images/Scikit--HEP-Affiliated-blue.svg
+   :target: https://scikit-hep.org
+
+.. image:: https://img.shields.io/badge/DOI-10.1016%2Fj.softx.2020.100508-yellow
+   :target: https://www.sciencedirect.com/science/article/pii/S2352711019303851
+   :alt: DOI 10.1016/j.softx.2020.100508
+
+.. image:: https://img.shields.io/pypi/pyversions/zfit
+   :target: https://pypi.org/project/zfit/
+   :alt: PyPI - Python Version
+
+.. image:: https://img.shields.io/pypi/v/zfit.svg
+   :target: https://pypi.python.org/pypi/zfit
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/zfit
+   :target: https://anaconda.org/conda-forge/zfit
+   :alt: conda-forge
+
+.. image:: https://img.shields.io/spack/v/py-zfit
+   :target: https://github.com/spack/spack/blob/develop/var/spack/repos/builtin/packages/py-zfit/package.py
+
+.. image:: https://github.com/zfit/zfit/workflows/build/badge.svg
+   :target: https://github.com/zfit/zfit/actions
+
+
+
+
+
+.. |zfit_logo| image:: docs/images/zfit-logo_hires.png
+   :target: https://github.com/zfit/zfit
+   :alt: zfit logo
+
+.. |scikit-hep_logo| image:: docs/images/scikit-hep-logo_168x168.png
+   :target: https://scikit-hep.org/affiliated
+   :alt: scikit-hep logo
+
+zfit is a highly scalable and customizable model manipulation and likelihood fitting library. It uses the same computational backend as
+`TensorFlow <https://www.tensorflow.org/>`_ and is optimised for simple and direct manipulation of probability density functions. The project is affiliated with
+and well integrated into `Scikit-HEP <https://scikit-hep.org/>`_, the HEP Python ecosystem.
+
+- **Tutorials**: `Interactive introduction and tutorials <https://zfit-tutorials.readthedocs.io/en/latest/>`_
+- **Quick start**: `Example scripts <examples>`_
+- **Documentation**: See `stable documentation`_ or `latest documentation`_
+- **Questions**: see the `FAQ <https://github.com/zfit/zfit/wiki/FAQ>`_,
+  `ask on StackOverflow <https://stackoverflow.com/questions/ask?tags=zfit>`_ (with the **zfit** tag) or `contact`_ us directly.
+- **Physics, HEP**: `zfit-physics <https://github.com/zfit/zfit-physics>`_ is the place to contribute and find more HEP
+  related content
+- **Statistical inference**: `hepstats <https://github.com/scikit-hep/hepstats>`_ for limits, CI, sWeights and more
+
+
+If you use zfit in **research**, please
+consider `citing <https://www.sciencedirect.com/science/article/pii/S2352711019303851>`_.
+
+*N.B.*: zfit is currently in *beta stage*, so while most core parts are established,
+some may still be missing and bugs may be encountered.
+It is, however, mostly ready for production, and is being used in analyses projects.
+If you want to use it for your project and you are not sure if all the needed functionality is there,
+feel free to `contact`_ us.
+
+Installation
+=============
+
+zfit is available on pip and conda-forge. To install it (recommended: use a virtual/conda env!) with all the dependencies (minimizers, uproot, ...), use
+
+.. code-block:: bash
+
+   pip install -U zfit[all]
+
+(the ``-U`` just indicates to upgrade zfit, in case you have it already installed)
+or for minimal dependencies
+
+.. code-block:: bash
+
+   pip install zfit
+
+For conda/mamba, use
+
+.. code-block:: bash
+
+   conda install -c conda-forge zfit
+
+
+
+
+How to use
+==========
+
+While the zfit library provides a model fitting and sampling framework for a broad list of applications,
+we will illustrate its main features with a simple example by fitting a Gaussian distribution with an unbinned
+likelihood fit and a parameter uncertainty estimation.
+
+
+Example in short
+----------------
+.. code-block:: python
+
+    obs = zfit.Space('x', -10, 10)
+
+    # create the model
+    mu    = zfit.Parameter("mu"   , 2.4, -1, 5)
+    sigma = zfit.Parameter("sigma", 1.3,  0, 5)
+    gauss = zfit.pdf.Gauss(obs=obs, mu=mu, sigma=sigma)
+
+    # load the data
+    data_np = np.random.normal(size=10_000)
+    data = zfit.Data(obs=obs, data=data_np)
+    # or sample from model
+    data = gauss.sample(10_000)
+
+    # build the loss
+    nll = zfit.loss.UnbinnedNLL(model=gauss, data=data)
+
+    # minimize (20+ interchangeable minimizers available!)
+    minimizer = zfit.minimize.Minuit()
+    result = minimizer.minimize(nll).update_params()
+
+    # calculate errors
+    sym_errors = result.hesse()
+    asym_errors = result.errors()
+
+This follows the zfit workflow
+
+.. image:: docs/images/zfit_workflow_v2.png
+    :alt: zfit workflow
+
+
+
+
+Full explanation
+----------------
+
+The default space (e.g. normalization range) of a PDF is defined by an *observable space*, which is created using the ``zfit.Space`` class:
+
+
+.. code-block:: python
+
+    obs = zfit.Space('x', -10, 10)
+
+
+To create a simple Gaussian PDF, we define its parameters and their limits using the ``zfit.Parameter`` class.
+
+.. code-block:: python
+
+  # syntax: zfit.Parameter("any_name", value, lower, upper)
+    mu    = zfit.Parameter("mu"   , 2.4, -1, 5)
+    sigma = zfit.Parameter("sigma", 1.3,  0, 5)
+    gauss = zfit.pdf.Gauss(obs=obs, mu=mu, sigma=sigma)
+
+For simplicity, we create the dataset to be fitted starting from a numpy array, but zfit allows for the use of other sources such as ROOT files:
+
+.. code-block:: python
+
+    mu_true = 0
+    sigma_true = 1
+    data_np = np.random.normal(mu_true, sigma_true, size=10000)
+    data = zfit.Data(obs=obs, data=data_np)
+
+Fits are performed in three steps:
+
+1. Creation of a loss function, in our case a negative log-likelihood.
+2. Instantiation of our minimiser of choice, in the example the ``Minuit``.
+3. Minimisation of the loss function.
+
+.. code-block:: python
+
+    # Stage 1: create an unbinned likelihood with the given PDF and dataset
+    nll = zfit.loss.UnbinnedNLL(model=gauss, data=data)
+
+    # Stage 2: instantiate a minimiser (in this case a basic minuit)
+    minimizer = zfit.minimize.Minuit()
+
+    # Stage 3: minimise the given negative log-likelihood
+    result = minimizer.minimize(nll).update_params()
+
+The ``.update_params()`` changes the default values of the parameters
+(*this is currently happen by default but won't anymore in the future*)
+
+Symmetric errors are calculated with a further function call to avoid running potentially expensive operations if not needed. Asymmetric errors using a
+profiling method can also be obtained:
+
+.. code-block:: python
+
+    sym_errors = result.hesse()
+    asym_errors = result.errors()
+
+Once we've performed the fit and obtained the corresponding uncertainties, we can examine the fit results by printing it or looking at individual parts
+
+.. code-block:: python
+
+    print(result)  # nice representation of a whole result
+
+    print("Function minimum:", result.fmin)
+    print("Converged:", result.converged)
+
+    # Information on all the parameters in the fit
+    params = result.params
+    print(params)
+
+    # Printing information on specific parameters, e.g. mu
+    print("mu={}".format(params[mu]['value']))
+
+And that's it!
+For more details and information of what you can do with zfit, checkout the `latest documentation`_.
+
+Why?
+====
+
+The basic idea behind zfit is to offer a Python oriented alternative to the very successful RooFit library
+from the `ROOT <https://root.cern.ch/>`_ data analysis package that can integrate with the other packages
+that are part if the scientific Python ecosystem.
+Contrary to the monolithic approach of ROOT/RooFit, the aim of zfit is to be light and flexible enough t
+o integrate with any state-of-art tools and to allow scalability going to larger datasets.
+
+These core ideas are supported by two basic pillars:
+
+- The skeleton and extension of the code is minimalist, simple and finite:
+  the zfit library is exclusively designed for the purpose of model fitting and sampling with no attempt to extend its
+  functionalities to features such as statistical methods or plotting.
+
+- zfit is designed for optimal parallelisation and scalability by making use of TensorFlow as its backend.
+  The use of TensorFlow provides crucial features in the context of model fitting like taking care of the
+  parallelisation and analytic derivatives.
+
+Prerequisites
+=============
+
+``zfit`` works with Python versions 3.9 and above.
+The main dependency is `tensorflow <https://www.tensorflow.org/>`_: zfit follows a close version compatibility with TensorFlow.
+
+For a full list of all dependencies, check the `requirements <requirements.txt>`_.
+
+
+Contributing
+============
+
+Any idea of how to improve the library? Or interested to write some code?
+Contributions are always welcome, please have a look at the `Contributing guide`_.
+
+.. _Contributing guide: CONTRIBUTING.rst
+
+
+Contact
+========
+
+You can contact us directly:
+ - via e-mail: zfit@physik.uzh.ch
+ - join our `Gitter channel <https://gitter.im/zfit/zfit>`_
+
+
+Original Authors
+================
+
+| Jonas Eschle <jonas.eschle@cern.ch>
+| Albert Puig <albert.puig@cern.ch>
+| Rafael Silva Coutinho <rsilvaco@cern.ch>
+
+
+See here for `all authors and contributors`_
+
+..  _all authors and contributors: AUTHORS.rst
+
+
+Acknowledgements
+================
+
+zfit has been developed with support from the University of Zurich and the Swiss National Science Foundation (SNSF) under contracts 168169 and 174182.
+
+The idea of zfit is inspired by the `TensorFlowAnalysis <https://gitlab.cern.ch/poluekt/TensorFlowAnalysis>`_ framework
+developed by Anton Poluektov and `TensorProb <https://github.com/tensorprob/tensorprob>`_ by Chris Burr and Igor Babuschkin
+using the TensorFlow open source library and more libraries.
+
+.. _`latest documentation`: https://zfit.readthedocs.io/en/latest/
+.. _`stable documentation`: https://zfit.readthedocs.io/en/stable/

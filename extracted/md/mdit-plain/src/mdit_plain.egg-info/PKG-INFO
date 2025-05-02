@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: mdit-plain
+Version: 1.0.1
+Summary: A plain text renderer for markdown-it-py
+Home-page: https://github.com/elespike/mdit_plain
+Author: elespike
+Maintainer: elespike
+Keywords: markdown plain text plaintext markdown-it markdown-it-py renderer
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Text Processing :: Filters
+Classifier: Topic :: Text Processing :: Markup
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Classifier: Topic :: Text Processing :: Markup :: Markdown
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Provides-Extra: test
+License-File: LICENSE
+
+A renderer for [markdown-it-py](https://github.com/executablebooks/markdown-it-py) that converts markdown documents into plain text by removing all markup.

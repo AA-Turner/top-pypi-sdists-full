@@ -72,8 +72,12 @@ from .type_defs import (
     ListPolicyStoresOutputTypeDef,
     ListPolicyTemplatesInputTypeDef,
     ListPolicyTemplatesOutputTypeDef,
+    ListTagsForResourceInputTypeDef,
+    ListTagsForResourceOutputTypeDef,
     PutSchemaInputTypeDef,
     PutSchemaOutputTypeDef,
+    TagResourceInputTypeDef,
+    UntagResourceInputTypeDef,
     UpdateIdentitySourceInputTypeDef,
     UpdateIdentitySourceOutputTypeDef,
     UpdatePolicyInputTypeDef,
@@ -106,6 +110,7 @@ class Exceptions(BaseClientExceptions):
     ResourceNotFoundException: Type[BotocoreClientError]
     ServiceQuotaExceededException: Type[BotocoreClientError]
     ThrottlingException: Type[BotocoreClientError]
+    TooManyTagsException: Type[BotocoreClientError]
     ValidationException: Type[BotocoreClientError]
 
 class VerifiedPermissionsClient(BaseClient):
@@ -365,12 +370,41 @@ class VerifiedPermissionsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#list_policy_templates)
         """
 
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
+    ) -> ListTagsForResourceOutputTypeDef:
+        """
+        Returns the tags associated with the specified Amazon Verified Permissions
+        resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/list_tags_for_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#list_tags_for_resource)
+        """
+
     def put_schema(self, **kwargs: Unpack[PutSchemaInputTypeDef]) -> PutSchemaOutputTypeDef:
         """
         Creates or updates the policy schema in the specified policy store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/put_schema.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#put_schema)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+        """
+        Assigns one or more tags (key-value pairs) to the specified Amazon Verified
+        Permissions resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/tag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#tag_resource)
+        """
+
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+        """
+        Removes one or more tags from the specified Amazon Verified Permissions
+        resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/untag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#untag_resource)
         """
 
     def update_identity_source(

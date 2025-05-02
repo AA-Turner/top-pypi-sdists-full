@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ce_tags`
 
-Refer to the Terraform Registry for docs: [`data_aws_ce_tags`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags).
+Refer to the Terraform Registry for docs: [`data_aws_ce_tags`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsCeTags(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsCeTags.DataAwsCeTags",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags aws_ce_tags}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags aws_ce_tags}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataAwsCeTags(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags aws_ce_tags} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags aws_ce_tags} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#time_period DataAwsCeTags#time_period}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#filter DataAwsCeTags#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#id DataAwsCeTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param search_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#search_string DataAwsCeTags#search_string}.
-        :param sort_by: sort_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#sort_by DataAwsCeTags#sort_by}
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tag_key DataAwsCeTags#tag_key}.
+        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#time_period DataAwsCeTags#time_period}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#filter DataAwsCeTags#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#id DataAwsCeTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param search_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#search_string DataAwsCeTags#search_string}.
+        :param sort_by: sort_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#sort_by DataAwsCeTags#sort_by}
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tag_key DataAwsCeTags#tag_key}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataAwsCeTags(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsCeTags to import.
-        :param import_from_id: The id of the existing DataAwsCeTags that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsCeTags that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsCeTags to import is found.
         '''
         if __debug__:
@@ -141,12 +141,12 @@ class DataAwsCeTags(
         tags: typing.Optional[typing.Union["DataAwsCeTagsFilterTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#and DataAwsCeTags#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#not DataAwsCeTags#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#or DataAwsCeTags#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#and DataAwsCeTags#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#not DataAwsCeTags#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#or DataAwsCeTags#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         value = DataAwsCeTagsFilter(
             and_=and_,
@@ -175,8 +175,8 @@ class DataAwsCeTags(
     @jsii.member(jsii_name="putTimePeriod")
     def put_time_period(self, *, end: builtins.str, start: builtins.str) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#end DataAwsCeTags#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#start DataAwsCeTags#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#end DataAwsCeTags#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#start DataAwsCeTags#start}.
         '''
         value = DataAwsCeTagsTimePeriod(end=end, start=start)
 
@@ -349,12 +349,12 @@ class DataAwsCeTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#time_period DataAwsCeTags#time_period}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#filter DataAwsCeTags#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#id DataAwsCeTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param search_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#search_string DataAwsCeTags#search_string}.
-        :param sort_by: sort_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#sort_by DataAwsCeTags#sort_by}
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tag_key DataAwsCeTags#tag_key}.
+        :param time_period: time_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#time_period DataAwsCeTags#time_period}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#filter DataAwsCeTags#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#id DataAwsCeTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param search_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#search_string DataAwsCeTags#search_string}.
+        :param sort_by: sort_by block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#sort_by DataAwsCeTags#sort_by}
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tag_key DataAwsCeTags#tag_key}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -473,7 +473,7 @@ class DataAwsCeTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def time_period(self) -> "DataAwsCeTagsTimePeriod":
         '''time_period block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#time_period DataAwsCeTags#time_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#time_period DataAwsCeTags#time_period}
         '''
         result = self._values.get("time_period")
         assert result is not None, "Required property 'time_period' is missing"
@@ -483,14 +483,14 @@ class DataAwsCeTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["DataAwsCeTagsFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#filter DataAwsCeTags#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#filter DataAwsCeTags#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["DataAwsCeTagsFilter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#id DataAwsCeTags#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#id DataAwsCeTags#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -500,7 +500,7 @@ class DataAwsCeTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def search_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#search_string DataAwsCeTags#search_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#search_string DataAwsCeTags#search_string}.'''
         result = self._values.get("search_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -510,14 +510,14 @@ class DataAwsCeTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsCeTagsSortBy"]]]:
         '''sort_by block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#sort_by DataAwsCeTags#sort_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#sort_by DataAwsCeTags#sort_by}
         '''
         result = self._values.get("sort_by")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsCeTagsSortBy"]]], result)
 
     @builtins.property
     def tag_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tag_key DataAwsCeTags#tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tag_key DataAwsCeTags#tag_key}.'''
         result = self._values.get("tag_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -557,12 +557,12 @@ class DataAwsCeTagsFilter:
         tags: typing.Optional[typing.Union["DataAwsCeTagsFilterTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#and DataAwsCeTags#and}
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
-        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#not DataAwsCeTags#not}
-        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#or DataAwsCeTags#or}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        :param and_: and block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#and DataAwsCeTags#and}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        :param not_: not block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#not DataAwsCeTags#not}
+        :param or_: or block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#or DataAwsCeTags#or}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = DataAwsCeTagsFilterCostCategory(**cost_category)
@@ -600,7 +600,7 @@ class DataAwsCeTagsFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsCeTagsFilterAnd"]]]:
         '''and block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#and DataAwsCeTags#and}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#and DataAwsCeTags#and}
         '''
         result = self._values.get("and_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsCeTagsFilterAnd"]]], result)
@@ -609,7 +609,7 @@ class DataAwsCeTagsFilter:
     def cost_category(self) -> typing.Optional["DataAwsCeTagsFilterCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterCostCategory"], result)
@@ -618,7 +618,7 @@ class DataAwsCeTagsFilter:
     def dimension(self) -> typing.Optional["DataAwsCeTagsFilterDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterDimension"], result)
@@ -627,7 +627,7 @@ class DataAwsCeTagsFilter:
     def not_(self) -> typing.Optional["DataAwsCeTagsFilterNot"]:
         '''not block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#not DataAwsCeTags#not}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#not DataAwsCeTags#not}
         '''
         result = self._values.get("not_")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterNot"], result)
@@ -638,7 +638,7 @@ class DataAwsCeTagsFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsCeTagsFilterOr"]]]:
         '''or block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#or DataAwsCeTags#or}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#or DataAwsCeTags#or}
         '''
         result = self._values.get("or_")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsCeTagsFilterOr"]]], result)
@@ -647,7 +647,7 @@ class DataAwsCeTagsFilter:
     def tags(self) -> typing.Optional["DataAwsCeTagsFilterTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterTags"], result)
@@ -682,9 +682,9 @@ class DataAwsCeTagsFilterAnd:
         tags: typing.Optional[typing.Union["DataAwsCeTagsFilterAndTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = DataAwsCeTagsFilterAndCostCategory(**cost_category)
@@ -709,7 +709,7 @@ class DataAwsCeTagsFilterAnd:
     def cost_category(self) -> typing.Optional["DataAwsCeTagsFilterAndCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterAndCostCategory"], result)
@@ -718,7 +718,7 @@ class DataAwsCeTagsFilterAnd:
     def dimension(self) -> typing.Optional["DataAwsCeTagsFilterAndDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterAndDimension"], result)
@@ -727,7 +727,7 @@ class DataAwsCeTagsFilterAnd:
     def tags(self) -> typing.Optional["DataAwsCeTagsFilterAndTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterAndTags"], result)
@@ -758,9 +758,9 @@ class DataAwsCeTagsFilterAndCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f02618732f23722484d66b488e9029db52743391a4956b8bf64fb419b7f1a1a)
@@ -777,19 +777,19 @@ class DataAwsCeTagsFilterAndCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -918,9 +918,9 @@ class DataAwsCeTagsFilterAndDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__947e27b662451f5ee21f18fc47945dec58d863e320b4f1225c9d1460c447a9af)
@@ -937,19 +937,19 @@ class DataAwsCeTagsFilterAndDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1189,9 +1189,9 @@ class DataAwsCeTagsFilterAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterAndCostCategory(
             key=key, match_options=match_options, values=values
@@ -1208,9 +1208,9 @@ class DataAwsCeTagsFilterAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterAndDimension(
             key=key, match_options=match_options, values=values
@@ -1227,9 +1227,9 @@ class DataAwsCeTagsFilterAndOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterAndTags(
             key=key, match_options=match_options, values=values
@@ -1313,9 +1313,9 @@ class DataAwsCeTagsFilterAndTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9deb53bb37e143051983e8cfd9a91a1be2eb16c37ff8755b0e9fbe26704149d1)
@@ -1332,19 +1332,19 @@ class DataAwsCeTagsFilterAndTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1473,9 +1473,9 @@ class DataAwsCeTagsFilterCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__692552575860560f9ed6c3d6a9a0f089c5440b566bdca2f6c303107d7db14ea9)
@@ -1492,19 +1492,19 @@ class DataAwsCeTagsFilterCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1633,9 +1633,9 @@ class DataAwsCeTagsFilterDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e148cac2a02fe93a530f9a564c68304bef9177f5151d8573010e1f82438dcfc1)
@@ -1652,19 +1652,19 @@ class DataAwsCeTagsFilterDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1797,9 +1797,9 @@ class DataAwsCeTagsFilterNot:
         tags: typing.Optional[typing.Union["DataAwsCeTagsFilterNotTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = DataAwsCeTagsFilterNotCostCategory(**cost_category)
@@ -1824,7 +1824,7 @@ class DataAwsCeTagsFilterNot:
     def cost_category(self) -> typing.Optional["DataAwsCeTagsFilterNotCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterNotCostCategory"], result)
@@ -1833,7 +1833,7 @@ class DataAwsCeTagsFilterNot:
     def dimension(self) -> typing.Optional["DataAwsCeTagsFilterNotDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterNotDimension"], result)
@@ -1842,7 +1842,7 @@ class DataAwsCeTagsFilterNot:
     def tags(self) -> typing.Optional["DataAwsCeTagsFilterNotTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterNotTags"], result)
@@ -1873,9 +1873,9 @@ class DataAwsCeTagsFilterNotCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8da29638a13911cdf5fdeb68a9fa29d93edc889bcf9317a7c751542d4bcd9f28)
@@ -1892,19 +1892,19 @@ class DataAwsCeTagsFilterNotCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2033,9 +2033,9 @@ class DataAwsCeTagsFilterNotDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a047fb16fed52f2cabbcbf3e9cd5c55594857bb95e4c64adcaef7210baa67f08)
@@ -2052,19 +2052,19 @@ class DataAwsCeTagsFilterNotDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2208,9 +2208,9 @@ class DataAwsCeTagsFilterNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterNotCostCategory(
             key=key, match_options=match_options, values=values
@@ -2227,9 +2227,9 @@ class DataAwsCeTagsFilterNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterNotDimension(
             key=key, match_options=match_options, values=values
@@ -2246,9 +2246,9 @@ class DataAwsCeTagsFilterNotOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterNotTags(
             key=key, match_options=match_options, values=values
@@ -2327,9 +2327,9 @@ class DataAwsCeTagsFilterNotTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__684dcfe8d6b1ee05844673c9340c7dce85e1bb96285da09598e0bffbb060b3c5)
@@ -2346,19 +2346,19 @@ class DataAwsCeTagsFilterNotTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2491,9 +2491,9 @@ class DataAwsCeTagsFilterOr:
         tags: typing.Optional[typing.Union["DataAwsCeTagsFilterOrTags", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         if isinstance(cost_category, dict):
             cost_category = DataAwsCeTagsFilterOrCostCategory(**cost_category)
@@ -2518,7 +2518,7 @@ class DataAwsCeTagsFilterOr:
     def cost_category(self) -> typing.Optional["DataAwsCeTagsFilterOrCostCategory"]:
         '''cost_category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
         '''
         result = self._values.get("cost_category")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterOrCostCategory"], result)
@@ -2527,7 +2527,7 @@ class DataAwsCeTagsFilterOr:
     def dimension(self) -> typing.Optional["DataAwsCeTagsFilterOrDimension"]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterOrDimension"], result)
@@ -2536,7 +2536,7 @@ class DataAwsCeTagsFilterOr:
     def tags(self) -> typing.Optional["DataAwsCeTagsFilterOrTags"]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional["DataAwsCeTagsFilterOrTags"], result)
@@ -2567,9 +2567,9 @@ class DataAwsCeTagsFilterOrCostCategory:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f524bc3a40d733168adb9c46d515740e69f932f3d0952674fd5ed5fa99c7b51)
@@ -2586,19 +2586,19 @@ class DataAwsCeTagsFilterOrCostCategory:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2727,9 +2727,9 @@ class DataAwsCeTagsFilterOrDimension:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71db653278dc3b8be86e5901afbc7af6ed74a363cffb030ff81fb4ee119122d2)
@@ -2746,19 +2746,19 @@ class DataAwsCeTagsFilterOrDimension:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2998,9 +2998,9 @@ class DataAwsCeTagsFilterOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterOrCostCategory(
             key=key, match_options=match_options, values=values
@@ -3017,9 +3017,9 @@ class DataAwsCeTagsFilterOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterOrDimension(
             key=key, match_options=match_options, values=values
@@ -3036,9 +3036,9 @@ class DataAwsCeTagsFilterOrOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterOrTags(
             key=key, match_options=match_options, values=values
@@ -3120,9 +3120,9 @@ class DataAwsCeTagsFilterOrTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ada65a9384ed5e22b1c266b2a2acb955d4873f0896e971908c92e8a5bfe4a0fa)
@@ -3139,19 +3139,19 @@ class DataAwsCeTagsFilterOrTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3305,9 +3305,9 @@ class DataAwsCeTagsFilterOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterCostCategory(
             key=key, match_options=match_options, values=values
@@ -3324,9 +3324,9 @@ class DataAwsCeTagsFilterOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterDimension(
             key=key, match_options=match_options, values=values
@@ -3343,9 +3343,9 @@ class DataAwsCeTagsFilterOutputReference(
         tags: typing.Optional[typing.Union[DataAwsCeTagsFilterNotTags, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
+        :param cost_category: cost_category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#cost_category DataAwsCeTags#cost_category}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#dimension DataAwsCeTags#dimension}
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#tags DataAwsCeTags#tags}
         '''
         value = DataAwsCeTagsFilterNot(
             cost_category=cost_category, dimension=dimension, tags=tags
@@ -3375,9 +3375,9 @@ class DataAwsCeTagsFilterOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         value = DataAwsCeTagsFilterTags(
             key=key, match_options=match_options, values=values
@@ -3500,9 +3500,9 @@ class DataAwsCeTagsFilterTags:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param match_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d66a0a89ce10cf1ec2dec23fa1e30d8e4fbbc77208ae52887fdefbd28ec78d10)
@@ -3519,19 +3519,19 @@ class DataAwsCeTagsFilterTags:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_options(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#match_options DataAwsCeTags#match_options}.'''
         result = self._values.get("match_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#values DataAwsCeTags#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3656,8 +3656,8 @@ class DataAwsCeTagsSortBy:
         sort_order: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
-        :param sort_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#sort_order DataAwsCeTags#sort_order}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.
+        :param sort_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#sort_order DataAwsCeTags#sort_order}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e86ce65076133a05fe751a0844fab522db22a648a40fac384e0fed6a31509b7f)
@@ -3671,13 +3671,13 @@ class DataAwsCeTagsSortBy:
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#key DataAwsCeTags#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sort_order(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#sort_order DataAwsCeTags#sort_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#sort_order DataAwsCeTags#sort_order}.'''
         result = self._values.get("sort_order")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3877,8 +3877,8 @@ class DataAwsCeTagsSortByOutputReference(
 class DataAwsCeTagsTimePeriod:
     def __init__(self, *, end: builtins.str, start: builtins.str) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#end DataAwsCeTags#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#start DataAwsCeTags#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#end DataAwsCeTags#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#start DataAwsCeTags#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__334d02d7262bf982269efc2dc196ab8d73749d55e745523d7565b6742a5f5883)
@@ -3891,14 +3891,14 @@ class DataAwsCeTagsTimePeriod:
 
     @builtins.property
     def end(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#end DataAwsCeTags#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#end DataAwsCeTags#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/ce_tags#start DataAwsCeTags#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/ce_tags#start DataAwsCeTags#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(builtins.str, result)

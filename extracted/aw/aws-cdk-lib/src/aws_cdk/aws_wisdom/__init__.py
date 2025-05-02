@@ -4127,7 +4127,7 @@ class CfnAIPrompt(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param api_format: The API format used for this AI Prompt.
-        :param model_id: The identifier of the model used for this AI Prompt. Model Ids supported are: ``anthropic.claude-3-haiku-20240307-v1:0`` .
+        :param model_id: The identifier of the model used for this AI Prompt. The following model Ids are supported:. - ``anthropic.claude-3-haiku--v1:0`` - ``apac.amazon.nova-lite-v1:0`` - ``apac.amazon.nova-micro-v1:0`` - ``apac.amazon.nova-pro-v1:0`` - ``apac.anthropic.claude-3-5-sonnet--v2:0`` - ``apac.anthropic.claude-3-haiku-20240307-v1:0`` - ``eu.amazon.nova-lite-v1:0`` - ``eu.amazon.nova-micro-v1:0`` - ``eu.amazon.nova-pro-v1:0`` - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``eu.anthropic.claude-3-haiku-20240307-v1:0`` - ``us.amazon.nova-lite-v1:0`` - ``us.amazon.nova-micro-v1:0`` - ``us.amazon.nova-pro-v1:0`` - ``us.anthropic.claude-3-5-haiku-20241022-v1:0`` - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``us.anthropic.claude-3-haiku-20240307-v1:0``
         :param template_configuration: The configuration of the prompt template for this AI Prompt.
         :param template_type: The type of the prompt template for this AI Prompt.
         :param type: The type of this AI Prompt.
@@ -4246,7 +4246,10 @@ class CfnAIPrompt(
     @builtins.property
     @jsii.member(jsii_name="modelId")
     def model_id(self) -> builtins.str:
-        '''The identifier of the model used for this AI Prompt.'''
+        '''The identifier of the model used for this AI Prompt.
+
+        The following model Ids are supported:.
+        '''
         return typing.cast(builtins.str, jsii.get(self, "modelId"))
 
     @model_id.setter
@@ -4502,7 +4505,7 @@ class CfnAIPromptProps:
         '''Properties for defining a ``CfnAIPrompt``.
 
         :param api_format: The API format used for this AI Prompt.
-        :param model_id: The identifier of the model used for this AI Prompt. Model Ids supported are: ``anthropic.claude-3-haiku-20240307-v1:0`` .
+        :param model_id: The identifier of the model used for this AI Prompt. The following model Ids are supported:. - ``anthropic.claude-3-haiku--v1:0`` - ``apac.amazon.nova-lite-v1:0`` - ``apac.amazon.nova-micro-v1:0`` - ``apac.amazon.nova-pro-v1:0`` - ``apac.anthropic.claude-3-5-sonnet--v2:0`` - ``apac.anthropic.claude-3-haiku-20240307-v1:0`` - ``eu.amazon.nova-lite-v1:0`` - ``eu.amazon.nova-micro-v1:0`` - ``eu.amazon.nova-pro-v1:0`` - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``eu.anthropic.claude-3-haiku-20240307-v1:0`` - ``us.amazon.nova-lite-v1:0`` - ``us.amazon.nova-micro-v1:0`` - ``us.amazon.nova-pro-v1:0`` - ``us.anthropic.claude-3-5-haiku-20241022-v1:0`` - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``us.anthropic.claude-3-haiku-20240307-v1:0``
         :param template_configuration: The configuration of the prompt template for this AI Prompt.
         :param template_type: The type of the prompt template for this AI Prompt.
         :param type: The type of this AI Prompt.
@@ -4579,9 +4582,25 @@ class CfnAIPromptProps:
 
     @builtins.property
     def model_id(self) -> builtins.str:
-        '''The identifier of the model used for this AI Prompt.
+        '''The identifier of the model used for this AI Prompt. The following model Ids are supported:.
 
-        Model Ids supported are: ``anthropic.claude-3-haiku-20240307-v1:0`` .
+        - ``anthropic.claude-3-haiku--v1:0``
+        - ``apac.amazon.nova-lite-v1:0``
+        - ``apac.amazon.nova-micro-v1:0``
+        - ``apac.amazon.nova-pro-v1:0``
+        - ``apac.anthropic.claude-3-5-sonnet--v2:0``
+        - ``apac.anthropic.claude-3-haiku-20240307-v1:0``
+        - ``eu.amazon.nova-lite-v1:0``
+        - ``eu.amazon.nova-micro-v1:0``
+        - ``eu.amazon.nova-pro-v1:0``
+        - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0``
+        - ``eu.anthropic.claude-3-haiku-20240307-v1:0``
+        - ``us.amazon.nova-lite-v1:0``
+        - ``us.amazon.nova-micro-v1:0``
+        - ``us.amazon.nova-pro-v1:0``
+        - ``us.anthropic.claude-3-5-haiku-20241022-v1:0``
+        - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0``
+        - ``us.anthropic.claude-3-haiku-20240307-v1:0``
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-modelid
         '''

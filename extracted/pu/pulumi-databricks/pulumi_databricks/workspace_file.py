@@ -217,6 +217,9 @@ class _WorkspaceFileState:
 
 
 class WorkspaceFile(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/workspaceFile:WorkspaceFile"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -229,6 +232,8 @@ class WorkspaceFile(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to manage [Databricks Workspace Files](https://docs.databricks.com/files/workspace.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Import
 
@@ -255,6 +260,8 @@ class WorkspaceFile(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to manage [Databricks Workspace Files](https://docs.databricks.com/files/workspace.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Import
 

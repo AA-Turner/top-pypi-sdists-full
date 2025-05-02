@@ -278,6 +278,7 @@ __all__ = (
     "MonitoringProblemTypeType",
     "MonitoringScheduleSortKeyType",
     "MonitoringTypeType",
+    "NodeUnavailabilityTypeType",
     "NotebookInstanceAcceleratorTypeType",
     "NotebookInstanceDeletedWaiterName",
     "NotebookInstanceInServiceWaiterName",
@@ -1383,6 +1384,7 @@ MonitoringProblemTypeType = Literal[
 ]
 MonitoringScheduleSortKeyType = Literal["CreationTime", "Name", "Status"]
 MonitoringTypeType = Literal["DataQuality", "ModelBias", "ModelExplainability", "ModelQuality"]
+NodeUnavailabilityTypeType = Literal["CAPACITY_PERCENTAGE", "INSTANCE_COUNT"]
 NotebookInstanceAcceleratorTypeType = Literal[
     "ml.eia1.large",
     "ml.eia1.medium",

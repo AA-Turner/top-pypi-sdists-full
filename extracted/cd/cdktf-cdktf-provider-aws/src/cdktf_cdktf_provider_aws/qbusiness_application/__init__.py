@@ -1,7 +1,7 @@
 r'''
 # `aws_qbusiness_application`
 
-Refer to the Terraform Registry for docs: [`aws_qbusiness_application`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application).
+Refer to the Terraform Registry for docs: [`aws_qbusiness_application`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QbusinessApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.qbusinessApplication.QbusinessApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application aws_qbusiness_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application aws_qbusiness_application}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class QbusinessApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application aws_qbusiness_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application aws_qbusiness_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#display_name QbusinessApplication#display_name}
-        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role that provides permissions for the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#iam_service_role_arn QbusinessApplication#iam_service_role_arn}
-        :param identity_center_instance_arn: ARN of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#identity_center_instance_arn QbusinessApplication#identity_center_instance_arn}
-        :param attachments_configuration: attachments_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#attachments_configuration QbusinessApplication#attachments_configuration}
-        :param description: A description of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#description QbusinessApplication#description}
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#encryption_configuration QbusinessApplication#encryption_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#tags QbusinessApplication#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#timeouts QbusinessApplication#timeouts}
+        :param display_name: The display name of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#display_name QbusinessApplication#display_name}
+        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role that provides permissions for the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#iam_service_role_arn QbusinessApplication#iam_service_role_arn}
+        :param identity_center_instance_arn: ARN of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#identity_center_instance_arn QbusinessApplication#identity_center_instance_arn}
+        :param attachments_configuration: attachments_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#attachments_configuration QbusinessApplication#attachments_configuration}
+        :param description: A description of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#description QbusinessApplication#description}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#encryption_configuration QbusinessApplication#encryption_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#tags QbusinessApplication#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#timeouts QbusinessApplication#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class QbusinessApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QbusinessApplication to import.
-        :param import_from_id: The id of the existing QbusinessApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QbusinessApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QbusinessApplication to import is found.
         '''
         if __debug__:
@@ -170,9 +170,9 @@ class QbusinessApplication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#create QbusinessApplication#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#delete QbusinessApplication#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#update QbusinessApplication#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#create QbusinessApplication#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#delete QbusinessApplication#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#update QbusinessApplication#update}
         '''
         value = QbusinessApplicationTimeouts(
             create=create, delete=delete, update=update
@@ -367,7 +367,7 @@ class QbusinessApplication(
 class QbusinessApplicationAttachmentsConfiguration:
     def __init__(self, *, attachments_control_mode: builtins.str) -> None:
         '''
-        :param attachments_control_mode: Status information about whether file upload functionality is activated or deactivated for your end user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#attachments_control_mode QbusinessApplication#attachments_control_mode}
+        :param attachments_control_mode: Status information about whether file upload functionality is activated or deactivated for your end user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#attachments_control_mode QbusinessApplication#attachments_control_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ec49dd3228a0f6378fab5bd325dbcc7f7c050e7ddc9aa9db1eef0858d787fcd)
@@ -380,7 +380,7 @@ class QbusinessApplicationAttachmentsConfiguration:
     def attachments_control_mode(self) -> builtins.str:
         '''Status information about whether file upload functionality is activated or deactivated for your end user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#attachments_control_mode QbusinessApplication#attachments_control_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#attachments_control_mode QbusinessApplication#attachments_control_mode}
         '''
         result = self._values.get("attachments_control_mode")
         assert result is not None, "Required property 'attachments_control_mode' is missing"
@@ -601,14 +601,14 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#display_name QbusinessApplication#display_name}
-        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role that provides permissions for the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#iam_service_role_arn QbusinessApplication#iam_service_role_arn}
-        :param identity_center_instance_arn: ARN of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#identity_center_instance_arn QbusinessApplication#identity_center_instance_arn}
-        :param attachments_configuration: attachments_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#attachments_configuration QbusinessApplication#attachments_configuration}
-        :param description: A description of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#description QbusinessApplication#description}
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#encryption_configuration QbusinessApplication#encryption_configuration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#tags QbusinessApplication#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#timeouts QbusinessApplication#timeouts}
+        :param display_name: The display name of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#display_name QbusinessApplication#display_name}
+        :param iam_service_role_arn: The Amazon Resource Name (ARN) of the IAM service role that provides permissions for the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#iam_service_role_arn QbusinessApplication#iam_service_role_arn}
+        :param identity_center_instance_arn: ARN of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#identity_center_instance_arn QbusinessApplication#identity_center_instance_arn}
+        :param attachments_configuration: attachments_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#attachments_configuration QbusinessApplication#attachments_configuration}
+        :param description: A description of the Amazon Q application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#description QbusinessApplication#description}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#encryption_configuration QbusinessApplication#encryption_configuration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#tags QbusinessApplication#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#timeouts QbusinessApplication#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -729,7 +729,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name of the Amazon Q application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#display_name QbusinessApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#display_name QbusinessApplication#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -739,7 +739,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def iam_service_role_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the IAM service role that provides permissions for the Amazon Q application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#iam_service_role_arn QbusinessApplication#iam_service_role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#iam_service_role_arn QbusinessApplication#iam_service_role_arn}
         '''
         result = self._values.get("iam_service_role_arn")
         assert result is not None, "Required property 'iam_service_role_arn' is missing"
@@ -749,7 +749,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity_center_instance_arn(self) -> builtins.str:
         '''ARN of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#identity_center_instance_arn QbusinessApplication#identity_center_instance_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#identity_center_instance_arn QbusinessApplication#identity_center_instance_arn}
         '''
         result = self._values.get("identity_center_instance_arn")
         assert result is not None, "Required property 'identity_center_instance_arn' is missing"
@@ -761,7 +761,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[QbusinessApplicationAttachmentsConfiguration]]]:
         '''attachments_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#attachments_configuration QbusinessApplication#attachments_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#attachments_configuration QbusinessApplication#attachments_configuration}
         '''
         result = self._values.get("attachments_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[QbusinessApplicationAttachmentsConfiguration]]], result)
@@ -770,7 +770,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the Amazon Q application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#description QbusinessApplication#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#description QbusinessApplication#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -781,14 +781,14 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QbusinessApplicationEncryptionConfiguration"]]]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#encryption_configuration QbusinessApplication#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#encryption_configuration QbusinessApplication#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QbusinessApplicationEncryptionConfiguration"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#tags QbusinessApplication#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#tags QbusinessApplication#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -796,7 +796,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QbusinessApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#timeouts QbusinessApplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#timeouts QbusinessApplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QbusinessApplicationTimeouts"], result)
@@ -821,7 +821,7 @@ class QbusinessApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class QbusinessApplicationEncryptionConfiguration:
     def __init__(self, *, kms_key_id: builtins.str) -> None:
         '''
-        :param kms_key_id: The identifier of the AWS KMS key that is used to encrypt your data. Amazon Q doesn't support asymmetric keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#kms_key_id QbusinessApplication#kms_key_id}
+        :param kms_key_id: The identifier of the AWS KMS key that is used to encrypt your data. Amazon Q doesn't support asymmetric keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#kms_key_id QbusinessApplication#kms_key_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__023140a745801604d6197dbfb3f05670d0ff8f9ca6d05040684543f3a8d3a064)
@@ -836,7 +836,7 @@ class QbusinessApplicationEncryptionConfiguration:
 
         Amazon Q doesn't support asymmetric keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#kms_key_id QbusinessApplication#kms_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#kms_key_id QbusinessApplication#kms_key_id}
         '''
         result = self._values.get("kms_key_id")
         assert result is not None, "Required property 'kms_key_id' is missing"
@@ -1022,9 +1022,9 @@ class QbusinessApplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#create QbusinessApplication#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#delete QbusinessApplication#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#update QbusinessApplication#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#create QbusinessApplication#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#delete QbusinessApplication#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#update QbusinessApplication#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a08b7c360b44ae22de1fc81183ec8e7b084a11a700023b3fe0854669b86d8ff0)
@@ -1043,7 +1043,7 @@ class QbusinessApplicationTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#create QbusinessApplication#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#create QbusinessApplication#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1052,7 +1052,7 @@ class QbusinessApplicationTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#delete QbusinessApplication#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#delete QbusinessApplication#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1061,7 +1061,7 @@ class QbusinessApplicationTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/qbusiness_application#update QbusinessApplication#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/qbusiness_application#update QbusinessApplication#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

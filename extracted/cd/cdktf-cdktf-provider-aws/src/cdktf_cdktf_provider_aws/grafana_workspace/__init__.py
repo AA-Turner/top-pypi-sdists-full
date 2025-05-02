@@ -1,7 +1,7 @@
 r'''
 # `aws_grafana_workspace`
 
-Refer to the Terraform Registry for docs: [`aws_grafana_workspace`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace).
+Refer to the Terraform Registry for docs: [`aws_grafana_workspace`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GrafanaWorkspace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.grafanaWorkspace.GrafanaWorkspace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace aws_grafana_workspace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace aws_grafana_workspace}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class GrafanaWorkspace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace aws_grafana_workspace} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace aws_grafana_workspace} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#account_access_type GrafanaWorkspace#account_access_type}.
-        :param authentication_providers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#authentication_providers GrafanaWorkspace#authentication_providers}.
-        :param permission_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#permission_type GrafanaWorkspace#permission_type}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#configuration GrafanaWorkspace#configuration}.
-        :param data_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#data_sources GrafanaWorkspace#data_sources}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#description GrafanaWorkspace#description}.
-        :param grafana_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#grafana_version GrafanaWorkspace#grafana_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#id GrafanaWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#name GrafanaWorkspace#name}.
-        :param network_access_control: network_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#network_access_control GrafanaWorkspace#network_access_control}
-        :param notification_destinations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#notification_destinations GrafanaWorkspace#notification_destinations}.
-        :param organizational_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#organizational_units GrafanaWorkspace#organizational_units}.
-        :param organization_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#organization_role_name GrafanaWorkspace#organization_role_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#role_arn GrafanaWorkspace#role_arn}.
-        :param stack_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#stack_set_name GrafanaWorkspace#stack_set_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#tags GrafanaWorkspace#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#tags_all GrafanaWorkspace#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#timeouts GrafanaWorkspace#timeouts}
-        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#vpc_configuration GrafanaWorkspace#vpc_configuration}
+        :param account_access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#account_access_type GrafanaWorkspace#account_access_type}.
+        :param authentication_providers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#authentication_providers GrafanaWorkspace#authentication_providers}.
+        :param permission_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#permission_type GrafanaWorkspace#permission_type}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#configuration GrafanaWorkspace#configuration}.
+        :param data_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#data_sources GrafanaWorkspace#data_sources}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#description GrafanaWorkspace#description}.
+        :param grafana_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#grafana_version GrafanaWorkspace#grafana_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#id GrafanaWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#name GrafanaWorkspace#name}.
+        :param network_access_control: network_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#network_access_control GrafanaWorkspace#network_access_control}
+        :param notification_destinations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#notification_destinations GrafanaWorkspace#notification_destinations}.
+        :param organizational_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#organizational_units GrafanaWorkspace#organizational_units}.
+        :param organization_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#organization_role_name GrafanaWorkspace#organization_role_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#role_arn GrafanaWorkspace#role_arn}.
+        :param stack_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#stack_set_name GrafanaWorkspace#stack_set_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#tags GrafanaWorkspace#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#tags_all GrafanaWorkspace#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#timeouts GrafanaWorkspace#timeouts}
+        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#vpc_configuration GrafanaWorkspace#vpc_configuration}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class GrafanaWorkspace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GrafanaWorkspace to import.
-        :param import_from_id: The id of the existing GrafanaWorkspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GrafanaWorkspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GrafanaWorkspace to import is found.
         '''
         if __debug__:
@@ -176,8 +176,8 @@ class GrafanaWorkspace(
         vpce_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#prefix_list_ids GrafanaWorkspace#prefix_list_ids}.
-        :param vpce_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#vpce_ids GrafanaWorkspace#vpce_ids}.
+        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#prefix_list_ids GrafanaWorkspace#prefix_list_ids}.
+        :param vpce_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#vpce_ids GrafanaWorkspace#vpce_ids}.
         '''
         value = GrafanaWorkspaceNetworkAccessControl(
             prefix_list_ids=prefix_list_ids, vpce_ids=vpce_ids
@@ -193,8 +193,8 @@ class GrafanaWorkspace(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#create GrafanaWorkspace#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#update GrafanaWorkspace#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#create GrafanaWorkspace#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#update GrafanaWorkspace#update}.
         '''
         value = GrafanaWorkspaceTimeouts(create=create, update=update)
 
@@ -208,8 +208,8 @@ class GrafanaWorkspace(
         subnet_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#security_group_ids GrafanaWorkspace#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#subnet_ids GrafanaWorkspace#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#security_group_ids GrafanaWorkspace#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#subnet_ids GrafanaWorkspace#subnet_ids}.
         '''
         value = GrafanaWorkspaceVpcConfiguration(
             security_group_ids=security_group_ids, subnet_ids=subnet_ids
@@ -697,25 +697,25 @@ class GrafanaWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#account_access_type GrafanaWorkspace#account_access_type}.
-        :param authentication_providers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#authentication_providers GrafanaWorkspace#authentication_providers}.
-        :param permission_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#permission_type GrafanaWorkspace#permission_type}.
-        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#configuration GrafanaWorkspace#configuration}.
-        :param data_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#data_sources GrafanaWorkspace#data_sources}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#description GrafanaWorkspace#description}.
-        :param grafana_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#grafana_version GrafanaWorkspace#grafana_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#id GrafanaWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#name GrafanaWorkspace#name}.
-        :param network_access_control: network_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#network_access_control GrafanaWorkspace#network_access_control}
-        :param notification_destinations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#notification_destinations GrafanaWorkspace#notification_destinations}.
-        :param organizational_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#organizational_units GrafanaWorkspace#organizational_units}.
-        :param organization_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#organization_role_name GrafanaWorkspace#organization_role_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#role_arn GrafanaWorkspace#role_arn}.
-        :param stack_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#stack_set_name GrafanaWorkspace#stack_set_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#tags GrafanaWorkspace#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#tags_all GrafanaWorkspace#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#timeouts GrafanaWorkspace#timeouts}
-        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#vpc_configuration GrafanaWorkspace#vpc_configuration}
+        :param account_access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#account_access_type GrafanaWorkspace#account_access_type}.
+        :param authentication_providers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#authentication_providers GrafanaWorkspace#authentication_providers}.
+        :param permission_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#permission_type GrafanaWorkspace#permission_type}.
+        :param configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#configuration GrafanaWorkspace#configuration}.
+        :param data_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#data_sources GrafanaWorkspace#data_sources}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#description GrafanaWorkspace#description}.
+        :param grafana_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#grafana_version GrafanaWorkspace#grafana_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#id GrafanaWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#name GrafanaWorkspace#name}.
+        :param network_access_control: network_access_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#network_access_control GrafanaWorkspace#network_access_control}
+        :param notification_destinations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#notification_destinations GrafanaWorkspace#notification_destinations}.
+        :param organizational_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#organizational_units GrafanaWorkspace#organizational_units}.
+        :param organization_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#organization_role_name GrafanaWorkspace#organization_role_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#role_arn GrafanaWorkspace#role_arn}.
+        :param stack_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#stack_set_name GrafanaWorkspace#stack_set_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#tags GrafanaWorkspace#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#tags_all GrafanaWorkspace#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#timeouts GrafanaWorkspace#timeouts}
+        :param vpc_configuration: vpc_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#vpc_configuration GrafanaWorkspace#vpc_configuration}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -871,52 +871,52 @@ class GrafanaWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_access_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#account_access_type GrafanaWorkspace#account_access_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#account_access_type GrafanaWorkspace#account_access_type}.'''
         result = self._values.get("account_access_type")
         assert result is not None, "Required property 'account_access_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authentication_providers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#authentication_providers GrafanaWorkspace#authentication_providers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#authentication_providers GrafanaWorkspace#authentication_providers}.'''
         result = self._values.get("authentication_providers")
         assert result is not None, "Required property 'authentication_providers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def permission_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#permission_type GrafanaWorkspace#permission_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#permission_type GrafanaWorkspace#permission_type}.'''
         result = self._values.get("permission_type")
         assert result is not None, "Required property 'permission_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#configuration GrafanaWorkspace#configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#configuration GrafanaWorkspace#configuration}.'''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def data_sources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#data_sources GrafanaWorkspace#data_sources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#data_sources GrafanaWorkspace#data_sources}.'''
         result = self._values.get("data_sources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#description GrafanaWorkspace#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#description GrafanaWorkspace#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def grafana_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#grafana_version GrafanaWorkspace#grafana_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#grafana_version GrafanaWorkspace#grafana_version}.'''
         result = self._values.get("grafana_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#id GrafanaWorkspace#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#id GrafanaWorkspace#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -926,7 +926,7 @@ class GrafanaWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#name GrafanaWorkspace#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#name GrafanaWorkspace#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -936,50 +936,50 @@ class GrafanaWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GrafanaWorkspaceNetworkAccessControl"]:
         '''network_access_control block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#network_access_control GrafanaWorkspace#network_access_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#network_access_control GrafanaWorkspace#network_access_control}
         '''
         result = self._values.get("network_access_control")
         return typing.cast(typing.Optional["GrafanaWorkspaceNetworkAccessControl"], result)
 
     @builtins.property
     def notification_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#notification_destinations GrafanaWorkspace#notification_destinations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#notification_destinations GrafanaWorkspace#notification_destinations}.'''
         result = self._values.get("notification_destinations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def organizational_units(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#organizational_units GrafanaWorkspace#organizational_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#organizational_units GrafanaWorkspace#organizational_units}.'''
         result = self._values.get("organizational_units")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def organization_role_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#organization_role_name GrafanaWorkspace#organization_role_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#organization_role_name GrafanaWorkspace#organization_role_name}.'''
         result = self._values.get("organization_role_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#role_arn GrafanaWorkspace#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#role_arn GrafanaWorkspace#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def stack_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#stack_set_name GrafanaWorkspace#stack_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#stack_set_name GrafanaWorkspace#stack_set_name}.'''
         result = self._values.get("stack_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#tags GrafanaWorkspace#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#tags GrafanaWorkspace#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#tags_all GrafanaWorkspace#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#tags_all GrafanaWorkspace#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -987,7 +987,7 @@ class GrafanaWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GrafanaWorkspaceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#timeouts GrafanaWorkspace#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#timeouts GrafanaWorkspace#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GrafanaWorkspaceTimeouts"], result)
@@ -996,7 +996,7 @@ class GrafanaWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_configuration(self) -> typing.Optional["GrafanaWorkspaceVpcConfiguration"]:
         '''vpc_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#vpc_configuration GrafanaWorkspace#vpc_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#vpc_configuration GrafanaWorkspace#vpc_configuration}
         '''
         result = self._values.get("vpc_configuration")
         return typing.cast(typing.Optional["GrafanaWorkspaceVpcConfiguration"], result)
@@ -1026,8 +1026,8 @@ class GrafanaWorkspaceNetworkAccessControl:
         vpce_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#prefix_list_ids GrafanaWorkspace#prefix_list_ids}.
-        :param vpce_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#vpce_ids GrafanaWorkspace#vpce_ids}.
+        :param prefix_list_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#prefix_list_ids GrafanaWorkspace#prefix_list_ids}.
+        :param vpce_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#vpce_ids GrafanaWorkspace#vpce_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__221a2ee6944773acfebbc74350a93611e47f8402a88b865e97ec2d8e568bdb2b)
@@ -1040,14 +1040,14 @@ class GrafanaWorkspaceNetworkAccessControl:
 
     @builtins.property
     def prefix_list_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#prefix_list_ids GrafanaWorkspace#prefix_list_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#prefix_list_ids GrafanaWorkspace#prefix_list_ids}.'''
         result = self._values.get("prefix_list_ids")
         assert result is not None, "Required property 'prefix_list_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpce_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#vpce_ids GrafanaWorkspace#vpce_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#vpce_ids GrafanaWorkspace#vpce_ids}.'''
         result = self._values.get("vpce_ids")
         assert result is not None, "Required property 'vpce_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1147,8 +1147,8 @@ class GrafanaWorkspaceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#create GrafanaWorkspace#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#update GrafanaWorkspace#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#create GrafanaWorkspace#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#update GrafanaWorkspace#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c9fdd8149535856c0f08ccc313d9815b00f382b89821db6bae4b4835e7f46e9)
@@ -1162,13 +1162,13 @@ class GrafanaWorkspaceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#create GrafanaWorkspace#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#create GrafanaWorkspace#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#update GrafanaWorkspace#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#update GrafanaWorkspace#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1277,8 +1277,8 @@ class GrafanaWorkspaceVpcConfiguration:
         subnet_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#security_group_ids GrafanaWorkspace#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#subnet_ids GrafanaWorkspace#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#security_group_ids GrafanaWorkspace#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#subnet_ids GrafanaWorkspace#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b635fae0d3e5fcccd8b3df71b5deb5b6986d96f65e0f885614cfed5b5b68c3a1)
@@ -1291,14 +1291,14 @@ class GrafanaWorkspaceVpcConfiguration:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#security_group_ids GrafanaWorkspace#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#security_group_ids GrafanaWorkspace#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/grafana_workspace#subnet_ids GrafanaWorkspace#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/grafana_workspace#subnet_ids GrafanaWorkspace#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)

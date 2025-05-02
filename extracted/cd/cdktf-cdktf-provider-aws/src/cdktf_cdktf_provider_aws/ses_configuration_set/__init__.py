@@ -1,7 +1,7 @@
 r'''
 # `aws_ses_configuration_set`
 
-Refer to the Terraform Registry for docs: [`aws_ses_configuration_set`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set).
+Refer to the Terraform Registry for docs: [`aws_ses_configuration_set`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SesConfigurationSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sesConfigurationSet.SesConfigurationSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set aws_ses_configuration_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set aws_ses_configuration_set}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SesConfigurationSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set aws_ses_configuration_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set aws_ses_configuration_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#name SesConfigurationSet#name}.
-        :param delivery_options: delivery_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#delivery_options SesConfigurationSet#delivery_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#id SesConfigurationSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param reputation_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#reputation_metrics_enabled SesConfigurationSet#reputation_metrics_enabled}.
-        :param sending_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#sending_enabled SesConfigurationSet#sending_enabled}.
-        :param tracking_options: tracking_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#tracking_options SesConfigurationSet#tracking_options}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#name SesConfigurationSet#name}.
+        :param delivery_options: delivery_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#delivery_options SesConfigurationSet#delivery_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#id SesConfigurationSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param reputation_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#reputation_metrics_enabled SesConfigurationSet#reputation_metrics_enabled}.
+        :param sending_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#sending_enabled SesConfigurationSet#sending_enabled}.
+        :param tracking_options: tracking_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#tracking_options SesConfigurationSet#tracking_options}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SesConfigurationSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SesConfigurationSet to import.
-        :param import_from_id: The id of the existing SesConfigurationSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SesConfigurationSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SesConfigurationSet to import is found.
         '''
         if __debug__:
@@ -136,7 +136,7 @@ class SesConfigurationSet(
         tls_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#tls_policy SesConfigurationSet#tls_policy}.
+        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#tls_policy SesConfigurationSet#tls_policy}.
         '''
         value = SesConfigurationSetDeliveryOptions(tls_policy=tls_policy)
 
@@ -149,7 +149,7 @@ class SesConfigurationSet(
         custom_redirect_domain: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_redirect_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#custom_redirect_domain SesConfigurationSet#custom_redirect_domain}.
+        :param custom_redirect_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#custom_redirect_domain SesConfigurationSet#custom_redirect_domain}.
         '''
         value = SesConfigurationSetTrackingOptions(
             custom_redirect_domain=custom_redirect_domain
@@ -352,12 +352,12 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#name SesConfigurationSet#name}.
-        :param delivery_options: delivery_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#delivery_options SesConfigurationSet#delivery_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#id SesConfigurationSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param reputation_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#reputation_metrics_enabled SesConfigurationSet#reputation_metrics_enabled}.
-        :param sending_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#sending_enabled SesConfigurationSet#sending_enabled}.
-        :param tracking_options: tracking_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#tracking_options SesConfigurationSet#tracking_options}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#name SesConfigurationSet#name}.
+        :param delivery_options: delivery_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#delivery_options SesConfigurationSet#delivery_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#id SesConfigurationSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param reputation_metrics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#reputation_metrics_enabled SesConfigurationSet#reputation_metrics_enabled}.
+        :param sending_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#sending_enabled SesConfigurationSet#sending_enabled}.
+        :param tracking_options: tracking_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#tracking_options SesConfigurationSet#tracking_options}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -474,7 +474,7 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#name SesConfigurationSet#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#name SesConfigurationSet#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -483,14 +483,14 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def delivery_options(self) -> typing.Optional["SesConfigurationSetDeliveryOptions"]:
         '''delivery_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#delivery_options SesConfigurationSet#delivery_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#delivery_options SesConfigurationSet#delivery_options}
         '''
         result = self._values.get("delivery_options")
         return typing.cast(typing.Optional["SesConfigurationSetDeliveryOptions"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#id SesConfigurationSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#id SesConfigurationSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -502,7 +502,7 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def reputation_metrics_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#reputation_metrics_enabled SesConfigurationSet#reputation_metrics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#reputation_metrics_enabled SesConfigurationSet#reputation_metrics_enabled}.'''
         result = self._values.get("reputation_metrics_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -510,7 +510,7 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sending_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#sending_enabled SesConfigurationSet#sending_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#sending_enabled SesConfigurationSet#sending_enabled}.'''
         result = self._values.get("sending_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -518,7 +518,7 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tracking_options(self) -> typing.Optional["SesConfigurationSetTrackingOptions"]:
         '''tracking_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#tracking_options SesConfigurationSet#tracking_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#tracking_options SesConfigurationSet#tracking_options}
         '''
         result = self._values.get("tracking_options")
         return typing.cast(typing.Optional["SesConfigurationSetTrackingOptions"], result)
@@ -543,7 +543,7 @@ class SesConfigurationSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SesConfigurationSetDeliveryOptions:
     def __init__(self, *, tls_policy: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#tls_policy SesConfigurationSet#tls_policy}.
+        :param tls_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#tls_policy SesConfigurationSet#tls_policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__627e7708e6ed74e14d14c7d0cc8ad7b2f4bf5605f20358c31c5fb4aceb94a4c5)
@@ -554,7 +554,7 @@ class SesConfigurationSetDeliveryOptions:
 
     @builtins.property
     def tls_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#tls_policy SesConfigurationSet#tls_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#tls_policy SesConfigurationSet#tls_policy}.'''
         result = self._values.get("tls_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -639,7 +639,7 @@ class SesConfigurationSetTrackingOptions:
         custom_redirect_domain: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_redirect_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#custom_redirect_domain SesConfigurationSet#custom_redirect_domain}.
+        :param custom_redirect_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#custom_redirect_domain SesConfigurationSet#custom_redirect_domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d732b0d6313c34bc701303a33c96b3534a6de6fe58a2621073d0b6da0d4e1b03)
@@ -650,7 +650,7 @@ class SesConfigurationSetTrackingOptions:
 
     @builtins.property
     def custom_redirect_domain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ses_configuration_set#custom_redirect_domain SesConfigurationSet#custom_redirect_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ses_configuration_set#custom_redirect_domain SesConfigurationSet#custom_redirect_domain}.'''
         result = self._values.get("custom_redirect_domain")
         return typing.cast(typing.Optional[builtins.str], result)
 

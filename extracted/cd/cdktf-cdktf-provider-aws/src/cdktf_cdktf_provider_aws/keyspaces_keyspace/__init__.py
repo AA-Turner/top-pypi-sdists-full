@@ -1,7 +1,7 @@
 r'''
 # `aws_keyspaces_keyspace`
 
-Refer to the Terraform Registry for docs: [`aws_keyspaces_keyspace`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace).
+Refer to the Terraform Registry for docs: [`aws_keyspaces_keyspace`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KeyspacesKeyspace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.keyspacesKeyspace.KeyspacesKeyspace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace aws_keyspaces_keyspace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace aws_keyspaces_keyspace}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class KeyspacesKeyspace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace aws_keyspaces_keyspace} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace aws_keyspaces_keyspace} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#name KeyspacesKeyspace#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#id KeyspacesKeyspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param replication_specification: replication_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#replication_specification KeyspacesKeyspace#replication_specification}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#tags KeyspacesKeyspace#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#tags_all KeyspacesKeyspace#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#timeouts KeyspacesKeyspace#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#name KeyspacesKeyspace#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#id KeyspacesKeyspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param replication_specification: replication_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#replication_specification KeyspacesKeyspace#replication_specification}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#tags KeyspacesKeyspace#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#tags_all KeyspacesKeyspace#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#timeouts KeyspacesKeyspace#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class KeyspacesKeyspace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KeyspacesKeyspace to import.
-        :param import_from_id: The id of the existing KeyspacesKeyspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KeyspacesKeyspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KeyspacesKeyspace to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class KeyspacesKeyspace(
         replication_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param region_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#region_list KeyspacesKeyspace#region_list}.
-        :param replication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#replication_strategy KeyspacesKeyspace#replication_strategy}.
+        :param region_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#region_list KeyspacesKeyspace#region_list}.
+        :param replication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#replication_strategy KeyspacesKeyspace#replication_strategy}.
         '''
         value = KeyspacesKeyspaceReplicationSpecification(
             region_list=region_list, replication_strategy=replication_strategy
@@ -154,8 +154,8 @@ class KeyspacesKeyspace(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#create KeyspacesKeyspace#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#delete KeyspacesKeyspace#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#create KeyspacesKeyspace#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#delete KeyspacesKeyspace#delete}.
         '''
         value = KeyspacesKeyspaceTimeouts(create=create, delete=delete)
 
@@ -341,12 +341,12 @@ class KeyspacesKeyspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#name KeyspacesKeyspace#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#id KeyspacesKeyspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param replication_specification: replication_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#replication_specification KeyspacesKeyspace#replication_specification}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#tags KeyspacesKeyspace#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#tags_all KeyspacesKeyspace#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#timeouts KeyspacesKeyspace#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#name KeyspacesKeyspace#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#id KeyspacesKeyspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param replication_specification: replication_specification block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#replication_specification KeyspacesKeyspace#replication_specification}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#tags KeyspacesKeyspace#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#tags_all KeyspacesKeyspace#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#timeouts KeyspacesKeyspace#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -463,14 +463,14 @@ class KeyspacesKeyspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#name KeyspacesKeyspace#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#name KeyspacesKeyspace#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#id KeyspacesKeyspace#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#id KeyspacesKeyspace#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -484,20 +484,20 @@ class KeyspacesKeyspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["KeyspacesKeyspaceReplicationSpecification"]:
         '''replication_specification block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#replication_specification KeyspacesKeyspace#replication_specification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#replication_specification KeyspacesKeyspace#replication_specification}
         '''
         result = self._values.get("replication_specification")
         return typing.cast(typing.Optional["KeyspacesKeyspaceReplicationSpecification"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#tags KeyspacesKeyspace#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#tags KeyspacesKeyspace#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#tags_all KeyspacesKeyspace#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#tags_all KeyspacesKeyspace#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -505,7 +505,7 @@ class KeyspacesKeyspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KeyspacesKeyspaceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#timeouts KeyspacesKeyspace#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#timeouts KeyspacesKeyspace#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KeyspacesKeyspaceTimeouts"], result)
@@ -538,8 +538,8 @@ class KeyspacesKeyspaceReplicationSpecification:
         replication_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param region_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#region_list KeyspacesKeyspace#region_list}.
-        :param replication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#replication_strategy KeyspacesKeyspace#replication_strategy}.
+        :param region_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#region_list KeyspacesKeyspace#region_list}.
+        :param replication_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#replication_strategy KeyspacesKeyspace#replication_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3517758be499bcf0c0554ca756f9fe18bded001c289b7d0fb346cb375e4991d)
@@ -553,13 +553,13 @@ class KeyspacesKeyspaceReplicationSpecification:
 
     @builtins.property
     def region_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#region_list KeyspacesKeyspace#region_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#region_list KeyspacesKeyspace#region_list}.'''
         result = self._values.get("region_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def replication_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#replication_strategy KeyspacesKeyspace#replication_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#replication_strategy KeyspacesKeyspace#replication_strategy}.'''
         result = self._values.get("replication_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -668,8 +668,8 @@ class KeyspacesKeyspaceTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#create KeyspacesKeyspace#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#delete KeyspacesKeyspace#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#create KeyspacesKeyspace#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#delete KeyspacesKeyspace#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bca8bf5bb04495c8de7f2f3d98867e9a561a976d98610686d2bd01902be5152)
@@ -683,13 +683,13 @@ class KeyspacesKeyspaceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#create KeyspacesKeyspace#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#create KeyspacesKeyspace#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/keyspaces_keyspace#delete KeyspacesKeyspace#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/keyspaces_keyspace#delete KeyspacesKeyspace#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

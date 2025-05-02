@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: aiobotocore
-Version: 2.21.1
+Version: 2.22.0
 Summary: Async client for aws services using botocore and aiohttp
 Author-email: Nikolay Novik <nickolainovik@gmail.com>
-License: Apache License 2.0
+License: Apache-2.0
 Project-URL: Repository, https://github.com/aio-libs/aiobotocore
 Project-URL: Documentation, https://aiobotocore.aio-libs.org
 Classifier: Development Status :: 4 - Beta
@@ -25,15 +25,16 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.9.2
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.37.2,>=1.37.0
+Requires-Dist: botocore<1.37.4,>=1.37.2
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
 Requires-Dist: wrapt<2.0.0,>=1.10.10
 Provides-Extra: awscli
-Requires-Dist: awscli<1.38.2,>=1.38.0; extra == "awscli"
+Requires-Dist: awscli<1.38.4,>=1.38.2; extra == "awscli"
 Provides-Extra: boto3
-Requires-Dist: boto3<1.37.2,>=1.37.0; extra == "boto3"
+Requires-Dist: boto3<1.37.4,>=1.37.2; extra == "boto3"
+Dynamic: license-file
 
 aiobotocore
 ===========
@@ -269,6 +270,16 @@ the other.
 
 Changes
 -------
+
+2.22.0 (2025-04-29)
+^^^^^^^^^^^^^^^^^^^
+* fully patch ``ClientArgsCreator.get_client_args()``
+* patch ``AioEndpoint.__init__()``
+* patch ``EventStream._parse_event()``, ``ResponseParser`` and subclasses
+* use SPDX license identifier for project metadata
+* upstream support for the smithy-rpc-v2-cbor protocol
+* bump botocore dependency specification
+
 2.21.1 (2025-03-04)
 ^^^^^^^^^^^^^^^^^^^
 * fix for refreshable credential account-id lookup

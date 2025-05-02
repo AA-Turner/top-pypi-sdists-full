@@ -266,6 +266,9 @@ class _EntitlementsState:
 
 
 class Entitlements(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/entitlements:Entitlements"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -280,6 +283,8 @@ class Entitlements(pulumi.CustomResource):
                  __props__=None):
         """
         This resource allows you to set entitlements to existing databricks_users, Group or databricks_service_principal.
+
+        > This resource can only be used with a workspace-level provider!
 
         > You must define entitlements of a principal using either `Entitlements` or directly within one of databricks_users, Group or databricks_service_principal. Having entitlements defined in both resources will result in non-deterministic behaviour.
 
@@ -372,6 +377,8 @@ class Entitlements(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource allows you to set entitlements to existing databricks_users, Group or databricks_service_principal.
+
+        > This resource can only be used with a workspace-level provider!
 
         > You must define entitlements of a principal using either `Entitlements` or directly within one of databricks_users, Group or databricks_service_principal. Having entitlements defined in both resources will result in non-deterministic behaviour.
 

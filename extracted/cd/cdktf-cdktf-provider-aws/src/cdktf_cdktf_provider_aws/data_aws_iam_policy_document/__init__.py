@@ -1,7 +1,7 @@
 r'''
 # `data_aws_iam_policy_document`
 
-Refer to the Terraform Registry for docs: [`data_aws_iam_policy_document`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document).
+Refer to the Terraform Registry for docs: [`data_aws_iam_policy_document`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsIamPolicyDocument(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsIamPolicyDocument.DataAwsIamPolicyDocument",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document aws_iam_policy_document}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document aws_iam_policy_document}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DataAwsIamPolicyDocument(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document aws_iam_policy_document} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document aws_iam_policy_document} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#id DataAwsIamPolicyDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param override_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#override_json DataAwsIamPolicyDocument#override_json}.
-        :param override_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#override_policy_documents DataAwsIamPolicyDocument#override_policy_documents}.
-        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#policy_id DataAwsIamPolicyDocument#policy_id}.
-        :param source_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#source_json DataAwsIamPolicyDocument#source_json}.
-        :param source_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#source_policy_documents DataAwsIamPolicyDocument#source_policy_documents}.
-        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#statement DataAwsIamPolicyDocument#statement}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#version DataAwsIamPolicyDocument#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#id DataAwsIamPolicyDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param override_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#override_json DataAwsIamPolicyDocument#override_json}.
+        :param override_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#override_policy_documents DataAwsIamPolicyDocument#override_policy_documents}.
+        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#policy_id DataAwsIamPolicyDocument#policy_id}.
+        :param source_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#source_json DataAwsIamPolicyDocument#source_json}.
+        :param source_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#source_policy_documents DataAwsIamPolicyDocument#source_policy_documents}.
+        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#statement DataAwsIamPolicyDocument#statement}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#version DataAwsIamPolicyDocument#version}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DataAwsIamPolicyDocument(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsIamPolicyDocument to import.
-        :param import_from_id: The id of the existing DataAwsIamPolicyDocument that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsIamPolicyDocument that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsIamPolicyDocument to import is found.
         '''
         if __debug__:
@@ -388,14 +388,14 @@ class DataAwsIamPolicyDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#id DataAwsIamPolicyDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param override_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#override_json DataAwsIamPolicyDocument#override_json}.
-        :param override_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#override_policy_documents DataAwsIamPolicyDocument#override_policy_documents}.
-        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#policy_id DataAwsIamPolicyDocument#policy_id}.
-        :param source_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#source_json DataAwsIamPolicyDocument#source_json}.
-        :param source_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#source_policy_documents DataAwsIamPolicyDocument#source_policy_documents}.
-        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#statement DataAwsIamPolicyDocument#statement}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#version DataAwsIamPolicyDocument#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#id DataAwsIamPolicyDocument#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param override_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#override_json DataAwsIamPolicyDocument#override_json}.
+        :param override_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#override_policy_documents DataAwsIamPolicyDocument#override_policy_documents}.
+        :param policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#policy_id DataAwsIamPolicyDocument#policy_id}.
+        :param source_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#source_json DataAwsIamPolicyDocument#source_json}.
+        :param source_policy_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#source_policy_documents DataAwsIamPolicyDocument#source_policy_documents}.
+        :param statement: statement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#statement DataAwsIamPolicyDocument#statement}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#version DataAwsIamPolicyDocument#version}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -514,7 +514,7 @@ class DataAwsIamPolicyDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#id DataAwsIamPolicyDocument#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#id DataAwsIamPolicyDocument#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -524,31 +524,31 @@ class DataAwsIamPolicyDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def override_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#override_json DataAwsIamPolicyDocument#override_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#override_json DataAwsIamPolicyDocument#override_json}.'''
         result = self._values.get("override_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def override_policy_documents(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#override_policy_documents DataAwsIamPolicyDocument#override_policy_documents}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#override_policy_documents DataAwsIamPolicyDocument#override_policy_documents}.'''
         result = self._values.get("override_policy_documents")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#policy_id DataAwsIamPolicyDocument#policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#policy_id DataAwsIamPolicyDocument#policy_id}.'''
         result = self._values.get("policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#source_json DataAwsIamPolicyDocument#source_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#source_json DataAwsIamPolicyDocument#source_json}.'''
         result = self._values.get("source_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_policy_documents(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#source_policy_documents DataAwsIamPolicyDocument#source_policy_documents}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#source_policy_documents DataAwsIamPolicyDocument#source_policy_documents}.'''
         result = self._values.get("source_policy_documents")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -558,14 +558,14 @@ class DataAwsIamPolicyDocumentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatement"]]]:
         '''statement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#statement DataAwsIamPolicyDocument#statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#statement DataAwsIamPolicyDocument#statement}
         '''
         result = self._values.get("statement")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatement"]]], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#version DataAwsIamPolicyDocument#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#version DataAwsIamPolicyDocument#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -611,15 +611,15 @@ class DataAwsIamPolicyDocumentStatement:
         sid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#actions DataAwsIamPolicyDocument#actions}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#condition DataAwsIamPolicyDocument#condition}
-        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#effect DataAwsIamPolicyDocument#effect}.
-        :param not_actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#not_actions DataAwsIamPolicyDocument#not_actions}.
-        :param not_principals: not_principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#not_principals DataAwsIamPolicyDocument#not_principals}
-        :param not_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#not_resources DataAwsIamPolicyDocument#not_resources}.
-        :param principals: principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#principals DataAwsIamPolicyDocument#principals}
-        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#resources DataAwsIamPolicyDocument#resources}.
-        :param sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#sid DataAwsIamPolicyDocument#sid}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#actions DataAwsIamPolicyDocument#actions}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#condition DataAwsIamPolicyDocument#condition}
+        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#effect DataAwsIamPolicyDocument#effect}.
+        :param not_actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#not_actions DataAwsIamPolicyDocument#not_actions}.
+        :param not_principals: not_principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#not_principals DataAwsIamPolicyDocument#not_principals}
+        :param not_resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#not_resources DataAwsIamPolicyDocument#not_resources}.
+        :param principals: principals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#principals DataAwsIamPolicyDocument#principals}
+        :param resources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#resources DataAwsIamPolicyDocument#resources}.
+        :param sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#sid DataAwsIamPolicyDocument#sid}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9d7d277b6b50de33e69e6907beee99cc20ddedb2c821cf536dba253a81cc04f)
@@ -654,7 +654,7 @@ class DataAwsIamPolicyDocumentStatement:
 
     @builtins.property
     def actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#actions DataAwsIamPolicyDocument#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#actions DataAwsIamPolicyDocument#actions}.'''
         result = self._values.get("actions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -664,20 +664,20 @@ class DataAwsIamPolicyDocumentStatement:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatementCondition"]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#condition DataAwsIamPolicyDocument#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#condition DataAwsIamPolicyDocument#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatementCondition"]]], result)
 
     @builtins.property
     def effect(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#effect DataAwsIamPolicyDocument#effect}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#effect DataAwsIamPolicyDocument#effect}.'''
         result = self._values.get("effect")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def not_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#not_actions DataAwsIamPolicyDocument#not_actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#not_actions DataAwsIamPolicyDocument#not_actions}.'''
         result = self._values.get("not_actions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -687,14 +687,14 @@ class DataAwsIamPolicyDocumentStatement:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatementNotPrincipals"]]]:
         '''not_principals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#not_principals DataAwsIamPolicyDocument#not_principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#not_principals DataAwsIamPolicyDocument#not_principals}
         '''
         result = self._values.get("not_principals")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatementNotPrincipals"]]], result)
 
     @builtins.property
     def not_resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#not_resources DataAwsIamPolicyDocument#not_resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#not_resources DataAwsIamPolicyDocument#not_resources}.'''
         result = self._values.get("not_resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -704,20 +704,20 @@ class DataAwsIamPolicyDocumentStatement:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatementPrincipals"]]]:
         '''principals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#principals DataAwsIamPolicyDocument#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#principals DataAwsIamPolicyDocument#principals}
         '''
         result = self._values.get("principals")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataAwsIamPolicyDocumentStatementPrincipals"]]], result)
 
     @builtins.property
     def resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#resources DataAwsIamPolicyDocument#resources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#resources DataAwsIamPolicyDocument#resources}.'''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def sid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#sid DataAwsIamPolicyDocument#sid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#sid DataAwsIamPolicyDocument#sid}.'''
         result = self._values.get("sid")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -747,9 +747,9 @@ class DataAwsIamPolicyDocumentStatementCondition:
         variable: builtins.str,
     ) -> None:
         '''
-        :param test: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#test DataAwsIamPolicyDocument#test}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#values DataAwsIamPolicyDocument#values}.
-        :param variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#variable DataAwsIamPolicyDocument#variable}.
+        :param test: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#test DataAwsIamPolicyDocument#test}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#values DataAwsIamPolicyDocument#values}.
+        :param variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#variable DataAwsIamPolicyDocument#variable}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4d60b4fc786497728e48d505b8bfc617687e3b75d0751c7322e19a7ec1115a5)
@@ -764,21 +764,21 @@ class DataAwsIamPolicyDocumentStatementCondition:
 
     @builtins.property
     def test(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#test DataAwsIamPolicyDocument#test}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#test DataAwsIamPolicyDocument#test}.'''
         result = self._values.get("test")
         assert result is not None, "Required property 'test' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#values DataAwsIamPolicyDocument#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#values DataAwsIamPolicyDocument#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def variable(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#variable DataAwsIamPolicyDocument#variable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#variable DataAwsIamPolicyDocument#variable}.'''
         result = self._values.get("variable")
         assert result is not None, "Required property 'variable' is missing"
         return typing.cast(builtins.str, result)
@@ -1089,8 +1089,8 @@ class DataAwsIamPolicyDocumentStatementNotPrincipals:
         type: builtins.str,
     ) -> None:
         '''
-        :param identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.
+        :param identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e70671767fdc87f8163c63b10d3b3e313becd96f2caa607b3ffbcfe089ca3d32)
@@ -1103,14 +1103,14 @@ class DataAwsIamPolicyDocumentStatementNotPrincipals:
 
     @builtins.property
     def identifiers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.'''
         result = self._values.get("identifiers")
         assert result is not None, "Required property 'identifiers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1568,8 +1568,8 @@ class DataAwsIamPolicyDocumentStatementPrincipals:
         type: builtins.str,
     ) -> None:
         '''
-        :param identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.
+        :param identifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9d8433e450fcefbe9c1fc6fa66c8eaceec4dca3d4df957d063139415bac2805)
@@ -1582,14 +1582,14 @@ class DataAwsIamPolicyDocumentStatementPrincipals:
 
     @builtins.property
     def identifiers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#identifiers DataAwsIamPolicyDocument#identifiers}.'''
         result = self._values.get("identifiers")
         assert result is not None, "Required property 'identifiers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/iam_policy_document#type DataAwsIamPolicyDocument#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)

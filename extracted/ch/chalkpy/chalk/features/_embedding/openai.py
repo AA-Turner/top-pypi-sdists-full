@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import Optional, Sequence, Type
+from typing import TYPE_CHECKING, Optional, Sequence, Type
 
 import pyarrow as pa
 
@@ -10,13 +10,12 @@ from chalk.features._embedding.utils import ModelSpecs, create_fixedsize_with_nu
 from chalk.features._vector import Vector
 from chalk.utils.missing_dependency import missing_dependency_exception
 
-try:
+if TYPE_CHECKING:
     import openai
     import tiktoken
-except ImportError:
+else:
     openai = None
     tiktoken = None
-
 
 _MAX_INPUT_TOKENS = 8191
 _MAX_BATCH_SIZE = 2048
@@ -43,7 +42,11 @@ _MODEL_SPECS = {
 class OpenAIProvider(EmbeddingProvider):
     def __init__(self, model: str, dimensions: Optional[int] = None) -> None:
         super().__init__()
-        if not openai or not tiktoken:
+        try:
+            global openai, tiktoken
+            import openai
+            import tiktoken
+        except ImportError:
             raise missing_dependency_exception("chalkpy[openai]")
         if model not in _MODEL_SPECS:
             models_str = ", ".join(f"'{model}'" for model in _MODEL_SPECS)
@@ -57,12 +60,12 @@ class OpenAIProvider(EmbeddingProvider):
 
     @functools.cached_property
     def _async_client(self):
-        assert openai
+        assert openai is not None
         return openai.AsyncOpenAI()
 
     @functools.cached_property
     def _encoding(self):
-        assert tiktoken is not None, "Verified tiktoken is available in init"
+        assert tiktoken is not None
         try:
             return tiktoken.encoding_for_model(self.model)
         except KeyError:
@@ -95,7 +98,6 @@ class OpenAIProvider(EmbeddingProvider):
         raise NotImplementedError("use async_generate_embedding instead")
 
     async def async_generate_embedding(self, input: pa.Table):
-        assert openai
         inputs: list[str | None] = [self._truncate_embedding_input(i) for i in input.column(0).to_pylist()]
         # Step over `input` in chunks of MAX_BATCH_SIZE; the max openai array length
         for i in range(0, len(inputs), _MAX_BATCH_SIZE):

@@ -1,7 +1,7 @@
 r'''
 # `aws_securitylake_custom_log_source`
 
-Refer to the Terraform Registry for docs: [`aws_securitylake_custom_log_source`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source).
+Refer to the Terraform Registry for docs: [`aws_securitylake_custom_log_source`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecuritylakeCustomLogSource(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.securitylakeCustomLogSource.SecuritylakeCustomLogSource",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source aws_securitylake_custom_log_source}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source aws_securitylake_custom_log_source}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SecuritylakeCustomLogSource(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source aws_securitylake_custom_log_source} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source aws_securitylake_custom_log_source} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#source_name SecuritylakeCustomLogSource#source_name}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#configuration SecuritylakeCustomLogSource#configuration}
-        :param event_classes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#event_classes SecuritylakeCustomLogSource#event_classes}.
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#source_version SecuritylakeCustomLogSource#source_version}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#source_name SecuritylakeCustomLogSource#source_name}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#configuration SecuritylakeCustomLogSource#configuration}
+        :param event_classes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#event_classes SecuritylakeCustomLogSource#event_classes}.
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#source_version SecuritylakeCustomLogSource#source_version}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SecuritylakeCustomLogSource(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecuritylakeCustomLogSource to import.
-        :param import_from_id: The id of the existing SecuritylakeCustomLogSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecuritylakeCustomLogSource that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecuritylakeCustomLogSource to import is found.
         '''
         if __debug__:
@@ -435,10 +435,10 @@ class SecuritylakeCustomLogSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#source_name SecuritylakeCustomLogSource#source_name}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#configuration SecuritylakeCustomLogSource#configuration}
-        :param event_classes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#event_classes SecuritylakeCustomLogSource#event_classes}.
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#source_version SecuritylakeCustomLogSource#source_version}.
+        :param source_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#source_name SecuritylakeCustomLogSource#source_name}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#configuration SecuritylakeCustomLogSource#configuration}
+        :param event_classes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#event_classes SecuritylakeCustomLogSource#event_classes}.
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#source_version SecuritylakeCustomLogSource#source_version}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -545,7 +545,7 @@ class SecuritylakeCustomLogSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def source_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#source_name SecuritylakeCustomLogSource#source_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#source_name SecuritylakeCustomLogSource#source_name}.'''
         result = self._values.get("source_name")
         assert result is not None, "Required property 'source_name' is missing"
         return typing.cast(builtins.str, result)
@@ -556,20 +556,20 @@ class SecuritylakeCustomLogSourceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeCustomLogSourceConfiguration"]]]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#configuration SecuritylakeCustomLogSource#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#configuration SecuritylakeCustomLogSource#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeCustomLogSourceConfiguration"]]], result)
 
     @builtins.property
     def event_classes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#event_classes SecuritylakeCustomLogSource#event_classes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#event_classes SecuritylakeCustomLogSource#event_classes}.'''
         result = self._values.get("event_classes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def source_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#source_version SecuritylakeCustomLogSource#source_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#source_version SecuritylakeCustomLogSource#source_version}.'''
         result = self._values.get("source_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -601,8 +601,8 @@ class SecuritylakeCustomLogSourceConfiguration:
         provider_identity: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecuritylakeCustomLogSourceConfigurationProviderIdentity", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param crawler_configuration: crawler_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#crawler_configuration SecuritylakeCustomLogSource#crawler_configuration}
-        :param provider_identity: provider_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#provider_identity SecuritylakeCustomLogSource#provider_identity}
+        :param crawler_configuration: crawler_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#crawler_configuration SecuritylakeCustomLogSource#crawler_configuration}
+        :param provider_identity: provider_identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#provider_identity SecuritylakeCustomLogSource#provider_identity}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba60c87846b8927dbf1ab11cf5f51e4e4b9f4ef35d91553d89d419d4713eb02a)
@@ -620,7 +620,7 @@ class SecuritylakeCustomLogSourceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeCustomLogSourceConfigurationCrawlerConfiguration"]]]:
         '''crawler_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#crawler_configuration SecuritylakeCustomLogSource#crawler_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#crawler_configuration SecuritylakeCustomLogSource#crawler_configuration}
         '''
         result = self._values.get("crawler_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeCustomLogSourceConfigurationCrawlerConfiguration"]]], result)
@@ -631,7 +631,7 @@ class SecuritylakeCustomLogSourceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeCustomLogSourceConfigurationProviderIdentity"]]]:
         '''provider_identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#provider_identity SecuritylakeCustomLogSource#provider_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#provider_identity SecuritylakeCustomLogSource#provider_identity}
         '''
         result = self._values.get("provider_identity")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecuritylakeCustomLogSourceConfigurationProviderIdentity"]]], result)
@@ -656,7 +656,7 @@ class SecuritylakeCustomLogSourceConfiguration:
 class SecuritylakeCustomLogSourceConfigurationCrawlerConfiguration:
     def __init__(self, *, role_arn: builtins.str) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#role_arn SecuritylakeCustomLogSource#role_arn}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#role_arn SecuritylakeCustomLogSource#role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac1f358bf7518890667c6fb1c621922e8df629d76eaffb86f3056aed4fc5698a)
@@ -667,7 +667,7 @@ class SecuritylakeCustomLogSourceConfigurationCrawlerConfiguration:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#role_arn SecuritylakeCustomLogSource#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#role_arn SecuritylakeCustomLogSource#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1045,8 +1045,8 @@ class SecuritylakeCustomLogSourceConfigurationOutputReference(
 class SecuritylakeCustomLogSourceConfigurationProviderIdentity:
     def __init__(self, *, external_id: builtins.str, principal: builtins.str) -> None:
         '''
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#external_id SecuritylakeCustomLogSource#external_id}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#principal SecuritylakeCustomLogSource#principal}.
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#external_id SecuritylakeCustomLogSource#external_id}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#principal SecuritylakeCustomLogSource#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21ff8e2e7c5fbb42b754c42893e57e0fffa8901fa28662f14fccf38f363befb1)
@@ -1059,14 +1059,14 @@ class SecuritylakeCustomLogSourceConfigurationProviderIdentity:
 
     @builtins.property
     def external_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#external_id SecuritylakeCustomLogSource#external_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#external_id SecuritylakeCustomLogSource#external_id}.'''
         result = self._values.get("external_id")
         assert result is not None, "Required property 'external_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/securitylake_custom_log_source#principal SecuritylakeCustomLogSource#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/securitylake_custom_log_source#principal SecuritylakeCustomLogSource#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)

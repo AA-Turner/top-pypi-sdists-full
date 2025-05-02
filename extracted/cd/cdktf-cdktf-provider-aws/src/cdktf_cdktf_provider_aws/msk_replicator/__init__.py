@@ -1,7 +1,7 @@
 r'''
 # `aws_msk_replicator`
 
-Refer to the Terraform Registry for docs: [`aws_msk_replicator`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator).
+Refer to the Terraform Registry for docs: [`aws_msk_replicator`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MskReplicator(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mskReplicator.MskReplicator",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator aws_msk_replicator}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator aws_msk_replicator}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class MskReplicator(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator aws_msk_replicator} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator aws_msk_replicator} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#kafka_cluster MskReplicator#kafka_cluster}
-        :param replication_info_list: replication_info_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#replication_info_list MskReplicator#replication_info_list}
-        :param replicator_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#replicator_name MskReplicator#replicator_name}.
-        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#service_execution_role_arn MskReplicator#service_execution_role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#description MskReplicator#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#id MskReplicator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#tags MskReplicator#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#tags_all MskReplicator#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#timeouts MskReplicator#timeouts}
+        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#kafka_cluster MskReplicator#kafka_cluster}
+        :param replication_info_list: replication_info_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#replication_info_list MskReplicator#replication_info_list}
+        :param replicator_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#replicator_name MskReplicator#replicator_name}.
+        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#service_execution_role_arn MskReplicator#service_execution_role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#description MskReplicator#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#id MskReplicator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#tags MskReplicator#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#tags_all MskReplicator#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#timeouts MskReplicator#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class MskReplicator(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MskReplicator to import.
-        :param import_from_id: The id of the existing MskReplicator that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MskReplicator that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MskReplicator to import is found.
         '''
         if __debug__:
@@ -162,11 +162,11 @@ class MskReplicator(
         topic_replication: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MskReplicatorReplicationInfoListTopicReplication", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param consumer_group_replication: consumer_group_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_group_replication MskReplicator#consumer_group_replication}
-        :param source_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#source_kafka_cluster_arn MskReplicator#source_kafka_cluster_arn}.
-        :param target_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#target_compression_type MskReplicator#target_compression_type}.
-        :param target_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#target_kafka_cluster_arn MskReplicator#target_kafka_cluster_arn}.
-        :param topic_replication: topic_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topic_replication MskReplicator#topic_replication}
+        :param consumer_group_replication: consumer_group_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_group_replication MskReplicator#consumer_group_replication}
+        :param source_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#source_kafka_cluster_arn MskReplicator#source_kafka_cluster_arn}.
+        :param target_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#target_compression_type MskReplicator#target_compression_type}.
+        :param target_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#target_kafka_cluster_arn MskReplicator#target_kafka_cluster_arn}.
+        :param topic_replication: topic_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topic_replication MskReplicator#topic_replication}
         '''
         value = MskReplicatorReplicationInfoListStruct(
             consumer_group_replication=consumer_group_replication,
@@ -187,9 +187,9 @@ class MskReplicator(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#create MskReplicator#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#delete MskReplicator#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#update MskReplicator#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#create MskReplicator#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#delete MskReplicator#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#update MskReplicator#update}.
         '''
         value = MskReplicatorTimeouts(create=create, delete=delete, update=update)
 
@@ -432,15 +432,15 @@ class MskReplicatorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#kafka_cluster MskReplicator#kafka_cluster}
-        :param replication_info_list: replication_info_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#replication_info_list MskReplicator#replication_info_list}
-        :param replicator_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#replicator_name MskReplicator#replicator_name}.
-        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#service_execution_role_arn MskReplicator#service_execution_role_arn}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#description MskReplicator#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#id MskReplicator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#tags MskReplicator#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#tags_all MskReplicator#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#timeouts MskReplicator#timeouts}
+        :param kafka_cluster: kafka_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#kafka_cluster MskReplicator#kafka_cluster}
+        :param replication_info_list: replication_info_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#replication_info_list MskReplicator#replication_info_list}
+        :param replicator_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#replicator_name MskReplicator#replicator_name}.
+        :param service_execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#service_execution_role_arn MskReplicator#service_execution_role_arn}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#description MskReplicator#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#id MskReplicator#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#tags MskReplicator#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#tags_all MskReplicator#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#timeouts MskReplicator#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -567,7 +567,7 @@ class MskReplicatorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MskReplicatorKafkaCluster"]]:
         '''kafka_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#kafka_cluster MskReplicator#kafka_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#kafka_cluster MskReplicator#kafka_cluster}
         '''
         result = self._values.get("kafka_cluster")
         assert result is not None, "Required property 'kafka_cluster' is missing"
@@ -577,7 +577,7 @@ class MskReplicatorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replication_info_list(self) -> "MskReplicatorReplicationInfoListStruct":
         '''replication_info_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#replication_info_list MskReplicator#replication_info_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#replication_info_list MskReplicator#replication_info_list}
         '''
         result = self._values.get("replication_info_list")
         assert result is not None, "Required property 'replication_info_list' is missing"
@@ -585,27 +585,27 @@ class MskReplicatorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def replicator_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#replicator_name MskReplicator#replicator_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#replicator_name MskReplicator#replicator_name}.'''
         result = self._values.get("replicator_name")
         assert result is not None, "Required property 'replicator_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#service_execution_role_arn MskReplicator#service_execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#service_execution_role_arn MskReplicator#service_execution_role_arn}.'''
         result = self._values.get("service_execution_role_arn")
         assert result is not None, "Required property 'service_execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#description MskReplicator#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#description MskReplicator#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#id MskReplicator#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#id MskReplicator#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -615,13 +615,13 @@ class MskReplicatorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#tags MskReplicator#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#tags MskReplicator#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#tags_all MskReplicator#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#tags_all MskReplicator#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -629,7 +629,7 @@ class MskReplicatorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MskReplicatorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#timeouts MskReplicator#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#timeouts MskReplicator#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MskReplicatorTimeouts"], result)
@@ -659,8 +659,8 @@ class MskReplicatorKafkaCluster:
         vpc_config: typing.Union["MskReplicatorKafkaClusterVpcConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param amazon_msk_cluster: amazon_msk_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#amazon_msk_cluster MskReplicator#amazon_msk_cluster}
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#vpc_config MskReplicator#vpc_config}
+        :param amazon_msk_cluster: amazon_msk_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#amazon_msk_cluster MskReplicator#amazon_msk_cluster}
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#vpc_config MskReplicator#vpc_config}
         '''
         if isinstance(amazon_msk_cluster, dict):
             amazon_msk_cluster = MskReplicatorKafkaClusterAmazonMskCluster(**amazon_msk_cluster)
@@ -679,7 +679,7 @@ class MskReplicatorKafkaCluster:
     def amazon_msk_cluster(self) -> "MskReplicatorKafkaClusterAmazonMskCluster":
         '''amazon_msk_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#amazon_msk_cluster MskReplicator#amazon_msk_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#amazon_msk_cluster MskReplicator#amazon_msk_cluster}
         '''
         result = self._values.get("amazon_msk_cluster")
         assert result is not None, "Required property 'amazon_msk_cluster' is missing"
@@ -689,7 +689,7 @@ class MskReplicatorKafkaCluster:
     def vpc_config(self) -> "MskReplicatorKafkaClusterVpcConfig":
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#vpc_config MskReplicator#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#vpc_config MskReplicator#vpc_config}
         '''
         result = self._values.get("vpc_config")
         assert result is not None, "Required property 'vpc_config' is missing"
@@ -715,7 +715,7 @@ class MskReplicatorKafkaCluster:
 class MskReplicatorKafkaClusterAmazonMskCluster:
     def __init__(self, *, msk_cluster_arn: builtins.str) -> None:
         '''
-        :param msk_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#msk_cluster_arn MskReplicator#msk_cluster_arn}.
+        :param msk_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#msk_cluster_arn MskReplicator#msk_cluster_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87b89a57bcf422144c9001634c3633498c44b8d66c291733cb5e97b3a27bfb15)
@@ -726,7 +726,7 @@ class MskReplicatorKafkaClusterAmazonMskCluster:
 
     @builtins.property
     def msk_cluster_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#msk_cluster_arn MskReplicator#msk_cluster_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#msk_cluster_arn MskReplicator#msk_cluster_arn}.'''
         result = self._values.get("msk_cluster_arn")
         assert result is not None, "Required property 'msk_cluster_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -917,7 +917,7 @@ class MskReplicatorKafkaClusterOutputReference(
     @jsii.member(jsii_name="putAmazonMskCluster")
     def put_amazon_msk_cluster(self, *, msk_cluster_arn: builtins.str) -> None:
         '''
-        :param msk_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#msk_cluster_arn MskReplicator#msk_cluster_arn}.
+        :param msk_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#msk_cluster_arn MskReplicator#msk_cluster_arn}.
         '''
         value = MskReplicatorKafkaClusterAmazonMskCluster(
             msk_cluster_arn=msk_cluster_arn
@@ -933,8 +933,8 @@ class MskReplicatorKafkaClusterOutputReference(
         security_groups_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#subnet_ids MskReplicator#subnet_ids}.
-        :param security_groups_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#security_groups_ids MskReplicator#security_groups_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#subnet_ids MskReplicator#subnet_ids}.
+        :param security_groups_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#security_groups_ids MskReplicator#security_groups_ids}.
         '''
         value = MskReplicatorKafkaClusterVpcConfig(
             subnet_ids=subnet_ids, security_groups_ids=security_groups_ids
@@ -1000,8 +1000,8 @@ class MskReplicatorKafkaClusterVpcConfig:
         security_groups_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#subnet_ids MskReplicator#subnet_ids}.
-        :param security_groups_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#security_groups_ids MskReplicator#security_groups_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#subnet_ids MskReplicator#subnet_ids}.
+        :param security_groups_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#security_groups_ids MskReplicator#security_groups_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__874166509df2a84effd1862f6da6206aee7e5361f2327c2fb4da5c3559bbe069)
@@ -1015,14 +1015,14 @@ class MskReplicatorKafkaClusterVpcConfig:
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#subnet_ids MskReplicator#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#subnet_ids MskReplicator#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def security_groups_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#security_groups_ids MskReplicator#security_groups_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#security_groups_ids MskReplicator#security_groups_ids}.'''
         result = self._values.get("security_groups_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1132,10 +1132,10 @@ class MskReplicatorReplicationInfoListConsumerGroupReplication:
         synchronise_consumer_group_offsets: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param consumer_groups_to_replicate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_groups_to_replicate MskReplicator#consumer_groups_to_replicate}.
-        :param consumer_groups_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_groups_to_exclude MskReplicator#consumer_groups_to_exclude}.
-        :param detect_and_copy_new_consumer_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#detect_and_copy_new_consumer_groups MskReplicator#detect_and_copy_new_consumer_groups}.
-        :param synchronise_consumer_group_offsets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#synchronise_consumer_group_offsets MskReplicator#synchronise_consumer_group_offsets}.
+        :param consumer_groups_to_replicate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_groups_to_replicate MskReplicator#consumer_groups_to_replicate}.
+        :param consumer_groups_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_groups_to_exclude MskReplicator#consumer_groups_to_exclude}.
+        :param detect_and_copy_new_consumer_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#detect_and_copy_new_consumer_groups MskReplicator#detect_and_copy_new_consumer_groups}.
+        :param synchronise_consumer_group_offsets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#synchronise_consumer_group_offsets MskReplicator#synchronise_consumer_group_offsets}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d4962a2c44526beea016e978830d1aa4be819b84e9a1a169e06e6ec9eba9f6b)
@@ -1155,14 +1155,14 @@ class MskReplicatorReplicationInfoListConsumerGroupReplication:
 
     @builtins.property
     def consumer_groups_to_replicate(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_groups_to_replicate MskReplicator#consumer_groups_to_replicate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_groups_to_replicate MskReplicator#consumer_groups_to_replicate}.'''
         result = self._values.get("consumer_groups_to_replicate")
         assert result is not None, "Required property 'consumer_groups_to_replicate' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def consumer_groups_to_exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_groups_to_exclude MskReplicator#consumer_groups_to_exclude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_groups_to_exclude MskReplicator#consumer_groups_to_exclude}.'''
         result = self._values.get("consumer_groups_to_exclude")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1170,7 +1170,7 @@ class MskReplicatorReplicationInfoListConsumerGroupReplication:
     def detect_and_copy_new_consumer_groups(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#detect_and_copy_new_consumer_groups MskReplicator#detect_and_copy_new_consumer_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#detect_and_copy_new_consumer_groups MskReplicator#detect_and_copy_new_consumer_groups}.'''
         result = self._values.get("detect_and_copy_new_consumer_groups")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1178,7 +1178,7 @@ class MskReplicatorReplicationInfoListConsumerGroupReplication:
     def synchronise_consumer_group_offsets(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#synchronise_consumer_group_offsets MskReplicator#synchronise_consumer_group_offsets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#synchronise_consumer_group_offsets MskReplicator#synchronise_consumer_group_offsets}.'''
         result = self._values.get("synchronise_consumer_group_offsets")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1451,11 +1451,11 @@ class MskReplicatorReplicationInfoListStruct:
         topic_replication: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MskReplicatorReplicationInfoListTopicReplication", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param consumer_group_replication: consumer_group_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_group_replication MskReplicator#consumer_group_replication}
-        :param source_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#source_kafka_cluster_arn MskReplicator#source_kafka_cluster_arn}.
-        :param target_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#target_compression_type MskReplicator#target_compression_type}.
-        :param target_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#target_kafka_cluster_arn MskReplicator#target_kafka_cluster_arn}.
-        :param topic_replication: topic_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topic_replication MskReplicator#topic_replication}
+        :param consumer_group_replication: consumer_group_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_group_replication MskReplicator#consumer_group_replication}
+        :param source_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#source_kafka_cluster_arn MskReplicator#source_kafka_cluster_arn}.
+        :param target_compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#target_compression_type MskReplicator#target_compression_type}.
+        :param target_kafka_cluster_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#target_kafka_cluster_arn MskReplicator#target_kafka_cluster_arn}.
+        :param topic_replication: topic_replication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topic_replication MskReplicator#topic_replication}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82598980ad7f2827bb0bfc995d2fff7e769d47cb047bdc26be8b9347fabd327b)
@@ -1478,7 +1478,7 @@ class MskReplicatorReplicationInfoListStruct:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MskReplicatorReplicationInfoListConsumerGroupReplication]]:
         '''consumer_group_replication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#consumer_group_replication MskReplicator#consumer_group_replication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#consumer_group_replication MskReplicator#consumer_group_replication}
         '''
         result = self._values.get("consumer_group_replication")
         assert result is not None, "Required property 'consumer_group_replication' is missing"
@@ -1486,21 +1486,21 @@ class MskReplicatorReplicationInfoListStruct:
 
     @builtins.property
     def source_kafka_cluster_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#source_kafka_cluster_arn MskReplicator#source_kafka_cluster_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#source_kafka_cluster_arn MskReplicator#source_kafka_cluster_arn}.'''
         result = self._values.get("source_kafka_cluster_arn")
         assert result is not None, "Required property 'source_kafka_cluster_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_compression_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#target_compression_type MskReplicator#target_compression_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#target_compression_type MskReplicator#target_compression_type}.'''
         result = self._values.get("target_compression_type")
         assert result is not None, "Required property 'target_compression_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_kafka_cluster_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#target_kafka_cluster_arn MskReplicator#target_kafka_cluster_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#target_kafka_cluster_arn MskReplicator#target_kafka_cluster_arn}.'''
         result = self._values.get("target_kafka_cluster_arn")
         assert result is not None, "Required property 'target_kafka_cluster_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1511,7 +1511,7 @@ class MskReplicatorReplicationInfoListStruct:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MskReplicatorReplicationInfoListTopicReplication"]]:
         '''topic_replication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topic_replication MskReplicator#topic_replication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topic_replication MskReplicator#topic_replication}
         '''
         result = self._values.get("topic_replication")
         assert result is not None, "Required property 'topic_replication' is missing"
@@ -1706,13 +1706,13 @@ class MskReplicatorReplicationInfoListTopicReplication:
         topics_to_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param topics_to_replicate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topics_to_replicate MskReplicator#topics_to_replicate}.
-        :param copy_access_control_lists_for_topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#copy_access_control_lists_for_topics MskReplicator#copy_access_control_lists_for_topics}.
-        :param copy_topic_configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#copy_topic_configurations MskReplicator#copy_topic_configurations}.
-        :param detect_and_copy_new_topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#detect_and_copy_new_topics MskReplicator#detect_and_copy_new_topics}.
-        :param starting_position: starting_position block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#starting_position MskReplicator#starting_position}
-        :param topic_name_configuration: topic_name_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topic_name_configuration MskReplicator#topic_name_configuration}
-        :param topics_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topics_to_exclude MskReplicator#topics_to_exclude}.
+        :param topics_to_replicate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topics_to_replicate MskReplicator#topics_to_replicate}.
+        :param copy_access_control_lists_for_topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#copy_access_control_lists_for_topics MskReplicator#copy_access_control_lists_for_topics}.
+        :param copy_topic_configurations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#copy_topic_configurations MskReplicator#copy_topic_configurations}.
+        :param detect_and_copy_new_topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#detect_and_copy_new_topics MskReplicator#detect_and_copy_new_topics}.
+        :param starting_position: starting_position block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#starting_position MskReplicator#starting_position}
+        :param topic_name_configuration: topic_name_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topic_name_configuration MskReplicator#topic_name_configuration}
+        :param topics_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topics_to_exclude MskReplicator#topics_to_exclude}.
         '''
         if isinstance(starting_position, dict):
             starting_position = MskReplicatorReplicationInfoListTopicReplicationStartingPosition(**starting_position)
@@ -1745,7 +1745,7 @@ class MskReplicatorReplicationInfoListTopicReplication:
 
     @builtins.property
     def topics_to_replicate(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topics_to_replicate MskReplicator#topics_to_replicate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topics_to_replicate MskReplicator#topics_to_replicate}.'''
         result = self._values.get("topics_to_replicate")
         assert result is not None, "Required property 'topics_to_replicate' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1754,7 +1754,7 @@ class MskReplicatorReplicationInfoListTopicReplication:
     def copy_access_control_lists_for_topics(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#copy_access_control_lists_for_topics MskReplicator#copy_access_control_lists_for_topics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#copy_access_control_lists_for_topics MskReplicator#copy_access_control_lists_for_topics}.'''
         result = self._values.get("copy_access_control_lists_for_topics")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1762,7 +1762,7 @@ class MskReplicatorReplicationInfoListTopicReplication:
     def copy_topic_configurations(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#copy_topic_configurations MskReplicator#copy_topic_configurations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#copy_topic_configurations MskReplicator#copy_topic_configurations}.'''
         result = self._values.get("copy_topic_configurations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1770,7 +1770,7 @@ class MskReplicatorReplicationInfoListTopicReplication:
     def detect_and_copy_new_topics(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#detect_and_copy_new_topics MskReplicator#detect_and_copy_new_topics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#detect_and_copy_new_topics MskReplicator#detect_and_copy_new_topics}.'''
         result = self._values.get("detect_and_copy_new_topics")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1780,7 +1780,7 @@ class MskReplicatorReplicationInfoListTopicReplication:
     ) -> typing.Optional["MskReplicatorReplicationInfoListTopicReplicationStartingPosition"]:
         '''starting_position block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#starting_position MskReplicator#starting_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#starting_position MskReplicator#starting_position}
         '''
         result = self._values.get("starting_position")
         return typing.cast(typing.Optional["MskReplicatorReplicationInfoListTopicReplicationStartingPosition"], result)
@@ -1791,14 +1791,14 @@ class MskReplicatorReplicationInfoListTopicReplication:
     ) -> typing.Optional["MskReplicatorReplicationInfoListTopicReplicationTopicNameConfiguration"]:
         '''topic_name_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topic_name_configuration MskReplicator#topic_name_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topic_name_configuration MskReplicator#topic_name_configuration}
         '''
         result = self._values.get("topic_name_configuration")
         return typing.cast(typing.Optional["MskReplicatorReplicationInfoListTopicReplicationTopicNameConfiguration"], result)
 
     @builtins.property
     def topics_to_exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#topics_to_exclude MskReplicator#topics_to_exclude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#topics_to_exclude MskReplicator#topics_to_exclude}.'''
         result = self._values.get("topics_to_exclude")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1940,7 +1940,7 @@ class MskReplicatorReplicationInfoListTopicReplicationOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#type MskReplicator#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#type MskReplicator#type}.
         '''
         value = MskReplicatorReplicationInfoListTopicReplicationStartingPosition(
             type=type
@@ -1955,7 +1955,7 @@ class MskReplicatorReplicationInfoListTopicReplicationOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#type MskReplicator#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#type MskReplicator#type}.
         '''
         value = MskReplicatorReplicationInfoListTopicReplicationTopicNameConfiguration(
             type=type
@@ -2147,7 +2147,7 @@ class MskReplicatorReplicationInfoListTopicReplicationOutputReference(
 class MskReplicatorReplicationInfoListTopicReplicationStartingPosition:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#type MskReplicator#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#type MskReplicator#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__063077220f657812d6f96b6f9c8eeeafcef8989965bb95c12a5a69dc39cdd3e6)
@@ -2158,7 +2158,7 @@ class MskReplicatorReplicationInfoListTopicReplicationStartingPosition:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#type MskReplicator#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#type MskReplicator#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2241,7 +2241,7 @@ class MskReplicatorReplicationInfoListTopicReplicationStartingPositionOutputRefe
 class MskReplicatorReplicationInfoListTopicReplicationTopicNameConfiguration:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#type MskReplicator#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#type MskReplicator#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__edb1919d26dd7427b669b75a11a269ab86131b544332a7964a331576522e2cb7)
@@ -2252,7 +2252,7 @@ class MskReplicatorReplicationInfoListTopicReplicationTopicNameConfiguration:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#type MskReplicator#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#type MskReplicator#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2341,9 +2341,9 @@ class MskReplicatorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#create MskReplicator#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#delete MskReplicator#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#update MskReplicator#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#create MskReplicator#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#delete MskReplicator#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#update MskReplicator#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__097972b0c1c055b2fd4950139334d092e2b1c095ec7caa228b43fe1e227dbd51)
@@ -2360,19 +2360,19 @@ class MskReplicatorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#create MskReplicator#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#create MskReplicator#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#delete MskReplicator#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#delete MskReplicator#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/msk_replicator#update MskReplicator#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/msk_replicator#update MskReplicator#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

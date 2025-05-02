@@ -1041,7 +1041,13 @@ class CfnApiDestination(
     @builtins.property
     @jsii.member(jsii_name="attrArnForPolicy")
     def attr_arn_for_policy(self) -> builtins.str:
-        '''The arn of the api destination to be used in IAM policies.
+        '''Returns the Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the ``Resource`` element of IAM permission policy statements.
+
+        For more information, see `Resource types defined by Amazon EventBridge <https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies>`_ in the *Service Authorization Reference* .
+
+        For example, the following resource defines an IAM policy that grants permission to update a specific API destination.
+
+        ``Resources: ExamplePolicy: Type: AWS::IAM::Policy Properties: PolicyName: ExamplePolicy PolicyDocument: Version: '2012-10-17' Statement: - Effect: Allow Action: - events:UpdateApiDestination Resource: - !GetAtt myApiDestination.ArnForPolicy``
 
         :cloudformationAttribute: ArnForPolicy
         '''
@@ -1335,7 +1341,7 @@ class CfnArchive(
         :param archive_name: The name for the archive to create.
         :param description: A description for the archive.
         :param event_pattern: An event pattern to use to filter events sent to the archive.
-        :param kms_key_identifier: 
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the archive. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
         :param retention_days: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely
         '''
         if __debug__:
@@ -1452,6 +1458,7 @@ class CfnArchive(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyIdentifier")
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
 
     @kms_key_identifier.setter
@@ -1504,7 +1511,7 @@ class CfnArchiveProps:
         :param archive_name: The name for the archive to create.
         :param description: A description for the archive.
         :param event_pattern: An event pattern to use to filter events sent to the archive.
-        :param kms_key_identifier: 
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the archive. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
         :param retention_days: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-archive.html
@@ -1590,7 +1597,19 @@ class CfnArchiveProps:
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive.
+
+        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
+
+        If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the archive.
+
+        For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        .. epigraph::
+
+           If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well.
+
+           For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-archive.html#cfn-events-archive-kmskeyidentifier
         '''
         result = self._values.get("kms_key_identifier")
@@ -1750,7 +1769,7 @@ class CfnConnection(
         :param auth_parameters: The authorization parameters to use to authorize with the endpoint. You must include only authorization parameters for the ``AuthorizationType`` you specify.
         :param description: A description for the connection to create.
         :param invocation_connectivity_parameters: For connections to private APIs, the parameters to use for invoking the API. For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
-        :param kms_key_identifier: 
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
         :param name: The name for the connection to create.
         '''
         if __debug__:
@@ -1810,7 +1829,13 @@ class CfnConnection(
     @builtins.property
     @jsii.member(jsii_name="attrArnForPolicy")
     def attr_arn_for_policy(self) -> builtins.str:
-        '''The arn of the connection resource to be used in IAM policies.
+        '''Returns the Amazon Resource Name (ARN) of a connection in resource format, so it can be used in the ``Resource`` element of IAM permission policy statements.
+
+        For more information, see `Resource types defined by Amazon EventBridge <https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies>`_ in the *Service Authorization Reference* .
+
+        For example, the following resource defines an IAM policy that grants permission to update a specific connection.
+
+        ``Resources: ExamplePolicy: Type: AWS::IAM::Policy Properties: PolicyName: ExamplePolicy PolicyDocument: Version: '2012-10-17' Statement: - Effect: Allow Action: - events:UpdateConnection Resource: - !GetAtt myConnection.ArnForPolicy``
 
         :cloudformationAttribute: ArnForPolicy
         '''
@@ -1925,6 +1950,7 @@ class CfnConnection(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyIdentifier")
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
 
     @kms_key_identifier.setter
@@ -2943,7 +2969,7 @@ class CfnConnectionProps:
         :param auth_parameters: The authorization parameters to use to authorize with the endpoint. You must include only authorization parameters for the ``AuthorizationType`` you specify.
         :param description: A description for the connection to create.
         :param invocation_connectivity_parameters: For connections to private APIs, the parameters to use for invoking the API. For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
-        :param kms_key_identifier: 
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
         :param name: The name for the connection to create.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html
@@ -3116,7 +3142,14 @@ class CfnConnectionProps:
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection.
+
+        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
+
+        If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection.
+
+        For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-kmskeyidentifier
         '''
         result = self._values.get("kms_key_identifier")

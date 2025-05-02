@@ -1,0 +1,172 @@
+[project]
+name = "geemap"
+version = "0.35.3"
+description = "A Python package for interactive mapping using Google Earth Engine and ipyleaflet"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = [
+    "geemap",
+]
+license = {text = "MIT"}
+authors = [
+  {name = "Qiusheng Wu", email = "giswqs@gmail.com"},
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "bqplot",
+    "colour",
+    "earthengine-api>=1.0.0",
+    "eerepr>=0.1.0",
+    "folium>=0.17.0",
+    "geocoder",
+    "ipyevents",
+    "ipyfilechooser>=0.6.0",
+    "ipyleaflet>=0.19.2",
+    "ipytree",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "plotly",
+    "pyperclip",
+    "pyshp>=2.3.1",
+    "python-box",
+    "scooby",
+]
+
+[project.optional-dependencies]
+all = [
+    "geemap[ai,backends,extra,lidar,raster,sql,apps,vector,workshop,maplibre]",
+]
+ai = [
+    "google-api-core",
+    "google-cloud-storage",
+    "google-generativeai",
+    "google_cloud_aiplatform",
+    "langchain-community",
+    "langchain_google_genai",
+    "langchain",
+    "iso8601"
+]
+backends = [
+    "keplergl",
+    "pydeck",
+]
+extra = [
+    "ee_extra>=0.0.15",
+    "ffmpeg-python",
+    "gdown",
+    "geeadd>=0.5.1",
+    "geojson",
+    "geopandas",
+    "ipynb-py-convert",
+    "jupyterlab>=3",
+    "mapclassify>=2.4.0",
+    "mss",
+    "oeel",
+    "owslib",
+    "palettable",
+    "pycrs",
+    "sankee>=0.1.0",
+    "whiteboxgui>=0.6.0",
+    "xee",
+]
+lidar = [
+    "ipygany",
+    "ipyvtklink",
+    "laspy[lazrs]",
+    "panel",
+    "pyntcloud[LAS]",
+    "pyvista",
+    "pyvista-xarray",
+    "rioxarray",
+]
+raster = [
+    "geedim",
+    "localtileserver>=0.10.1",
+    "rio-cogeo",
+    "rioxarray",
+    "netcdf4",
+    "pyvista-xarray",
+]
+sql = [
+    "psycopg2",
+    "sqlalchemy",
+]
+apps = [
+    "gradio",
+    "streamlit-folium",
+    "voila",
+    "solara",
+]
+vector = [
+    "geopandas",
+    "osmnx",
+]
+workshop = [
+    "geopandas",
+    "geedim",
+    "ffmpeg-python",
+    "gdown",
+]
+maplibre = [
+        "geopandas",
+        "h3",
+        "ipyvuetify",
+        "localtileserver",
+        "mapclassify",
+        "maplibre",
+        "pmtiles",
+        "rioxarray",
+        "xarray",
+    ]
+
+[project.entry-points."console_scripts"]
+geemap = "geemap.cli:main"
+
+[tool]
+[tool.setuptools.packages.find]
+include = ["geemap*"]
+exclude = ["docs*"]
+
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+
+[tool.bumpversion]
+current_version = "0.35.3"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "geemap/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[tool.flake8]
+exclude = [
+    "docs",
+]
+max-line-length = 88
+
+
+[project.urls]
+Homepage = "https://github.com/gee-community/geemap"
+
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"

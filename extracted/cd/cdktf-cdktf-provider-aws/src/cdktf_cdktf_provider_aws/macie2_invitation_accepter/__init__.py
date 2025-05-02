@@ -1,7 +1,7 @@
 r'''
 # `aws_macie2_invitation_accepter`
 
-Refer to the Terraform Registry for docs: [`aws_macie2_invitation_accepter`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter).
+Refer to the Terraform Registry for docs: [`aws_macie2_invitation_accepter`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Macie2InvitationAccepter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.macie2InvitationAccepter.Macie2InvitationAccepter",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter aws_macie2_invitation_accepter}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter aws_macie2_invitation_accepter}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Macie2InvitationAccepter(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter aws_macie2_invitation_accepter} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter aws_macie2_invitation_accepter} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param administrator_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#administrator_account_id Macie2InvitationAccepter#administrator_account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#id Macie2InvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#timeouts Macie2InvitationAccepter#timeouts}
+        :param administrator_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#administrator_account_id Macie2InvitationAccepter#administrator_account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#id Macie2InvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#timeouts Macie2InvitationAccepter#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Macie2InvitationAccepter(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Macie2InvitationAccepter to import.
-        :param import_from_id: The id of the existing Macie2InvitationAccepter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Macie2InvitationAccepter that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Macie2InvitationAccepter to import is found.
         '''
         if __debug__:
@@ -123,7 +123,7 @@ class Macie2InvitationAccepter(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#create Macie2InvitationAccepter#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#create Macie2InvitationAccepter#create}.
         '''
         value = Macie2InvitationAccepterTimeouts(create=create)
 
@@ -241,9 +241,9 @@ class Macie2InvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param administrator_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#administrator_account_id Macie2InvitationAccepter#administrator_account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#id Macie2InvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#timeouts Macie2InvitationAccepter#timeouts}
+        :param administrator_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#administrator_account_id Macie2InvitationAccepter#administrator_account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#id Macie2InvitationAccepter#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#timeouts Macie2InvitationAccepter#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -349,14 +349,14 @@ class Macie2InvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def administrator_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#administrator_account_id Macie2InvitationAccepter#administrator_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#administrator_account_id Macie2InvitationAccepter#administrator_account_id}.'''
         result = self._values.get("administrator_account_id")
         assert result is not None, "Required property 'administrator_account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#id Macie2InvitationAccepter#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#id Macie2InvitationAccepter#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -368,7 +368,7 @@ class Macie2InvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Macie2InvitationAccepterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#timeouts Macie2InvitationAccepter#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#timeouts Macie2InvitationAccepter#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Macie2InvitationAccepterTimeouts"], result)
@@ -393,7 +393,7 @@ class Macie2InvitationAccepterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class Macie2InvitationAccepterTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#create Macie2InvitationAccepter#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#create Macie2InvitationAccepter#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84363e8a427cf8e6025ccf5f1b152143385bab4bfdf6f604b3044a3893f6e1bf)
@@ -404,7 +404,7 @@ class Macie2InvitationAccepterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_invitation_accepter#create Macie2InvitationAccepter#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_invitation_accepter#create Macie2InvitationAccepter#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

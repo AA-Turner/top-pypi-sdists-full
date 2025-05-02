@@ -1,7 +1,7 @@
 r'''
 # `data_aws_bedrock_inference_profile`
 
-Refer to the Terraform Registry for docs: [`data_aws_bedrock_inference_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile).
+Refer to the Terraform Registry for docs: [`data_aws_bedrock_inference_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsBedrockInferenceProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsBedrockInferenceProfile.DataAwsBedrockInferenceProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile aws_bedrock_inference_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile aws_bedrock_inference_profile}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsBedrockInferenceProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile aws_bedrock_inference_profile} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile aws_bedrock_inference_profile} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param inference_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile#inference_profile_id DataAwsBedrockInferenceProfile#inference_profile_id}.
+        :param inference_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile#inference_profile_id DataAwsBedrockInferenceProfile#inference_profile_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsBedrockInferenceProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsBedrockInferenceProfile to import.
-        :param import_from_id: The id of the existing DataAwsBedrockInferenceProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsBedrockInferenceProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsBedrockInferenceProfile to import is found.
         '''
         if __debug__:
@@ -220,7 +220,7 @@ class DataAwsBedrockInferenceProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param inference_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile#inference_profile_id DataAwsBedrockInferenceProfile#inference_profile_id}.
+        :param inference_profile_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile#inference_profile_id DataAwsBedrockInferenceProfile#inference_profile_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -318,7 +318,7 @@ class DataAwsBedrockInferenceProfileConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def inference_profile_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/bedrock_inference_profile#inference_profile_id DataAwsBedrockInferenceProfile#inference_profile_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/bedrock_inference_profile#inference_profile_id DataAwsBedrockInferenceProfile#inference_profile_id}.'''
         result = self._values.get("inference_profile_id")
         assert result is not None, "Required property 'inference_profile_id' is missing"
         return typing.cast(builtins.str, result)

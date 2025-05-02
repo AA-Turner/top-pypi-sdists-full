@@ -1,0 +1,26 @@
+Metadata-Version: 2.3
+Name: langgraph-runtime-inmem
+Version: 0.0.8
+Summary: Inmem implementation for the LangGraph API server.
+License: Elastic-2.0
+Author: Will Fu-Hinthorn
+Author-email: will@langchain.dev
+Requires-Python: >=3.11.0
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: blockbuster (>=1.5.24,<2.0.0)
+Requires-Dist: langgraph (>=0.2) ; python_version < "4.0"
+Requires-Dist: langgraph-checkpoint (>=2.0.25) ; python_version < "4.0"
+Requires-Dist: sse-starlette (>=2)
+Requires-Dist: starlette (>=0.37)
+Requires-Dist: structlog (>23)
+Description-Content-Type: text/markdown
+
+# LangGraph Runtime Inmem
+
+This is the inmem implementation of the LangGraph Runtime API.
+
+

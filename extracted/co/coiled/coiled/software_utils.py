@@ -8,6 +8,7 @@ import platform
 import re
 import shutil
 import subprocess
+import warnings
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -214,6 +215,11 @@ async def create_wheel(pkg_name: str, version: str, src: str) -> ResolvedPackage
 
 @track_context
 async def create_wheel_from_egg(pkg_name: str, version: str, src: str) -> ResolvedPackageInfo:
+    warnings.warn(
+        "Converting eggs to wheels is deprecated, please use wheel-based packages instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     tmpdir = get_temp_dir(ignore_cleanup_errors=True)
     outdir = Path(tmpdir.name) / Path(pkg_name)
     outdir.mkdir(parents=True)
@@ -408,6 +414,7 @@ async def create_wheels_for_packages(
     finalized_packages: list[ResolvedPackageInfo] = []
     for pkg in packages:
         if pkg["wheel_target"]:
+            # TODO: Remove this once we stop supporting eggs entirely
             if pkg["wheel_target"].endswith(".egg"):
                 with simple_progress(f"Creating wheel from egg for {pkg['name']}", progress=progress):
                     finalized_packages.append(

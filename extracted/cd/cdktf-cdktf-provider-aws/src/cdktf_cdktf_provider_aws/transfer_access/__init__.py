@@ -1,7 +1,7 @@
 r'''
 # `aws_transfer_access`
 
-Refer to the Terraform Registry for docs: [`aws_transfer_access`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access).
+Refer to the Terraform Registry for docs: [`aws_transfer_access`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TransferAccess(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transferAccess.TransferAccess",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access aws_transfer_access}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access aws_transfer_access}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class TransferAccess(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access aws_transfer_access} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access aws_transfer_access} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#external_id TransferAccess#external_id}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#server_id TransferAccess#server_id}.
-        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory TransferAccess#home_directory}.
-        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory_mappings TransferAccess#home_directory_mappings}
-        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory_type TransferAccess#home_directory_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#id TransferAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#policy TransferAccess#policy}.
-        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#posix_profile TransferAccess#posix_profile}
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#role TransferAccess#role}.
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#external_id TransferAccess#external_id}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#server_id TransferAccess#server_id}.
+        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory TransferAccess#home_directory}.
+        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory_mappings TransferAccess#home_directory_mappings}
+        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory_type TransferAccess#home_directory_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#id TransferAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#policy TransferAccess#policy}.
+        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#posix_profile TransferAccess#posix_profile}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#role TransferAccess#role}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class TransferAccess(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TransferAccess to import.
-        :param import_from_id: The id of the existing TransferAccess that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TransferAccess that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TransferAccess to import is found.
         '''
         if __debug__:
@@ -160,9 +160,9 @@ class TransferAccess(
         secondary_gids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#gid TransferAccess#gid}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#uid TransferAccess#uid}.
-        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#secondary_gids TransferAccess#secondary_gids}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#gid TransferAccess#gid}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#uid TransferAccess#uid}.
+        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#secondary_gids TransferAccess#secondary_gids}.
         '''
         value = TransferAccessPosixProfile(
             gid=gid, uid=uid, secondary_gids=secondary_gids
@@ -404,15 +404,15 @@ class TransferAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#external_id TransferAccess#external_id}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#server_id TransferAccess#server_id}.
-        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory TransferAccess#home_directory}.
-        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory_mappings TransferAccess#home_directory_mappings}
-        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory_type TransferAccess#home_directory_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#id TransferAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#policy TransferAccess#policy}.
-        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#posix_profile TransferAccess#posix_profile}
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#role TransferAccess#role}.
+        :param external_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#external_id TransferAccess#external_id}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#server_id TransferAccess#server_id}.
+        :param home_directory: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory TransferAccess#home_directory}.
+        :param home_directory_mappings: home_directory_mappings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory_mappings TransferAccess#home_directory_mappings}
+        :param home_directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory_type TransferAccess#home_directory_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#id TransferAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#policy TransferAccess#policy}.
+        :param posix_profile: posix_profile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#posix_profile TransferAccess#posix_profile}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#role TransferAccess#role}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -535,21 +535,21 @@ class TransferAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def external_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#external_id TransferAccess#external_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#external_id TransferAccess#external_id}.'''
         result = self._values.get("external_id")
         assert result is not None, "Required property 'external_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#server_id TransferAccess#server_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#server_id TransferAccess#server_id}.'''
         result = self._values.get("server_id")
         assert result is not None, "Required property 'server_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def home_directory(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory TransferAccess#home_directory}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory TransferAccess#home_directory}.'''
         result = self._values.get("home_directory")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -559,20 +559,20 @@ class TransferAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferAccessHomeDirectoryMappings"]]]:
         '''home_directory_mappings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory_mappings TransferAccess#home_directory_mappings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory_mappings TransferAccess#home_directory_mappings}
         '''
         result = self._values.get("home_directory_mappings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferAccessHomeDirectoryMappings"]]], result)
 
     @builtins.property
     def home_directory_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#home_directory_type TransferAccess#home_directory_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#home_directory_type TransferAccess#home_directory_type}.'''
         result = self._values.get("home_directory_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#id TransferAccess#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#id TransferAccess#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -582,7 +582,7 @@ class TransferAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#policy TransferAccess#policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#policy TransferAccess#policy}.'''
         result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -590,14 +590,14 @@ class TransferAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def posix_profile(self) -> typing.Optional["TransferAccessPosixProfile"]:
         '''posix_profile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#posix_profile TransferAccess#posix_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#posix_profile TransferAccess#posix_profile}
         '''
         result = self._values.get("posix_profile")
         return typing.cast(typing.Optional["TransferAccessPosixProfile"], result)
 
     @builtins.property
     def role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#role TransferAccess#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#role TransferAccess#role}.'''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -621,8 +621,8 @@ class TransferAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class TransferAccessHomeDirectoryMappings:
     def __init__(self, *, entry: builtins.str, target: builtins.str) -> None:
         '''
-        :param entry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#entry TransferAccess#entry}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#target TransferAccess#target}.
+        :param entry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#entry TransferAccess#entry}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#target TransferAccess#target}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f27c5b129d2dcccbb08ba085c15f0b004f0fb2d85b6a8c6dc40358d306d43c24)
@@ -635,14 +635,14 @@ class TransferAccessHomeDirectoryMappings:
 
     @builtins.property
     def entry(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#entry TransferAccess#entry}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#entry TransferAccess#entry}.'''
         result = self._values.get("entry")
         assert result is not None, "Required property 'entry' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#target TransferAccess#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#target TransferAccess#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
@@ -844,9 +844,9 @@ class TransferAccessPosixProfile:
         secondary_gids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#gid TransferAccess#gid}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#uid TransferAccess#uid}.
-        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#secondary_gids TransferAccess#secondary_gids}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#gid TransferAccess#gid}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#uid TransferAccess#uid}.
+        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#secondary_gids TransferAccess#secondary_gids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35eff1340b52e57754297ae5ca444cfe7e42d37a93fc454846ce7b840fbb548b)
@@ -862,21 +862,21 @@ class TransferAccessPosixProfile:
 
     @builtins.property
     def gid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#gid TransferAccess#gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#gid TransferAccess#gid}.'''
         result = self._values.get("gid")
         assert result is not None, "Required property 'gid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def uid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#uid TransferAccess#uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#uid TransferAccess#uid}.'''
         result = self._values.get("uid")
         assert result is not None, "Required property 'uid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def secondary_gids(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_access#secondary_gids TransferAccess#secondary_gids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_access#secondary_gids TransferAccess#secondary_gids}.'''
         result = self._values.get("secondary_gids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 

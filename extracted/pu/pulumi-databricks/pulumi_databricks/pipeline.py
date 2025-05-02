@@ -1044,6 +1044,9 @@ class _PipelineState:
 
 
 class Pipeline(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/pipeline:Pipeline"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -1086,6 +1089,8 @@ class Pipeline(pulumi.CustomResource):
                  __props__=None):
         """
         Use `Pipeline` to deploy [Delta Live Tables](https://docs.databricks.com/data-engineering/delta-live-tables/index.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -1197,6 +1202,8 @@ class Pipeline(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Use `Pipeline` to deploy [Delta Live Tables](https://docs.databricks.com/data-engineering/delta-live-tables/index.html).
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

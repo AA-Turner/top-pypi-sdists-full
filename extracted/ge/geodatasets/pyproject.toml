@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "geodatasets"
+dynamic = ["version"]
+authors = [
+    {name = "Martin Fleischmann", email = "martin@martinfleischmann.net"},
+]
+maintainers = [
+    {name = "geodatasets contributors"},
+]
+license = { text = "BSD 3-Clause" }
+description = "Spatial data examples"
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pooch"
+]
+
+[project.urls]
+Home = "https://github.com/geopandas/geodatasets"
+Repository = "https://github.com/geopandas/geodatasets"
+
+[tool.setuptools.packages.find]
+include = [
+    "geodatasets",
+    "geodatasets.*",
+]
+
+[tool.setuptools.package-data]
+json = ["json/providers.json"]
+
+[tool.coverage.run]
+omit = ["geodatasets/tests/*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "request: fetching data from remote server",
+]

@@ -1,7 +1,7 @@
 r'''
 # `aws_devopsguru_notification_channel`
 
-Refer to the Terraform Registry for docs: [`aws_devopsguru_notification_channel`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel).
+Refer to the Terraform Registry for docs: [`aws_devopsguru_notification_channel`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DevopsguruNotificationChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.devopsguruNotificationChannel.DevopsguruNotificationChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel aws_devopsguru_notification_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel aws_devopsguru_notification_channel}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DevopsguruNotificationChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel aws_devopsguru_notification_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel aws_devopsguru_notification_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#filters DevopsguruNotificationChannel#filters}
-        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#sns DevopsguruNotificationChannel#sns}
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#filters DevopsguruNotificationChannel#filters}
+        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#sns DevopsguruNotificationChannel#sns}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DevopsguruNotificationChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DevopsguruNotificationChannel to import.
-        :param import_from_id: The id of the existing DevopsguruNotificationChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DevopsguruNotificationChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DevopsguruNotificationChannel to import is found.
         '''
         if __debug__:
@@ -231,8 +231,8 @@ class DevopsguruNotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#filters DevopsguruNotificationChannel#filters}
-        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#sns DevopsguruNotificationChannel#sns}
+        :param filters: filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#filters DevopsguruNotificationChannel#filters}
+        :param sns: sns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#sns DevopsguruNotificationChannel#sns}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -337,7 +337,7 @@ class DevopsguruNotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruNotificationChannelFilters"]]]:
         '''filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#filters DevopsguruNotificationChannel#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#filters DevopsguruNotificationChannel#filters}
         '''
         result = self._values.get("filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruNotificationChannelFilters"]]], result)
@@ -348,7 +348,7 @@ class DevopsguruNotificationChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruNotificationChannelSns"]]]:
         '''sns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#sns DevopsguruNotificationChannel#sns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#sns DevopsguruNotificationChannel#sns}
         '''
         result = self._values.get("sns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DevopsguruNotificationChannelSns"]]], result)
@@ -378,8 +378,8 @@ class DevopsguruNotificationChannelFilters:
         severities: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param message_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#message_types DevopsguruNotificationChannel#message_types}.
-        :param severities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#severities DevopsguruNotificationChannel#severities}.
+        :param message_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#message_types DevopsguruNotificationChannel#message_types}.
+        :param severities: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#severities DevopsguruNotificationChannel#severities}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9b97bfd050ef8fb5099bbe3948ca67db06550bd73d4cd7e5997bfdaa305bfaf)
@@ -393,13 +393,13 @@ class DevopsguruNotificationChannelFilters:
 
     @builtins.property
     def message_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#message_types DevopsguruNotificationChannel#message_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#message_types DevopsguruNotificationChannel#message_types}.'''
         result = self._values.get("message_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def severities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#severities DevopsguruNotificationChannel#severities}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#severities DevopsguruNotificationChannel#severities}.'''
         result = self._values.get("severities")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -602,7 +602,7 @@ class DevopsguruNotificationChannelFiltersOutputReference(
 class DevopsguruNotificationChannelSns:
     def __init__(self, *, topic_arn: builtins.str) -> None:
         '''
-        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#topic_arn DevopsguruNotificationChannel#topic_arn}.
+        :param topic_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#topic_arn DevopsguruNotificationChannel#topic_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__941961d71197e7af9439294fba8d8e8a8f92c93135aa7bb309efbe4d53e566df)
@@ -613,7 +613,7 @@ class DevopsguruNotificationChannelSns:
 
     @builtins.property
     def topic_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/devopsguru_notification_channel#topic_arn DevopsguruNotificationChannel#topic_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/devopsguru_notification_channel#topic_arn DevopsguruNotificationChannel#topic_arn}.'''
         result = self._values.get("topic_arn")
         assert result is not None, "Required property 'topic_arn' is missing"
         return typing.cast(builtins.str, result)

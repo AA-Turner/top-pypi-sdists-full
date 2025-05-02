@@ -1,7 +1,7 @@
 r'''
 # `aws_elastictranscoder_preset`
 
-Refer to the Terraform Registry for docs: [`aws_elastictranscoder_preset`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset).
+Refer to the Terraform Registry for docs: [`aws_elastictranscoder_preset`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ElastictranscoderPreset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.elastictranscoderPreset.ElastictranscoderPreset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset aws_elastictranscoder_preset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset aws_elastictranscoder_preset}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ElastictranscoderPreset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset aws_elastictranscoder_preset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset aws_elastictranscoder_preset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#container ElastictranscoderPreset#container}.
-        :param audio: audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio ElastictranscoderPreset#audio}
-        :param audio_codec_options: audio_codec_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio_codec_options ElastictranscoderPreset#audio_codec_options}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#description ElastictranscoderPreset#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#name ElastictranscoderPreset#name}.
-        :param thumbnails: thumbnails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#thumbnails ElastictranscoderPreset#thumbnails}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#type ElastictranscoderPreset#type}.
-        :param video: video block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video ElastictranscoderPreset#video}
-        :param video_codec_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video_codec_options ElastictranscoderPreset#video_codec_options}.
-        :param video_watermarks: video_watermarks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video_watermarks ElastictranscoderPreset#video_watermarks}
+        :param container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#container ElastictranscoderPreset#container}.
+        :param audio: audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio ElastictranscoderPreset#audio}
+        :param audio_codec_options: audio_codec_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio_codec_options ElastictranscoderPreset#audio_codec_options}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#description ElastictranscoderPreset#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#name ElastictranscoderPreset#name}.
+        :param thumbnails: thumbnails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#thumbnails ElastictranscoderPreset#thumbnails}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#type ElastictranscoderPreset#type}.
+        :param video: video block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video ElastictranscoderPreset#video}
+        :param video_codec_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video_codec_options ElastictranscoderPreset#video_codec_options}.
+        :param video_watermarks: video_watermarks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video_watermarks ElastictranscoderPreset#video_watermarks}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ElastictranscoderPreset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ElastictranscoderPreset to import.
-        :param import_from_id: The id of the existing ElastictranscoderPreset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ElastictranscoderPreset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ElastictranscoderPreset to import is found.
         '''
         if __debug__:
@@ -155,11 +155,11 @@ class ElastictranscoderPreset(
         sample_rate: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audio_packing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio_packing_mode ElastictranscoderPreset#audio_packing_mode}.
-        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
-        :param channels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#channels ElastictranscoderPreset#channels}.
-        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
-        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sample_rate ElastictranscoderPreset#sample_rate}.
+        :param audio_packing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio_packing_mode ElastictranscoderPreset#audio_packing_mode}.
+        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
+        :param channels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#channels ElastictranscoderPreset#channels}.
+        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
+        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sample_rate ElastictranscoderPreset#sample_rate}.
         '''
         value = ElastictranscoderPresetAudio(
             audio_packing_mode=audio_packing_mode,
@@ -181,10 +181,10 @@ class ElastictranscoderPreset(
         signed: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bit_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_depth ElastictranscoderPreset#bit_depth}.
-        :param bit_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_order ElastictranscoderPreset#bit_order}.
-        :param profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#profile ElastictranscoderPreset#profile}.
-        :param signed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#signed ElastictranscoderPreset#signed}.
+        :param bit_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_depth ElastictranscoderPreset#bit_depth}.
+        :param bit_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_order ElastictranscoderPreset#bit_order}.
+        :param profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#profile ElastictranscoderPreset#profile}.
+        :param signed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#signed ElastictranscoderPreset#signed}.
         '''
         value = ElastictranscoderPresetAudioCodecOptions(
             bit_depth=bit_depth, bit_order=bit_order, profile=profile, signed=signed
@@ -206,14 +206,14 @@ class ElastictranscoderPreset(
         sizing_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#format ElastictranscoderPreset#format}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#interval ElastictranscoderPreset#interval}.
-        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
-        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
-        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
-        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
-        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
+        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#format ElastictranscoderPreset#format}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#interval ElastictranscoderPreset#interval}.
+        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
+        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
+        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
+        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
+        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
         '''
         value = ElastictranscoderPresetThumbnails(
             aspect_ratio=aspect_ratio,
@@ -247,19 +247,19 @@ class ElastictranscoderPreset(
         sizing_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
-        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
-        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
-        :param display_aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#display_aspect_ratio ElastictranscoderPreset#display_aspect_ratio}.
-        :param fixed_gop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#fixed_gop ElastictranscoderPreset#fixed_gop}.
-        :param frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#frame_rate ElastictranscoderPreset#frame_rate}.
-        :param keyframes_max_dist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#keyframes_max_dist ElastictranscoderPreset#keyframes_max_dist}.
-        :param max_frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_frame_rate ElastictranscoderPreset#max_frame_rate}.
-        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
-        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
-        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
-        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
-        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
+        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
+        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
+        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
+        :param display_aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#display_aspect_ratio ElastictranscoderPreset#display_aspect_ratio}.
+        :param fixed_gop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#fixed_gop ElastictranscoderPreset#fixed_gop}.
+        :param frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#frame_rate ElastictranscoderPreset#frame_rate}.
+        :param keyframes_max_dist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#keyframes_max_dist ElastictranscoderPreset#keyframes_max_dist}.
+        :param max_frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_frame_rate ElastictranscoderPreset#max_frame_rate}.
+        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
+        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
+        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
+        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
+        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
         '''
         value = ElastictranscoderPresetVideo(
             aspect_ratio=aspect_ratio,
@@ -536,11 +536,11 @@ class ElastictranscoderPresetAudio:
         sample_rate: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audio_packing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio_packing_mode ElastictranscoderPreset#audio_packing_mode}.
-        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
-        :param channels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#channels ElastictranscoderPreset#channels}.
-        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
-        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sample_rate ElastictranscoderPreset#sample_rate}.
+        :param audio_packing_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio_packing_mode ElastictranscoderPreset#audio_packing_mode}.
+        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
+        :param channels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#channels ElastictranscoderPreset#channels}.
+        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
+        :param sample_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sample_rate ElastictranscoderPreset#sample_rate}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dea981024dcaa45f2e2b55134d8a616505fd08a9b5cc46f3b62ea30d75db9475)
@@ -563,31 +563,31 @@ class ElastictranscoderPresetAudio:
 
     @builtins.property
     def audio_packing_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio_packing_mode ElastictranscoderPreset#audio_packing_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio_packing_mode ElastictranscoderPreset#audio_packing_mode}.'''
         result = self._values.get("audio_packing_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bit_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.'''
         result = self._values.get("bit_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def channels(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#channels ElastictranscoderPreset#channels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#channels ElastictranscoderPreset#channels}.'''
         result = self._values.get("channels")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def codec(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.'''
         result = self._values.get("codec")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sample_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sample_rate ElastictranscoderPreset#sample_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sample_rate ElastictranscoderPreset#sample_rate}.'''
         result = self._values.get("sample_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -623,10 +623,10 @@ class ElastictranscoderPresetAudioCodecOptions:
         signed: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bit_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_depth ElastictranscoderPreset#bit_depth}.
-        :param bit_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_order ElastictranscoderPreset#bit_order}.
-        :param profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#profile ElastictranscoderPreset#profile}.
-        :param signed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#signed ElastictranscoderPreset#signed}.
+        :param bit_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_depth ElastictranscoderPreset#bit_depth}.
+        :param bit_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_order ElastictranscoderPreset#bit_order}.
+        :param profile: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#profile ElastictranscoderPreset#profile}.
+        :param signed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#signed ElastictranscoderPreset#signed}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21441e95529fa37b02ca3545c2f41831e30628a73ee317b39e2cbfbf16d0edb4)
@@ -646,25 +646,25 @@ class ElastictranscoderPresetAudioCodecOptions:
 
     @builtins.property
     def bit_depth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_depth ElastictranscoderPreset#bit_depth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_depth ElastictranscoderPreset#bit_depth}.'''
         result = self._values.get("bit_depth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bit_order(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_order ElastictranscoderPreset#bit_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_order ElastictranscoderPreset#bit_order}.'''
         result = self._values.get("bit_order")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def profile(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#profile ElastictranscoderPreset#profile}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#profile ElastictranscoderPreset#profile}.'''
         result = self._values.get("profile")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def signed(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#signed ElastictranscoderPreset#signed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#signed ElastictranscoderPreset#signed}.'''
         result = self._values.get("signed")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -998,17 +998,17 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#container ElastictranscoderPreset#container}.
-        :param audio: audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio ElastictranscoderPreset#audio}
-        :param audio_codec_options: audio_codec_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio_codec_options ElastictranscoderPreset#audio_codec_options}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#description ElastictranscoderPreset#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#name ElastictranscoderPreset#name}.
-        :param thumbnails: thumbnails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#thumbnails ElastictranscoderPreset#thumbnails}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#type ElastictranscoderPreset#type}.
-        :param video: video block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video ElastictranscoderPreset#video}
-        :param video_codec_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video_codec_options ElastictranscoderPreset#video_codec_options}.
-        :param video_watermarks: video_watermarks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video_watermarks ElastictranscoderPreset#video_watermarks}
+        :param container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#container ElastictranscoderPreset#container}.
+        :param audio: audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio ElastictranscoderPreset#audio}
+        :param audio_codec_options: audio_codec_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio_codec_options ElastictranscoderPreset#audio_codec_options}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#description ElastictranscoderPreset#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#name ElastictranscoderPreset#name}.
+        :param thumbnails: thumbnails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#thumbnails ElastictranscoderPreset#thumbnails}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#type ElastictranscoderPreset#type}.
+        :param video: video block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video ElastictranscoderPreset#video}
+        :param video_codec_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video_codec_options ElastictranscoderPreset#video_codec_options}.
+        :param video_watermarks: video_watermarks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video_watermarks ElastictranscoderPreset#video_watermarks}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1144,7 +1144,7 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def container(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#container ElastictranscoderPreset#container}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#container ElastictranscoderPreset#container}.'''
         result = self._values.get("container")
         assert result is not None, "Required property 'container' is missing"
         return typing.cast(builtins.str, result)
@@ -1153,7 +1153,7 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def audio(self) -> typing.Optional[ElastictranscoderPresetAudio]:
         '''audio block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio ElastictranscoderPreset#audio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio ElastictranscoderPreset#audio}
         '''
         result = self._values.get("audio")
         return typing.cast(typing.Optional[ElastictranscoderPresetAudio], result)
@@ -1164,20 +1164,20 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ElastictranscoderPresetAudioCodecOptions]:
         '''audio_codec_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#audio_codec_options ElastictranscoderPreset#audio_codec_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#audio_codec_options ElastictranscoderPreset#audio_codec_options}
         '''
         result = self._values.get("audio_codec_options")
         return typing.cast(typing.Optional[ElastictranscoderPresetAudioCodecOptions], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#description ElastictranscoderPreset#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#description ElastictranscoderPreset#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1187,7 +1187,7 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#name ElastictranscoderPreset#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#name ElastictranscoderPreset#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1195,14 +1195,14 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def thumbnails(self) -> typing.Optional["ElastictranscoderPresetThumbnails"]:
         '''thumbnails block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#thumbnails ElastictranscoderPreset#thumbnails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#thumbnails ElastictranscoderPreset#thumbnails}
         '''
         result = self._values.get("thumbnails")
         return typing.cast(typing.Optional["ElastictranscoderPresetThumbnails"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#type ElastictranscoderPreset#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#type ElastictranscoderPreset#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1210,7 +1210,7 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def video(self) -> typing.Optional["ElastictranscoderPresetVideo"]:
         '''video block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video ElastictranscoderPreset#video}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video ElastictranscoderPreset#video}
         '''
         result = self._values.get("video")
         return typing.cast(typing.Optional["ElastictranscoderPresetVideo"], result)
@@ -1219,7 +1219,7 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def video_codec_options(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video_codec_options ElastictranscoderPreset#video_codec_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video_codec_options ElastictranscoderPreset#video_codec_options}.'''
         result = self._values.get("video_codec_options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1229,7 +1229,7 @@ class ElastictranscoderPresetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ElastictranscoderPresetVideoWatermarks"]]]:
         '''video_watermarks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#video_watermarks ElastictranscoderPreset#video_watermarks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#video_watermarks ElastictranscoderPreset#video_watermarks}
         '''
         result = self._values.get("video_watermarks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ElastictranscoderPresetVideoWatermarks"]]], result)
@@ -1274,14 +1274,14 @@ class ElastictranscoderPresetThumbnails:
         sizing_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#format ElastictranscoderPreset#format}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#interval ElastictranscoderPreset#interval}.
-        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
-        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
-        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
-        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
-        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
+        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#format ElastictranscoderPreset#format}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#interval ElastictranscoderPreset#interval}.
+        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
+        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
+        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
+        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
+        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee0dc0bf09385f687fa092b25ae15da6bd6611162e20d2574d9a343bfd262d9a)
@@ -1313,49 +1313,49 @@ class ElastictranscoderPresetThumbnails:
 
     @builtins.property
     def aspect_ratio(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.'''
         result = self._values.get("aspect_ratio")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#format ElastictranscoderPreset#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#format ElastictranscoderPreset#format}.'''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#interval ElastictranscoderPreset#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#interval ElastictranscoderPreset#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_height(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.'''
         result = self._values.get("max_height")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_width(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.'''
         result = self._values.get("max_width")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def padding_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.'''
         result = self._values.get("padding_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resolution(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.'''
         result = self._values.get("resolution")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sizing_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.'''
         result = self._values.get("sizing_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1613,19 +1613,19 @@ class ElastictranscoderPresetVideo:
         sizing_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
-        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
-        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
-        :param display_aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#display_aspect_ratio ElastictranscoderPreset#display_aspect_ratio}.
-        :param fixed_gop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#fixed_gop ElastictranscoderPreset#fixed_gop}.
-        :param frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#frame_rate ElastictranscoderPreset#frame_rate}.
-        :param keyframes_max_dist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#keyframes_max_dist ElastictranscoderPreset#keyframes_max_dist}.
-        :param max_frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_frame_rate ElastictranscoderPreset#max_frame_rate}.
-        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
-        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
-        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
-        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
-        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
+        :param aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.
+        :param bit_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.
+        :param codec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.
+        :param display_aspect_ratio: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#display_aspect_ratio ElastictranscoderPreset#display_aspect_ratio}.
+        :param fixed_gop: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#fixed_gop ElastictranscoderPreset#fixed_gop}.
+        :param frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#frame_rate ElastictranscoderPreset#frame_rate}.
+        :param keyframes_max_dist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#keyframes_max_dist ElastictranscoderPreset#keyframes_max_dist}.
+        :param max_frame_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_frame_rate ElastictranscoderPreset#max_frame_rate}.
+        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
+        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
+        :param padding_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.
+        :param resolution: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.
+        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b26b51a41dced0f038fd763730797f52b40c223e4e29d5df30633d147c198a6e)
@@ -1672,79 +1672,79 @@ class ElastictranscoderPresetVideo:
 
     @builtins.property
     def aspect_ratio(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#aspect_ratio ElastictranscoderPreset#aspect_ratio}.'''
         result = self._values.get("aspect_ratio")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bit_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#bit_rate ElastictranscoderPreset#bit_rate}.'''
         result = self._values.get("bit_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def codec(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#codec ElastictranscoderPreset#codec}.'''
         result = self._values.get("codec")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def display_aspect_ratio(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#display_aspect_ratio ElastictranscoderPreset#display_aspect_ratio}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#display_aspect_ratio ElastictranscoderPreset#display_aspect_ratio}.'''
         result = self._values.get("display_aspect_ratio")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fixed_gop(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#fixed_gop ElastictranscoderPreset#fixed_gop}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#fixed_gop ElastictranscoderPreset#fixed_gop}.'''
         result = self._values.get("fixed_gop")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def frame_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#frame_rate ElastictranscoderPreset#frame_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#frame_rate ElastictranscoderPreset#frame_rate}.'''
         result = self._values.get("frame_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def keyframes_max_dist(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#keyframes_max_dist ElastictranscoderPreset#keyframes_max_dist}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#keyframes_max_dist ElastictranscoderPreset#keyframes_max_dist}.'''
         result = self._values.get("keyframes_max_dist")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_frame_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_frame_rate ElastictranscoderPreset#max_frame_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_frame_rate ElastictranscoderPreset#max_frame_rate}.'''
         result = self._values.get("max_frame_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_height(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.'''
         result = self._values.get("max_height")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_width(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.'''
         result = self._values.get("max_width")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def padding_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#padding_policy ElastictranscoderPreset#padding_policy}.'''
         result = self._values.get("padding_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resolution(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#resolution ElastictranscoderPreset#resolution}.'''
         result = self._values.get("resolution")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sizing_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.'''
         result = self._values.get("sizing_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2101,16 +2101,16 @@ class ElastictranscoderPresetVideoWatermarks:
         vertical_offset: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param horizontal_align: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#horizontal_align ElastictranscoderPreset#horizontal_align}.
-        :param horizontal_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#horizontal_offset ElastictranscoderPreset#horizontal_offset}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
-        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
-        :param opacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#opacity ElastictranscoderPreset#opacity}.
-        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#target ElastictranscoderPreset#target}.
-        :param vertical_align: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#vertical_align ElastictranscoderPreset#vertical_align}.
-        :param vertical_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#vertical_offset ElastictranscoderPreset#vertical_offset}.
+        :param horizontal_align: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#horizontal_align ElastictranscoderPreset#horizontal_align}.
+        :param horizontal_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#horizontal_offset ElastictranscoderPreset#horizontal_offset}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.
+        :param max_width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.
+        :param opacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#opacity ElastictranscoderPreset#opacity}.
+        :param sizing_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#target ElastictranscoderPreset#target}.
+        :param vertical_align: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#vertical_align ElastictranscoderPreset#vertical_align}.
+        :param vertical_offset: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#vertical_offset ElastictranscoderPreset#vertical_offset}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba2f25ed2acc8bbaaa01d31203b36ecfb1b445f9bea3fb60b1ef3e0673388640)
@@ -2148,19 +2148,19 @@ class ElastictranscoderPresetVideoWatermarks:
 
     @builtins.property
     def horizontal_align(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#horizontal_align ElastictranscoderPreset#horizontal_align}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#horizontal_align ElastictranscoderPreset#horizontal_align}.'''
         result = self._values.get("horizontal_align")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def horizontal_offset(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#horizontal_offset ElastictranscoderPreset#horizontal_offset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#horizontal_offset ElastictranscoderPreset#horizontal_offset}.'''
         result = self._values.get("horizontal_offset")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#id ElastictranscoderPreset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2170,43 +2170,43 @@ class ElastictranscoderPresetVideoWatermarks:
 
     @builtins.property
     def max_height(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_height ElastictranscoderPreset#max_height}.'''
         result = self._values.get("max_height")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_width(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#max_width ElastictranscoderPreset#max_width}.'''
         result = self._values.get("max_width")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def opacity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#opacity ElastictranscoderPreset#opacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#opacity ElastictranscoderPreset#opacity}.'''
         result = self._values.get("opacity")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sizing_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#sizing_policy ElastictranscoderPreset#sizing_policy}.'''
         result = self._values.get("sizing_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#target ElastictranscoderPreset#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#target ElastictranscoderPreset#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vertical_align(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#vertical_align ElastictranscoderPreset#vertical_align}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#vertical_align ElastictranscoderPreset#vertical_align}.'''
         result = self._values.get("vertical_align")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vertical_offset(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/elastictranscoder_preset#vertical_offset ElastictranscoderPreset#vertical_offset}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/elastictranscoder_preset#vertical_offset ElastictranscoderPreset#vertical_offset}.'''
         result = self._values.get("vertical_offset")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_template`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_template`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template).
+Refer to the Terraform Registry for docs: [`aws_quicksight_template`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightTemplate.QuicksightTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template aws_quicksight_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template aws_quicksight_template}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class QuicksightTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template aws_quicksight_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template aws_quicksight_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#name QuicksightTemplate#name}.
-        :param template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#template_id QuicksightTemplate#template_id}.
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#version_description QuicksightTemplate#version_description}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#aws_account_id QuicksightTemplate#aws_account_id}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#definition QuicksightTemplate#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#id QuicksightTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#permissions QuicksightTemplate#permissions}
-        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_entity QuicksightTemplate#source_entity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#tags QuicksightTemplate#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#tags_all QuicksightTemplate#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#timeouts QuicksightTemplate#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#name QuicksightTemplate#name}.
+        :param template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#template_id QuicksightTemplate#template_id}.
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#version_description QuicksightTemplate#version_description}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#aws_account_id QuicksightTemplate#aws_account_id}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#definition QuicksightTemplate#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#id QuicksightTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#permissions QuicksightTemplate#permissions}
+        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_entity QuicksightTemplate#source_entity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#tags QuicksightTemplate#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#tags_all QuicksightTemplate#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#timeouts QuicksightTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class QuicksightTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightTemplate to import.
-        :param import_from_id: The id of the existing QuicksightTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightTemplate to import is found.
         '''
         if __debug__:
@@ -165,8 +165,8 @@ class QuicksightTemplate(
         source_template: typing.Optional[typing.Union["QuicksightTemplateSourceEntitySourceTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_analysis: source_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_analysis QuicksightTemplate#source_analysis}
-        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_template QuicksightTemplate#source_template}
+        :param source_analysis: source_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_analysis QuicksightTemplate#source_analysis}
+        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_template QuicksightTemplate#source_template}
         '''
         value = QuicksightTemplateSourceEntity(
             source_analysis=source_analysis, source_template=source_template
@@ -183,9 +183,9 @@ class QuicksightTemplate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#create QuicksightTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#delete QuicksightTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#update QuicksightTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#create QuicksightTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#delete QuicksightTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#update QuicksightTemplate#update}.
         '''
         value = QuicksightTemplateTimeouts(create=create, delete=delete, update=update)
 
@@ -494,17 +494,17 @@ class QuicksightTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#name QuicksightTemplate#name}.
-        :param template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#template_id QuicksightTemplate#template_id}.
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#version_description QuicksightTemplate#version_description}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#aws_account_id QuicksightTemplate#aws_account_id}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#definition QuicksightTemplate#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#id QuicksightTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#permissions QuicksightTemplate#permissions}
-        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_entity QuicksightTemplate#source_entity}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#tags QuicksightTemplate#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#tags_all QuicksightTemplate#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#timeouts QuicksightTemplate#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#name QuicksightTemplate#name}.
+        :param template_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#template_id QuicksightTemplate#template_id}.
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#version_description QuicksightTemplate#version_description}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#aws_account_id QuicksightTemplate#aws_account_id}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#definition QuicksightTemplate#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#id QuicksightTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#permissions QuicksightTemplate#permissions}
+        :param source_entity: source_entity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_entity QuicksightTemplate#source_entity}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#tags QuicksightTemplate#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#tags_all QuicksightTemplate#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#timeouts QuicksightTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -634,28 +634,28 @@ class QuicksightTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#name QuicksightTemplate#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#name QuicksightTemplate#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def template_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#template_id QuicksightTemplate#template_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#template_id QuicksightTemplate#template_id}.'''
         result = self._values.get("template_id")
         assert result is not None, "Required property 'template_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version_description(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#version_description QuicksightTemplate#version_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#version_description QuicksightTemplate#version_description}.'''
         result = self._values.get("version_description")
         assert result is not None, "Required property 'version_description' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#aws_account_id QuicksightTemplate#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#aws_account_id QuicksightTemplate#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -663,14 +663,14 @@ class QuicksightTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def definition(self) -> typing.Any:
         '''definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#definition QuicksightTemplate#definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#definition QuicksightTemplate#definition}
         '''
         result = self._values.get("definition")
         return typing.cast(typing.Any, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#id QuicksightTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#id QuicksightTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -684,7 +684,7 @@ class QuicksightTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightTemplatePermissions"]]]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#permissions QuicksightTemplate#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#permissions QuicksightTemplate#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightTemplatePermissions"]]], result)
@@ -693,20 +693,20 @@ class QuicksightTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_entity(self) -> typing.Optional["QuicksightTemplateSourceEntity"]:
         '''source_entity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_entity QuicksightTemplate#source_entity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_entity QuicksightTemplate#source_entity}
         '''
         result = self._values.get("source_entity")
         return typing.cast(typing.Optional["QuicksightTemplateSourceEntity"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#tags QuicksightTemplate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#tags QuicksightTemplate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#tags_all QuicksightTemplate#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#tags_all QuicksightTemplate#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -714,7 +714,7 @@ class QuicksightTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QuicksightTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#timeouts QuicksightTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#timeouts QuicksightTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QuicksightTemplateTimeouts"], result)
@@ -744,8 +744,8 @@ class QuicksightTemplatePermissions:
         principal: builtins.str,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#actions QuicksightTemplate#actions}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#principal QuicksightTemplate#principal}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#actions QuicksightTemplate#actions}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#principal QuicksightTemplate#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57f99487ed40d94c509374cf65c56f674fb92256dd1d069361ac83188ba0e81f)
@@ -758,14 +758,14 @@ class QuicksightTemplatePermissions:
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#actions QuicksightTemplate#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#actions QuicksightTemplate#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#principal QuicksightTemplate#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#principal QuicksightTemplate#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -966,8 +966,8 @@ class QuicksightTemplateSourceEntity:
         source_template: typing.Optional[typing.Union["QuicksightTemplateSourceEntitySourceTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_analysis: source_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_analysis QuicksightTemplate#source_analysis}
-        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_template QuicksightTemplate#source_template}
+        :param source_analysis: source_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_analysis QuicksightTemplate#source_analysis}
+        :param source_template: source_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_template QuicksightTemplate#source_template}
         '''
         if isinstance(source_analysis, dict):
             source_analysis = QuicksightTemplateSourceEntitySourceAnalysis(**source_analysis)
@@ -989,7 +989,7 @@ class QuicksightTemplateSourceEntity:
     ) -> typing.Optional["QuicksightTemplateSourceEntitySourceAnalysis"]:
         '''source_analysis block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_analysis QuicksightTemplate#source_analysis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_analysis QuicksightTemplate#source_analysis}
         '''
         result = self._values.get("source_analysis")
         return typing.cast(typing.Optional["QuicksightTemplateSourceEntitySourceAnalysis"], result)
@@ -1000,7 +1000,7 @@ class QuicksightTemplateSourceEntity:
     ) -> typing.Optional["QuicksightTemplateSourceEntitySourceTemplate"]:
         '''source_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#source_template QuicksightTemplate#source_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#source_template QuicksightTemplate#source_template}
         '''
         result = self._values.get("source_template")
         return typing.cast(typing.Optional["QuicksightTemplateSourceEntitySourceTemplate"], result)
@@ -1045,8 +1045,8 @@ class QuicksightTemplateSourceEntityOutputReference(
         data_set_references: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightTemplateSourceEntitySourceAnalysisDataSetReferences", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
-        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_references QuicksightTemplate#data_set_references}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
+        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_references QuicksightTemplate#data_set_references}
         '''
         value = QuicksightTemplateSourceEntitySourceAnalysis(
             arn=arn, data_set_references=data_set_references
@@ -1057,7 +1057,7 @@ class QuicksightTemplateSourceEntityOutputReference(
     @jsii.member(jsii_name="putSourceTemplate")
     def put_source_template(self, *, arn: builtins.str) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
         '''
         value = QuicksightTemplateSourceEntitySourceTemplate(arn=arn)
 
@@ -1128,8 +1128,8 @@ class QuicksightTemplateSourceEntitySourceAnalysis:
         data_set_references: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightTemplateSourceEntitySourceAnalysisDataSetReferences", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
-        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_references QuicksightTemplate#data_set_references}
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
+        :param data_set_references: data_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_references QuicksightTemplate#data_set_references}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9566932bff9ee6545534963c17178674bc848bf0c3c74e6818695554c2f6653)
@@ -1142,7 +1142,7 @@ class QuicksightTemplateSourceEntitySourceAnalysis:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1153,7 +1153,7 @@ class QuicksightTemplateSourceEntitySourceAnalysis:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightTemplateSourceEntitySourceAnalysisDataSetReferences"]]:
         '''data_set_references block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_references QuicksightTemplate#data_set_references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_references QuicksightTemplate#data_set_references}
         '''
         result = self._values.get("data_set_references")
         assert result is not None, "Required property 'data_set_references' is missing"
@@ -1187,8 +1187,8 @@ class QuicksightTemplateSourceEntitySourceAnalysisDataSetReferences:
         data_set_placeholder: builtins.str,
     ) -> None:
         '''
-        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_arn QuicksightTemplate#data_set_arn}.
-        :param data_set_placeholder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_placeholder QuicksightTemplate#data_set_placeholder}.
+        :param data_set_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_arn QuicksightTemplate#data_set_arn}.
+        :param data_set_placeholder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_placeholder QuicksightTemplate#data_set_placeholder}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40103e66aaab7d8f77a00fa6bfa22b93a19548878c15cabd92610501f0ce2da5)
@@ -1201,14 +1201,14 @@ class QuicksightTemplateSourceEntitySourceAnalysisDataSetReferences:
 
     @builtins.property
     def data_set_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_arn QuicksightTemplate#data_set_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_arn QuicksightTemplate#data_set_arn}.'''
         result = self._values.get("data_set_arn")
         assert result is not None, "Required property 'data_set_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_set_placeholder(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#data_set_placeholder QuicksightTemplate#data_set_placeholder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#data_set_placeholder QuicksightTemplate#data_set_placeholder}.'''
         result = self._values.get("data_set_placeholder")
         assert result is not None, "Required property 'data_set_placeholder' is missing"
         return typing.cast(builtins.str, result)
@@ -1486,7 +1486,7 @@ class QuicksightTemplateSourceEntitySourceAnalysisOutputReference(
 class QuicksightTemplateSourceEntitySourceTemplate:
     def __init__(self, *, arn: builtins.str) -> None:
         '''
-        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
+        :param arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78640de9b42cb238226f9c5380fe467bfcb6938a1bb094262b8c43e3cb9ffcc3)
@@ -1497,7 +1497,7 @@ class QuicksightTemplateSourceEntitySourceTemplate:
 
     @builtins.property
     def arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#arn QuicksightTemplate#arn}.'''
         result = self._values.get("arn")
         assert result is not None, "Required property 'arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1583,9 +1583,9 @@ class QuicksightTemplateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#create QuicksightTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#delete QuicksightTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#update QuicksightTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#create QuicksightTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#delete QuicksightTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#update QuicksightTemplate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dfefee9643c6d55f4f3f4aba989b8f9a410f795cbfd65dfd888e72c066d6dba)
@@ -1602,19 +1602,19 @@ class QuicksightTemplateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#create QuicksightTemplate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#create QuicksightTemplate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#delete QuicksightTemplate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#delete QuicksightTemplate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/quicksight_template#update QuicksightTemplate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/quicksight_template#update QuicksightTemplate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

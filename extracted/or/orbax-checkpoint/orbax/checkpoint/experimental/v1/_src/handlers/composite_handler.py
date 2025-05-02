@@ -72,13 +72,10 @@ class CompositeHandler:
   ) -> registration.CheckpointableHandlerRegistry:
     return self._handler_registry
 
-  def _get_checkpointable_directory(
-      self, directory: path_types.Path, checkpointable_name: str
-  ) -> path_types.Path:
-    return directory / checkpointable_name
-
   async def save(
-      self, directory: path_types.Path, checkpointables: dict[str, Any]
+      self,
+      directory: path_types.PathAwaitingCreation,
+      checkpointables: dict[str, Any],
   ) -> Awaitable[None]:
     """Saves multiple checkpointables to individual subdirectories.
 
@@ -93,14 +90,13 @@ class CompositeHandler:
       An awaitable that represents a background save operation.
     """
     save_ops = []
-    for name, checkpointable in checkpointables.items():
+    for checkpointable_name, checkpointable in checkpointables.items():
       handler = registration.resolve_handler_for_save(
-          self._handler_registry, checkpointable, name=name
+          self._handler_registry, checkpointable, name=checkpointable_name
       )
-      checkpointable_directory = self._get_checkpointable_directory(
-          directory, name
+      save_ops.append(
+          handler.save(directory / checkpointable_name, checkpointable)
       )
-      save_ops.append(handler.save(checkpointable_directory, checkpointable))
     save_awaitables = await asyncio.gather(*save_ops)
 
     async def _run_background():
@@ -138,9 +134,6 @@ class CompositeHandler:
         checkpointable_name,
         handler,
     ) in loadable_checkpointable_names_to_handlers.items():
-      checkpointable_directory = self._get_checkpointable_directory(
-          directory, checkpointable_name
-      )
       abstract_checkpointable = (
           abstract_checkpointables[checkpointable_name]
           if checkpointable_name in abstract_checkpointables
@@ -148,7 +141,7 @@ class CompositeHandler:
       )
       load_ops.append(
           handler.load(
-              checkpointable_directory,
+              directory / checkpointable_name,
               abstract_checkpointable,
           )
       )
@@ -198,7 +191,6 @@ class CompositeHandler:
           handler_typestr=handler_typestr,
       )
       loadable_checkpointable_names_to_handlers[name] = handler
-
     return loadable_checkpointable_names_to_handlers
 
   def _get_saved_handler_typestrs(
@@ -206,11 +198,39 @@ class CompositeHandler:
       directory: path_types.Path,
   ) -> dict[str, str]:
     """Reads from the checkpoint metadata to get saved handler typestrs."""
-    serialized_metadata = self._metadata_store.read(
-        checkpoint_metadata.step_metadata_file_path(directory)
+    step_metadata_file_path = checkpoint_metadata.step_metadata_file_path(
+        directory
     )
-    saved_metadata = step_metadata_serialization.deserialize(
-        serialized_metadata or {}
+    if step_metadata_file_path.exists():
+      serialized_metadata = self._metadata_store.read(step_metadata_file_path)
+      saved_metadata = step_metadata_serialization.deserialize(
+          serialized_metadata or {}
+      )
+      assert isinstance(saved_metadata.item_handlers, dict)
+      return saved_metadata.item_handlers
+
+    logging.warning(
+        'Given dir contains checkpointables subdirs but no step metadata'
+        ' file=%s. Such dirs can exist if the checkpoints are saved directly'
+        ' using V0 Checkpointer instead of using CheckpointManager or'
+        ' CompositeCheckpointHandler. Will fetch saved handlers from each of'
+        ' the checkpointable subdirectories.',
+        directory,
     )
-    assert isinstance(saved_metadata.item_handlers, dict)
-    return saved_metadata.item_handlers
+
+    saved_handler_typestrs = {}
+    for checkpointable_path in directory.iterdir():
+      serialized_metadata = self._metadata_store.read(
+          checkpoint_metadata.step_metadata_file_path(checkpointable_path)
+      )
+      if serialized_metadata is None:
+        continue
+      saved_metadata = step_metadata_serialization.deserialize(
+          serialized_metadata
+      )
+      assert not isinstance(saved_metadata.item_handlers, dict)
+      item_handlers = saved_metadata.item_handlers
+      if item_handlers is not None:
+        checkpointable_name = checkpointable_path.name
+        saved_handler_typestrs[checkpointable_name] = item_handlers
+    return saved_handler_typestrs

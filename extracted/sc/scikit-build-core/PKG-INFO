@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit_build_core
-Version: 0.11.1
+Version: 0.11.2
 Summary: Build backend for CMake based projects
 Project-URL: Changelog, https://scikit-build-core.readthedocs.io/en/latest/changelog.html
 Project-URL: Discussions, https://github.com/orgs/scikit-build/discussions
@@ -70,9 +70,10 @@ Provides-Extra: test-meta
 Requires-Dist: hatch-fancy-pypi-readme>=22.3; extra == 'test-meta'
 Requires-Dist: setuptools-scm; extra == 'test-meta'
 Provides-Extra: test-numpy
-Requires-Dist: numpy; (python_version < '3.13' and platform_python_implementation != 'PyPy') and extra == 'test-numpy'
+Requires-Dist: numpy; (python_version < '3.14' and platform_python_implementation != 'PyPy' and (platform_system != 'Windows' or platform_machine != 'ARM64')) and extra == 'test-numpy'
 Requires-Dist: numpy~=1.24.0; (python_version == '3.8' and platform_python_implementation == 'PyPy') and extra == 'test-numpy'
 Requires-Dist: numpy~=2.0.0; (python_version == '3.9' and platform_python_implementation == 'PyPy') and extra == 'test-numpy'
+Requires-Dist: numpy~=2.2.0; (python_version == '3.10' and platform_python_implementation == 'PyPy') and extra == 'test-numpy'
 Provides-Extra: test-schema
 Requires-Dist: fastjsonschema; extra == 'test-schema'
 Requires-Dist: validate-pyproject; extra == 'test-schema'

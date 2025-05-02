@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dagster-pandera
-Version: 0.26.12
+Version: 0.26.13
 Summary: Integration layer for dagster and pandera.
 Home-page: https://github.com/dagster-io/dagster
 Author: Dagster Labs
@@ -13,6 +13,22 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
-Provides-Extra: polars
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: dagster==1.10.13
+Requires-Dist: pandas
+Requires-Dist: pandera>=0.15.0
+Provides-Extra: polars
+Requires-Dist: polars>=1; extra == "polars"
+Provides-Extra: test
+Requires-Dist: polars>=1; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

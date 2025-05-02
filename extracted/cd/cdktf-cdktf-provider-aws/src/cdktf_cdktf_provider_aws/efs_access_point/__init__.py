@@ -1,7 +1,7 @@
 r'''
 # `aws_efs_access_point`
 
-Refer to the Terraform Registry for docs: [`aws_efs_access_point`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point).
+Refer to the Terraform Registry for docs: [`aws_efs_access_point`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EfsAccessPoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.efsAccessPoint.EfsAccessPoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point aws_efs_access_point}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point aws_efs_access_point}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class EfsAccessPoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point aws_efs_access_point} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point aws_efs_access_point} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#file_system_id EfsAccessPoint#file_system_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#id EfsAccessPoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param posix_user: posix_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#posix_user EfsAccessPoint#posix_user}
-        :param root_directory: root_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#root_directory EfsAccessPoint#root_directory}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#tags EfsAccessPoint#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#tags_all EfsAccessPoint#tags_all}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#file_system_id EfsAccessPoint#file_system_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#id EfsAccessPoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param posix_user: posix_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#posix_user EfsAccessPoint#posix_user}
+        :param root_directory: root_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#root_directory EfsAccessPoint#root_directory}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#tags EfsAccessPoint#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#tags_all EfsAccessPoint#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class EfsAccessPoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EfsAccessPoint to import.
-        :param import_from_id: The id of the existing EfsAccessPoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EfsAccessPoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EfsAccessPoint to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class EfsAccessPoint(
         secondary_gids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#gid EfsAccessPoint#gid}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#uid EfsAccessPoint#uid}.
-        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#secondary_gids EfsAccessPoint#secondary_gids}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#gid EfsAccessPoint#gid}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#uid EfsAccessPoint#uid}.
+        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#secondary_gids EfsAccessPoint#secondary_gids}.
         '''
         value = EfsAccessPointPosixUser(
             gid=gid, uid=uid, secondary_gids=secondary_gids
@@ -156,8 +156,8 @@ class EfsAccessPoint(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param creation_info: creation_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#creation_info EfsAccessPoint#creation_info}
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#path EfsAccessPoint#path}.
+        :param creation_info: creation_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#creation_info EfsAccessPoint#creation_info}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#path EfsAccessPoint#path}.
         '''
         value = EfsAccessPointRootDirectory(creation_info=creation_info, path=path)
 
@@ -347,12 +347,12 @@ class EfsAccessPointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#file_system_id EfsAccessPoint#file_system_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#id EfsAccessPoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param posix_user: posix_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#posix_user EfsAccessPoint#posix_user}
-        :param root_directory: root_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#root_directory EfsAccessPoint#root_directory}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#tags EfsAccessPoint#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#tags_all EfsAccessPoint#tags_all}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#file_system_id EfsAccessPoint#file_system_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#id EfsAccessPoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param posix_user: posix_user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#posix_user EfsAccessPoint#posix_user}
+        :param root_directory: root_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#root_directory EfsAccessPoint#root_directory}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#tags EfsAccessPoint#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#tags_all EfsAccessPoint#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -469,14 +469,14 @@ class EfsAccessPointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def file_system_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#file_system_id EfsAccessPoint#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#file_system_id EfsAccessPoint#file_system_id}.'''
         result = self._values.get("file_system_id")
         assert result is not None, "Required property 'file_system_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#id EfsAccessPoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#id EfsAccessPoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -488,7 +488,7 @@ class EfsAccessPointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def posix_user(self) -> typing.Optional["EfsAccessPointPosixUser"]:
         '''posix_user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#posix_user EfsAccessPoint#posix_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#posix_user EfsAccessPoint#posix_user}
         '''
         result = self._values.get("posix_user")
         return typing.cast(typing.Optional["EfsAccessPointPosixUser"], result)
@@ -497,20 +497,20 @@ class EfsAccessPointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def root_directory(self) -> typing.Optional["EfsAccessPointRootDirectory"]:
         '''root_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#root_directory EfsAccessPoint#root_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#root_directory EfsAccessPoint#root_directory}
         '''
         result = self._values.get("root_directory")
         return typing.cast(typing.Optional["EfsAccessPointRootDirectory"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#tags EfsAccessPoint#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#tags EfsAccessPoint#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#tags_all EfsAccessPoint#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#tags_all EfsAccessPoint#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -540,9 +540,9 @@ class EfsAccessPointPosixUser:
         secondary_gids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#gid EfsAccessPoint#gid}.
-        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#uid EfsAccessPoint#uid}.
-        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#secondary_gids EfsAccessPoint#secondary_gids}.
+        :param gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#gid EfsAccessPoint#gid}.
+        :param uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#uid EfsAccessPoint#uid}.
+        :param secondary_gids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#secondary_gids EfsAccessPoint#secondary_gids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32d5b5c7ae2382c300156a2dcada1234352a8529c64d53eee2c497aa28846eb1)
@@ -558,21 +558,21 @@ class EfsAccessPointPosixUser:
 
     @builtins.property
     def gid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#gid EfsAccessPoint#gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#gid EfsAccessPoint#gid}.'''
         result = self._values.get("gid")
         assert result is not None, "Required property 'gid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def uid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#uid EfsAccessPoint#uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#uid EfsAccessPoint#uid}.'''
         result = self._values.get("uid")
         assert result is not None, "Required property 'uid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def secondary_gids(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#secondary_gids EfsAccessPoint#secondary_gids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#secondary_gids EfsAccessPoint#secondary_gids}.'''
         result = self._values.get("secondary_gids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -689,8 +689,8 @@ class EfsAccessPointRootDirectory:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param creation_info: creation_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#creation_info EfsAccessPoint#creation_info}
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#path EfsAccessPoint#path}.
+        :param creation_info: creation_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#creation_info EfsAccessPoint#creation_info}
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#path EfsAccessPoint#path}.
         '''
         if isinstance(creation_info, dict):
             creation_info = EfsAccessPointRootDirectoryCreationInfo(**creation_info)
@@ -710,14 +710,14 @@ class EfsAccessPointRootDirectory:
     ) -> typing.Optional["EfsAccessPointRootDirectoryCreationInfo"]:
         '''creation_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#creation_info EfsAccessPoint#creation_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#creation_info EfsAccessPoint#creation_info}
         '''
         result = self._values.get("creation_info")
         return typing.cast(typing.Optional["EfsAccessPointRootDirectoryCreationInfo"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#path EfsAccessPoint#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#path EfsAccessPoint#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -751,9 +751,9 @@ class EfsAccessPointRootDirectoryCreationInfo:
         permissions: builtins.str,
     ) -> None:
         '''
-        :param owner_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#owner_gid EfsAccessPoint#owner_gid}.
-        :param owner_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#owner_uid EfsAccessPoint#owner_uid}.
-        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#permissions EfsAccessPoint#permissions}.
+        :param owner_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#owner_gid EfsAccessPoint#owner_gid}.
+        :param owner_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#owner_uid EfsAccessPoint#owner_uid}.
+        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#permissions EfsAccessPoint#permissions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10b53ea1e069b34956fe172e3ef545c0cfe47738530d04ed5806aefa7b0f5b26)
@@ -768,21 +768,21 @@ class EfsAccessPointRootDirectoryCreationInfo:
 
     @builtins.property
     def owner_gid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#owner_gid EfsAccessPoint#owner_gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#owner_gid EfsAccessPoint#owner_gid}.'''
         result = self._values.get("owner_gid")
         assert result is not None, "Required property 'owner_gid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def owner_uid(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#owner_uid EfsAccessPoint#owner_uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#owner_uid EfsAccessPoint#owner_uid}.'''
         result = self._values.get("owner_uid")
         assert result is not None, "Required property 'owner_uid' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def permissions(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#permissions EfsAccessPoint#permissions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#permissions EfsAccessPoint#permissions}.'''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
         return typing.cast(builtins.str, result)
@@ -917,9 +917,9 @@ class EfsAccessPointRootDirectoryOutputReference(
         permissions: builtins.str,
     ) -> None:
         '''
-        :param owner_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#owner_gid EfsAccessPoint#owner_gid}.
-        :param owner_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#owner_uid EfsAccessPoint#owner_uid}.
-        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/efs_access_point#permissions EfsAccessPoint#permissions}.
+        :param owner_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#owner_gid EfsAccessPoint#owner_gid}.
+        :param owner_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#owner_uid EfsAccessPoint#owner_uid}.
+        :param permissions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/efs_access_point#permissions EfsAccessPoint#permissions}.
         '''
         value = EfsAccessPointRootDirectoryCreationInfo(
             owner_gid=owner_gid, owner_uid=owner_uid, permissions=permissions

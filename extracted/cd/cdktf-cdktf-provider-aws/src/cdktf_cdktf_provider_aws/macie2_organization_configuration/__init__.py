@@ -1,7 +1,7 @@
 r'''
 # `aws_macie2_organization_configuration`
 
-Refer to the Terraform Registry for docs: [`aws_macie2_organization_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration).
+Refer to the Terraform Registry for docs: [`aws_macie2_organization_configuration`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Macie2OrganizationConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.macie2OrganizationConfiguration.Macie2OrganizationConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration aws_macie2_organization_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration aws_macie2_organization_configuration}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class Macie2OrganizationConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration aws_macie2_organization_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration aws_macie2_organization_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param auto_enable: Whether to enable Amazon Macie automatically for accounts that are added to the organization in AWS Organizations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration#auto_enable Macie2OrganizationConfiguration#auto_enable}
+        :param auto_enable: Whether to enable Amazon Macie automatically for accounts that are added to the organization in AWS Organizations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration#auto_enable Macie2OrganizationConfiguration#auto_enable}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class Macie2OrganizationConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Macie2OrganizationConfiguration to import.
-        :param import_from_id: The id of the existing Macie2OrganizationConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Macie2OrganizationConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Macie2OrganizationConfiguration to import is found.
         '''
         if __debug__:
@@ -185,7 +185,7 @@ class Macie2OrganizationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param auto_enable: Whether to enable Amazon Macie automatically for accounts that are added to the organization in AWS Organizations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration#auto_enable Macie2OrganizationConfiguration#auto_enable}
+        :param auto_enable: Whether to enable Amazon Macie automatically for accounts that are added to the organization in AWS Organizations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration#auto_enable Macie2OrganizationConfiguration#auto_enable}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -285,7 +285,7 @@ class Macie2OrganizationConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def auto_enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether to enable Amazon Macie automatically for accounts that are added to the organization in AWS Organizations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/macie2_organization_configuration#auto_enable Macie2OrganizationConfiguration#auto_enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/macie2_organization_configuration#auto_enable Macie2OrganizationConfiguration#auto_enable}
         '''
         result = self._values.get("auto_enable")
         assert result is not None, "Required property 'auto_enable' is missing"

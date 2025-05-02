@@ -947,6 +947,15 @@ class Slice(QuantConnect.ExtendedDictionary[typing.Any], typing.Iterable[System.
         """
         ...
 
+    def __contains__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determines whether this instance contains data for the specified symbol
+        
+        :param symbol: The symbol we seek data for
+        :returns: True if this instance contains data for the symbol, false otherwise.
+        """
+        ...
+
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Union[QuantConnect.Data.Market.TradeBar, QuantConnect.Data.Market.QuoteBar, System.Collections.Generic.List[QuantConnect.Data.Market.Tick], typing.Any]:
         """
         Gets the data corresponding to the specified symbol. If the requested data
@@ -1019,6 +1028,9 @@ class Slice(QuantConnect.ExtendedDictionary[typing.Any], typing.Iterable[System.
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: typing.Union[QuantConnect.Data.Market.TradeBar, QuantConnect.Data.Market.QuoteBar, System.Collections.Generic.List[QuantConnect.Data.Market.Tick], typing.Any]) -> None:

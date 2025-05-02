@@ -1,7 +1,7 @@
 r'''
 # `aws_waf_web_acl`
 
-Refer to the Terraform Registry for docs: [`aws_waf_web_acl`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl).
+Refer to the Terraform Registry for docs: [`aws_waf_web_acl`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WafWebAcl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.wafWebAcl.WafWebAcl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl aws_waf_web_acl}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl aws_waf_web_acl}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class WafWebAcl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl aws_waf_web_acl} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl aws_waf_web_acl} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#default_action WafWebAcl#default_action}
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#metric_name WafWebAcl#metric_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#name WafWebAcl#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#id WafWebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#logging_configuration WafWebAcl#logging_configuration}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#rules WafWebAcl#rules}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#tags WafWebAcl#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#tags_all WafWebAcl#tags_all}.
+        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#default_action WafWebAcl#default_action}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#metric_name WafWebAcl#metric_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#name WafWebAcl#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#id WafWebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#logging_configuration WafWebAcl#logging_configuration}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#rules WafWebAcl#rules}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#tags WafWebAcl#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#tags_all WafWebAcl#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class WafWebAcl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WafWebAcl to import.
-        :param import_from_id: The id of the existing WafWebAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WafWebAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WafWebAcl to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class WafWebAcl(
     @jsii.member(jsii_name="putDefaultAction")
     def put_default_action(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         value = WafWebAclDefaultAction(type=type)
 
@@ -152,8 +152,8 @@ class WafWebAcl(
         redacted_fields: typing.Optional[typing.Union["WafWebAclLoggingConfigurationRedactedFields", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#log_destination WafWebAcl#log_destination}.
-        :param redacted_fields: redacted_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#redacted_fields WafWebAcl#redacted_fields}
+        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#log_destination WafWebAcl#log_destination}.
+        :param redacted_fields: redacted_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#redacted_fields WafWebAcl#redacted_fields}
         '''
         value = WafWebAclLoggingConfiguration(
             log_destination=log_destination, redacted_fields=redacted_fields
@@ -383,14 +383,14 @@ class WafWebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#default_action WafWebAcl#default_action}
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#metric_name WafWebAcl#metric_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#name WafWebAcl#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#id WafWebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#logging_configuration WafWebAcl#logging_configuration}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#rules WafWebAcl#rules}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#tags WafWebAcl#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#tags_all WafWebAcl#tags_all}.
+        :param default_action: default_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#default_action WafWebAcl#default_action}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#metric_name WafWebAcl#metric_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#name WafWebAcl#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#id WafWebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_configuration: logging_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#logging_configuration WafWebAcl#logging_configuration}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#rules WafWebAcl#rules}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#tags WafWebAcl#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#tags_all WafWebAcl#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -513,7 +513,7 @@ class WafWebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_action(self) -> "WafWebAclDefaultAction":
         '''default_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#default_action WafWebAcl#default_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#default_action WafWebAcl#default_action}
         '''
         result = self._values.get("default_action")
         assert result is not None, "Required property 'default_action' is missing"
@@ -521,21 +521,21 @@ class WafWebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#metric_name WafWebAcl#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#metric_name WafWebAcl#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#name WafWebAcl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#name WafWebAcl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#id WafWebAcl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#id WafWebAcl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -547,7 +547,7 @@ class WafWebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging_configuration(self) -> typing.Optional["WafWebAclLoggingConfiguration"]:
         '''logging_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#logging_configuration WafWebAcl#logging_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#logging_configuration WafWebAcl#logging_configuration}
         '''
         result = self._values.get("logging_configuration")
         return typing.cast(typing.Optional["WafWebAclLoggingConfiguration"], result)
@@ -558,20 +558,20 @@ class WafWebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafWebAclRules"]]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#rules WafWebAcl#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#rules WafWebAcl#rules}
         '''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafWebAclRules"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#tags WafWebAcl#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#tags WafWebAcl#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#tags_all WafWebAcl#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#tags_all WafWebAcl#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -595,7 +595,7 @@ class WafWebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class WafWebAclDefaultAction:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3865070b09b719b28dbb6c918a2665a5f066af78d358ae38324765c3706e9c36)
@@ -606,7 +606,7 @@ class WafWebAclDefaultAction:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -689,8 +689,8 @@ class WafWebAclLoggingConfiguration:
         redacted_fields: typing.Optional[typing.Union["WafWebAclLoggingConfigurationRedactedFields", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#log_destination WafWebAcl#log_destination}.
-        :param redacted_fields: redacted_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#redacted_fields WafWebAcl#redacted_fields}
+        :param log_destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#log_destination WafWebAcl#log_destination}.
+        :param redacted_fields: redacted_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#redacted_fields WafWebAcl#redacted_fields}
         '''
         if isinstance(redacted_fields, dict):
             redacted_fields = WafWebAclLoggingConfigurationRedactedFields(**redacted_fields)
@@ -706,7 +706,7 @@ class WafWebAclLoggingConfiguration:
 
     @builtins.property
     def log_destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#log_destination WafWebAcl#log_destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#log_destination WafWebAcl#log_destination}.'''
         result = self._values.get("log_destination")
         assert result is not None, "Required property 'log_destination' is missing"
         return typing.cast(builtins.str, result)
@@ -717,7 +717,7 @@ class WafWebAclLoggingConfiguration:
     ) -> typing.Optional["WafWebAclLoggingConfigurationRedactedFields"]:
         '''redacted_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#redacted_fields WafWebAcl#redacted_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#redacted_fields WafWebAcl#redacted_fields}
         '''
         result = self._values.get("redacted_fields")
         return typing.cast(typing.Optional["WafWebAclLoggingConfigurationRedactedFields"], result)
@@ -761,7 +761,7 @@ class WafWebAclLoggingConfigurationOutputReference(
         field_to_match: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WafWebAclLoggingConfigurationRedactedFieldsFieldToMatch", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#field_to_match WafWebAcl#field_to_match}
+        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#field_to_match WafWebAcl#field_to_match}
         '''
         value = WafWebAclLoggingConfigurationRedactedFields(
             field_to_match=field_to_match
@@ -832,7 +832,7 @@ class WafWebAclLoggingConfigurationRedactedFields:
         field_to_match: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WafWebAclLoggingConfigurationRedactedFieldsFieldToMatch", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#field_to_match WafWebAcl#field_to_match}
+        :param field_to_match: field_to_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#field_to_match WafWebAcl#field_to_match}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33654d7d4a416b5243077ea3ee6fffed77d1bd1385218c94b498b080a64a083f)
@@ -847,7 +847,7 @@ class WafWebAclLoggingConfigurationRedactedFields:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WafWebAclLoggingConfigurationRedactedFieldsFieldToMatch"]]:
         '''field_to_match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#field_to_match WafWebAcl#field_to_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#field_to_match WafWebAcl#field_to_match}
         '''
         result = self._values.get("field_to_match")
         assert result is not None, "Required property 'field_to_match' is missing"
@@ -878,8 +878,8 @@ class WafWebAclLoggingConfigurationRedactedFieldsFieldToMatch:
         data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
-        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#data WafWebAcl#data}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#data WafWebAcl#data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca9c50ec9da07a25bdf6e363a5d137865d03f2ce1b77ef05ffa7f03fd0d7d27f)
@@ -893,14 +893,14 @@ class WafWebAclLoggingConfigurationRedactedFieldsFieldToMatch:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#data WafWebAcl#data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#data WafWebAcl#data}.'''
         result = self._values.get("data")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1178,11 +1178,11 @@ class WafWebAclRules:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#priority WafWebAcl#priority}.
-        :param rule_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#rule_id WafWebAcl#rule_id}.
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#action WafWebAcl#action}
-        :param override_action: override_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#override_action WafWebAcl#override_action}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#priority WafWebAcl#priority}.
+        :param rule_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#rule_id WafWebAcl#rule_id}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#action WafWebAcl#action}
+        :param override_action: override_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#override_action WafWebAcl#override_action}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         if isinstance(action, dict):
             action = WafWebAclRulesAction(**action)
@@ -1208,14 +1208,14 @@ class WafWebAclRules:
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#priority WafWebAcl#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#priority WafWebAcl#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def rule_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#rule_id WafWebAcl#rule_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#rule_id WafWebAcl#rule_id}.'''
         result = self._values.get("rule_id")
         assert result is not None, "Required property 'rule_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1224,7 +1224,7 @@ class WafWebAclRules:
     def action(self) -> typing.Optional["WafWebAclRulesAction"]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#action WafWebAcl#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#action WafWebAcl#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional["WafWebAclRulesAction"], result)
@@ -1233,14 +1233,14 @@ class WafWebAclRules:
     def override_action(self) -> typing.Optional["WafWebAclRulesOverrideAction"]:
         '''override_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#override_action WafWebAcl#override_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#override_action WafWebAcl#override_action}
         '''
         result = self._values.get("override_action")
         return typing.cast(typing.Optional["WafWebAclRulesOverrideAction"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1264,7 +1264,7 @@ class WafWebAclRules:
 class WafWebAclRulesAction:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9a1fb3089ce5d445e1283f569f28bf13b3a7b1d96fbf1416294ee2749659555)
@@ -1275,7 +1275,7 @@ class WafWebAclRulesAction:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1461,7 +1461,7 @@ class WafWebAclRulesOutputReference(
     @jsii.member(jsii_name="putAction")
     def put_action(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         value = WafWebAclRulesAction(type=type)
 
@@ -1470,7 +1470,7 @@ class WafWebAclRulesOutputReference(
     @jsii.member(jsii_name="putOverrideAction")
     def put_override_action(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         value = WafWebAclRulesOverrideAction(type=type)
 
@@ -1585,7 +1585,7 @@ class WafWebAclRulesOutputReference(
 class WafWebAclRulesOverrideAction:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33982370644c2b8ee3cc1332bf39b488b7a12bbf2839127d0af79661bea3f848)
@@ -1596,7 +1596,7 @@ class WafWebAclRulesOverrideAction:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/waf_web_acl#type WafWebAcl#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)

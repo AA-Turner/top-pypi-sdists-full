@@ -1,7 +1,7 @@
 r'''
 # `aws_xray_sampling_rule`
 
-Refer to the Terraform Registry for docs: [`aws_xray_sampling_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule).
+Refer to the Terraform Registry for docs: [`aws_xray_sampling_rule`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class XraySamplingRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.xraySamplingRule.XraySamplingRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule aws_xray_sampling_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule aws_xray_sampling_rule}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class XraySamplingRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule aws_xray_sampling_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule aws_xray_sampling_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param fixed_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#fixed_rate XraySamplingRule#fixed_rate}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#host XraySamplingRule#host}.
-        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#http_method XraySamplingRule#http_method}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#priority XraySamplingRule#priority}.
-        :param reservoir_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#reservoir_size XraySamplingRule#reservoir_size}.
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#resource_arn XraySamplingRule#resource_arn}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#service_name XraySamplingRule#service_name}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#service_type XraySamplingRule#service_type}.
-        :param url_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#url_path XraySamplingRule#url_path}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#version XraySamplingRule#version}.
-        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#attributes XraySamplingRule#attributes}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#id XraySamplingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#rule_name XraySamplingRule#rule_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#tags XraySamplingRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#tags_all XraySamplingRule#tags_all}.
+        :param fixed_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#fixed_rate XraySamplingRule#fixed_rate}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#host XraySamplingRule#host}.
+        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#http_method XraySamplingRule#http_method}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#priority XraySamplingRule#priority}.
+        :param reservoir_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#reservoir_size XraySamplingRule#reservoir_size}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#resource_arn XraySamplingRule#resource_arn}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#service_name XraySamplingRule#service_name}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#service_type XraySamplingRule#service_type}.
+        :param url_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#url_path XraySamplingRule#url_path}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#version XraySamplingRule#version}.
+        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#attributes XraySamplingRule#attributes}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#id XraySamplingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#rule_name XraySamplingRule#rule_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#tags XraySamplingRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#tags_all XraySamplingRule#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class XraySamplingRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the XraySamplingRule to import.
-        :param import_from_id: The id of the existing XraySamplingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing XraySamplingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the XraySamplingRule to import is found.
         '''
         if __debug__:
@@ -517,21 +517,21 @@ class XraySamplingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param fixed_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#fixed_rate XraySamplingRule#fixed_rate}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#host XraySamplingRule#host}.
-        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#http_method XraySamplingRule#http_method}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#priority XraySamplingRule#priority}.
-        :param reservoir_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#reservoir_size XraySamplingRule#reservoir_size}.
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#resource_arn XraySamplingRule#resource_arn}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#service_name XraySamplingRule#service_name}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#service_type XraySamplingRule#service_type}.
-        :param url_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#url_path XraySamplingRule#url_path}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#version XraySamplingRule#version}.
-        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#attributes XraySamplingRule#attributes}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#id XraySamplingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#rule_name XraySamplingRule#rule_name}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#tags XraySamplingRule#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#tags_all XraySamplingRule#tags_all}.
+        :param fixed_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#fixed_rate XraySamplingRule#fixed_rate}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#host XraySamplingRule#host}.
+        :param http_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#http_method XraySamplingRule#http_method}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#priority XraySamplingRule#priority}.
+        :param reservoir_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#reservoir_size XraySamplingRule#reservoir_size}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#resource_arn XraySamplingRule#resource_arn}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#service_name XraySamplingRule#service_name}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#service_type XraySamplingRule#service_type}.
+        :param url_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#url_path XraySamplingRule#url_path}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#version XraySamplingRule#version}.
+        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#attributes XraySamplingRule#attributes}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#id XraySamplingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#rule_name XraySamplingRule#rule_name}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#tags XraySamplingRule#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#tags_all XraySamplingRule#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -662,83 +662,83 @@ class XraySamplingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def fixed_rate(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#fixed_rate XraySamplingRule#fixed_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#fixed_rate XraySamplingRule#fixed_rate}.'''
         result = self._values.get("fixed_rate")
         assert result is not None, "Required property 'fixed_rate' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def host(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#host XraySamplingRule#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#host XraySamplingRule#host}.'''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def http_method(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#http_method XraySamplingRule#http_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#http_method XraySamplingRule#http_method}.'''
         result = self._values.get("http_method")
         assert result is not None, "Required property 'http_method' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#priority XraySamplingRule#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#priority XraySamplingRule#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def reservoir_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#reservoir_size XraySamplingRule#reservoir_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#reservoir_size XraySamplingRule#reservoir_size}.'''
         result = self._values.get("reservoir_size")
         assert result is not None, "Required property 'reservoir_size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#resource_arn XraySamplingRule#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#resource_arn XraySamplingRule#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#service_name XraySamplingRule#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#service_name XraySamplingRule#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#service_type XraySamplingRule#service_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#service_type XraySamplingRule#service_type}.'''
         result = self._values.get("service_type")
         assert result is not None, "Required property 'service_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def url_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#url_path XraySamplingRule#url_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#url_path XraySamplingRule#url_path}.'''
         result = self._values.get("url_path")
         assert result is not None, "Required property 'url_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#version XraySamplingRule#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#version XraySamplingRule#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def attributes(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#attributes XraySamplingRule#attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#attributes XraySamplingRule#attributes}.'''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#id XraySamplingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#id XraySamplingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -748,19 +748,19 @@ class XraySamplingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def rule_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#rule_name XraySamplingRule#rule_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#rule_name XraySamplingRule#rule_name}.'''
         result = self._values.get("rule_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#tags XraySamplingRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#tags XraySamplingRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/xray_sampling_rule#tags_all XraySamplingRule#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/xray_sampling_rule#tags_all XraySamplingRule#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

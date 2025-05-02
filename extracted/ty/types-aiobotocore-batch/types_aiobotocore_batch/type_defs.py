@@ -69,6 +69,11 @@ __all__ = (
     "ComputeResourceTypeDef",
     "ComputeResourceUnionTypeDef",
     "ComputeResourceUpdateTypeDef",
+    "ConsumableResourcePropertiesOutputTypeDef",
+    "ConsumableResourcePropertiesTypeDef",
+    "ConsumableResourcePropertiesUnionTypeDef",
+    "ConsumableResourceRequirementTypeDef",
+    "ConsumableResourceSummaryTypeDef",
     "ContainerDetailTypeDef",
     "ContainerOverridesTypeDef",
     "ContainerPropertiesOutputTypeDef",
@@ -77,17 +82,22 @@ __all__ = (
     "ContainerSummaryTypeDef",
     "CreateComputeEnvironmentRequestTypeDef",
     "CreateComputeEnvironmentResponseTypeDef",
+    "CreateConsumableResourceRequestTypeDef",
+    "CreateConsumableResourceResponseTypeDef",
     "CreateJobQueueRequestTypeDef",
     "CreateJobQueueResponseTypeDef",
     "CreateSchedulingPolicyRequestTypeDef",
     "CreateSchedulingPolicyResponseTypeDef",
     "DeleteComputeEnvironmentRequestTypeDef",
+    "DeleteConsumableResourceRequestTypeDef",
     "DeleteJobQueueRequestTypeDef",
     "DeleteSchedulingPolicyRequestTypeDef",
     "DeregisterJobDefinitionRequestTypeDef",
     "DescribeComputeEnvironmentsRequestPaginateTypeDef",
     "DescribeComputeEnvironmentsRequestTypeDef",
     "DescribeComputeEnvironmentsResponseTypeDef",
+    "DescribeConsumableResourceRequestTypeDef",
+    "DescribeConsumableResourceResponseTypeDef",
     "DescribeJobDefinitionsRequestPaginateTypeDef",
     "DescribeJobDefinitionsRequestTypeDef",
     "DescribeJobDefinitionsResponseTypeDef",
@@ -170,6 +180,13 @@ __all__ = (
     "LaunchTemplateSpecificationUnionTypeDef",
     "LinuxParametersOutputTypeDef",
     "LinuxParametersTypeDef",
+    "ListConsumableResourcesRequestPaginateTypeDef",
+    "ListConsumableResourcesRequestTypeDef",
+    "ListConsumableResourcesResponseTypeDef",
+    "ListJobsByConsumableResourceRequestPaginateTypeDef",
+    "ListJobsByConsumableResourceRequestTypeDef",
+    "ListJobsByConsumableResourceResponseTypeDef",
+    "ListJobsByConsumableResourceSummaryTypeDef",
     "ListJobsRequestPaginateTypeDef",
     "ListJobsRequestTypeDef",
     "ListJobsResponseTypeDef",
@@ -222,6 +239,8 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateComputeEnvironmentRequestTypeDef",
     "UpdateComputeEnvironmentResponseTypeDef",
+    "UpdateConsumableResourceRequestTypeDef",
+    "UpdateConsumableResourceResponseTypeDef",
     "UpdateJobQueueRequestTypeDef",
     "UpdateJobQueueResponseTypeDef",
     "UpdatePolicyTypeDef",
@@ -275,6 +294,19 @@ class Ec2ConfigurationTypeDef(TypedDict):
     imageType: str
     imageIdOverride: NotRequired[str]
     imageKubernetesVersion: NotRequired[str]
+
+
+class ConsumableResourceRequirementTypeDef(TypedDict):
+    consumableResource: NotRequired[str]
+    quantity: NotRequired[int]
+
+
+class ConsumableResourceSummaryTypeDef(TypedDict):
+    consumableResourceArn: str
+    consumableResourceName: str
+    totalQuantity: NotRequired[int]
+    inUseQuantity: NotRequired[int]
+    resourceType: NotRequired[str]
 
 
 class EphemeralStorageTypeDef(TypedDict):
@@ -342,6 +374,13 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class CreateConsumableResourceRequestTypeDef(TypedDict):
+    consumableResourceName: str
+    totalQuantity: NotRequired[int]
+    resourceType: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
 class JobStateTimeLimitActionTypeDef(TypedDict):
     reason: str
     state: Literal["RUNNABLE"]
@@ -351,6 +390,10 @@ class JobStateTimeLimitActionTypeDef(TypedDict):
 
 class DeleteComputeEnvironmentRequestTypeDef(TypedDict):
     computeEnvironment: str
+
+
+class DeleteConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
 
 
 class DeleteJobQueueRequestTypeDef(TypedDict):
@@ -375,6 +418,10 @@ class DescribeComputeEnvironmentsRequestTypeDef(TypedDict):
     computeEnvironments: NotRequired[Sequence[str]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+
+class DescribeConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
 
 
 class DescribeJobDefinitionsRequestTypeDef(TypedDict):
@@ -602,6 +649,13 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+class UpdateConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
+    operation: NotRequired[str]
+    quantity: NotRequired[int]
+    clientToken: NotRequired[str]
+
+
 class AttemptContainerDetailTypeDef(TypedDict):
     containerInstanceArn: NotRequired[str]
     taskArn: NotRequired[str]
@@ -617,6 +671,14 @@ class AttemptTaskContainerDetailsTypeDef(TypedDict):
     reason: NotRequired[str]
     logStreamName: NotRequired[str]
     networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+
+
+class ConsumableResourcePropertiesOutputTypeDef(TypedDict):
+    consumableResourceList: NotRequired[List[ConsumableResourceRequirementTypeDef]]
+
+
+class ConsumableResourcePropertiesTypeDef(TypedDict):
+    consumableResourceList: NotRequired[Sequence[ConsumableResourceRequirementTypeDef]]
 
 
 class ContainerOverridesTypeDef(TypedDict):
@@ -653,6 +715,12 @@ class CreateComputeEnvironmentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateConsumableResourceResponseTypeDef(TypedDict):
+    consumableResourceName: str
+    consumableResourceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateJobQueueResponseTypeDef(TypedDict):
     jobQueueName: str
     jobQueueArn: str
@@ -663,6 +731,24 @@ class CreateSchedulingPolicyResponseTypeDef(TypedDict):
     name: str
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeConsumableResourceResponseTypeDef(TypedDict):
+    consumableResourceName: str
+    consumableResourceArn: str
+    totalQuantity: int
+    inUseQuantity: int
+    availableQuantity: int
+    resourceType: str
+    createdAt: int
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListConsumableResourcesResponseTypeDef(TypedDict):
+    consumableResources: List[ConsumableResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -687,6 +773,13 @@ class SubmitJobResponseTypeDef(TypedDict):
 class UpdateComputeEnvironmentResponseTypeDef(TypedDict):
     computeEnvironmentName: str
     computeEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateConsumableResourceResponseTypeDef(TypedDict):
+    consumableResourceName: str
+    consumableResourceArn: str
+    totalQuantity: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -865,6 +958,30 @@ class JobSummaryTypeDef(TypedDict):
     jobDefinition: NotRequired[str]
 
 
+class ListConsumableResourcesRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListConsumableResourcesRequestTypeDef(TypedDict):
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListJobsByConsumableResourceRequestPaginateTypeDef(TypedDict):
+    consumableResource: str
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListJobsByConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListJobsRequestPaginateTypeDef(TypedDict):
     jobQueue: NotRequired[str]
     arrayJobId: NotRequired[str]
@@ -924,6 +1041,25 @@ class AttemptEcsTaskDetailsTypeDef(TypedDict):
     containerInstanceArn: NotRequired[str]
     taskArn: NotRequired[str]
     containers: NotRequired[List[AttemptTaskContainerDetailsTypeDef]]
+
+
+class ListJobsByConsumableResourceSummaryTypeDef(TypedDict):
+    jobArn: str
+    jobQueueArn: str
+    jobName: str
+    jobStatus: str
+    quantity: int
+    createdAt: int
+    consumableResourceProperties: ConsumableResourcePropertiesOutputTypeDef
+    jobDefinitionArn: NotRequired[str]
+    shareIdentifier: NotRequired[str]
+    statusReason: NotRequired[str]
+    startedAt: NotRequired[int]
+
+
+ConsumableResourcePropertiesUnionTypeDef = Union[
+    ConsumableResourcePropertiesTypeDef, ConsumableResourcePropertiesOutputTypeDef
+]
 
 
 class TaskPropertiesOverrideTypeDef(TypedDict):
@@ -1111,6 +1247,12 @@ class AttemptDetailTypeDef(TypedDict):
     stoppedAt: NotRequired[int]
     statusReason: NotRequired[str]
     taskProperties: NotRequired[List[AttemptEcsTaskDetailsTypeDef]]
+
+
+class ListJobsByConsumableResourceResponseTypeDef(TypedDict):
+    jobs: List[ListJobsByConsumableResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class EcsPropertiesOverrideTypeDef(TypedDict):
@@ -1385,6 +1527,7 @@ class NodePropertyOverrideTypeDef(TypedDict):
     ecsPropertiesOverride: NotRequired[EcsPropertiesOverrideTypeDef]
     instanceTypes: NotRequired[Sequence[str]]
     eksPropertiesOverride: NotRequired[EksPropertiesOverrideTypeDef]
+    consumableResourcePropertiesOverride: NotRequired[ConsumableResourcePropertiesUnionTypeDef]
 
 
 CreateComputeEnvironmentRequestTypeDef = TypedDict(
@@ -1419,6 +1562,7 @@ class NodeRangePropertyOutputTypeDef(TypedDict):
     instanceTypes: NotRequired[List[str]]
     ecsProperties: NotRequired[EcsPropertiesOutputTypeDef]
     eksProperties: NotRequired[EksPropertiesOutputTypeDef]
+    consumableResourceProperties: NotRequired[ConsumableResourcePropertiesOutputTypeDef]
 
 
 EcsPropertiesUnionTypeDef = Union[EcsPropertiesTypeDef, EcsPropertiesOutputTypeDef]
@@ -1430,6 +1574,7 @@ class NodeRangePropertyTypeDef(TypedDict):
     instanceTypes: NotRequired[Sequence[str]]
     ecsProperties: NotRequired[EcsPropertiesTypeDef]
     eksProperties: NotRequired[EksPropertiesTypeDef]
+    consumableResourceProperties: NotRequired[ConsumableResourcePropertiesTypeDef]
 
 
 class NodeOverridesTypeDef(TypedDict):
@@ -1466,6 +1611,7 @@ class SubmitJobRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     eksPropertiesOverride: NotRequired[EksPropertiesOverrideTypeDef]
     ecsPropertiesOverride: NotRequired[EcsPropertiesOverrideTypeDef]
+    consumableResourcePropertiesOverride: NotRequired[ConsumableResourcePropertiesUnionTypeDef]
 
 
 JobDefinitionTypeDef = TypedDict(
@@ -1488,6 +1634,7 @@ JobDefinitionTypeDef = TypedDict(
         "ecsProperties": NotRequired[EcsPropertiesOutputTypeDef],
         "eksProperties": NotRequired[EksPropertiesOutputTypeDef],
         "containerOrchestrationType": NotRequired[OrchestrationTypeType],
+        "consumableResourceProperties": NotRequired[ConsumableResourcePropertiesOutputTypeDef],
     },
 )
 
@@ -1522,6 +1669,7 @@ class JobDetailTypeDef(TypedDict):
     ecsProperties: NotRequired[EcsPropertiesDetailTypeDef]
     isCancelled: NotRequired[bool]
     isTerminated: NotRequired[bool]
+    consumableResourceProperties: NotRequired[ConsumableResourcePropertiesOutputTypeDef]
 
 
 NodePropertiesUnionTypeDef = Union[NodePropertiesTypeDef, NodePropertiesOutputTypeDef]
@@ -1554,5 +1702,6 @@ RegisterJobDefinitionRequestTypeDef = TypedDict(
         "platformCapabilities": NotRequired[Sequence[PlatformCapabilityType]],
         "eksProperties": NotRequired[EksPropertiesUnionTypeDef],
         "ecsProperties": NotRequired[EcsPropertiesUnionTypeDef],
+        "consumableResourceProperties": NotRequired[ConsumableResourcePropertiesUnionTypeDef],
     },
 )

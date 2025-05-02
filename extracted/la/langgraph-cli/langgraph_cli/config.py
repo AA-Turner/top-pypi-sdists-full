@@ -273,6 +273,33 @@ class CorsConfig(TypedDict, total=False):
     """
 
 
+class ConfigurableHeaderConfig(TypedDict):
+    """Customize which headers to include as configurable values in your runs.
+
+    By default, omits x-api-key, x-tenant-id, and x-service-key.
+
+    Exclusions (if provided) take precedence.
+
+    Each value can be a raw string with an optional wildcard.
+    """
+
+    includes: Optional[list[str]]
+    """Headers to include (if not also matches against an 'exludes' pattern.
+
+    Examples:
+        - 'user-agent'
+        - 'x-configurable-*'
+    """
+    excludes: Optional[list[str]]
+    """Headers to exclude. Applied before the 'includes' checks.
+
+    Examples:
+        - 'x-api-key'
+        - '*key*'
+        - '*token*'
+    """
+
+
 class HttpConfig(TypedDict, total=False):
     """Configuration for the built-in HTTP server that powers your deployment's routes and endpoints."""
 
@@ -311,6 +338,11 @@ class HttpConfig(TypedDict, total=False):
     """Optional. Defines CORS restrictions. If omitted, no special rules are set and 
     cross-origin behavior depends on default server settings.
     """
+    configurable_headers: Optional[ConfigurableHeaderConfig]
+    """Optional. Defines how headers are treated for a run's configuration.
+
+    You can include or exclude headers as configurable values to condition your
+    agent's behavior or permissions on a request's headers."""
 
 
 class Config(TypedDict, total=False):
@@ -329,6 +361,11 @@ class Config(TypedDict, total=False):
     _INTERNAL_docker_tag: Optional[str]
     """Optional. Internal use only.
     """
+
+    base_image: Optional[str]
+    """Optional. Base image to use for the LangGraph API server.
+    
+    Defaults to langchain/langgraph-api or langchain/langgraphjs-api."""
 
     pip_config_file: Optional[str]
     """Optional. Path to a pip config file (e.g., "/etc/pip.conf" or "pip.ini") for controlling
@@ -485,6 +522,7 @@ def validate_config(config: Config) -> Config:
         "python_version": python_version,
         "pip_config_file": config.get("pip_config_file"),
         "_INTERNAL_docker_tag": config.get("_INTERNAL_docker_tag"),
+        "base_image": config.get("base_image"),
         "dependencies": config.get("dependencies", []),
         "dockerfile_lines": config.get("dockerfile_lines", []),
         "graphs": config.get("graphs", {}),
@@ -1167,9 +1205,12 @@ ADD {relpath} /deps/{name}
                 "# -- End of JS dependencies install --",
             ]
         )
-
+    if "/langgraph-server" in base_image:
+        image_str = f"{base_image}-py{docker_tag}"
+    else:
+        image_str = f"{base_image}:{docker_tag}"
     docker_file_contents = [
-        f"FROM {base_image}:{docker_tag}",
+        f"FROM {image_str}",
         "",
         os.linesep.join(config["dockerfile_lines"]),
         "",
@@ -1253,6 +1294,8 @@ def node_config_to_docker(
 
 
 def default_base_image(config: Config) -> str:
+    if config.get("base_image"):
+        return config["base_image"]
     if config.get("node_version") and not config.get("python_version"):
         return "langchain/langgraphjs-api"
     return "langchain/langgraph-api"
@@ -1265,6 +1308,9 @@ def docker_tag(
     base_image = base_image or default_base_image(config)
     if config.get("_INTERNAL_docker_tag"):
         return f"{base_image}:{config['_INTERNAL_docker_tag']}"
+
+    if "/langgraph-server" in base_image:
+        return f"{base_image}-py{config['python_version']}"
 
     if config.get("node_version") and not config.get("python_version"):
         return f"{base_image}:{config['node_version']}"

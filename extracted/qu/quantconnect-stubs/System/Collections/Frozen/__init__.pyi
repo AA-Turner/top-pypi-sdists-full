@@ -219,6 +219,15 @@ class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary
         """Gets the number of key/value pairs contained in the dictionary."""
         ...
 
+    def __contains__(self, key: System_Collections_Frozen_FrozenDictionary_TKey) -> bool:
+        """
+        Determines whether the dictionary contains the specified key.
+        
+        :param key: The key to locate in the dictionary.
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, key: System_Collections_Frozen_FrozenDictionary_TKey) -> typing.Any:
         """
         Gets a reference to the value associated with the specified key.
@@ -229,6 +238,9 @@ class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def contains_key(self, key: System_Collections_Frozen_FrozenDictionary_TKey) -> bool:

@@ -1,7 +1,7 @@
 r'''
 # `aws_medialive_multiplex_program`
 
-Refer to the Terraform Registry for docs: [`aws_medialive_multiplex_program`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program).
+Refer to the Terraform Registry for docs: [`aws_medialive_multiplex_program`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MedialiveMultiplexProgram(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.medialiveMultiplexProgram.MedialiveMultiplexProgram",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program aws_medialive_multiplex_program}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program aws_medialive_multiplex_program}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class MedialiveMultiplexProgram(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program aws_medialive_multiplex_program} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program aws_medialive_multiplex_program} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param multiplex_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#multiplex_id MedialiveMultiplexProgram#multiplex_id}.
-        :param program_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#program_name MedialiveMultiplexProgram#program_name}.
-        :param multiplex_program_settings: multiplex_program_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#multiplex_program_settings MedialiveMultiplexProgram#multiplex_program_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#timeouts MedialiveMultiplexProgram#timeouts}
+        :param multiplex_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#multiplex_id MedialiveMultiplexProgram#multiplex_id}.
+        :param program_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#program_name MedialiveMultiplexProgram#program_name}.
+        :param multiplex_program_settings: multiplex_program_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#multiplex_program_settings MedialiveMultiplexProgram#multiplex_program_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#timeouts MedialiveMultiplexProgram#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class MedialiveMultiplexProgram(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MedialiveMultiplexProgram to import.
-        :param import_from_id: The id of the existing MedialiveMultiplexProgram that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MedialiveMultiplexProgram that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MedialiveMultiplexProgram to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class MedialiveMultiplexProgram(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#create MedialiveMultiplexProgram#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#create MedialiveMultiplexProgram#create}
         '''
         value = MedialiveMultiplexProgramTimeouts(create=create)
 
@@ -273,10 +273,10 @@ class MedialiveMultiplexProgramConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param multiplex_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#multiplex_id MedialiveMultiplexProgram#multiplex_id}.
-        :param program_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#program_name MedialiveMultiplexProgram#program_name}.
-        :param multiplex_program_settings: multiplex_program_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#multiplex_program_settings MedialiveMultiplexProgram#multiplex_program_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#timeouts MedialiveMultiplexProgram#timeouts}
+        :param multiplex_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#multiplex_id MedialiveMultiplexProgram#multiplex_id}.
+        :param program_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#program_name MedialiveMultiplexProgram#program_name}.
+        :param multiplex_program_settings: multiplex_program_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#multiplex_program_settings MedialiveMultiplexProgram#multiplex_program_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#timeouts MedialiveMultiplexProgram#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -384,14 +384,14 @@ class MedialiveMultiplexProgramConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def multiplex_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#multiplex_id MedialiveMultiplexProgram#multiplex_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#multiplex_id MedialiveMultiplexProgram#multiplex_id}.'''
         result = self._values.get("multiplex_id")
         assert result is not None, "Required property 'multiplex_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def program_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#program_name MedialiveMultiplexProgram#program_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#program_name MedialiveMultiplexProgram#program_name}.'''
         result = self._values.get("program_name")
         assert result is not None, "Required property 'program_name' is missing"
         return typing.cast(builtins.str, result)
@@ -402,7 +402,7 @@ class MedialiveMultiplexProgramConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettings"]]]:
         '''multiplex_program_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#multiplex_program_settings MedialiveMultiplexProgram#multiplex_program_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#multiplex_program_settings MedialiveMultiplexProgram#multiplex_program_settings}
         '''
         result = self._values.get("multiplex_program_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettings"]]], result)
@@ -411,7 +411,7 @@ class MedialiveMultiplexProgramConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MedialiveMultiplexProgramTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#timeouts MedialiveMultiplexProgram#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#timeouts MedialiveMultiplexProgram#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MedialiveMultiplexProgramTimeouts"], result)
@@ -448,10 +448,10 @@ class MedialiveMultiplexProgramMultiplexProgramSettings:
         video_settings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param preferred_channel_pipeline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#preferred_channel_pipeline MedialiveMultiplexProgram#preferred_channel_pipeline}.
-        :param program_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#program_number MedialiveMultiplexProgram#program_number}.
-        :param service_descriptor: service_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#service_descriptor MedialiveMultiplexProgram#service_descriptor}
-        :param video_settings: video_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#video_settings MedialiveMultiplexProgram#video_settings}
+        :param preferred_channel_pipeline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#preferred_channel_pipeline MedialiveMultiplexProgram#preferred_channel_pipeline}.
+        :param program_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#program_number MedialiveMultiplexProgram#program_number}.
+        :param service_descriptor: service_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#service_descriptor MedialiveMultiplexProgram#service_descriptor}
+        :param video_settings: video_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#video_settings MedialiveMultiplexProgram#video_settings}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33cd8cf7c6d9095879a53eaa396d793ce7bfc6e58bd88750373d7eac0e05e11b)
@@ -470,14 +470,14 @@ class MedialiveMultiplexProgramMultiplexProgramSettings:
 
     @builtins.property
     def preferred_channel_pipeline(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#preferred_channel_pipeline MedialiveMultiplexProgram#preferred_channel_pipeline}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#preferred_channel_pipeline MedialiveMultiplexProgram#preferred_channel_pipeline}.'''
         result = self._values.get("preferred_channel_pipeline")
         assert result is not None, "Required property 'preferred_channel_pipeline' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def program_number(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#program_number MedialiveMultiplexProgram#program_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#program_number MedialiveMultiplexProgram#program_number}.'''
         result = self._values.get("program_number")
         assert result is not None, "Required property 'program_number' is missing"
         return typing.cast(jsii.Number, result)
@@ -488,7 +488,7 @@ class MedialiveMultiplexProgramMultiplexProgramSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettingsServiceDescriptor"]]]:
         '''service_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#service_descriptor MedialiveMultiplexProgram#service_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#service_descriptor MedialiveMultiplexProgram#service_descriptor}
         '''
         result = self._values.get("service_descriptor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettingsServiceDescriptor"]]], result)
@@ -499,7 +499,7 @@ class MedialiveMultiplexProgramMultiplexProgramSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettings"]]]:
         '''video_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#video_settings MedialiveMultiplexProgram#video_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#video_settings MedialiveMultiplexProgram#video_settings}
         '''
         result = self._values.get("video_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettings"]]], result)
@@ -762,8 +762,8 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsServiceDescriptor:
         service_name: builtins.str,
     ) -> None:
         '''
-        :param provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#provider_name MedialiveMultiplexProgram#provider_name}.
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#service_name MedialiveMultiplexProgram#service_name}.
+        :param provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#provider_name MedialiveMultiplexProgram#provider_name}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#service_name MedialiveMultiplexProgram#service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b466ba4ceff58710812e6423759f095e1553f4752279707cdaa9695c939d334)
@@ -776,14 +776,14 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsServiceDescriptor:
 
     @builtins.property
     def provider_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#provider_name MedialiveMultiplexProgram#provider_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#provider_name MedialiveMultiplexProgram#provider_name}.'''
         result = self._values.get("provider_name")
         assert result is not None, "Required property 'provider_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#service_name MedialiveMultiplexProgram#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#service_name MedialiveMultiplexProgram#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -987,8 +987,8 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettings:
         statmux_settings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettingsStatmuxSettings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param constant_bitrate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#constant_bitrate MedialiveMultiplexProgram#constant_bitrate}.
-        :param statmux_settings: statmux_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#statmux_settings MedialiveMultiplexProgram#statmux_settings}
+        :param constant_bitrate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#constant_bitrate MedialiveMultiplexProgram#constant_bitrate}.
+        :param statmux_settings: statmux_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#statmux_settings MedialiveMultiplexProgram#statmux_settings}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__307f368ecfb07e32c8ba941624c6231c3f1c2cf2b6cbdb8f19cf865bcefd6b75)
@@ -1002,7 +1002,7 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettings:
 
     @builtins.property
     def constant_bitrate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#constant_bitrate MedialiveMultiplexProgram#constant_bitrate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#constant_bitrate MedialiveMultiplexProgram#constant_bitrate}.'''
         result = self._values.get("constant_bitrate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1012,7 +1012,7 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettingsStatmuxSettings"]]]:
         '''statmux_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#statmux_settings MedialiveMultiplexProgram#statmux_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#statmux_settings MedialiveMultiplexProgram#statmux_settings}
         '''
         result = self._values.get("statmux_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettingsStatmuxSettings"]]], result)
@@ -1236,9 +1236,9 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettingsStatmuxSetti
         priority: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_bitrate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#maximum_bitrate MedialiveMultiplexProgram#maximum_bitrate}.
-        :param minimum_bitrate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#minimum_bitrate MedialiveMultiplexProgram#minimum_bitrate}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#priority MedialiveMultiplexProgram#priority}.
+        :param maximum_bitrate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#maximum_bitrate MedialiveMultiplexProgram#maximum_bitrate}.
+        :param minimum_bitrate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#minimum_bitrate MedialiveMultiplexProgram#minimum_bitrate}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#priority MedialiveMultiplexProgram#priority}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e098bae5ff13ec0f30fd9b50cdf2db007674913585144edfd695d6aa3ca35d3b)
@@ -1255,19 +1255,19 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettingsStatmuxSetti
 
     @builtins.property
     def maximum_bitrate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#maximum_bitrate MedialiveMultiplexProgram#maximum_bitrate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#maximum_bitrate MedialiveMultiplexProgram#maximum_bitrate}.'''
         result = self._values.get("maximum_bitrate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def minimum_bitrate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#minimum_bitrate MedialiveMultiplexProgram#minimum_bitrate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#minimum_bitrate MedialiveMultiplexProgram#minimum_bitrate}.'''
         result = self._values.get("minimum_bitrate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#priority MedialiveMultiplexProgram#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#priority MedialiveMultiplexProgram#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1491,7 +1491,7 @@ class MedialiveMultiplexProgramMultiplexProgramSettingsVideoSettingsStatmuxSetti
 class MedialiveMultiplexProgramTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#create MedialiveMultiplexProgram#create}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#create MedialiveMultiplexProgram#create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bb3af93d7639bcef63236ae40571f21d71f05a023c21a6eedad8f08620cdb36)
@@ -1504,7 +1504,7 @@ class MedialiveMultiplexProgramTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/medialive_multiplex_program#create MedialiveMultiplexProgram#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/medialive_multiplex_program#create MedialiveMultiplexProgram#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)

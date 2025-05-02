@@ -1,7 +1,7 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: types-aiobotocore
-Version: 2.21.1
-Summary: Type annotations for aiobotocore 2.21.1 generated with mypy-boto3-builder 8.10.0
+Version: 2.22.0
+Summary: Type annotations for aiobotocore 2.22.0 generated with mypy-boto3-builder 8.10.1
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -33,1224 +33,1224 @@ License-File: LICENSE
 Requires-Dist: botocore-stubs
 Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
-Requires-Dist: types-aiobotocore-full<2.22.0,>=2.21.0; extra == "full"
+Requires-Dist: types-aiobotocore-full<2.23.0,>=2.22.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==2.21.1; extra == "aiobotocore"
+Requires-Dist: aiobotocore==2.22.0; extra == "aiobotocore"
 Provides-Extra: all
-Requires-Dist: types-aiobotocore-accessanalyzer<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-account<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-acm<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-acm-pca<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-amp<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-amplify<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-amplifybackend<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-amplifyuibuilder<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-apigateway<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-apigatewaymanagementapi<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-apigatewayv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appconfig<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appconfigdata<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appfabric<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appflow<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appintegrations<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-application-autoscaling<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-application-insights<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-application-signals<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-applicationcostprofiler<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appmesh<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-apprunner<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appstream<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-appsync<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-apptest<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-arc-zonal-shift<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-artifact<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-athena<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-auditmanager<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-autoscaling<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-autoscaling-plans<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-b2bi<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-backup<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-backup-gateway<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-backupsearch<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-batch<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bcm-data-exports<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bedrock<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bedrock-agent<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bedrock-data-automation<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bedrock-data-automation-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-bedrock-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-billing<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-billingconductor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-braket<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-budgets<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ce<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chatbot<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chime-sdk-identity<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chime-sdk-media-pipelines<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chime-sdk-meetings<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chime-sdk-messaging<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-chime-sdk-voice<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cleanrooms<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cleanroomsml<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloud9<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudcontrol<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-clouddirectory<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudformation<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudfront<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudfront-keyvaluestore<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudhsm<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudhsmv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudsearch<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudsearchdomain<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudtrail<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudtrail-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cloudwatch<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codeartifact<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codebuild<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codecatalyst<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codecommit<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codeconnections<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codedeploy<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codeguru-reviewer<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codeguru-security<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codeguruprofiler<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codepipeline<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codestar-connections<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-codestar-notifications<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cognito-identity<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cognito-idp<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cognito-sync<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-comprehend<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-comprehendmedical<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-compute-optimizer<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-config<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-connect<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-connect-contact-lens<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-connectcampaigns<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-connectcampaignsv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-connectcases<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-connectparticipant<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-controlcatalog<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-controltower<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cost-optimization-hub<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-cur<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-customer-profiles<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-databrew<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dataexchange<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-datapipeline<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-datasync<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-datazone<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dax<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-deadline<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-detective<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-devicefarm<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-devops-guru<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-directconnect<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-discovery<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dlm<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dms<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-docdb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-docdb-elastic<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-drs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ds<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ds-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dsql<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dynamodb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-dynamodbstreams<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ebs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ec2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ec2-instance-connect<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ecr<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ecr-public<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ecs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-efs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-eks<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-eks-auth<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-elasticache<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-elasticbeanstalk<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-elastictranscoder<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-elb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-elbv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-emr<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-emr-containers<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-emr-serverless<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-entityresolution<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-es<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-events<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-evidently<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-finspace<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-finspace-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-firehose<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-fis<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-fms<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-forecast<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-forecastquery<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-frauddetector<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-freetier<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-fsx<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-gamelift<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-geo-maps<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-geo-places<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-geo-routes<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-glacier<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-globalaccelerator<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-glue<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-grafana<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-greengrass<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-greengrassv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-groundstation<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-guardduty<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-health<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-healthlake<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iam<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-identitystore<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-imagebuilder<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-importexport<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-inspector<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-inspector-scan<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-inspector2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-internetmonitor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-invoicing<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iot<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iot-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iot-jobs-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotanalytics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotdeviceadvisor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotevents<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotevents-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotfleethub<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotfleetwise<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotsecuretunneling<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotsitewise<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotthingsgraph<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iottwinmaker<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-iotwireless<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ivs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ivs-realtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ivschat<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kafka<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kafkaconnect<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kendra<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kendra-ranking<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-keyspaces<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesis<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesis-video-archived-media<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesis-video-media<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesis-video-signaling<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesis-video-webrtc-storage<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesisanalytics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesisanalyticsv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kinesisvideo<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-kms<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lakeformation<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lambda<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-launch-wizard<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lex-models<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lex-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lexv2-models<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lexv2-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-license-manager<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-license-manager-linux-subscriptions<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-license-manager-user-subscriptions<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lightsail<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-location<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-logs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lookoutequipment<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lookoutmetrics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-lookoutvision<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-m2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-machinelearning<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-macie2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mailmanager<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-managedblockchain<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-managedblockchain-query<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-marketplace-agreement<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-marketplace-catalog<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-marketplace-deployment<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-marketplace-entitlement<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-marketplace-reporting<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-marketplacecommerceanalytics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediaconnect<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediaconvert<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-medialive<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediapackage<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediapackage-vod<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediapackagev2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediastore<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediastore-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mediatailor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-medical-imaging<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-memorydb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-meteringmarketplace<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mgh<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mgn<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-migration-hub-refactor-spaces<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-migrationhub-config<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-migrationhuborchestrator<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-migrationhubstrategy<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mq<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mturk<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-mwaa<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-neptune<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-neptune-graph<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-neptunedata<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-network-firewall<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-networkflowmonitor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-networkmanager<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-networkmonitor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-notifications<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-notificationscontacts<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-oam<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-observabilityadmin<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-omics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-opensearch<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-opensearchserverless<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-opsworks<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-opsworkscm<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-organizations<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-osis<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-outposts<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-panorama<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-partnercentral-selling<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-payment-cryptography<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-payment-cryptography-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pca-connector-ad<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pca-connector-scep<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pcs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-personalize<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-personalize-events<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-personalize-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pi<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pinpoint<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pinpoint-email<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pinpoint-sms-voice<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pinpoint-sms-voice-v2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pipes<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-polly<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-pricing<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-privatenetworks<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-proton<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-qapps<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-qbusiness<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-qconnect<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-qldb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-qldb-session<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-quicksight<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ram<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-rbin<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-rds<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-rds-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-redshift<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-redshift-data<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-redshift-serverless<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-rekognition<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-repostspace<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-resiliencehub<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-resource-explorer-2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-resource-groups<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-resourcegroupstaggingapi<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-robomaker<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-rolesanywhere<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53-recovery-cluster<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53-recovery-control-config<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53-recovery-readiness<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53domains<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53profiles<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-route53resolver<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-rum<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-s3<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-s3control<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-s3outposts<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-s3tables<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker-a2i-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker-edge<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker-featurestore-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker-geospatial<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker-metrics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sagemaker-runtime<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-savingsplans<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-scheduler<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-schemas<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sdb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-secretsmanager<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-security-ir<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-securityhub<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-securitylake<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-serverlessrepo<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-service-quotas<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-servicecatalog<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-servicecatalog-appregistry<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-servicediscovery<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ses<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sesv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-shield<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-signer<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-simspaceweaver<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sms<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sms-voice<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-snow-device-management<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-snowball<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sns<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-socialmessaging<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sqs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ssm<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ssm-contacts<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ssm-incidents<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ssm-quicksetup<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-ssm-sap<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sso<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sso-admin<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sso-oidc<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-stepfunctions<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-storagegateway<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-sts<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-supplychain<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-support<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-support-app<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-swf<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-synthetics<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-taxsettings<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-textract<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-timestream-influxdb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-timestream-query<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-timestream-write<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-tnb<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-transcribe<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-transfer<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-translate<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-trustedadvisor<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-verifiedpermissions<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-voice-id<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-vpc-lattice<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-waf<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-waf-regional<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-wafv2<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-wellarchitected<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-wisdom<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-workdocs<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-workmail<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-workmailmessageflow<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-workspaces<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-workspaces-thin-client<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-workspaces-web<2.22.0,>=2.21.0; extra == "all"
-Requires-Dist: types-aiobotocore-xray<2.22.0,>=2.21.0; extra == "all"
+Requires-Dist: types-aiobotocore-accessanalyzer<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-account<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-acm<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-acm-pca<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-amp<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-amplify<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-amplifybackend<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-amplifyuibuilder<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-apigateway<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-apigatewaymanagementapi<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-apigatewayv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appconfig<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appconfigdata<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appfabric<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appflow<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appintegrations<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-application-autoscaling<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-application-insights<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-application-signals<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-applicationcostprofiler<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appmesh<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-apprunner<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appstream<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-appsync<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-apptest<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-arc-zonal-shift<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-artifact<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-athena<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-auditmanager<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-autoscaling<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-autoscaling-plans<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-b2bi<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-backup<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-backup-gateway<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-backupsearch<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-batch<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bcm-data-exports<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-agent<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-data-automation<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-data-automation-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-billing<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-billingconductor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-braket<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-budgets<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ce<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chatbot<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chime-sdk-identity<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chime-sdk-media-pipelines<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chime-sdk-meetings<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chime-sdk-messaging<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-chime-sdk-voice<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cleanrooms<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cleanroomsml<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloud9<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudcontrol<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-clouddirectory<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudformation<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudfront<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudfront-keyvaluestore<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudhsm<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudhsmv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudsearch<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudsearchdomain<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudtrail<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudtrail-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cloudwatch<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codeartifact<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codebuild<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codecatalyst<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codecommit<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codeconnections<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codedeploy<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codeguru-reviewer<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codeguru-security<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codeguruprofiler<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codepipeline<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codestar-connections<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-codestar-notifications<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cognito-identity<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cognito-idp<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cognito-sync<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-comprehend<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-comprehendmedical<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-compute-optimizer<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-config<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-connect<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-connect-contact-lens<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-connectcampaigns<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-connectcampaignsv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-connectcases<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-connectparticipant<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-controlcatalog<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-controltower<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cost-optimization-hub<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-cur<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-customer-profiles<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-databrew<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dataexchange<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-datapipeline<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-datasync<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-datazone<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dax<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-deadline<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-detective<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-devicefarm<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-devops-guru<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-directconnect<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-discovery<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dlm<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dms<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-docdb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-docdb-elastic<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-drs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ds<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ds-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dsql<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dynamodb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-dynamodbstreams<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ebs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ec2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ec2-instance-connect<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ecr<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ecr-public<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ecs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-efs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-eks<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-eks-auth<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-elasticache<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-elasticbeanstalk<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-elastictranscoder<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-elb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-elbv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-emr<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-emr-containers<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-emr-serverless<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-entityresolution<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-es<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-events<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-evidently<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-finspace<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-finspace-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-firehose<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-fis<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-fms<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-forecast<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-forecastquery<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-frauddetector<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-freetier<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-fsx<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-gamelift<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-geo-maps<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-geo-places<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-geo-routes<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-glacier<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-globalaccelerator<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-glue<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-grafana<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-greengrass<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-greengrassv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-groundstation<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-guardduty<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-health<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-healthlake<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iam<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-identitystore<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-imagebuilder<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-importexport<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-inspector<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-inspector-scan<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-inspector2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-internetmonitor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-invoicing<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iot<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iot-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iot-jobs-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotanalytics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotdeviceadvisor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotevents<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotevents-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotfleethub<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotfleetwise<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotsecuretunneling<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotsitewise<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotthingsgraph<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iottwinmaker<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-iotwireless<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ivs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ivs-realtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ivschat<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kafka<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kafkaconnect<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kendra<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kendra-ranking<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-keyspaces<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesis<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesis-video-archived-media<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesis-video-media<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesis-video-signaling<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesis-video-webrtc-storage<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesisanalytics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesisanalyticsv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kinesisvideo<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-kms<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lakeformation<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lambda<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-launch-wizard<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lex-models<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lex-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lexv2-models<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lexv2-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-license-manager<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-license-manager-linux-subscriptions<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-license-manager-user-subscriptions<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lightsail<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-location<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-logs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lookoutequipment<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lookoutmetrics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-lookoutvision<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-m2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-machinelearning<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-macie2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mailmanager<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-managedblockchain<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-managedblockchain-query<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-marketplace-agreement<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-marketplace-catalog<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-marketplace-deployment<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-marketplace-entitlement<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-marketplace-reporting<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-marketplacecommerceanalytics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediaconnect<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediaconvert<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-medialive<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediapackage<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediapackage-vod<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediapackagev2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediastore<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediastore-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mediatailor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-medical-imaging<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-memorydb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-meteringmarketplace<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mgh<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mgn<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-migration-hub-refactor-spaces<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-migrationhub-config<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-migrationhuborchestrator<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-migrationhubstrategy<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mq<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mturk<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-mwaa<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-neptune<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-neptune-graph<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-neptunedata<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-network-firewall<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-networkflowmonitor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-networkmanager<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-networkmonitor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-notifications<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-notificationscontacts<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-oam<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-observabilityadmin<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-omics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-opensearch<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-opensearchserverless<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-opsworks<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-opsworkscm<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-organizations<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-osis<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-outposts<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-panorama<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-partnercentral-selling<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-payment-cryptography<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-payment-cryptography-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pca-connector-ad<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pca-connector-scep<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pcs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-personalize<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-personalize-events<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-personalize-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pi<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pinpoint<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pinpoint-email<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pinpoint-sms-voice<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pinpoint-sms-voice-v2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pipes<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-polly<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-pricing<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-privatenetworks<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-proton<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-qapps<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-qbusiness<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-qconnect<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-qldb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-qldb-session<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-quicksight<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ram<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-rbin<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-rds<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-rds-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-redshift<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-redshift-data<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-redshift-serverless<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-rekognition<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-repostspace<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-resiliencehub<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-resource-explorer-2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-resource-groups<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-resourcegroupstaggingapi<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-robomaker<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-rolesanywhere<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53-recovery-cluster<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53-recovery-control-config<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53-recovery-readiness<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53domains<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53profiles<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-route53resolver<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-rum<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-s3<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-s3control<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-s3outposts<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-s3tables<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker-a2i-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker-edge<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker-featurestore-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker-geospatial<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker-metrics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sagemaker-runtime<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-savingsplans<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-scheduler<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-schemas<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sdb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-secretsmanager<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-security-ir<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-securityhub<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-securitylake<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-serverlessrepo<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-service-quotas<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-servicecatalog<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-servicecatalog-appregistry<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-servicediscovery<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ses<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sesv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-shield<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-signer<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-simspaceweaver<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sms<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sms-voice<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-snow-device-management<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-snowball<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sns<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-socialmessaging<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sqs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ssm<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ssm-contacts<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ssm-incidents<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ssm-quicksetup<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-ssm-sap<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sso<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sso-admin<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sso-oidc<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-stepfunctions<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-storagegateway<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-sts<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-supplychain<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-support<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-support-app<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-swf<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-synthetics<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-taxsettings<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-textract<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-timestream-influxdb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-timestream-query<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-timestream-write<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-tnb<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-transcribe<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-transfer<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-translate<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-trustedadvisor<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-verifiedpermissions<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-voice-id<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-vpc-lattice<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-waf<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-waf-regional<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-wafv2<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-wellarchitected<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-wisdom<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-workdocs<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-workmail<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-workmailmessageflow<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-workspaces<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-workspaces-thin-client<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-workspaces-web<2.23.0,>=2.22.0; extra == "all"
+Requires-Dist: types-aiobotocore-xray<2.23.0,>=2.22.0; extra == "all"
 Provides-Extra: essential
-Requires-Dist: types-aiobotocore-cloudformation<2.22.0,>=2.21.0; extra == "essential"
-Requires-Dist: types-aiobotocore-dynamodb<2.22.0,>=2.21.0; extra == "essential"
-Requires-Dist: types-aiobotocore-ec2<2.22.0,>=2.21.0; extra == "essential"
-Requires-Dist: types-aiobotocore-lambda<2.22.0,>=2.21.0; extra == "essential"
-Requires-Dist: types-aiobotocore-rds<2.22.0,>=2.21.0; extra == "essential"
-Requires-Dist: types-aiobotocore-s3<2.22.0,>=2.21.0; extra == "essential"
-Requires-Dist: types-aiobotocore-sqs<2.22.0,>=2.21.0; extra == "essential"
+Requires-Dist: types-aiobotocore-cloudformation<2.23.0,>=2.22.0; extra == "essential"
+Requires-Dist: types-aiobotocore-dynamodb<2.23.0,>=2.22.0; extra == "essential"
+Requires-Dist: types-aiobotocore-ec2<2.23.0,>=2.22.0; extra == "essential"
+Requires-Dist: types-aiobotocore-lambda<2.23.0,>=2.22.0; extra == "essential"
+Requires-Dist: types-aiobotocore-rds<2.23.0,>=2.22.0; extra == "essential"
+Requires-Dist: types-aiobotocore-s3<2.23.0,>=2.22.0; extra == "essential"
+Requires-Dist: types-aiobotocore-sqs<2.23.0,>=2.22.0; extra == "essential"
 Provides-Extra: accessanalyzer
-Requires-Dist: types-aiobotocore-accessanalyzer<2.22.0,>=2.21.0; extra == "accessanalyzer"
+Requires-Dist: types-aiobotocore-accessanalyzer<2.23.0,>=2.22.0; extra == "accessanalyzer"
 Provides-Extra: account
-Requires-Dist: types-aiobotocore-account<2.22.0,>=2.21.0; extra == "account"
+Requires-Dist: types-aiobotocore-account<2.23.0,>=2.22.0; extra == "account"
 Provides-Extra: acm
-Requires-Dist: types-aiobotocore-acm<2.22.0,>=2.21.0; extra == "acm"
+Requires-Dist: types-aiobotocore-acm<2.23.0,>=2.22.0; extra == "acm"
 Provides-Extra: acm-pca
-Requires-Dist: types-aiobotocore-acm-pca<2.22.0,>=2.21.0; extra == "acm-pca"
+Requires-Dist: types-aiobotocore-acm-pca<2.23.0,>=2.22.0; extra == "acm-pca"
 Provides-Extra: amp
-Requires-Dist: types-aiobotocore-amp<2.22.0,>=2.21.0; extra == "amp"
+Requires-Dist: types-aiobotocore-amp<2.23.0,>=2.22.0; extra == "amp"
 Provides-Extra: amplify
-Requires-Dist: types-aiobotocore-amplify<2.22.0,>=2.21.0; extra == "amplify"
+Requires-Dist: types-aiobotocore-amplify<2.23.0,>=2.22.0; extra == "amplify"
 Provides-Extra: amplifybackend
-Requires-Dist: types-aiobotocore-amplifybackend<2.22.0,>=2.21.0; extra == "amplifybackend"
+Requires-Dist: types-aiobotocore-amplifybackend<2.23.0,>=2.22.0; extra == "amplifybackend"
 Provides-Extra: amplifyuibuilder
-Requires-Dist: types-aiobotocore-amplifyuibuilder<2.22.0,>=2.21.0; extra == "amplifyuibuilder"
+Requires-Dist: types-aiobotocore-amplifyuibuilder<2.23.0,>=2.22.0; extra == "amplifyuibuilder"
 Provides-Extra: apigateway
-Requires-Dist: types-aiobotocore-apigateway<2.22.0,>=2.21.0; extra == "apigateway"
+Requires-Dist: types-aiobotocore-apigateway<2.23.0,>=2.22.0; extra == "apigateway"
 Provides-Extra: apigatewaymanagementapi
-Requires-Dist: types-aiobotocore-apigatewaymanagementapi<2.22.0,>=2.21.0; extra == "apigatewaymanagementapi"
+Requires-Dist: types-aiobotocore-apigatewaymanagementapi<2.23.0,>=2.22.0; extra == "apigatewaymanagementapi"
 Provides-Extra: apigatewayv2
-Requires-Dist: types-aiobotocore-apigatewayv2<2.22.0,>=2.21.0; extra == "apigatewayv2"
+Requires-Dist: types-aiobotocore-apigatewayv2<2.23.0,>=2.22.0; extra == "apigatewayv2"
 Provides-Extra: appconfig
-Requires-Dist: types-aiobotocore-appconfig<2.22.0,>=2.21.0; extra == "appconfig"
+Requires-Dist: types-aiobotocore-appconfig<2.23.0,>=2.22.0; extra == "appconfig"
 Provides-Extra: appconfigdata
-Requires-Dist: types-aiobotocore-appconfigdata<2.22.0,>=2.21.0; extra == "appconfigdata"
+Requires-Dist: types-aiobotocore-appconfigdata<2.23.0,>=2.22.0; extra == "appconfigdata"
 Provides-Extra: appfabric
-Requires-Dist: types-aiobotocore-appfabric<2.22.0,>=2.21.0; extra == "appfabric"
+Requires-Dist: types-aiobotocore-appfabric<2.23.0,>=2.22.0; extra == "appfabric"
 Provides-Extra: appflow
-Requires-Dist: types-aiobotocore-appflow<2.22.0,>=2.21.0; extra == "appflow"
+Requires-Dist: types-aiobotocore-appflow<2.23.0,>=2.22.0; extra == "appflow"
 Provides-Extra: appintegrations
-Requires-Dist: types-aiobotocore-appintegrations<2.22.0,>=2.21.0; extra == "appintegrations"
+Requires-Dist: types-aiobotocore-appintegrations<2.23.0,>=2.22.0; extra == "appintegrations"
 Provides-Extra: application-autoscaling
-Requires-Dist: types-aiobotocore-application-autoscaling<2.22.0,>=2.21.0; extra == "application-autoscaling"
+Requires-Dist: types-aiobotocore-application-autoscaling<2.23.0,>=2.22.0; extra == "application-autoscaling"
 Provides-Extra: application-insights
-Requires-Dist: types-aiobotocore-application-insights<2.22.0,>=2.21.0; extra == "application-insights"
+Requires-Dist: types-aiobotocore-application-insights<2.23.0,>=2.22.0; extra == "application-insights"
 Provides-Extra: application-signals
-Requires-Dist: types-aiobotocore-application-signals<2.22.0,>=2.21.0; extra == "application-signals"
+Requires-Dist: types-aiobotocore-application-signals<2.23.0,>=2.22.0; extra == "application-signals"
 Provides-Extra: applicationcostprofiler
-Requires-Dist: types-aiobotocore-applicationcostprofiler<2.22.0,>=2.21.0; extra == "applicationcostprofiler"
+Requires-Dist: types-aiobotocore-applicationcostprofiler<2.23.0,>=2.22.0; extra == "applicationcostprofiler"
 Provides-Extra: appmesh
-Requires-Dist: types-aiobotocore-appmesh<2.22.0,>=2.21.0; extra == "appmesh"
+Requires-Dist: types-aiobotocore-appmesh<2.23.0,>=2.22.0; extra == "appmesh"
 Provides-Extra: apprunner
-Requires-Dist: types-aiobotocore-apprunner<2.22.0,>=2.21.0; extra == "apprunner"
+Requires-Dist: types-aiobotocore-apprunner<2.23.0,>=2.22.0; extra == "apprunner"
 Provides-Extra: appstream
-Requires-Dist: types-aiobotocore-appstream<2.22.0,>=2.21.0; extra == "appstream"
+Requires-Dist: types-aiobotocore-appstream<2.23.0,>=2.22.0; extra == "appstream"
 Provides-Extra: appsync
-Requires-Dist: types-aiobotocore-appsync<2.22.0,>=2.21.0; extra == "appsync"
+Requires-Dist: types-aiobotocore-appsync<2.23.0,>=2.22.0; extra == "appsync"
 Provides-Extra: apptest
-Requires-Dist: types-aiobotocore-apptest<2.22.0,>=2.21.0; extra == "apptest"
+Requires-Dist: types-aiobotocore-apptest<2.23.0,>=2.22.0; extra == "apptest"
 Provides-Extra: arc-zonal-shift
-Requires-Dist: types-aiobotocore-arc-zonal-shift<2.22.0,>=2.21.0; extra == "arc-zonal-shift"
+Requires-Dist: types-aiobotocore-arc-zonal-shift<2.23.0,>=2.22.0; extra == "arc-zonal-shift"
 Provides-Extra: artifact
-Requires-Dist: types-aiobotocore-artifact<2.22.0,>=2.21.0; extra == "artifact"
+Requires-Dist: types-aiobotocore-artifact<2.23.0,>=2.22.0; extra == "artifact"
 Provides-Extra: athena
-Requires-Dist: types-aiobotocore-athena<2.22.0,>=2.21.0; extra == "athena"
+Requires-Dist: types-aiobotocore-athena<2.23.0,>=2.22.0; extra == "athena"
 Provides-Extra: auditmanager
-Requires-Dist: types-aiobotocore-auditmanager<2.22.0,>=2.21.0; extra == "auditmanager"
+Requires-Dist: types-aiobotocore-auditmanager<2.23.0,>=2.22.0; extra == "auditmanager"
 Provides-Extra: autoscaling
-Requires-Dist: types-aiobotocore-autoscaling<2.22.0,>=2.21.0; extra == "autoscaling"
+Requires-Dist: types-aiobotocore-autoscaling<2.23.0,>=2.22.0; extra == "autoscaling"
 Provides-Extra: autoscaling-plans
-Requires-Dist: types-aiobotocore-autoscaling-plans<2.22.0,>=2.21.0; extra == "autoscaling-plans"
+Requires-Dist: types-aiobotocore-autoscaling-plans<2.23.0,>=2.22.0; extra == "autoscaling-plans"
 Provides-Extra: b2bi
-Requires-Dist: types-aiobotocore-b2bi<2.22.0,>=2.21.0; extra == "b2bi"
+Requires-Dist: types-aiobotocore-b2bi<2.23.0,>=2.22.0; extra == "b2bi"
 Provides-Extra: backup
-Requires-Dist: types-aiobotocore-backup<2.22.0,>=2.21.0; extra == "backup"
+Requires-Dist: types-aiobotocore-backup<2.23.0,>=2.22.0; extra == "backup"
 Provides-Extra: backup-gateway
-Requires-Dist: types-aiobotocore-backup-gateway<2.22.0,>=2.21.0; extra == "backup-gateway"
+Requires-Dist: types-aiobotocore-backup-gateway<2.23.0,>=2.22.0; extra == "backup-gateway"
 Provides-Extra: backupsearch
-Requires-Dist: types-aiobotocore-backupsearch<2.22.0,>=2.21.0; extra == "backupsearch"
+Requires-Dist: types-aiobotocore-backupsearch<2.23.0,>=2.22.0; extra == "backupsearch"
 Provides-Extra: batch
-Requires-Dist: types-aiobotocore-batch<2.22.0,>=2.21.0; extra == "batch"
+Requires-Dist: types-aiobotocore-batch<2.23.0,>=2.22.0; extra == "batch"
 Provides-Extra: bcm-data-exports
-Requires-Dist: types-aiobotocore-bcm-data-exports<2.22.0,>=2.21.0; extra == "bcm-data-exports"
+Requires-Dist: types-aiobotocore-bcm-data-exports<2.23.0,>=2.22.0; extra == "bcm-data-exports"
 Provides-Extra: bcm-pricing-calculator
-Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.22.0,>=2.21.0; extra == "bcm-pricing-calculator"
+Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.23.0,>=2.22.0; extra == "bcm-pricing-calculator"
 Provides-Extra: bedrock
-Requires-Dist: types-aiobotocore-bedrock<2.22.0,>=2.21.0; extra == "bedrock"
+Requires-Dist: types-aiobotocore-bedrock<2.23.0,>=2.22.0; extra == "bedrock"
 Provides-Extra: bedrock-agent
-Requires-Dist: types-aiobotocore-bedrock-agent<2.22.0,>=2.21.0; extra == "bedrock-agent"
+Requires-Dist: types-aiobotocore-bedrock-agent<2.23.0,>=2.22.0; extra == "bedrock-agent"
 Provides-Extra: bedrock-agent-runtime
-Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.22.0,>=2.21.0; extra == "bedrock-agent-runtime"
+Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.23.0,>=2.22.0; extra == "bedrock-agent-runtime"
 Provides-Extra: bedrock-data-automation
-Requires-Dist: types-aiobotocore-bedrock-data-automation<2.22.0,>=2.21.0; extra == "bedrock-data-automation"
+Requires-Dist: types-aiobotocore-bedrock-data-automation<2.23.0,>=2.22.0; extra == "bedrock-data-automation"
 Provides-Extra: bedrock-data-automation-runtime
-Requires-Dist: types-aiobotocore-bedrock-data-automation-runtime<2.22.0,>=2.21.0; extra == "bedrock-data-automation-runtime"
+Requires-Dist: types-aiobotocore-bedrock-data-automation-runtime<2.23.0,>=2.22.0; extra == "bedrock-data-automation-runtime"
 Provides-Extra: bedrock-runtime
-Requires-Dist: types-aiobotocore-bedrock-runtime<2.22.0,>=2.21.0; extra == "bedrock-runtime"
+Requires-Dist: types-aiobotocore-bedrock-runtime<2.23.0,>=2.22.0; extra == "bedrock-runtime"
 Provides-Extra: billing
-Requires-Dist: types-aiobotocore-billing<2.22.0,>=2.21.0; extra == "billing"
+Requires-Dist: types-aiobotocore-billing<2.23.0,>=2.22.0; extra == "billing"
 Provides-Extra: billingconductor
-Requires-Dist: types-aiobotocore-billingconductor<2.22.0,>=2.21.0; extra == "billingconductor"
+Requires-Dist: types-aiobotocore-billingconductor<2.23.0,>=2.22.0; extra == "billingconductor"
 Provides-Extra: braket
-Requires-Dist: types-aiobotocore-braket<2.22.0,>=2.21.0; extra == "braket"
+Requires-Dist: types-aiobotocore-braket<2.23.0,>=2.22.0; extra == "braket"
 Provides-Extra: budgets
-Requires-Dist: types-aiobotocore-budgets<2.22.0,>=2.21.0; extra == "budgets"
+Requires-Dist: types-aiobotocore-budgets<2.23.0,>=2.22.0; extra == "budgets"
 Provides-Extra: ce
-Requires-Dist: types-aiobotocore-ce<2.22.0,>=2.21.0; extra == "ce"
+Requires-Dist: types-aiobotocore-ce<2.23.0,>=2.22.0; extra == "ce"
 Provides-Extra: chatbot
-Requires-Dist: types-aiobotocore-chatbot<2.22.0,>=2.21.0; extra == "chatbot"
+Requires-Dist: types-aiobotocore-chatbot<2.23.0,>=2.22.0; extra == "chatbot"
 Provides-Extra: chime
-Requires-Dist: types-aiobotocore-chime<2.22.0,>=2.21.0; extra == "chime"
+Requires-Dist: types-aiobotocore-chime<2.23.0,>=2.22.0; extra == "chime"
 Provides-Extra: chime-sdk-identity
-Requires-Dist: types-aiobotocore-chime-sdk-identity<2.22.0,>=2.21.0; extra == "chime-sdk-identity"
+Requires-Dist: types-aiobotocore-chime-sdk-identity<2.23.0,>=2.22.0; extra == "chime-sdk-identity"
 Provides-Extra: chime-sdk-media-pipelines
-Requires-Dist: types-aiobotocore-chime-sdk-media-pipelines<2.22.0,>=2.21.0; extra == "chime-sdk-media-pipelines"
+Requires-Dist: types-aiobotocore-chime-sdk-media-pipelines<2.23.0,>=2.22.0; extra == "chime-sdk-media-pipelines"
 Provides-Extra: chime-sdk-meetings
-Requires-Dist: types-aiobotocore-chime-sdk-meetings<2.22.0,>=2.21.0; extra == "chime-sdk-meetings"
+Requires-Dist: types-aiobotocore-chime-sdk-meetings<2.23.0,>=2.22.0; extra == "chime-sdk-meetings"
 Provides-Extra: chime-sdk-messaging
-Requires-Dist: types-aiobotocore-chime-sdk-messaging<2.22.0,>=2.21.0; extra == "chime-sdk-messaging"
+Requires-Dist: types-aiobotocore-chime-sdk-messaging<2.23.0,>=2.22.0; extra == "chime-sdk-messaging"
 Provides-Extra: chime-sdk-voice
-Requires-Dist: types-aiobotocore-chime-sdk-voice<2.22.0,>=2.21.0; extra == "chime-sdk-voice"
+Requires-Dist: types-aiobotocore-chime-sdk-voice<2.23.0,>=2.22.0; extra == "chime-sdk-voice"
 Provides-Extra: cleanrooms
-Requires-Dist: types-aiobotocore-cleanrooms<2.22.0,>=2.21.0; extra == "cleanrooms"
+Requires-Dist: types-aiobotocore-cleanrooms<2.23.0,>=2.22.0; extra == "cleanrooms"
 Provides-Extra: cleanroomsml
-Requires-Dist: types-aiobotocore-cleanroomsml<2.22.0,>=2.21.0; extra == "cleanroomsml"
+Requires-Dist: types-aiobotocore-cleanroomsml<2.23.0,>=2.22.0; extra == "cleanroomsml"
 Provides-Extra: cloud9
-Requires-Dist: types-aiobotocore-cloud9<2.22.0,>=2.21.0; extra == "cloud9"
+Requires-Dist: types-aiobotocore-cloud9<2.23.0,>=2.22.0; extra == "cloud9"
 Provides-Extra: cloudcontrol
-Requires-Dist: types-aiobotocore-cloudcontrol<2.22.0,>=2.21.0; extra == "cloudcontrol"
+Requires-Dist: types-aiobotocore-cloudcontrol<2.23.0,>=2.22.0; extra == "cloudcontrol"
 Provides-Extra: clouddirectory
-Requires-Dist: types-aiobotocore-clouddirectory<2.22.0,>=2.21.0; extra == "clouddirectory"
+Requires-Dist: types-aiobotocore-clouddirectory<2.23.0,>=2.22.0; extra == "clouddirectory"
 Provides-Extra: cloudformation
-Requires-Dist: types-aiobotocore-cloudformation<2.22.0,>=2.21.0; extra == "cloudformation"
+Requires-Dist: types-aiobotocore-cloudformation<2.23.0,>=2.22.0; extra == "cloudformation"
 Provides-Extra: cloudfront
-Requires-Dist: types-aiobotocore-cloudfront<2.22.0,>=2.21.0; extra == "cloudfront"
+Requires-Dist: types-aiobotocore-cloudfront<2.23.0,>=2.22.0; extra == "cloudfront"
 Provides-Extra: cloudfront-keyvaluestore
-Requires-Dist: types-aiobotocore-cloudfront-keyvaluestore<2.22.0,>=2.21.0; extra == "cloudfront-keyvaluestore"
+Requires-Dist: types-aiobotocore-cloudfront-keyvaluestore<2.23.0,>=2.22.0; extra == "cloudfront-keyvaluestore"
 Provides-Extra: cloudhsm
-Requires-Dist: types-aiobotocore-cloudhsm<2.22.0,>=2.21.0; extra == "cloudhsm"
+Requires-Dist: types-aiobotocore-cloudhsm<2.23.0,>=2.22.0; extra == "cloudhsm"
 Provides-Extra: cloudhsmv2
-Requires-Dist: types-aiobotocore-cloudhsmv2<2.22.0,>=2.21.0; extra == "cloudhsmv2"
+Requires-Dist: types-aiobotocore-cloudhsmv2<2.23.0,>=2.22.0; extra == "cloudhsmv2"
 Provides-Extra: cloudsearch
-Requires-Dist: types-aiobotocore-cloudsearch<2.22.0,>=2.21.0; extra == "cloudsearch"
+Requires-Dist: types-aiobotocore-cloudsearch<2.23.0,>=2.22.0; extra == "cloudsearch"
 Provides-Extra: cloudsearchdomain
-Requires-Dist: types-aiobotocore-cloudsearchdomain<2.22.0,>=2.21.0; extra == "cloudsearchdomain"
+Requires-Dist: types-aiobotocore-cloudsearchdomain<2.23.0,>=2.22.0; extra == "cloudsearchdomain"
 Provides-Extra: cloudtrail
-Requires-Dist: types-aiobotocore-cloudtrail<2.22.0,>=2.21.0; extra == "cloudtrail"
+Requires-Dist: types-aiobotocore-cloudtrail<2.23.0,>=2.22.0; extra == "cloudtrail"
 Provides-Extra: cloudtrail-data
-Requires-Dist: types-aiobotocore-cloudtrail-data<2.22.0,>=2.21.0; extra == "cloudtrail-data"
+Requires-Dist: types-aiobotocore-cloudtrail-data<2.23.0,>=2.22.0; extra == "cloudtrail-data"
 Provides-Extra: cloudwatch
-Requires-Dist: types-aiobotocore-cloudwatch<2.22.0,>=2.21.0; extra == "cloudwatch"
+Requires-Dist: types-aiobotocore-cloudwatch<2.23.0,>=2.22.0; extra == "cloudwatch"
 Provides-Extra: codeartifact
-Requires-Dist: types-aiobotocore-codeartifact<2.22.0,>=2.21.0; extra == "codeartifact"
+Requires-Dist: types-aiobotocore-codeartifact<2.23.0,>=2.22.0; extra == "codeartifact"
 Provides-Extra: codebuild
-Requires-Dist: types-aiobotocore-codebuild<2.22.0,>=2.21.0; extra == "codebuild"
+Requires-Dist: types-aiobotocore-codebuild<2.23.0,>=2.22.0; extra == "codebuild"
 Provides-Extra: codecatalyst
-Requires-Dist: types-aiobotocore-codecatalyst<2.22.0,>=2.21.0; extra == "codecatalyst"
+Requires-Dist: types-aiobotocore-codecatalyst<2.23.0,>=2.22.0; extra == "codecatalyst"
 Provides-Extra: codecommit
-Requires-Dist: types-aiobotocore-codecommit<2.22.0,>=2.21.0; extra == "codecommit"
+Requires-Dist: types-aiobotocore-codecommit<2.23.0,>=2.22.0; extra == "codecommit"
 Provides-Extra: codeconnections
-Requires-Dist: types-aiobotocore-codeconnections<2.22.0,>=2.21.0; extra == "codeconnections"
+Requires-Dist: types-aiobotocore-codeconnections<2.23.0,>=2.22.0; extra == "codeconnections"
 Provides-Extra: codedeploy
-Requires-Dist: types-aiobotocore-codedeploy<2.22.0,>=2.21.0; extra == "codedeploy"
+Requires-Dist: types-aiobotocore-codedeploy<2.23.0,>=2.22.0; extra == "codedeploy"
 Provides-Extra: codeguru-reviewer
-Requires-Dist: types-aiobotocore-codeguru-reviewer<2.22.0,>=2.21.0; extra == "codeguru-reviewer"
+Requires-Dist: types-aiobotocore-codeguru-reviewer<2.23.0,>=2.22.0; extra == "codeguru-reviewer"
 Provides-Extra: codeguru-security
-Requires-Dist: types-aiobotocore-codeguru-security<2.22.0,>=2.21.0; extra == "codeguru-security"
+Requires-Dist: types-aiobotocore-codeguru-security<2.23.0,>=2.22.0; extra == "codeguru-security"
 Provides-Extra: codeguruprofiler
-Requires-Dist: types-aiobotocore-codeguruprofiler<2.22.0,>=2.21.0; extra == "codeguruprofiler"
+Requires-Dist: types-aiobotocore-codeguruprofiler<2.23.0,>=2.22.0; extra == "codeguruprofiler"
 Provides-Extra: codepipeline
-Requires-Dist: types-aiobotocore-codepipeline<2.22.0,>=2.21.0; extra == "codepipeline"
+Requires-Dist: types-aiobotocore-codepipeline<2.23.0,>=2.22.0; extra == "codepipeline"
 Provides-Extra: codestar-connections
-Requires-Dist: types-aiobotocore-codestar-connections<2.22.0,>=2.21.0; extra == "codestar-connections"
+Requires-Dist: types-aiobotocore-codestar-connections<2.23.0,>=2.22.0; extra == "codestar-connections"
 Provides-Extra: codestar-notifications
-Requires-Dist: types-aiobotocore-codestar-notifications<2.22.0,>=2.21.0; extra == "codestar-notifications"
+Requires-Dist: types-aiobotocore-codestar-notifications<2.23.0,>=2.22.0; extra == "codestar-notifications"
 Provides-Extra: cognito-identity
-Requires-Dist: types-aiobotocore-cognito-identity<2.22.0,>=2.21.0; extra == "cognito-identity"
+Requires-Dist: types-aiobotocore-cognito-identity<2.23.0,>=2.22.0; extra == "cognito-identity"
 Provides-Extra: cognito-idp
-Requires-Dist: types-aiobotocore-cognito-idp<2.22.0,>=2.21.0; extra == "cognito-idp"
+Requires-Dist: types-aiobotocore-cognito-idp<2.23.0,>=2.22.0; extra == "cognito-idp"
 Provides-Extra: cognito-sync
-Requires-Dist: types-aiobotocore-cognito-sync<2.22.0,>=2.21.0; extra == "cognito-sync"
+Requires-Dist: types-aiobotocore-cognito-sync<2.23.0,>=2.22.0; extra == "cognito-sync"
 Provides-Extra: comprehend
-Requires-Dist: types-aiobotocore-comprehend<2.22.0,>=2.21.0; extra == "comprehend"
+Requires-Dist: types-aiobotocore-comprehend<2.23.0,>=2.22.0; extra == "comprehend"
 Provides-Extra: comprehendmedical
-Requires-Dist: types-aiobotocore-comprehendmedical<2.22.0,>=2.21.0; extra == "comprehendmedical"
+Requires-Dist: types-aiobotocore-comprehendmedical<2.23.0,>=2.22.0; extra == "comprehendmedical"
 Provides-Extra: compute-optimizer
-Requires-Dist: types-aiobotocore-compute-optimizer<2.22.0,>=2.21.0; extra == "compute-optimizer"
+Requires-Dist: types-aiobotocore-compute-optimizer<2.23.0,>=2.22.0; extra == "compute-optimizer"
 Provides-Extra: config
-Requires-Dist: types-aiobotocore-config<2.22.0,>=2.21.0; extra == "config"
+Requires-Dist: types-aiobotocore-config<2.23.0,>=2.22.0; extra == "config"
 Provides-Extra: connect
-Requires-Dist: types-aiobotocore-connect<2.22.0,>=2.21.0; extra == "connect"
+Requires-Dist: types-aiobotocore-connect<2.23.0,>=2.22.0; extra == "connect"
 Provides-Extra: connect-contact-lens
-Requires-Dist: types-aiobotocore-connect-contact-lens<2.22.0,>=2.21.0; extra == "connect-contact-lens"
+Requires-Dist: types-aiobotocore-connect-contact-lens<2.23.0,>=2.22.0; extra == "connect-contact-lens"
 Provides-Extra: connectcampaigns
-Requires-Dist: types-aiobotocore-connectcampaigns<2.22.0,>=2.21.0; extra == "connectcampaigns"
+Requires-Dist: types-aiobotocore-connectcampaigns<2.23.0,>=2.22.0; extra == "connectcampaigns"
 Provides-Extra: connectcampaignsv2
-Requires-Dist: types-aiobotocore-connectcampaignsv2<2.22.0,>=2.21.0; extra == "connectcampaignsv2"
+Requires-Dist: types-aiobotocore-connectcampaignsv2<2.23.0,>=2.22.0; extra == "connectcampaignsv2"
 Provides-Extra: connectcases
-Requires-Dist: types-aiobotocore-connectcases<2.22.0,>=2.21.0; extra == "connectcases"
+Requires-Dist: types-aiobotocore-connectcases<2.23.0,>=2.22.0; extra == "connectcases"
 Provides-Extra: connectparticipant
-Requires-Dist: types-aiobotocore-connectparticipant<2.22.0,>=2.21.0; extra == "connectparticipant"
+Requires-Dist: types-aiobotocore-connectparticipant<2.23.0,>=2.22.0; extra == "connectparticipant"
 Provides-Extra: controlcatalog
-Requires-Dist: types-aiobotocore-controlcatalog<2.22.0,>=2.21.0; extra == "controlcatalog"
+Requires-Dist: types-aiobotocore-controlcatalog<2.23.0,>=2.22.0; extra == "controlcatalog"
 Provides-Extra: controltower
-Requires-Dist: types-aiobotocore-controltower<2.22.0,>=2.21.0; extra == "controltower"
+Requires-Dist: types-aiobotocore-controltower<2.23.0,>=2.22.0; extra == "controltower"
 Provides-Extra: cost-optimization-hub
-Requires-Dist: types-aiobotocore-cost-optimization-hub<2.22.0,>=2.21.0; extra == "cost-optimization-hub"
+Requires-Dist: types-aiobotocore-cost-optimization-hub<2.23.0,>=2.22.0; extra == "cost-optimization-hub"
 Provides-Extra: cur
-Requires-Dist: types-aiobotocore-cur<2.22.0,>=2.21.0; extra == "cur"
+Requires-Dist: types-aiobotocore-cur<2.23.0,>=2.22.0; extra == "cur"
 Provides-Extra: customer-profiles
-Requires-Dist: types-aiobotocore-customer-profiles<2.22.0,>=2.21.0; extra == "customer-profiles"
+Requires-Dist: types-aiobotocore-customer-profiles<2.23.0,>=2.22.0; extra == "customer-profiles"
 Provides-Extra: databrew
-Requires-Dist: types-aiobotocore-databrew<2.22.0,>=2.21.0; extra == "databrew"
+Requires-Dist: types-aiobotocore-databrew<2.23.0,>=2.22.0; extra == "databrew"
 Provides-Extra: dataexchange
-Requires-Dist: types-aiobotocore-dataexchange<2.22.0,>=2.21.0; extra == "dataexchange"
+Requires-Dist: types-aiobotocore-dataexchange<2.23.0,>=2.22.0; extra == "dataexchange"
 Provides-Extra: datapipeline
-Requires-Dist: types-aiobotocore-datapipeline<2.22.0,>=2.21.0; extra == "datapipeline"
+Requires-Dist: types-aiobotocore-datapipeline<2.23.0,>=2.22.0; extra == "datapipeline"
 Provides-Extra: datasync
-Requires-Dist: types-aiobotocore-datasync<2.22.0,>=2.21.0; extra == "datasync"
+Requires-Dist: types-aiobotocore-datasync<2.23.0,>=2.22.0; extra == "datasync"
 Provides-Extra: datazone
-Requires-Dist: types-aiobotocore-datazone<2.22.0,>=2.21.0; extra == "datazone"
+Requires-Dist: types-aiobotocore-datazone<2.23.0,>=2.22.0; extra == "datazone"
 Provides-Extra: dax
-Requires-Dist: types-aiobotocore-dax<2.22.0,>=2.21.0; extra == "dax"
+Requires-Dist: types-aiobotocore-dax<2.23.0,>=2.22.0; extra == "dax"
 Provides-Extra: deadline
-Requires-Dist: types-aiobotocore-deadline<2.22.0,>=2.21.0; extra == "deadline"
+Requires-Dist: types-aiobotocore-deadline<2.23.0,>=2.22.0; extra == "deadline"
 Provides-Extra: detective
-Requires-Dist: types-aiobotocore-detective<2.22.0,>=2.21.0; extra == "detective"
+Requires-Dist: types-aiobotocore-detective<2.23.0,>=2.22.0; extra == "detective"
 Provides-Extra: devicefarm
-Requires-Dist: types-aiobotocore-devicefarm<2.22.0,>=2.21.0; extra == "devicefarm"
+Requires-Dist: types-aiobotocore-devicefarm<2.23.0,>=2.22.0; extra == "devicefarm"
 Provides-Extra: devops-guru
-Requires-Dist: types-aiobotocore-devops-guru<2.22.0,>=2.21.0; extra == "devops-guru"
+Requires-Dist: types-aiobotocore-devops-guru<2.23.0,>=2.22.0; extra == "devops-guru"
 Provides-Extra: directconnect
-Requires-Dist: types-aiobotocore-directconnect<2.22.0,>=2.21.0; extra == "directconnect"
+Requires-Dist: types-aiobotocore-directconnect<2.23.0,>=2.22.0; extra == "directconnect"
 Provides-Extra: discovery
-Requires-Dist: types-aiobotocore-discovery<2.22.0,>=2.21.0; extra == "discovery"
+Requires-Dist: types-aiobotocore-discovery<2.23.0,>=2.22.0; extra == "discovery"
 Provides-Extra: dlm
-Requires-Dist: types-aiobotocore-dlm<2.22.0,>=2.21.0; extra == "dlm"
+Requires-Dist: types-aiobotocore-dlm<2.23.0,>=2.22.0; extra == "dlm"
 Provides-Extra: dms
-Requires-Dist: types-aiobotocore-dms<2.22.0,>=2.21.0; extra == "dms"
+Requires-Dist: types-aiobotocore-dms<2.23.0,>=2.22.0; extra == "dms"
 Provides-Extra: docdb
-Requires-Dist: types-aiobotocore-docdb<2.22.0,>=2.21.0; extra == "docdb"
+Requires-Dist: types-aiobotocore-docdb<2.23.0,>=2.22.0; extra == "docdb"
 Provides-Extra: docdb-elastic
-Requires-Dist: types-aiobotocore-docdb-elastic<2.22.0,>=2.21.0; extra == "docdb-elastic"
+Requires-Dist: types-aiobotocore-docdb-elastic<2.23.0,>=2.22.0; extra == "docdb-elastic"
 Provides-Extra: drs
-Requires-Dist: types-aiobotocore-drs<2.22.0,>=2.21.0; extra == "drs"
+Requires-Dist: types-aiobotocore-drs<2.23.0,>=2.22.0; extra == "drs"
 Provides-Extra: ds
-Requires-Dist: types-aiobotocore-ds<2.22.0,>=2.21.0; extra == "ds"
+Requires-Dist: types-aiobotocore-ds<2.23.0,>=2.22.0; extra == "ds"
 Provides-Extra: ds-data
-Requires-Dist: types-aiobotocore-ds-data<2.22.0,>=2.21.0; extra == "ds-data"
+Requires-Dist: types-aiobotocore-ds-data<2.23.0,>=2.22.0; extra == "ds-data"
 Provides-Extra: dsql
-Requires-Dist: types-aiobotocore-dsql<2.22.0,>=2.21.0; extra == "dsql"
+Requires-Dist: types-aiobotocore-dsql<2.23.0,>=2.22.0; extra == "dsql"
 Provides-Extra: dynamodb
-Requires-Dist: types-aiobotocore-dynamodb<2.22.0,>=2.21.0; extra == "dynamodb"
+Requires-Dist: types-aiobotocore-dynamodb<2.23.0,>=2.22.0; extra == "dynamodb"
 Provides-Extra: dynamodbstreams
-Requires-Dist: types-aiobotocore-dynamodbstreams<2.22.0,>=2.21.0; extra == "dynamodbstreams"
+Requires-Dist: types-aiobotocore-dynamodbstreams<2.23.0,>=2.22.0; extra == "dynamodbstreams"
 Provides-Extra: ebs
-Requires-Dist: types-aiobotocore-ebs<2.22.0,>=2.21.0; extra == "ebs"
+Requires-Dist: types-aiobotocore-ebs<2.23.0,>=2.22.0; extra == "ebs"
 Provides-Extra: ec2
-Requires-Dist: types-aiobotocore-ec2<2.22.0,>=2.21.0; extra == "ec2"
+Requires-Dist: types-aiobotocore-ec2<2.23.0,>=2.22.0; extra == "ec2"
 Provides-Extra: ec2-instance-connect
-Requires-Dist: types-aiobotocore-ec2-instance-connect<2.22.0,>=2.21.0; extra == "ec2-instance-connect"
+Requires-Dist: types-aiobotocore-ec2-instance-connect<2.23.0,>=2.22.0; extra == "ec2-instance-connect"
 Provides-Extra: ecr
-Requires-Dist: types-aiobotocore-ecr<2.22.0,>=2.21.0; extra == "ecr"
+Requires-Dist: types-aiobotocore-ecr<2.23.0,>=2.22.0; extra == "ecr"
 Provides-Extra: ecr-public
-Requires-Dist: types-aiobotocore-ecr-public<2.22.0,>=2.21.0; extra == "ecr-public"
+Requires-Dist: types-aiobotocore-ecr-public<2.23.0,>=2.22.0; extra == "ecr-public"
 Provides-Extra: ecs
-Requires-Dist: types-aiobotocore-ecs<2.22.0,>=2.21.0; extra == "ecs"
+Requires-Dist: types-aiobotocore-ecs<2.23.0,>=2.22.0; extra == "ecs"
 Provides-Extra: efs
-Requires-Dist: types-aiobotocore-efs<2.22.0,>=2.21.0; extra == "efs"
+Requires-Dist: types-aiobotocore-efs<2.23.0,>=2.22.0; extra == "efs"
 Provides-Extra: eks
-Requires-Dist: types-aiobotocore-eks<2.22.0,>=2.21.0; extra == "eks"
+Requires-Dist: types-aiobotocore-eks<2.23.0,>=2.22.0; extra == "eks"
 Provides-Extra: eks-auth
-Requires-Dist: types-aiobotocore-eks-auth<2.22.0,>=2.21.0; extra == "eks-auth"
+Requires-Dist: types-aiobotocore-eks-auth<2.23.0,>=2.22.0; extra == "eks-auth"
 Provides-Extra: elasticache
-Requires-Dist: types-aiobotocore-elasticache<2.22.0,>=2.21.0; extra == "elasticache"
+Requires-Dist: types-aiobotocore-elasticache<2.23.0,>=2.22.0; extra == "elasticache"
 Provides-Extra: elasticbeanstalk
-Requires-Dist: types-aiobotocore-elasticbeanstalk<2.22.0,>=2.21.0; extra == "elasticbeanstalk"
+Requires-Dist: types-aiobotocore-elasticbeanstalk<2.23.0,>=2.22.0; extra == "elasticbeanstalk"
 Provides-Extra: elastictranscoder
-Requires-Dist: types-aiobotocore-elastictranscoder<2.22.0,>=2.21.0; extra == "elastictranscoder"
+Requires-Dist: types-aiobotocore-elastictranscoder<2.23.0,>=2.22.0; extra == "elastictranscoder"
 Provides-Extra: elb
-Requires-Dist: types-aiobotocore-elb<2.22.0,>=2.21.0; extra == "elb"
+Requires-Dist: types-aiobotocore-elb<2.23.0,>=2.22.0; extra == "elb"
 Provides-Extra: elbv2
-Requires-Dist: types-aiobotocore-elbv2<2.22.0,>=2.21.0; extra == "elbv2"
+Requires-Dist: types-aiobotocore-elbv2<2.23.0,>=2.22.0; extra == "elbv2"
 Provides-Extra: emr
-Requires-Dist: types-aiobotocore-emr<2.22.0,>=2.21.0; extra == "emr"
+Requires-Dist: types-aiobotocore-emr<2.23.0,>=2.22.0; extra == "emr"
 Provides-Extra: emr-containers
-Requires-Dist: types-aiobotocore-emr-containers<2.22.0,>=2.21.0; extra == "emr-containers"
+Requires-Dist: types-aiobotocore-emr-containers<2.23.0,>=2.22.0; extra == "emr-containers"
 Provides-Extra: emr-serverless
-Requires-Dist: types-aiobotocore-emr-serverless<2.22.0,>=2.21.0; extra == "emr-serverless"
+Requires-Dist: types-aiobotocore-emr-serverless<2.23.0,>=2.22.0; extra == "emr-serverless"
 Provides-Extra: entityresolution
-Requires-Dist: types-aiobotocore-entityresolution<2.22.0,>=2.21.0; extra == "entityresolution"
+Requires-Dist: types-aiobotocore-entityresolution<2.23.0,>=2.22.0; extra == "entityresolution"
 Provides-Extra: es
-Requires-Dist: types-aiobotocore-es<2.22.0,>=2.21.0; extra == "es"
+Requires-Dist: types-aiobotocore-es<2.23.0,>=2.22.0; extra == "es"
 Provides-Extra: events
-Requires-Dist: types-aiobotocore-events<2.22.0,>=2.21.0; extra == "events"
+Requires-Dist: types-aiobotocore-events<2.23.0,>=2.22.0; extra == "events"
 Provides-Extra: evidently
-Requires-Dist: types-aiobotocore-evidently<2.22.0,>=2.21.0; extra == "evidently"
+Requires-Dist: types-aiobotocore-evidently<2.23.0,>=2.22.0; extra == "evidently"
 Provides-Extra: finspace
-Requires-Dist: types-aiobotocore-finspace<2.22.0,>=2.21.0; extra == "finspace"
+Requires-Dist: types-aiobotocore-finspace<2.23.0,>=2.22.0; extra == "finspace"
 Provides-Extra: finspace-data
-Requires-Dist: types-aiobotocore-finspace-data<2.22.0,>=2.21.0; extra == "finspace-data"
+Requires-Dist: types-aiobotocore-finspace-data<2.23.0,>=2.22.0; extra == "finspace-data"
 Provides-Extra: firehose
-Requires-Dist: types-aiobotocore-firehose<2.22.0,>=2.21.0; extra == "firehose"
+Requires-Dist: types-aiobotocore-firehose<2.23.0,>=2.22.0; extra == "firehose"
 Provides-Extra: fis
-Requires-Dist: types-aiobotocore-fis<2.22.0,>=2.21.0; extra == "fis"
+Requires-Dist: types-aiobotocore-fis<2.23.0,>=2.22.0; extra == "fis"
 Provides-Extra: fms
-Requires-Dist: types-aiobotocore-fms<2.22.0,>=2.21.0; extra == "fms"
+Requires-Dist: types-aiobotocore-fms<2.23.0,>=2.22.0; extra == "fms"
 Provides-Extra: forecast
-Requires-Dist: types-aiobotocore-forecast<2.22.0,>=2.21.0; extra == "forecast"
+Requires-Dist: types-aiobotocore-forecast<2.23.0,>=2.22.0; extra == "forecast"
 Provides-Extra: forecastquery
-Requires-Dist: types-aiobotocore-forecastquery<2.22.0,>=2.21.0; extra == "forecastquery"
+Requires-Dist: types-aiobotocore-forecastquery<2.23.0,>=2.22.0; extra == "forecastquery"
 Provides-Extra: frauddetector
-Requires-Dist: types-aiobotocore-frauddetector<2.22.0,>=2.21.0; extra == "frauddetector"
+Requires-Dist: types-aiobotocore-frauddetector<2.23.0,>=2.22.0; extra == "frauddetector"
 Provides-Extra: freetier
-Requires-Dist: types-aiobotocore-freetier<2.22.0,>=2.21.0; extra == "freetier"
+Requires-Dist: types-aiobotocore-freetier<2.23.0,>=2.22.0; extra == "freetier"
 Provides-Extra: fsx
-Requires-Dist: types-aiobotocore-fsx<2.22.0,>=2.21.0; extra == "fsx"
+Requires-Dist: types-aiobotocore-fsx<2.23.0,>=2.22.0; extra == "fsx"
 Provides-Extra: gamelift
-Requires-Dist: types-aiobotocore-gamelift<2.22.0,>=2.21.0; extra == "gamelift"
+Requires-Dist: types-aiobotocore-gamelift<2.23.0,>=2.22.0; extra == "gamelift"
 Provides-Extra: geo-maps
-Requires-Dist: types-aiobotocore-geo-maps<2.22.0,>=2.21.0; extra == "geo-maps"
+Requires-Dist: types-aiobotocore-geo-maps<2.23.0,>=2.22.0; extra == "geo-maps"
 Provides-Extra: geo-places
-Requires-Dist: types-aiobotocore-geo-places<2.22.0,>=2.21.0; extra == "geo-places"
+Requires-Dist: types-aiobotocore-geo-places<2.23.0,>=2.22.0; extra == "geo-places"
 Provides-Extra: geo-routes
-Requires-Dist: types-aiobotocore-geo-routes<2.22.0,>=2.21.0; extra == "geo-routes"
+Requires-Dist: types-aiobotocore-geo-routes<2.23.0,>=2.22.0; extra == "geo-routes"
 Provides-Extra: glacier
-Requires-Dist: types-aiobotocore-glacier<2.22.0,>=2.21.0; extra == "glacier"
+Requires-Dist: types-aiobotocore-glacier<2.23.0,>=2.22.0; extra == "glacier"
 Provides-Extra: globalaccelerator
-Requires-Dist: types-aiobotocore-globalaccelerator<2.22.0,>=2.21.0; extra == "globalaccelerator"
+Requires-Dist: types-aiobotocore-globalaccelerator<2.23.0,>=2.22.0; extra == "globalaccelerator"
 Provides-Extra: glue
-Requires-Dist: types-aiobotocore-glue<2.22.0,>=2.21.0; extra == "glue"
+Requires-Dist: types-aiobotocore-glue<2.23.0,>=2.22.0; extra == "glue"
 Provides-Extra: grafana
-Requires-Dist: types-aiobotocore-grafana<2.22.0,>=2.21.0; extra == "grafana"
+Requires-Dist: types-aiobotocore-grafana<2.23.0,>=2.22.0; extra == "grafana"
 Provides-Extra: greengrass
-Requires-Dist: types-aiobotocore-greengrass<2.22.0,>=2.21.0; extra == "greengrass"
+Requires-Dist: types-aiobotocore-greengrass<2.23.0,>=2.22.0; extra == "greengrass"
 Provides-Extra: greengrassv2
-Requires-Dist: types-aiobotocore-greengrassv2<2.22.0,>=2.21.0; extra == "greengrassv2"
+Requires-Dist: types-aiobotocore-greengrassv2<2.23.0,>=2.22.0; extra == "greengrassv2"
 Provides-Extra: groundstation
-Requires-Dist: types-aiobotocore-groundstation<2.22.0,>=2.21.0; extra == "groundstation"
+Requires-Dist: types-aiobotocore-groundstation<2.23.0,>=2.22.0; extra == "groundstation"
 Provides-Extra: guardduty
-Requires-Dist: types-aiobotocore-guardduty<2.22.0,>=2.21.0; extra == "guardduty"
+Requires-Dist: types-aiobotocore-guardduty<2.23.0,>=2.22.0; extra == "guardduty"
 Provides-Extra: health
-Requires-Dist: types-aiobotocore-health<2.22.0,>=2.21.0; extra == "health"
+Requires-Dist: types-aiobotocore-health<2.23.0,>=2.22.0; extra == "health"
 Provides-Extra: healthlake
-Requires-Dist: types-aiobotocore-healthlake<2.22.0,>=2.21.0; extra == "healthlake"
+Requires-Dist: types-aiobotocore-healthlake<2.23.0,>=2.22.0; extra == "healthlake"
 Provides-Extra: iam
-Requires-Dist: types-aiobotocore-iam<2.22.0,>=2.21.0; extra == "iam"
+Requires-Dist: types-aiobotocore-iam<2.23.0,>=2.22.0; extra == "iam"
 Provides-Extra: identitystore
-Requires-Dist: types-aiobotocore-identitystore<2.22.0,>=2.21.0; extra == "identitystore"
+Requires-Dist: types-aiobotocore-identitystore<2.23.0,>=2.22.0; extra == "identitystore"
 Provides-Extra: imagebuilder
-Requires-Dist: types-aiobotocore-imagebuilder<2.22.0,>=2.21.0; extra == "imagebuilder"
+Requires-Dist: types-aiobotocore-imagebuilder<2.23.0,>=2.22.0; extra == "imagebuilder"
 Provides-Extra: importexport
-Requires-Dist: types-aiobotocore-importexport<2.22.0,>=2.21.0; extra == "importexport"
+Requires-Dist: types-aiobotocore-importexport<2.23.0,>=2.22.0; extra == "importexport"
 Provides-Extra: inspector
-Requires-Dist: types-aiobotocore-inspector<2.22.0,>=2.21.0; extra == "inspector"
+Requires-Dist: types-aiobotocore-inspector<2.23.0,>=2.22.0; extra == "inspector"
 Provides-Extra: inspector-scan
-Requires-Dist: types-aiobotocore-inspector-scan<2.22.0,>=2.21.0; extra == "inspector-scan"
+Requires-Dist: types-aiobotocore-inspector-scan<2.23.0,>=2.22.0; extra == "inspector-scan"
 Provides-Extra: inspector2
-Requires-Dist: types-aiobotocore-inspector2<2.22.0,>=2.21.0; extra == "inspector2"
+Requires-Dist: types-aiobotocore-inspector2<2.23.0,>=2.22.0; extra == "inspector2"
 Provides-Extra: internetmonitor
-Requires-Dist: types-aiobotocore-internetmonitor<2.22.0,>=2.21.0; extra == "internetmonitor"
+Requires-Dist: types-aiobotocore-internetmonitor<2.23.0,>=2.22.0; extra == "internetmonitor"
 Provides-Extra: invoicing
-Requires-Dist: types-aiobotocore-invoicing<2.22.0,>=2.21.0; extra == "invoicing"
+Requires-Dist: types-aiobotocore-invoicing<2.23.0,>=2.22.0; extra == "invoicing"
 Provides-Extra: iot
-Requires-Dist: types-aiobotocore-iot<2.22.0,>=2.21.0; extra == "iot"
+Requires-Dist: types-aiobotocore-iot<2.23.0,>=2.22.0; extra == "iot"
 Provides-Extra: iot-data
-Requires-Dist: types-aiobotocore-iot-data<2.22.0,>=2.21.0; extra == "iot-data"
+Requires-Dist: types-aiobotocore-iot-data<2.23.0,>=2.22.0; extra == "iot-data"
 Provides-Extra: iot-jobs-data
-Requires-Dist: types-aiobotocore-iot-jobs-data<2.22.0,>=2.21.0; extra == "iot-jobs-data"
+Requires-Dist: types-aiobotocore-iot-jobs-data<2.23.0,>=2.22.0; extra == "iot-jobs-data"
 Provides-Extra: iotanalytics
-Requires-Dist: types-aiobotocore-iotanalytics<2.22.0,>=2.21.0; extra == "iotanalytics"
+Requires-Dist: types-aiobotocore-iotanalytics<2.23.0,>=2.22.0; extra == "iotanalytics"
 Provides-Extra: iotdeviceadvisor
-Requires-Dist: types-aiobotocore-iotdeviceadvisor<2.22.0,>=2.21.0; extra == "iotdeviceadvisor"
+Requires-Dist: types-aiobotocore-iotdeviceadvisor<2.23.0,>=2.22.0; extra == "iotdeviceadvisor"
 Provides-Extra: iotevents
-Requires-Dist: types-aiobotocore-iotevents<2.22.0,>=2.21.0; extra == "iotevents"
+Requires-Dist: types-aiobotocore-iotevents<2.23.0,>=2.22.0; extra == "iotevents"
 Provides-Extra: iotevents-data
-Requires-Dist: types-aiobotocore-iotevents-data<2.22.0,>=2.21.0; extra == "iotevents-data"
+Requires-Dist: types-aiobotocore-iotevents-data<2.23.0,>=2.22.0; extra == "iotevents-data"
 Provides-Extra: iotfleethub
-Requires-Dist: types-aiobotocore-iotfleethub<2.22.0,>=2.21.0; extra == "iotfleethub"
+Requires-Dist: types-aiobotocore-iotfleethub<2.23.0,>=2.22.0; extra == "iotfleethub"
 Provides-Extra: iotfleetwise
-Requires-Dist: types-aiobotocore-iotfleetwise<2.22.0,>=2.21.0; extra == "iotfleetwise"
+Requires-Dist: types-aiobotocore-iotfleetwise<2.23.0,>=2.22.0; extra == "iotfleetwise"
 Provides-Extra: iotsecuretunneling
-Requires-Dist: types-aiobotocore-iotsecuretunneling<2.22.0,>=2.21.0; extra == "iotsecuretunneling"
+Requires-Dist: types-aiobotocore-iotsecuretunneling<2.23.0,>=2.22.0; extra == "iotsecuretunneling"
 Provides-Extra: iotsitewise
-Requires-Dist: types-aiobotocore-iotsitewise<2.22.0,>=2.21.0; extra == "iotsitewise"
+Requires-Dist: types-aiobotocore-iotsitewise<2.23.0,>=2.22.0; extra == "iotsitewise"
 Provides-Extra: iotthingsgraph
-Requires-Dist: types-aiobotocore-iotthingsgraph<2.22.0,>=2.21.0; extra == "iotthingsgraph"
+Requires-Dist: types-aiobotocore-iotthingsgraph<2.23.0,>=2.22.0; extra == "iotthingsgraph"
 Provides-Extra: iottwinmaker
-Requires-Dist: types-aiobotocore-iottwinmaker<2.22.0,>=2.21.0; extra == "iottwinmaker"
+Requires-Dist: types-aiobotocore-iottwinmaker<2.23.0,>=2.22.0; extra == "iottwinmaker"
 Provides-Extra: iotwireless
-Requires-Dist: types-aiobotocore-iotwireless<2.22.0,>=2.21.0; extra == "iotwireless"
+Requires-Dist: types-aiobotocore-iotwireless<2.23.0,>=2.22.0; extra == "iotwireless"
 Provides-Extra: ivs
-Requires-Dist: types-aiobotocore-ivs<2.22.0,>=2.21.0; extra == "ivs"
+Requires-Dist: types-aiobotocore-ivs<2.23.0,>=2.22.0; extra == "ivs"
 Provides-Extra: ivs-realtime
-Requires-Dist: types-aiobotocore-ivs-realtime<2.22.0,>=2.21.0; extra == "ivs-realtime"
+Requires-Dist: types-aiobotocore-ivs-realtime<2.23.0,>=2.22.0; extra == "ivs-realtime"
 Provides-Extra: ivschat
-Requires-Dist: types-aiobotocore-ivschat<2.22.0,>=2.21.0; extra == "ivschat"
+Requires-Dist: types-aiobotocore-ivschat<2.23.0,>=2.22.0; extra == "ivschat"
 Provides-Extra: kafka
-Requires-Dist: types-aiobotocore-kafka<2.22.0,>=2.21.0; extra == "kafka"
+Requires-Dist: types-aiobotocore-kafka<2.23.0,>=2.22.0; extra == "kafka"
 Provides-Extra: kafkaconnect
-Requires-Dist: types-aiobotocore-kafkaconnect<2.22.0,>=2.21.0; extra == "kafkaconnect"
+Requires-Dist: types-aiobotocore-kafkaconnect<2.23.0,>=2.22.0; extra == "kafkaconnect"
 Provides-Extra: kendra
-Requires-Dist: types-aiobotocore-kendra<2.22.0,>=2.21.0; extra == "kendra"
+Requires-Dist: types-aiobotocore-kendra<2.23.0,>=2.22.0; extra == "kendra"
 Provides-Extra: kendra-ranking
-Requires-Dist: types-aiobotocore-kendra-ranking<2.22.0,>=2.21.0; extra == "kendra-ranking"
+Requires-Dist: types-aiobotocore-kendra-ranking<2.23.0,>=2.22.0; extra == "kendra-ranking"
 Provides-Extra: keyspaces
-Requires-Dist: types-aiobotocore-keyspaces<2.22.0,>=2.21.0; extra == "keyspaces"
+Requires-Dist: types-aiobotocore-keyspaces<2.23.0,>=2.22.0; extra == "keyspaces"
 Provides-Extra: kinesis
-Requires-Dist: types-aiobotocore-kinesis<2.22.0,>=2.21.0; extra == "kinesis"
+Requires-Dist: types-aiobotocore-kinesis<2.23.0,>=2.22.0; extra == "kinesis"
 Provides-Extra: kinesis-video-archived-media
-Requires-Dist: types-aiobotocore-kinesis-video-archived-media<2.22.0,>=2.21.0; extra == "kinesis-video-archived-media"
+Requires-Dist: types-aiobotocore-kinesis-video-archived-media<2.23.0,>=2.22.0; extra == "kinesis-video-archived-media"
 Provides-Extra: kinesis-video-media
-Requires-Dist: types-aiobotocore-kinesis-video-media<2.22.0,>=2.21.0; extra == "kinesis-video-media"
+Requires-Dist: types-aiobotocore-kinesis-video-media<2.23.0,>=2.22.0; extra == "kinesis-video-media"
 Provides-Extra: kinesis-video-signaling
-Requires-Dist: types-aiobotocore-kinesis-video-signaling<2.22.0,>=2.21.0; extra == "kinesis-video-signaling"
+Requires-Dist: types-aiobotocore-kinesis-video-signaling<2.23.0,>=2.22.0; extra == "kinesis-video-signaling"
 Provides-Extra: kinesis-video-webrtc-storage
-Requires-Dist: types-aiobotocore-kinesis-video-webrtc-storage<2.22.0,>=2.21.0; extra == "kinesis-video-webrtc-storage"
+Requires-Dist: types-aiobotocore-kinesis-video-webrtc-storage<2.23.0,>=2.22.0; extra == "kinesis-video-webrtc-storage"
 Provides-Extra: kinesisanalytics
-Requires-Dist: types-aiobotocore-kinesisanalytics<2.22.0,>=2.21.0; extra == "kinesisanalytics"
+Requires-Dist: types-aiobotocore-kinesisanalytics<2.23.0,>=2.22.0; extra == "kinesisanalytics"
 Provides-Extra: kinesisanalyticsv2
-Requires-Dist: types-aiobotocore-kinesisanalyticsv2<2.22.0,>=2.21.0; extra == "kinesisanalyticsv2"
+Requires-Dist: types-aiobotocore-kinesisanalyticsv2<2.23.0,>=2.22.0; extra == "kinesisanalyticsv2"
 Provides-Extra: kinesisvideo
-Requires-Dist: types-aiobotocore-kinesisvideo<2.22.0,>=2.21.0; extra == "kinesisvideo"
+Requires-Dist: types-aiobotocore-kinesisvideo<2.23.0,>=2.22.0; extra == "kinesisvideo"
 Provides-Extra: kms
-Requires-Dist: types-aiobotocore-kms<2.22.0,>=2.21.0; extra == "kms"
+Requires-Dist: types-aiobotocore-kms<2.23.0,>=2.22.0; extra == "kms"
 Provides-Extra: lakeformation
-Requires-Dist: types-aiobotocore-lakeformation<2.22.0,>=2.21.0; extra == "lakeformation"
+Requires-Dist: types-aiobotocore-lakeformation<2.23.0,>=2.22.0; extra == "lakeformation"
 Provides-Extra: lambda
-Requires-Dist: types-aiobotocore-lambda<2.22.0,>=2.21.0; extra == "lambda"
+Requires-Dist: types-aiobotocore-lambda<2.23.0,>=2.22.0; extra == "lambda"
 Provides-Extra: launch-wizard
-Requires-Dist: types-aiobotocore-launch-wizard<2.22.0,>=2.21.0; extra == "launch-wizard"
+Requires-Dist: types-aiobotocore-launch-wizard<2.23.0,>=2.22.0; extra == "launch-wizard"
 Provides-Extra: lex-models
-Requires-Dist: types-aiobotocore-lex-models<2.22.0,>=2.21.0; extra == "lex-models"
+Requires-Dist: types-aiobotocore-lex-models<2.23.0,>=2.22.0; extra == "lex-models"
 Provides-Extra: lex-runtime
-Requires-Dist: types-aiobotocore-lex-runtime<2.22.0,>=2.21.0; extra == "lex-runtime"
+Requires-Dist: types-aiobotocore-lex-runtime<2.23.0,>=2.22.0; extra == "lex-runtime"
 Provides-Extra: lexv2-models
-Requires-Dist: types-aiobotocore-lexv2-models<2.22.0,>=2.21.0; extra == "lexv2-models"
+Requires-Dist: types-aiobotocore-lexv2-models<2.23.0,>=2.22.0; extra == "lexv2-models"
 Provides-Extra: lexv2-runtime
-Requires-Dist: types-aiobotocore-lexv2-runtime<2.22.0,>=2.21.0; extra == "lexv2-runtime"
+Requires-Dist: types-aiobotocore-lexv2-runtime<2.23.0,>=2.22.0; extra == "lexv2-runtime"
 Provides-Extra: license-manager
-Requires-Dist: types-aiobotocore-license-manager<2.22.0,>=2.21.0; extra == "license-manager"
+Requires-Dist: types-aiobotocore-license-manager<2.23.0,>=2.22.0; extra == "license-manager"
 Provides-Extra: license-manager-linux-subscriptions
-Requires-Dist: types-aiobotocore-license-manager-linux-subscriptions<2.22.0,>=2.21.0; extra == "license-manager-linux-subscriptions"
+Requires-Dist: types-aiobotocore-license-manager-linux-subscriptions<2.23.0,>=2.22.0; extra == "license-manager-linux-subscriptions"
 Provides-Extra: license-manager-user-subscriptions
-Requires-Dist: types-aiobotocore-license-manager-user-subscriptions<2.22.0,>=2.21.0; extra == "license-manager-user-subscriptions"
+Requires-Dist: types-aiobotocore-license-manager-user-subscriptions<2.23.0,>=2.22.0; extra == "license-manager-user-subscriptions"
 Provides-Extra: lightsail
-Requires-Dist: types-aiobotocore-lightsail<2.22.0,>=2.21.0; extra == "lightsail"
+Requires-Dist: types-aiobotocore-lightsail<2.23.0,>=2.22.0; extra == "lightsail"
 Provides-Extra: location
-Requires-Dist: types-aiobotocore-location<2.22.0,>=2.21.0; extra == "location"
+Requires-Dist: types-aiobotocore-location<2.23.0,>=2.22.0; extra == "location"
 Provides-Extra: logs
-Requires-Dist: types-aiobotocore-logs<2.22.0,>=2.21.0; extra == "logs"
+Requires-Dist: types-aiobotocore-logs<2.23.0,>=2.22.0; extra == "logs"
 Provides-Extra: lookoutequipment
-Requires-Dist: types-aiobotocore-lookoutequipment<2.22.0,>=2.21.0; extra == "lookoutequipment"
+Requires-Dist: types-aiobotocore-lookoutequipment<2.23.0,>=2.22.0; extra == "lookoutequipment"
 Provides-Extra: lookoutmetrics
-Requires-Dist: types-aiobotocore-lookoutmetrics<2.22.0,>=2.21.0; extra == "lookoutmetrics"
+Requires-Dist: types-aiobotocore-lookoutmetrics<2.23.0,>=2.22.0; extra == "lookoutmetrics"
 Provides-Extra: lookoutvision
-Requires-Dist: types-aiobotocore-lookoutvision<2.22.0,>=2.21.0; extra == "lookoutvision"
+Requires-Dist: types-aiobotocore-lookoutvision<2.23.0,>=2.22.0; extra == "lookoutvision"
 Provides-Extra: m2
-Requires-Dist: types-aiobotocore-m2<2.22.0,>=2.21.0; extra == "m2"
+Requires-Dist: types-aiobotocore-m2<2.23.0,>=2.22.0; extra == "m2"
 Provides-Extra: machinelearning
-Requires-Dist: types-aiobotocore-machinelearning<2.22.0,>=2.21.0; extra == "machinelearning"
+Requires-Dist: types-aiobotocore-machinelearning<2.23.0,>=2.22.0; extra == "machinelearning"
 Provides-Extra: macie2
-Requires-Dist: types-aiobotocore-macie2<2.22.0,>=2.21.0; extra == "macie2"
+Requires-Dist: types-aiobotocore-macie2<2.23.0,>=2.22.0; extra == "macie2"
 Provides-Extra: mailmanager
-Requires-Dist: types-aiobotocore-mailmanager<2.22.0,>=2.21.0; extra == "mailmanager"
+Requires-Dist: types-aiobotocore-mailmanager<2.23.0,>=2.22.0; extra == "mailmanager"
 Provides-Extra: managedblockchain
-Requires-Dist: types-aiobotocore-managedblockchain<2.22.0,>=2.21.0; extra == "managedblockchain"
+Requires-Dist: types-aiobotocore-managedblockchain<2.23.0,>=2.22.0; extra == "managedblockchain"
 Provides-Extra: managedblockchain-query
-Requires-Dist: types-aiobotocore-managedblockchain-query<2.22.0,>=2.21.0; extra == "managedblockchain-query"
+Requires-Dist: types-aiobotocore-managedblockchain-query<2.23.0,>=2.22.0; extra == "managedblockchain-query"
 Provides-Extra: marketplace-agreement
-Requires-Dist: types-aiobotocore-marketplace-agreement<2.22.0,>=2.21.0; extra == "marketplace-agreement"
+Requires-Dist: types-aiobotocore-marketplace-agreement<2.23.0,>=2.22.0; extra == "marketplace-agreement"
 Provides-Extra: marketplace-catalog
-Requires-Dist: types-aiobotocore-marketplace-catalog<2.22.0,>=2.21.0; extra == "marketplace-catalog"
+Requires-Dist: types-aiobotocore-marketplace-catalog<2.23.0,>=2.22.0; extra == "marketplace-catalog"
 Provides-Extra: marketplace-deployment
-Requires-Dist: types-aiobotocore-marketplace-deployment<2.22.0,>=2.21.0; extra == "marketplace-deployment"
+Requires-Dist: types-aiobotocore-marketplace-deployment<2.23.0,>=2.22.0; extra == "marketplace-deployment"
 Provides-Extra: marketplace-entitlement
-Requires-Dist: types-aiobotocore-marketplace-entitlement<2.22.0,>=2.21.0; extra == "marketplace-entitlement"
+Requires-Dist: types-aiobotocore-marketplace-entitlement<2.23.0,>=2.22.0; extra == "marketplace-entitlement"
 Provides-Extra: marketplace-reporting
-Requires-Dist: types-aiobotocore-marketplace-reporting<2.22.0,>=2.21.0; extra == "marketplace-reporting"
+Requires-Dist: types-aiobotocore-marketplace-reporting<2.23.0,>=2.22.0; extra == "marketplace-reporting"
 Provides-Extra: marketplacecommerceanalytics
-Requires-Dist: types-aiobotocore-marketplacecommerceanalytics<2.22.0,>=2.21.0; extra == "marketplacecommerceanalytics"
+Requires-Dist: types-aiobotocore-marketplacecommerceanalytics<2.23.0,>=2.22.0; extra == "marketplacecommerceanalytics"
 Provides-Extra: mediaconnect
-Requires-Dist: types-aiobotocore-mediaconnect<2.22.0,>=2.21.0; extra == "mediaconnect"
+Requires-Dist: types-aiobotocore-mediaconnect<2.23.0,>=2.22.0; extra == "mediaconnect"
 Provides-Extra: mediaconvert
-Requires-Dist: types-aiobotocore-mediaconvert<2.22.0,>=2.21.0; extra == "mediaconvert"
+Requires-Dist: types-aiobotocore-mediaconvert<2.23.0,>=2.22.0; extra == "mediaconvert"
 Provides-Extra: medialive
-Requires-Dist: types-aiobotocore-medialive<2.22.0,>=2.21.0; extra == "medialive"
+Requires-Dist: types-aiobotocore-medialive<2.23.0,>=2.22.0; extra == "medialive"
 Provides-Extra: mediapackage
-Requires-Dist: types-aiobotocore-mediapackage<2.22.0,>=2.21.0; extra == "mediapackage"
+Requires-Dist: types-aiobotocore-mediapackage<2.23.0,>=2.22.0; extra == "mediapackage"
 Provides-Extra: mediapackage-vod
-Requires-Dist: types-aiobotocore-mediapackage-vod<2.22.0,>=2.21.0; extra == "mediapackage-vod"
+Requires-Dist: types-aiobotocore-mediapackage-vod<2.23.0,>=2.22.0; extra == "mediapackage-vod"
 Provides-Extra: mediapackagev2
-Requires-Dist: types-aiobotocore-mediapackagev2<2.22.0,>=2.21.0; extra == "mediapackagev2"
+Requires-Dist: types-aiobotocore-mediapackagev2<2.23.0,>=2.22.0; extra == "mediapackagev2"
 Provides-Extra: mediastore
-Requires-Dist: types-aiobotocore-mediastore<2.22.0,>=2.21.0; extra == "mediastore"
+Requires-Dist: types-aiobotocore-mediastore<2.23.0,>=2.22.0; extra == "mediastore"
 Provides-Extra: mediastore-data
-Requires-Dist: types-aiobotocore-mediastore-data<2.22.0,>=2.21.0; extra == "mediastore-data"
+Requires-Dist: types-aiobotocore-mediastore-data<2.23.0,>=2.22.0; extra == "mediastore-data"
 Provides-Extra: mediatailor
-Requires-Dist: types-aiobotocore-mediatailor<2.22.0,>=2.21.0; extra == "mediatailor"
+Requires-Dist: types-aiobotocore-mediatailor<2.23.0,>=2.22.0; extra == "mediatailor"
 Provides-Extra: medical-imaging
-Requires-Dist: types-aiobotocore-medical-imaging<2.22.0,>=2.21.0; extra == "medical-imaging"
+Requires-Dist: types-aiobotocore-medical-imaging<2.23.0,>=2.22.0; extra == "medical-imaging"
 Provides-Extra: memorydb
-Requires-Dist: types-aiobotocore-memorydb<2.22.0,>=2.21.0; extra == "memorydb"
+Requires-Dist: types-aiobotocore-memorydb<2.23.0,>=2.22.0; extra == "memorydb"
 Provides-Extra: meteringmarketplace
-Requires-Dist: types-aiobotocore-meteringmarketplace<2.22.0,>=2.21.0; extra == "meteringmarketplace"
+Requires-Dist: types-aiobotocore-meteringmarketplace<2.23.0,>=2.22.0; extra == "meteringmarketplace"
 Provides-Extra: mgh
-Requires-Dist: types-aiobotocore-mgh<2.22.0,>=2.21.0; extra == "mgh"
+Requires-Dist: types-aiobotocore-mgh<2.23.0,>=2.22.0; extra == "mgh"
 Provides-Extra: mgn
-Requires-Dist: types-aiobotocore-mgn<2.22.0,>=2.21.0; extra == "mgn"
+Requires-Dist: types-aiobotocore-mgn<2.23.0,>=2.22.0; extra == "mgn"
 Provides-Extra: migration-hub-refactor-spaces
-Requires-Dist: types-aiobotocore-migration-hub-refactor-spaces<2.22.0,>=2.21.0; extra == "migration-hub-refactor-spaces"
+Requires-Dist: types-aiobotocore-migration-hub-refactor-spaces<2.23.0,>=2.22.0; extra == "migration-hub-refactor-spaces"
 Provides-Extra: migrationhub-config
-Requires-Dist: types-aiobotocore-migrationhub-config<2.22.0,>=2.21.0; extra == "migrationhub-config"
+Requires-Dist: types-aiobotocore-migrationhub-config<2.23.0,>=2.22.0; extra == "migrationhub-config"
 Provides-Extra: migrationhuborchestrator
-Requires-Dist: types-aiobotocore-migrationhuborchestrator<2.22.0,>=2.21.0; extra == "migrationhuborchestrator"
+Requires-Dist: types-aiobotocore-migrationhuborchestrator<2.23.0,>=2.22.0; extra == "migrationhuborchestrator"
 Provides-Extra: migrationhubstrategy
-Requires-Dist: types-aiobotocore-migrationhubstrategy<2.22.0,>=2.21.0; extra == "migrationhubstrategy"
+Requires-Dist: types-aiobotocore-migrationhubstrategy<2.23.0,>=2.22.0; extra == "migrationhubstrategy"
 Provides-Extra: mq
-Requires-Dist: types-aiobotocore-mq<2.22.0,>=2.21.0; extra == "mq"
+Requires-Dist: types-aiobotocore-mq<2.23.0,>=2.22.0; extra == "mq"
 Provides-Extra: mturk
-Requires-Dist: types-aiobotocore-mturk<2.22.0,>=2.21.0; extra == "mturk"
+Requires-Dist: types-aiobotocore-mturk<2.23.0,>=2.22.0; extra == "mturk"
 Provides-Extra: mwaa
-Requires-Dist: types-aiobotocore-mwaa<2.22.0,>=2.21.0; extra == "mwaa"
+Requires-Dist: types-aiobotocore-mwaa<2.23.0,>=2.22.0; extra == "mwaa"
 Provides-Extra: neptune
-Requires-Dist: types-aiobotocore-neptune<2.22.0,>=2.21.0; extra == "neptune"
+Requires-Dist: types-aiobotocore-neptune<2.23.0,>=2.22.0; extra == "neptune"
 Provides-Extra: neptune-graph
-Requires-Dist: types-aiobotocore-neptune-graph<2.22.0,>=2.21.0; extra == "neptune-graph"
+Requires-Dist: types-aiobotocore-neptune-graph<2.23.0,>=2.22.0; extra == "neptune-graph"
 Provides-Extra: neptunedata
-Requires-Dist: types-aiobotocore-neptunedata<2.22.0,>=2.21.0; extra == "neptunedata"
+Requires-Dist: types-aiobotocore-neptunedata<2.23.0,>=2.22.0; extra == "neptunedata"
 Provides-Extra: network-firewall
-Requires-Dist: types-aiobotocore-network-firewall<2.22.0,>=2.21.0; extra == "network-firewall"
+Requires-Dist: types-aiobotocore-network-firewall<2.23.0,>=2.22.0; extra == "network-firewall"
 Provides-Extra: networkflowmonitor
-Requires-Dist: types-aiobotocore-networkflowmonitor<2.22.0,>=2.21.0; extra == "networkflowmonitor"
+Requires-Dist: types-aiobotocore-networkflowmonitor<2.23.0,>=2.22.0; extra == "networkflowmonitor"
 Provides-Extra: networkmanager
-Requires-Dist: types-aiobotocore-networkmanager<2.22.0,>=2.21.0; extra == "networkmanager"
+Requires-Dist: types-aiobotocore-networkmanager<2.23.0,>=2.22.0; extra == "networkmanager"
 Provides-Extra: networkmonitor
-Requires-Dist: types-aiobotocore-networkmonitor<2.22.0,>=2.21.0; extra == "networkmonitor"
+Requires-Dist: types-aiobotocore-networkmonitor<2.23.0,>=2.22.0; extra == "networkmonitor"
 Provides-Extra: notifications
-Requires-Dist: types-aiobotocore-notifications<2.22.0,>=2.21.0; extra == "notifications"
+Requires-Dist: types-aiobotocore-notifications<2.23.0,>=2.22.0; extra == "notifications"
 Provides-Extra: notificationscontacts
-Requires-Dist: types-aiobotocore-notificationscontacts<2.22.0,>=2.21.0; extra == "notificationscontacts"
+Requires-Dist: types-aiobotocore-notificationscontacts<2.23.0,>=2.22.0; extra == "notificationscontacts"
 Provides-Extra: oam
-Requires-Dist: types-aiobotocore-oam<2.22.0,>=2.21.0; extra == "oam"
+Requires-Dist: types-aiobotocore-oam<2.23.0,>=2.22.0; extra == "oam"
 Provides-Extra: observabilityadmin
-Requires-Dist: types-aiobotocore-observabilityadmin<2.22.0,>=2.21.0; extra == "observabilityadmin"
+Requires-Dist: types-aiobotocore-observabilityadmin<2.23.0,>=2.22.0; extra == "observabilityadmin"
 Provides-Extra: omics
-Requires-Dist: types-aiobotocore-omics<2.22.0,>=2.21.0; extra == "omics"
+Requires-Dist: types-aiobotocore-omics<2.23.0,>=2.22.0; extra == "omics"
 Provides-Extra: opensearch
-Requires-Dist: types-aiobotocore-opensearch<2.22.0,>=2.21.0; extra == "opensearch"
+Requires-Dist: types-aiobotocore-opensearch<2.23.0,>=2.22.0; extra == "opensearch"
 Provides-Extra: opensearchserverless
-Requires-Dist: types-aiobotocore-opensearchserverless<2.22.0,>=2.21.0; extra == "opensearchserverless"
+Requires-Dist: types-aiobotocore-opensearchserverless<2.23.0,>=2.22.0; extra == "opensearchserverless"
 Provides-Extra: opsworks
-Requires-Dist: types-aiobotocore-opsworks<2.22.0,>=2.21.0; extra == "opsworks"
+Requires-Dist: types-aiobotocore-opsworks<2.23.0,>=2.22.0; extra == "opsworks"
 Provides-Extra: opsworkscm
-Requires-Dist: types-aiobotocore-opsworkscm<2.22.0,>=2.21.0; extra == "opsworkscm"
+Requires-Dist: types-aiobotocore-opsworkscm<2.23.0,>=2.22.0; extra == "opsworkscm"
 Provides-Extra: organizations
-Requires-Dist: types-aiobotocore-organizations<2.22.0,>=2.21.0; extra == "organizations"
+Requires-Dist: types-aiobotocore-organizations<2.23.0,>=2.22.0; extra == "organizations"
 Provides-Extra: osis
-Requires-Dist: types-aiobotocore-osis<2.22.0,>=2.21.0; extra == "osis"
+Requires-Dist: types-aiobotocore-osis<2.23.0,>=2.22.0; extra == "osis"
 Provides-Extra: outposts
-Requires-Dist: types-aiobotocore-outposts<2.22.0,>=2.21.0; extra == "outposts"
+Requires-Dist: types-aiobotocore-outposts<2.23.0,>=2.22.0; extra == "outposts"
 Provides-Extra: panorama
-Requires-Dist: types-aiobotocore-panorama<2.22.0,>=2.21.0; extra == "panorama"
+Requires-Dist: types-aiobotocore-panorama<2.23.0,>=2.22.0; extra == "panorama"
 Provides-Extra: partnercentral-selling
-Requires-Dist: types-aiobotocore-partnercentral-selling<2.22.0,>=2.21.0; extra == "partnercentral-selling"
+Requires-Dist: types-aiobotocore-partnercentral-selling<2.23.0,>=2.22.0; extra == "partnercentral-selling"
 Provides-Extra: payment-cryptography
-Requires-Dist: types-aiobotocore-payment-cryptography<2.22.0,>=2.21.0; extra == "payment-cryptography"
+Requires-Dist: types-aiobotocore-payment-cryptography<2.23.0,>=2.22.0; extra == "payment-cryptography"
 Provides-Extra: payment-cryptography-data
-Requires-Dist: types-aiobotocore-payment-cryptography-data<2.22.0,>=2.21.0; extra == "payment-cryptography-data"
+Requires-Dist: types-aiobotocore-payment-cryptography-data<2.23.0,>=2.22.0; extra == "payment-cryptography-data"
 Provides-Extra: pca-connector-ad
-Requires-Dist: types-aiobotocore-pca-connector-ad<2.22.0,>=2.21.0; extra == "pca-connector-ad"
+Requires-Dist: types-aiobotocore-pca-connector-ad<2.23.0,>=2.22.0; extra == "pca-connector-ad"
 Provides-Extra: pca-connector-scep
-Requires-Dist: types-aiobotocore-pca-connector-scep<2.22.0,>=2.21.0; extra == "pca-connector-scep"
+Requires-Dist: types-aiobotocore-pca-connector-scep<2.23.0,>=2.22.0; extra == "pca-connector-scep"
 Provides-Extra: pcs
-Requires-Dist: types-aiobotocore-pcs<2.22.0,>=2.21.0; extra == "pcs"
+Requires-Dist: types-aiobotocore-pcs<2.23.0,>=2.22.0; extra == "pcs"
 Provides-Extra: personalize
-Requires-Dist: types-aiobotocore-personalize<2.22.0,>=2.21.0; extra == "personalize"
+Requires-Dist: types-aiobotocore-personalize<2.23.0,>=2.22.0; extra == "personalize"
 Provides-Extra: personalize-events
-Requires-Dist: types-aiobotocore-personalize-events<2.22.0,>=2.21.0; extra == "personalize-events"
+Requires-Dist: types-aiobotocore-personalize-events<2.23.0,>=2.22.0; extra == "personalize-events"
 Provides-Extra: personalize-runtime
-Requires-Dist: types-aiobotocore-personalize-runtime<2.22.0,>=2.21.0; extra == "personalize-runtime"
+Requires-Dist: types-aiobotocore-personalize-runtime<2.23.0,>=2.22.0; extra == "personalize-runtime"
 Provides-Extra: pi
-Requires-Dist: types-aiobotocore-pi<2.22.0,>=2.21.0; extra == "pi"
+Requires-Dist: types-aiobotocore-pi<2.23.0,>=2.22.0; extra == "pi"
 Provides-Extra: pinpoint
-Requires-Dist: types-aiobotocore-pinpoint<2.22.0,>=2.21.0; extra == "pinpoint"
+Requires-Dist: types-aiobotocore-pinpoint<2.23.0,>=2.22.0; extra == "pinpoint"
 Provides-Extra: pinpoint-email
-Requires-Dist: types-aiobotocore-pinpoint-email<2.22.0,>=2.21.0; extra == "pinpoint-email"
+Requires-Dist: types-aiobotocore-pinpoint-email<2.23.0,>=2.22.0; extra == "pinpoint-email"
 Provides-Extra: pinpoint-sms-voice
-Requires-Dist: types-aiobotocore-pinpoint-sms-voice<2.22.0,>=2.21.0; extra == "pinpoint-sms-voice"
+Requires-Dist: types-aiobotocore-pinpoint-sms-voice<2.23.0,>=2.22.0; extra == "pinpoint-sms-voice"
 Provides-Extra: pinpoint-sms-voice-v2
-Requires-Dist: types-aiobotocore-pinpoint-sms-voice-v2<2.22.0,>=2.21.0; extra == "pinpoint-sms-voice-v2"
+Requires-Dist: types-aiobotocore-pinpoint-sms-voice-v2<2.23.0,>=2.22.0; extra == "pinpoint-sms-voice-v2"
 Provides-Extra: pipes
-Requires-Dist: types-aiobotocore-pipes<2.22.0,>=2.21.0; extra == "pipes"
+Requires-Dist: types-aiobotocore-pipes<2.23.0,>=2.22.0; extra == "pipes"
 Provides-Extra: polly
-Requires-Dist: types-aiobotocore-polly<2.22.0,>=2.21.0; extra == "polly"
+Requires-Dist: types-aiobotocore-polly<2.23.0,>=2.22.0; extra == "polly"
 Provides-Extra: pricing
-Requires-Dist: types-aiobotocore-pricing<2.22.0,>=2.21.0; extra == "pricing"
+Requires-Dist: types-aiobotocore-pricing<2.23.0,>=2.22.0; extra == "pricing"
 Provides-Extra: privatenetworks
-Requires-Dist: types-aiobotocore-privatenetworks<2.22.0,>=2.21.0; extra == "privatenetworks"
+Requires-Dist: types-aiobotocore-privatenetworks<2.23.0,>=2.22.0; extra == "privatenetworks"
 Provides-Extra: proton
-Requires-Dist: types-aiobotocore-proton<2.22.0,>=2.21.0; extra == "proton"
+Requires-Dist: types-aiobotocore-proton<2.23.0,>=2.22.0; extra == "proton"
 Provides-Extra: qapps
-Requires-Dist: types-aiobotocore-qapps<2.22.0,>=2.21.0; extra == "qapps"
+Requires-Dist: types-aiobotocore-qapps<2.23.0,>=2.22.0; extra == "qapps"
 Provides-Extra: qbusiness
-Requires-Dist: types-aiobotocore-qbusiness<2.22.0,>=2.21.0; extra == "qbusiness"
+Requires-Dist: types-aiobotocore-qbusiness<2.23.0,>=2.22.0; extra == "qbusiness"
 Provides-Extra: qconnect
-Requires-Dist: types-aiobotocore-qconnect<2.22.0,>=2.21.0; extra == "qconnect"
+Requires-Dist: types-aiobotocore-qconnect<2.23.0,>=2.22.0; extra == "qconnect"
 Provides-Extra: qldb
-Requires-Dist: types-aiobotocore-qldb<2.22.0,>=2.21.0; extra == "qldb"
+Requires-Dist: types-aiobotocore-qldb<2.23.0,>=2.22.0; extra == "qldb"
 Provides-Extra: qldb-session
-Requires-Dist: types-aiobotocore-qldb-session<2.22.0,>=2.21.0; extra == "qldb-session"
+Requires-Dist: types-aiobotocore-qldb-session<2.23.0,>=2.22.0; extra == "qldb-session"
 Provides-Extra: quicksight
-Requires-Dist: types-aiobotocore-quicksight<2.22.0,>=2.21.0; extra == "quicksight"
+Requires-Dist: types-aiobotocore-quicksight<2.23.0,>=2.22.0; extra == "quicksight"
 Provides-Extra: ram
-Requires-Dist: types-aiobotocore-ram<2.22.0,>=2.21.0; extra == "ram"
+Requires-Dist: types-aiobotocore-ram<2.23.0,>=2.22.0; extra == "ram"
 Provides-Extra: rbin
-Requires-Dist: types-aiobotocore-rbin<2.22.0,>=2.21.0; extra == "rbin"
+Requires-Dist: types-aiobotocore-rbin<2.23.0,>=2.22.0; extra == "rbin"
 Provides-Extra: rds
-Requires-Dist: types-aiobotocore-rds<2.22.0,>=2.21.0; extra == "rds"
+Requires-Dist: types-aiobotocore-rds<2.23.0,>=2.22.0; extra == "rds"
 Provides-Extra: rds-data
-Requires-Dist: types-aiobotocore-rds-data<2.22.0,>=2.21.0; extra == "rds-data"
+Requires-Dist: types-aiobotocore-rds-data<2.23.0,>=2.22.0; extra == "rds-data"
 Provides-Extra: redshift
-Requires-Dist: types-aiobotocore-redshift<2.22.0,>=2.21.0; extra == "redshift"
+Requires-Dist: types-aiobotocore-redshift<2.23.0,>=2.22.0; extra == "redshift"
 Provides-Extra: redshift-data
-Requires-Dist: types-aiobotocore-redshift-data<2.22.0,>=2.21.0; extra == "redshift-data"
+Requires-Dist: types-aiobotocore-redshift-data<2.23.0,>=2.22.0; extra == "redshift-data"
 Provides-Extra: redshift-serverless
-Requires-Dist: types-aiobotocore-redshift-serverless<2.22.0,>=2.21.0; extra == "redshift-serverless"
+Requires-Dist: types-aiobotocore-redshift-serverless<2.23.0,>=2.22.0; extra == "redshift-serverless"
 Provides-Extra: rekognition
-Requires-Dist: types-aiobotocore-rekognition<2.22.0,>=2.21.0; extra == "rekognition"
+Requires-Dist: types-aiobotocore-rekognition<2.23.0,>=2.22.0; extra == "rekognition"
 Provides-Extra: repostspace
-Requires-Dist: types-aiobotocore-repostspace<2.22.0,>=2.21.0; extra == "repostspace"
+Requires-Dist: types-aiobotocore-repostspace<2.23.0,>=2.22.0; extra == "repostspace"
 Provides-Extra: resiliencehub
-Requires-Dist: types-aiobotocore-resiliencehub<2.22.0,>=2.21.0; extra == "resiliencehub"
+Requires-Dist: types-aiobotocore-resiliencehub<2.23.0,>=2.22.0; extra == "resiliencehub"
 Provides-Extra: resource-explorer-2
-Requires-Dist: types-aiobotocore-resource-explorer-2<2.22.0,>=2.21.0; extra == "resource-explorer-2"
+Requires-Dist: types-aiobotocore-resource-explorer-2<2.23.0,>=2.22.0; extra == "resource-explorer-2"
 Provides-Extra: resource-groups
-Requires-Dist: types-aiobotocore-resource-groups<2.22.0,>=2.21.0; extra == "resource-groups"
+Requires-Dist: types-aiobotocore-resource-groups<2.23.0,>=2.22.0; extra == "resource-groups"
 Provides-Extra: resourcegroupstaggingapi
-Requires-Dist: types-aiobotocore-resourcegroupstaggingapi<2.22.0,>=2.21.0; extra == "resourcegroupstaggingapi"
+Requires-Dist: types-aiobotocore-resourcegroupstaggingapi<2.23.0,>=2.22.0; extra == "resourcegroupstaggingapi"
 Provides-Extra: robomaker
-Requires-Dist: types-aiobotocore-robomaker<2.22.0,>=2.21.0; extra == "robomaker"
+Requires-Dist: types-aiobotocore-robomaker<2.23.0,>=2.22.0; extra == "robomaker"
 Provides-Extra: rolesanywhere
-Requires-Dist: types-aiobotocore-rolesanywhere<2.22.0,>=2.21.0; extra == "rolesanywhere"
+Requires-Dist: types-aiobotocore-rolesanywhere<2.23.0,>=2.22.0; extra == "rolesanywhere"
 Provides-Extra: route53
-Requires-Dist: types-aiobotocore-route53<2.22.0,>=2.21.0; extra == "route53"
+Requires-Dist: types-aiobotocore-route53<2.23.0,>=2.22.0; extra == "route53"
 Provides-Extra: route53-recovery-cluster
-Requires-Dist: types-aiobotocore-route53-recovery-cluster<2.22.0,>=2.21.0; extra == "route53-recovery-cluster"
+Requires-Dist: types-aiobotocore-route53-recovery-cluster<2.23.0,>=2.22.0; extra == "route53-recovery-cluster"
 Provides-Extra: route53-recovery-control-config
-Requires-Dist: types-aiobotocore-route53-recovery-control-config<2.22.0,>=2.21.0; extra == "route53-recovery-control-config"
+Requires-Dist: types-aiobotocore-route53-recovery-control-config<2.23.0,>=2.22.0; extra == "route53-recovery-control-config"
 Provides-Extra: route53-recovery-readiness
-Requires-Dist: types-aiobotocore-route53-recovery-readiness<2.22.0,>=2.21.0; extra == "route53-recovery-readiness"
+Requires-Dist: types-aiobotocore-route53-recovery-readiness<2.23.0,>=2.22.0; extra == "route53-recovery-readiness"
 Provides-Extra: route53domains
-Requires-Dist: types-aiobotocore-route53domains<2.22.0,>=2.21.0; extra == "route53domains"
+Requires-Dist: types-aiobotocore-route53domains<2.23.0,>=2.22.0; extra == "route53domains"
 Provides-Extra: route53profiles
-Requires-Dist: types-aiobotocore-route53profiles<2.22.0,>=2.21.0; extra == "route53profiles"
+Requires-Dist: types-aiobotocore-route53profiles<2.23.0,>=2.22.0; extra == "route53profiles"
 Provides-Extra: route53resolver
-Requires-Dist: types-aiobotocore-route53resolver<2.22.0,>=2.21.0; extra == "route53resolver"
+Requires-Dist: types-aiobotocore-route53resolver<2.23.0,>=2.22.0; extra == "route53resolver"
 Provides-Extra: rum
-Requires-Dist: types-aiobotocore-rum<2.22.0,>=2.21.0; extra == "rum"
+Requires-Dist: types-aiobotocore-rum<2.23.0,>=2.22.0; extra == "rum"
 Provides-Extra: s3
-Requires-Dist: types-aiobotocore-s3<2.22.0,>=2.21.0; extra == "s3"
+Requires-Dist: types-aiobotocore-s3<2.23.0,>=2.22.0; extra == "s3"
 Provides-Extra: s3control
-Requires-Dist: types-aiobotocore-s3control<2.22.0,>=2.21.0; extra == "s3control"
+Requires-Dist: types-aiobotocore-s3control<2.23.0,>=2.22.0; extra == "s3control"
 Provides-Extra: s3outposts
-Requires-Dist: types-aiobotocore-s3outposts<2.22.0,>=2.21.0; extra == "s3outposts"
+Requires-Dist: types-aiobotocore-s3outposts<2.23.0,>=2.22.0; extra == "s3outposts"
 Provides-Extra: s3tables
-Requires-Dist: types-aiobotocore-s3tables<2.22.0,>=2.21.0; extra == "s3tables"
+Requires-Dist: types-aiobotocore-s3tables<2.23.0,>=2.22.0; extra == "s3tables"
 Provides-Extra: sagemaker
-Requires-Dist: types-aiobotocore-sagemaker<2.22.0,>=2.21.0; extra == "sagemaker"
+Requires-Dist: types-aiobotocore-sagemaker<2.23.0,>=2.22.0; extra == "sagemaker"
 Provides-Extra: sagemaker-a2i-runtime
-Requires-Dist: types-aiobotocore-sagemaker-a2i-runtime<2.22.0,>=2.21.0; extra == "sagemaker-a2i-runtime"
+Requires-Dist: types-aiobotocore-sagemaker-a2i-runtime<2.23.0,>=2.22.0; extra == "sagemaker-a2i-runtime"
 Provides-Extra: sagemaker-edge
-Requires-Dist: types-aiobotocore-sagemaker-edge<2.22.0,>=2.21.0; extra == "sagemaker-edge"
+Requires-Dist: types-aiobotocore-sagemaker-edge<2.23.0,>=2.22.0; extra == "sagemaker-edge"
 Provides-Extra: sagemaker-featurestore-runtime
-Requires-Dist: types-aiobotocore-sagemaker-featurestore-runtime<2.22.0,>=2.21.0; extra == "sagemaker-featurestore-runtime"
+Requires-Dist: types-aiobotocore-sagemaker-featurestore-runtime<2.23.0,>=2.22.0; extra == "sagemaker-featurestore-runtime"
 Provides-Extra: sagemaker-geospatial
-Requires-Dist: types-aiobotocore-sagemaker-geospatial<2.22.0,>=2.21.0; extra == "sagemaker-geospatial"
+Requires-Dist: types-aiobotocore-sagemaker-geospatial<2.23.0,>=2.22.0; extra == "sagemaker-geospatial"
 Provides-Extra: sagemaker-metrics
-Requires-Dist: types-aiobotocore-sagemaker-metrics<2.22.0,>=2.21.0; extra == "sagemaker-metrics"
+Requires-Dist: types-aiobotocore-sagemaker-metrics<2.23.0,>=2.22.0; extra == "sagemaker-metrics"
 Provides-Extra: sagemaker-runtime
-Requires-Dist: types-aiobotocore-sagemaker-runtime<2.22.0,>=2.21.0; extra == "sagemaker-runtime"
+Requires-Dist: types-aiobotocore-sagemaker-runtime<2.23.0,>=2.22.0; extra == "sagemaker-runtime"
 Provides-Extra: savingsplans
-Requires-Dist: types-aiobotocore-savingsplans<2.22.0,>=2.21.0; extra == "savingsplans"
+Requires-Dist: types-aiobotocore-savingsplans<2.23.0,>=2.22.0; extra == "savingsplans"
 Provides-Extra: scheduler
-Requires-Dist: types-aiobotocore-scheduler<2.22.0,>=2.21.0; extra == "scheduler"
+Requires-Dist: types-aiobotocore-scheduler<2.23.0,>=2.22.0; extra == "scheduler"
 Provides-Extra: schemas
-Requires-Dist: types-aiobotocore-schemas<2.22.0,>=2.21.0; extra == "schemas"
+Requires-Dist: types-aiobotocore-schemas<2.23.0,>=2.22.0; extra == "schemas"
 Provides-Extra: sdb
-Requires-Dist: types-aiobotocore-sdb<2.22.0,>=2.21.0; extra == "sdb"
+Requires-Dist: types-aiobotocore-sdb<2.23.0,>=2.22.0; extra == "sdb"
 Provides-Extra: secretsmanager
-Requires-Dist: types-aiobotocore-secretsmanager<2.22.0,>=2.21.0; extra == "secretsmanager"
+Requires-Dist: types-aiobotocore-secretsmanager<2.23.0,>=2.22.0; extra == "secretsmanager"
 Provides-Extra: security-ir
-Requires-Dist: types-aiobotocore-security-ir<2.22.0,>=2.21.0; extra == "security-ir"
+Requires-Dist: types-aiobotocore-security-ir<2.23.0,>=2.22.0; extra == "security-ir"
 Provides-Extra: securityhub
-Requires-Dist: types-aiobotocore-securityhub<2.22.0,>=2.21.0; extra == "securityhub"
+Requires-Dist: types-aiobotocore-securityhub<2.23.0,>=2.22.0; extra == "securityhub"
 Provides-Extra: securitylake
-Requires-Dist: types-aiobotocore-securitylake<2.22.0,>=2.21.0; extra == "securitylake"
+Requires-Dist: types-aiobotocore-securitylake<2.23.0,>=2.22.0; extra == "securitylake"
 Provides-Extra: serverlessrepo
-Requires-Dist: types-aiobotocore-serverlessrepo<2.22.0,>=2.21.0; extra == "serverlessrepo"
+Requires-Dist: types-aiobotocore-serverlessrepo<2.23.0,>=2.22.0; extra == "serverlessrepo"
 Provides-Extra: service-quotas
-Requires-Dist: types-aiobotocore-service-quotas<2.22.0,>=2.21.0; extra == "service-quotas"
+Requires-Dist: types-aiobotocore-service-quotas<2.23.0,>=2.22.0; extra == "service-quotas"
 Provides-Extra: servicecatalog
-Requires-Dist: types-aiobotocore-servicecatalog<2.22.0,>=2.21.0; extra == "servicecatalog"
+Requires-Dist: types-aiobotocore-servicecatalog<2.23.0,>=2.22.0; extra == "servicecatalog"
 Provides-Extra: servicecatalog-appregistry
-Requires-Dist: types-aiobotocore-servicecatalog-appregistry<2.22.0,>=2.21.0; extra == "servicecatalog-appregistry"
+Requires-Dist: types-aiobotocore-servicecatalog-appregistry<2.23.0,>=2.22.0; extra == "servicecatalog-appregistry"
 Provides-Extra: servicediscovery
-Requires-Dist: types-aiobotocore-servicediscovery<2.22.0,>=2.21.0; extra == "servicediscovery"
+Requires-Dist: types-aiobotocore-servicediscovery<2.23.0,>=2.22.0; extra == "servicediscovery"
 Provides-Extra: ses
-Requires-Dist: types-aiobotocore-ses<2.22.0,>=2.21.0; extra == "ses"
+Requires-Dist: types-aiobotocore-ses<2.23.0,>=2.22.0; extra == "ses"
 Provides-Extra: sesv2
-Requires-Dist: types-aiobotocore-sesv2<2.22.0,>=2.21.0; extra == "sesv2"
+Requires-Dist: types-aiobotocore-sesv2<2.23.0,>=2.22.0; extra == "sesv2"
 Provides-Extra: shield
-Requires-Dist: types-aiobotocore-shield<2.22.0,>=2.21.0; extra == "shield"
+Requires-Dist: types-aiobotocore-shield<2.23.0,>=2.22.0; extra == "shield"
 Provides-Extra: signer
-Requires-Dist: types-aiobotocore-signer<2.22.0,>=2.21.0; extra == "signer"
+Requires-Dist: types-aiobotocore-signer<2.23.0,>=2.22.0; extra == "signer"
 Provides-Extra: simspaceweaver
-Requires-Dist: types-aiobotocore-simspaceweaver<2.22.0,>=2.21.0; extra == "simspaceweaver"
+Requires-Dist: types-aiobotocore-simspaceweaver<2.23.0,>=2.22.0; extra == "simspaceweaver"
 Provides-Extra: sms
-Requires-Dist: types-aiobotocore-sms<2.22.0,>=2.21.0; extra == "sms"
+Requires-Dist: types-aiobotocore-sms<2.23.0,>=2.22.0; extra == "sms"
 Provides-Extra: sms-voice
-Requires-Dist: types-aiobotocore-sms-voice<2.22.0,>=2.21.0; extra == "sms-voice"
+Requires-Dist: types-aiobotocore-sms-voice<2.23.0,>=2.22.0; extra == "sms-voice"
 Provides-Extra: snow-device-management
-Requires-Dist: types-aiobotocore-snow-device-management<2.22.0,>=2.21.0; extra == "snow-device-management"
+Requires-Dist: types-aiobotocore-snow-device-management<2.23.0,>=2.22.0; extra == "snow-device-management"
 Provides-Extra: snowball
-Requires-Dist: types-aiobotocore-snowball<2.22.0,>=2.21.0; extra == "snowball"
+Requires-Dist: types-aiobotocore-snowball<2.23.0,>=2.22.0; extra == "snowball"
 Provides-Extra: sns
-Requires-Dist: types-aiobotocore-sns<2.22.0,>=2.21.0; extra == "sns"
+Requires-Dist: types-aiobotocore-sns<2.23.0,>=2.22.0; extra == "sns"
 Provides-Extra: socialmessaging
-Requires-Dist: types-aiobotocore-socialmessaging<2.22.0,>=2.21.0; extra == "socialmessaging"
+Requires-Dist: types-aiobotocore-socialmessaging<2.23.0,>=2.22.0; extra == "socialmessaging"
 Provides-Extra: sqs
-Requires-Dist: types-aiobotocore-sqs<2.22.0,>=2.21.0; extra == "sqs"
+Requires-Dist: types-aiobotocore-sqs<2.23.0,>=2.22.0; extra == "sqs"
 Provides-Extra: ssm
-Requires-Dist: types-aiobotocore-ssm<2.22.0,>=2.21.0; extra == "ssm"
+Requires-Dist: types-aiobotocore-ssm<2.23.0,>=2.22.0; extra == "ssm"
 Provides-Extra: ssm-contacts
-Requires-Dist: types-aiobotocore-ssm-contacts<2.22.0,>=2.21.0; extra == "ssm-contacts"
+Requires-Dist: types-aiobotocore-ssm-contacts<2.23.0,>=2.22.0; extra == "ssm-contacts"
 Provides-Extra: ssm-incidents
-Requires-Dist: types-aiobotocore-ssm-incidents<2.22.0,>=2.21.0; extra == "ssm-incidents"
+Requires-Dist: types-aiobotocore-ssm-incidents<2.23.0,>=2.22.0; extra == "ssm-incidents"
 Provides-Extra: ssm-quicksetup
-Requires-Dist: types-aiobotocore-ssm-quicksetup<2.22.0,>=2.21.0; extra == "ssm-quicksetup"
+Requires-Dist: types-aiobotocore-ssm-quicksetup<2.23.0,>=2.22.0; extra == "ssm-quicksetup"
 Provides-Extra: ssm-sap
-Requires-Dist: types-aiobotocore-ssm-sap<2.22.0,>=2.21.0; extra == "ssm-sap"
+Requires-Dist: types-aiobotocore-ssm-sap<2.23.0,>=2.22.0; extra == "ssm-sap"
 Provides-Extra: sso
-Requires-Dist: types-aiobotocore-sso<2.22.0,>=2.21.0; extra == "sso"
+Requires-Dist: types-aiobotocore-sso<2.23.0,>=2.22.0; extra == "sso"
 Provides-Extra: sso-admin
-Requires-Dist: types-aiobotocore-sso-admin<2.22.0,>=2.21.0; extra == "sso-admin"
+Requires-Dist: types-aiobotocore-sso-admin<2.23.0,>=2.22.0; extra == "sso-admin"
 Provides-Extra: sso-oidc
-Requires-Dist: types-aiobotocore-sso-oidc<2.22.0,>=2.21.0; extra == "sso-oidc"
+Requires-Dist: types-aiobotocore-sso-oidc<2.23.0,>=2.22.0; extra == "sso-oidc"
 Provides-Extra: stepfunctions
-Requires-Dist: types-aiobotocore-stepfunctions<2.22.0,>=2.21.0; extra == "stepfunctions"
+Requires-Dist: types-aiobotocore-stepfunctions<2.23.0,>=2.22.0; extra == "stepfunctions"
 Provides-Extra: storagegateway
-Requires-Dist: types-aiobotocore-storagegateway<2.22.0,>=2.21.0; extra == "storagegateway"
+Requires-Dist: types-aiobotocore-storagegateway<2.23.0,>=2.22.0; extra == "storagegateway"
 Provides-Extra: sts
-Requires-Dist: types-aiobotocore-sts<2.22.0,>=2.21.0; extra == "sts"
+Requires-Dist: types-aiobotocore-sts<2.23.0,>=2.22.0; extra == "sts"
 Provides-Extra: supplychain
-Requires-Dist: types-aiobotocore-supplychain<2.22.0,>=2.21.0; extra == "supplychain"
+Requires-Dist: types-aiobotocore-supplychain<2.23.0,>=2.22.0; extra == "supplychain"
 Provides-Extra: support
-Requires-Dist: types-aiobotocore-support<2.22.0,>=2.21.0; extra == "support"
+Requires-Dist: types-aiobotocore-support<2.23.0,>=2.22.0; extra == "support"
 Provides-Extra: support-app
-Requires-Dist: types-aiobotocore-support-app<2.22.0,>=2.21.0; extra == "support-app"
+Requires-Dist: types-aiobotocore-support-app<2.23.0,>=2.22.0; extra == "support-app"
 Provides-Extra: swf
-Requires-Dist: types-aiobotocore-swf<2.22.0,>=2.21.0; extra == "swf"
+Requires-Dist: types-aiobotocore-swf<2.23.0,>=2.22.0; extra == "swf"
 Provides-Extra: synthetics
-Requires-Dist: types-aiobotocore-synthetics<2.22.0,>=2.21.0; extra == "synthetics"
+Requires-Dist: types-aiobotocore-synthetics<2.23.0,>=2.22.0; extra == "synthetics"
 Provides-Extra: taxsettings
-Requires-Dist: types-aiobotocore-taxsettings<2.22.0,>=2.21.0; extra == "taxsettings"
+Requires-Dist: types-aiobotocore-taxsettings<2.23.0,>=2.22.0; extra == "taxsettings"
 Provides-Extra: textract
-Requires-Dist: types-aiobotocore-textract<2.22.0,>=2.21.0; extra == "textract"
+Requires-Dist: types-aiobotocore-textract<2.23.0,>=2.22.0; extra == "textract"
 Provides-Extra: timestream-influxdb
-Requires-Dist: types-aiobotocore-timestream-influxdb<2.22.0,>=2.21.0; extra == "timestream-influxdb"
+Requires-Dist: types-aiobotocore-timestream-influxdb<2.23.0,>=2.22.0; extra == "timestream-influxdb"
 Provides-Extra: timestream-query
-Requires-Dist: types-aiobotocore-timestream-query<2.22.0,>=2.21.0; extra == "timestream-query"
+Requires-Dist: types-aiobotocore-timestream-query<2.23.0,>=2.22.0; extra == "timestream-query"
 Provides-Extra: timestream-write
-Requires-Dist: types-aiobotocore-timestream-write<2.22.0,>=2.21.0; extra == "timestream-write"
+Requires-Dist: types-aiobotocore-timestream-write<2.23.0,>=2.22.0; extra == "timestream-write"
 Provides-Extra: tnb
-Requires-Dist: types-aiobotocore-tnb<2.22.0,>=2.21.0; extra == "tnb"
+Requires-Dist: types-aiobotocore-tnb<2.23.0,>=2.22.0; extra == "tnb"
 Provides-Extra: transcribe
-Requires-Dist: types-aiobotocore-transcribe<2.22.0,>=2.21.0; extra == "transcribe"
+Requires-Dist: types-aiobotocore-transcribe<2.23.0,>=2.22.0; extra == "transcribe"
 Provides-Extra: transfer
-Requires-Dist: types-aiobotocore-transfer<2.22.0,>=2.21.0; extra == "transfer"
+Requires-Dist: types-aiobotocore-transfer<2.23.0,>=2.22.0; extra == "transfer"
 Provides-Extra: translate
-Requires-Dist: types-aiobotocore-translate<2.22.0,>=2.21.0; extra == "translate"
+Requires-Dist: types-aiobotocore-translate<2.23.0,>=2.22.0; extra == "translate"
 Provides-Extra: trustedadvisor
-Requires-Dist: types-aiobotocore-trustedadvisor<2.22.0,>=2.21.0; extra == "trustedadvisor"
+Requires-Dist: types-aiobotocore-trustedadvisor<2.23.0,>=2.22.0; extra == "trustedadvisor"
 Provides-Extra: verifiedpermissions
-Requires-Dist: types-aiobotocore-verifiedpermissions<2.22.0,>=2.21.0; extra == "verifiedpermissions"
+Requires-Dist: types-aiobotocore-verifiedpermissions<2.23.0,>=2.22.0; extra == "verifiedpermissions"
 Provides-Extra: voice-id
-Requires-Dist: types-aiobotocore-voice-id<2.22.0,>=2.21.0; extra == "voice-id"
+Requires-Dist: types-aiobotocore-voice-id<2.23.0,>=2.22.0; extra == "voice-id"
 Provides-Extra: vpc-lattice
-Requires-Dist: types-aiobotocore-vpc-lattice<2.22.0,>=2.21.0; extra == "vpc-lattice"
+Requires-Dist: types-aiobotocore-vpc-lattice<2.23.0,>=2.22.0; extra == "vpc-lattice"
 Provides-Extra: waf
-Requires-Dist: types-aiobotocore-waf<2.22.0,>=2.21.0; extra == "waf"
+Requires-Dist: types-aiobotocore-waf<2.23.0,>=2.22.0; extra == "waf"
 Provides-Extra: waf-regional
-Requires-Dist: types-aiobotocore-waf-regional<2.22.0,>=2.21.0; extra == "waf-regional"
+Requires-Dist: types-aiobotocore-waf-regional<2.23.0,>=2.22.0; extra == "waf-regional"
 Provides-Extra: wafv2
-Requires-Dist: types-aiobotocore-wafv2<2.22.0,>=2.21.0; extra == "wafv2"
+Requires-Dist: types-aiobotocore-wafv2<2.23.0,>=2.22.0; extra == "wafv2"
 Provides-Extra: wellarchitected
-Requires-Dist: types-aiobotocore-wellarchitected<2.22.0,>=2.21.0; extra == "wellarchitected"
+Requires-Dist: types-aiobotocore-wellarchitected<2.23.0,>=2.22.0; extra == "wellarchitected"
 Provides-Extra: wisdom
-Requires-Dist: types-aiobotocore-wisdom<2.22.0,>=2.21.0; extra == "wisdom"
+Requires-Dist: types-aiobotocore-wisdom<2.23.0,>=2.22.0; extra == "wisdom"
 Provides-Extra: workdocs
-Requires-Dist: types-aiobotocore-workdocs<2.22.0,>=2.21.0; extra == "workdocs"
+Requires-Dist: types-aiobotocore-workdocs<2.23.0,>=2.22.0; extra == "workdocs"
 Provides-Extra: workmail
-Requires-Dist: types-aiobotocore-workmail<2.22.0,>=2.21.0; extra == "workmail"
+Requires-Dist: types-aiobotocore-workmail<2.23.0,>=2.22.0; extra == "workmail"
 Provides-Extra: workmailmessageflow
-Requires-Dist: types-aiobotocore-workmailmessageflow<2.22.0,>=2.21.0; extra == "workmailmessageflow"
+Requires-Dist: types-aiobotocore-workmailmessageflow<2.23.0,>=2.22.0; extra == "workmailmessageflow"
 Provides-Extra: workspaces
-Requires-Dist: types-aiobotocore-workspaces<2.22.0,>=2.21.0; extra == "workspaces"
+Requires-Dist: types-aiobotocore-workspaces<2.23.0,>=2.22.0; extra == "workspaces"
 Provides-Extra: workspaces-thin-client
-Requires-Dist: types-aiobotocore-workspaces-thin-client<2.22.0,>=2.21.0; extra == "workspaces-thin-client"
+Requires-Dist: types-aiobotocore-workspaces-thin-client<2.23.0,>=2.22.0; extra == "workspaces-thin-client"
 Provides-Extra: workspaces-web
-Requires-Dist: types-aiobotocore-workspaces-web<2.22.0,>=2.21.0; extra == "workspaces-web"
+Requires-Dist: types-aiobotocore-workspaces-web<2.23.0,>=2.22.0; extra == "workspaces-web"
 Provides-Extra: xray
-Requires-Dist: types-aiobotocore-xray<2.22.0,>=2.21.0; extra == "xray"
+Requires-Dist: types-aiobotocore-xray<2.23.0,>=2.22.0; extra == "xray"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -1259,6 +1259,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
@@ -1277,7 +1278,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore 2.21.1](https://pypi.org/project/aiobotocore/) compatible with
+[aiobotocore 2.22.0](https://pypi.org/project/aiobotocore/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1286,7 +1287,7 @@ Type annotations for
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.10.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.10.1](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found in
 [types-aiobotocore docs](https://youtype.github.io/types_aiobotocore_docs/).
@@ -1333,7 +1334,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.21.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.22.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.

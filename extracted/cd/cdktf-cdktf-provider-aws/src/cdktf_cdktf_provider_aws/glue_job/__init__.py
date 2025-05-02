@@ -1,7 +1,7 @@
 r'''
 # `aws_glue_job`
 
-Refer to the Terraform Registry for docs: [`aws_glue_job`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job).
+Refer to the Terraform Registry for docs: [`aws_glue_job`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GlueJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.glueJob.GlueJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job aws_glue_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job aws_glue_job}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class GlueJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job aws_glue_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job aws_glue_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param command: command block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#command GlueJob#command}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#name GlueJob#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#role_arn GlueJob#role_arn}.
-        :param connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#connections GlueJob#connections}.
-        :param default_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#default_arguments GlueJob#default_arguments}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#description GlueJob#description}.
-        :param execution_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#execution_class GlueJob#execution_class}.
-        :param execution_property: execution_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#execution_property GlueJob#execution_property}
-        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#glue_version GlueJob#glue_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#id GlueJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_run_queuing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#job_run_queuing_enabled GlueJob#job_run_queuing_enabled}.
-        :param maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#maintenance_window GlueJob#maintenance_window}.
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_capacity GlueJob#max_capacity}.
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_retries GlueJob#max_retries}.
-        :param non_overridable_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#non_overridable_arguments GlueJob#non_overridable_arguments}.
-        :param notification_property: notification_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#notification_property GlueJob#notification_property}
-        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#number_of_workers GlueJob#number_of_workers}.
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#security_configuration GlueJob#security_configuration}.
-        :param source_control_details: source_control_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#source_control_details GlueJob#source_control_details}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#tags GlueJob#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#tags_all GlueJob#tags_all}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#timeout GlueJob#timeout}.
-        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#worker_type GlueJob#worker_type}.
+        :param command: command block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#command GlueJob#command}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#name GlueJob#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#role_arn GlueJob#role_arn}.
+        :param connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#connections GlueJob#connections}.
+        :param default_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#default_arguments GlueJob#default_arguments}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#description GlueJob#description}.
+        :param execution_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#execution_class GlueJob#execution_class}.
+        :param execution_property: execution_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#execution_property GlueJob#execution_property}
+        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#glue_version GlueJob#glue_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#id GlueJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_run_queuing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#job_run_queuing_enabled GlueJob#job_run_queuing_enabled}.
+        :param maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#maintenance_window GlueJob#maintenance_window}.
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_capacity GlueJob#max_capacity}.
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_retries GlueJob#max_retries}.
+        :param non_overridable_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#non_overridable_arguments GlueJob#non_overridable_arguments}.
+        :param notification_property: notification_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#notification_property GlueJob#notification_property}
+        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#number_of_workers GlueJob#number_of_workers}.
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#security_configuration GlueJob#security_configuration}.
+        :param source_control_details: source_control_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#source_control_details GlueJob#source_control_details}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#tags GlueJob#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#tags_all GlueJob#tags_all}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#timeout GlueJob#timeout}.
+        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#worker_type GlueJob#worker_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class GlueJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GlueJob to import.
-        :param import_from_id: The id of the existing GlueJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GlueJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GlueJob to import is found.
         '''
         if __debug__:
@@ -190,10 +190,10 @@ class GlueJob(
         runtime: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#script_location GlueJob#script_location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#name GlueJob#name}.
-        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#python_version GlueJob#python_version}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#runtime GlueJob#runtime}.
+        :param script_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#script_location GlueJob#script_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#name GlueJob#name}.
+        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#python_version GlueJob#python_version}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#runtime GlueJob#runtime}.
         '''
         value = GlueJobCommand(
             script_location=script_location,
@@ -211,7 +211,7 @@ class GlueJob(
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrent_runs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_concurrent_runs GlueJob#max_concurrent_runs}.
+        :param max_concurrent_runs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_concurrent_runs GlueJob#max_concurrent_runs}.
         '''
         value = GlueJobExecutionProperty(max_concurrent_runs=max_concurrent_runs)
 
@@ -224,7 +224,7 @@ class GlueJob(
         notify_delay_after: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#notify_delay_after GlueJob#notify_delay_after}.
+        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#notify_delay_after GlueJob#notify_delay_after}.
         '''
         value = GlueJobNotificationProperty(notify_delay_after=notify_delay_after)
 
@@ -244,14 +244,14 @@ class GlueJob(
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#auth_strategy GlueJob#auth_strategy}.
-        :param auth_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#auth_token GlueJob#auth_token}.
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#branch GlueJob#branch}.
-        :param folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#folder GlueJob#folder}.
-        :param last_commit_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#last_commit_id GlueJob#last_commit_id}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#owner GlueJob#owner}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#provider GlueJob#provider}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#repository GlueJob#repository}.
+        :param auth_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#auth_strategy GlueJob#auth_strategy}.
+        :param auth_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#auth_token GlueJob#auth_token}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#branch GlueJob#branch}.
+        :param folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#folder GlueJob#folder}.
+        :param last_commit_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#last_commit_id GlueJob#last_commit_id}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#owner GlueJob#owner}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#provider GlueJob#provider}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#repository GlueJob#repository}.
         '''
         value = GlueJobSourceControlDetails(
             auth_strategy=auth_strategy,
@@ -771,10 +771,10 @@ class GlueJobCommand:
         runtime: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param script_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#script_location GlueJob#script_location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#name GlueJob#name}.
-        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#python_version GlueJob#python_version}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#runtime GlueJob#runtime}.
+        :param script_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#script_location GlueJob#script_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#name GlueJob#name}.
+        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#python_version GlueJob#python_version}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#runtime GlueJob#runtime}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a073d517d4910d8b90fc9874dce1467d15f777662fc2f465e75f206d22bc676)
@@ -794,26 +794,26 @@ class GlueJobCommand:
 
     @builtins.property
     def script_location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#script_location GlueJob#script_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#script_location GlueJob#script_location}.'''
         result = self._values.get("script_location")
         assert result is not None, "Required property 'script_location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#name GlueJob#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#name GlueJob#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def python_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#python_version GlueJob#python_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#python_version GlueJob#python_version}.'''
         result = self._values.get("python_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def runtime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#runtime GlueJob#runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#runtime GlueJob#runtime}.'''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1021,29 +1021,29 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param command: command block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#command GlueJob#command}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#name GlueJob#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#role_arn GlueJob#role_arn}.
-        :param connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#connections GlueJob#connections}.
-        :param default_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#default_arguments GlueJob#default_arguments}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#description GlueJob#description}.
-        :param execution_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#execution_class GlueJob#execution_class}.
-        :param execution_property: execution_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#execution_property GlueJob#execution_property}
-        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#glue_version GlueJob#glue_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#id GlueJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_run_queuing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#job_run_queuing_enabled GlueJob#job_run_queuing_enabled}.
-        :param maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#maintenance_window GlueJob#maintenance_window}.
-        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_capacity GlueJob#max_capacity}.
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_retries GlueJob#max_retries}.
-        :param non_overridable_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#non_overridable_arguments GlueJob#non_overridable_arguments}.
-        :param notification_property: notification_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#notification_property GlueJob#notification_property}
-        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#number_of_workers GlueJob#number_of_workers}.
-        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#security_configuration GlueJob#security_configuration}.
-        :param source_control_details: source_control_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#source_control_details GlueJob#source_control_details}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#tags GlueJob#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#tags_all GlueJob#tags_all}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#timeout GlueJob#timeout}.
-        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#worker_type GlueJob#worker_type}.
+        :param command: command block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#command GlueJob#command}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#name GlueJob#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#role_arn GlueJob#role_arn}.
+        :param connections: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#connections GlueJob#connections}.
+        :param default_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#default_arguments GlueJob#default_arguments}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#description GlueJob#description}.
+        :param execution_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#execution_class GlueJob#execution_class}.
+        :param execution_property: execution_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#execution_property GlueJob#execution_property}
+        :param glue_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#glue_version GlueJob#glue_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#id GlueJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_run_queuing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#job_run_queuing_enabled GlueJob#job_run_queuing_enabled}.
+        :param maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#maintenance_window GlueJob#maintenance_window}.
+        :param max_capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_capacity GlueJob#max_capacity}.
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_retries GlueJob#max_retries}.
+        :param non_overridable_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#non_overridable_arguments GlueJob#non_overridable_arguments}.
+        :param notification_property: notification_property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#notification_property GlueJob#notification_property}
+        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#number_of_workers GlueJob#number_of_workers}.
+        :param security_configuration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#security_configuration GlueJob#security_configuration}.
+        :param source_control_details: source_control_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#source_control_details GlueJob#source_control_details}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#tags GlueJob#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#tags_all GlueJob#tags_all}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#timeout GlueJob#timeout}.
+        :param worker_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#worker_type GlueJob#worker_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1215,7 +1215,7 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def command(self) -> GlueJobCommand:
         '''command block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#command GlueJob#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#command GlueJob#command}
         '''
         result = self._values.get("command")
         assert result is not None, "Required property 'command' is missing"
@@ -1223,21 +1223,21 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#name GlueJob#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#name GlueJob#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#role_arn GlueJob#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#role_arn GlueJob#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#connections GlueJob#connections}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#connections GlueJob#connections}.'''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1245,19 +1245,19 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#default_arguments GlueJob#default_arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#default_arguments GlueJob#default_arguments}.'''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#description GlueJob#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#description GlueJob#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def execution_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#execution_class GlueJob#execution_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#execution_class GlueJob#execution_class}.'''
         result = self._values.get("execution_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1265,20 +1265,20 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def execution_property(self) -> typing.Optional["GlueJobExecutionProperty"]:
         '''execution_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#execution_property GlueJob#execution_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#execution_property GlueJob#execution_property}
         '''
         result = self._values.get("execution_property")
         return typing.cast(typing.Optional["GlueJobExecutionProperty"], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#glue_version GlueJob#glue_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#glue_version GlueJob#glue_version}.'''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#id GlueJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#id GlueJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1290,25 +1290,25 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def job_run_queuing_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#job_run_queuing_enabled GlueJob#job_run_queuing_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#job_run_queuing_enabled GlueJob#job_run_queuing_enabled}.'''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#maintenance_window GlueJob#maintenance_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#maintenance_window GlueJob#maintenance_window}.'''
         result = self._values.get("maintenance_window")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_capacity GlueJob#max_capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_capacity GlueJob#max_capacity}.'''
         result = self._values.get("max_capacity")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_retries GlueJob#max_retries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_retries GlueJob#max_retries}.'''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1316,7 +1316,7 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def non_overridable_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#non_overridable_arguments GlueJob#non_overridable_arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#non_overridable_arguments GlueJob#non_overridable_arguments}.'''
         result = self._values.get("non_overridable_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1324,20 +1324,20 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notification_property(self) -> typing.Optional["GlueJobNotificationProperty"]:
         '''notification_property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#notification_property GlueJob#notification_property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#notification_property GlueJob#notification_property}
         '''
         result = self._values.get("notification_property")
         return typing.cast(typing.Optional["GlueJobNotificationProperty"], result)
 
     @builtins.property
     def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#number_of_workers GlueJob#number_of_workers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#number_of_workers GlueJob#number_of_workers}.'''
         result = self._values.get("number_of_workers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#security_configuration GlueJob#security_configuration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#security_configuration GlueJob#security_configuration}.'''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1345,32 +1345,32 @@ class GlueJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_control_details(self) -> typing.Optional["GlueJobSourceControlDetails"]:
         '''source_control_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#source_control_details GlueJob#source_control_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#source_control_details GlueJob#source_control_details}
         '''
         result = self._values.get("source_control_details")
         return typing.cast(typing.Optional["GlueJobSourceControlDetails"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#tags GlueJob#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#tags GlueJob#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#tags_all GlueJob#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#tags_all GlueJob#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#timeout GlueJob#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#timeout GlueJob#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def worker_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#worker_type GlueJob#worker_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#worker_type GlueJob#worker_type}.'''
         result = self._values.get("worker_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1398,7 +1398,7 @@ class GlueJobExecutionProperty:
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrent_runs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_concurrent_runs GlueJob#max_concurrent_runs}.
+        :param max_concurrent_runs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_concurrent_runs GlueJob#max_concurrent_runs}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50d53cb786d387f3a2e006c67ae1fea4a9576cce50f42105fbb0ed3f8e307709)
@@ -1409,7 +1409,7 @@ class GlueJobExecutionProperty:
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#max_concurrent_runs GlueJob#max_concurrent_runs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#max_concurrent_runs GlueJob#max_concurrent_runs}.'''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1491,7 +1491,7 @@ class GlueJobNotificationProperty:
         notify_delay_after: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#notify_delay_after GlueJob#notify_delay_after}.
+        :param notify_delay_after: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#notify_delay_after GlueJob#notify_delay_after}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69d36cb48288ee3a80cdac85fe6d8c8b9c4e7edb71724edf6b9e31afad92b621)
@@ -1502,7 +1502,7 @@ class GlueJobNotificationProperty:
 
     @builtins.property
     def notify_delay_after(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#notify_delay_after GlueJob#notify_delay_after}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#notify_delay_after GlueJob#notify_delay_after}.'''
         result = self._values.get("notify_delay_after")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1603,14 +1603,14 @@ class GlueJobSourceControlDetails:
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#auth_strategy GlueJob#auth_strategy}.
-        :param auth_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#auth_token GlueJob#auth_token}.
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#branch GlueJob#branch}.
-        :param folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#folder GlueJob#folder}.
-        :param last_commit_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#last_commit_id GlueJob#last_commit_id}.
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#owner GlueJob#owner}.
-        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#provider GlueJob#provider}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#repository GlueJob#repository}.
+        :param auth_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#auth_strategy GlueJob#auth_strategy}.
+        :param auth_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#auth_token GlueJob#auth_token}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#branch GlueJob#branch}.
+        :param folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#folder GlueJob#folder}.
+        :param last_commit_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#last_commit_id GlueJob#last_commit_id}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#owner GlueJob#owner}.
+        :param provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#provider GlueJob#provider}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#repository GlueJob#repository}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__425a9c25930749ed9ccd749c16fd6c40e56ec0a22fbf50928f6a882ee1351297)
@@ -1642,49 +1642,49 @@ class GlueJobSourceControlDetails:
 
     @builtins.property
     def auth_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#auth_strategy GlueJob#auth_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#auth_strategy GlueJob#auth_strategy}.'''
         result = self._values.get("auth_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auth_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#auth_token GlueJob#auth_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#auth_token GlueJob#auth_token}.'''
         result = self._values.get("auth_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def branch(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#branch GlueJob#branch}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#branch GlueJob#branch}.'''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def folder(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#folder GlueJob#folder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#folder GlueJob#folder}.'''
         result = self._values.get("folder")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def last_commit_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#last_commit_id GlueJob#last_commit_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#last_commit_id GlueJob#last_commit_id}.'''
         result = self._values.get("last_commit_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#owner GlueJob#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#owner GlueJob#owner}.'''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def provider(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#provider GlueJob#provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#provider GlueJob#provider}.'''
         result = self._values.get("provider")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/glue_job#repository GlueJob#repository}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/glue_job#repository GlueJob#repository}.'''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
 

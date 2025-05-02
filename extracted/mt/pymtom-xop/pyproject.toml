@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pymtom_xop"]
+
+[project]
+name = "pymtom_xop"
+version = "0.0.2"
+
+description = "SOAP MTOM-XOP Support for Python"
+readme = "README.md"
+
+authors = [{ name = "Gabriel Santos", email = "gabrielsantosm2019@gmail.com" }]
+
+keywords = ["SOAP", "MTOM-XOP", "WebService"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+]
+
+license = { file = "LICENSE" }
+
+requires-python = ">=3.10"
+dependencies = ["zeep>=4.2.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4.0", "twine>=4.0.2"]
+
+[project.urls]
+Homepage = "https://github.com/Gebrel07/pymtom-xop.git"

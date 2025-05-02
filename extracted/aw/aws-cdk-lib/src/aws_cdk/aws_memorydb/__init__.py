@@ -430,11 +430,11 @@ class CfnCluster(
         :param engine: The name of the engine used by the cluster.
         :param engine_version: The Redis engine version used by the cluster .
         :param final_snapshot_name: The user-supplied name of a final cluster snapshot. This is the unique name that identifies the snapshot. MemoryDB creates the snapshot, and then deletes the cluster immediately afterward.
-        :param ip_discovery: 
+        :param ip_discovery: The mechanism that the cluster uses to discover IP addresses. Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
         :param kms_key_id: The ID of the KMS key used to encrypt the cluster .
         :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ``ddd:hh24:mi-ddd:hh24:mi`` (24H Clock UTC). The minimum maintenance window is a 60 minute period. *Pattern* : ``ddd:hh24:mi-ddd:hh24:mi``
         :param multi_region_cluster_name: The name of the multi-Region cluster that this cluster belongs to.
-        :param network_type: 
+        :param network_type: The IP address type for the cluster. Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
         :param num_replicas_per_shard: The number of replicas to apply to each shard. *Default value* : ``1`` *Maximum value* : ``5``
         :param num_shards: The number of shards in the cluster .
         :param parameter_group_name: The name of the parameter group used by the cluster .
@@ -719,6 +719,7 @@ class CfnCluster(
     @builtins.property
     @jsii.member(jsii_name="ipDiscovery")
     def ip_discovery(self) -> typing.Optional[builtins.str]:
+        '''The mechanism that the cluster uses to discover IP addresses.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipDiscovery"))
 
     @ip_discovery.setter
@@ -770,6 +771,7 @@ class CfnCluster(
     @builtins.property
     @jsii.member(jsii_name="networkType")
     def network_type(self) -> typing.Optional[builtins.str]:
+        '''The IP address type for the cluster.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
 
     @network_type.setter
@@ -1121,11 +1123,11 @@ class CfnClusterProps:
         :param engine: The name of the engine used by the cluster.
         :param engine_version: The Redis engine version used by the cluster .
         :param final_snapshot_name: The user-supplied name of a final cluster snapshot. This is the unique name that identifies the snapshot. MemoryDB creates the snapshot, and then deletes the cluster immediately afterward.
-        :param ip_discovery: 
+        :param ip_discovery: The mechanism that the cluster uses to discover IP addresses. Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
         :param kms_key_id: The ID of the KMS key used to encrypt the cluster .
         :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ``ddd:hh24:mi-ddd:hh24:mi`` (24H Clock UTC). The minimum maintenance window is a 60 minute period. *Pattern* : ``ddd:hh24:mi-ddd:hh24:mi``
         :param multi_region_cluster_name: The name of the multi-Region cluster that this cluster belongs to.
-        :param network_type: 
+        :param network_type: The IP address type for the cluster. Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
         :param num_replicas_per_shard: The number of replicas to apply to each shard. *Default value* : ``1`` *Maximum value* : ``5``
         :param num_shards: The number of shards in the cluster .
         :param parameter_group_name: The name of the parameter group used by the cluster .
@@ -1382,7 +1384,10 @@ class CfnClusterProps:
 
     @builtins.property
     def ip_discovery(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The mechanism that the cluster uses to discover IP addresses.
+
+        Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-ipdiscovery
         '''
         result = self._values.get("ip_discovery")
@@ -1421,7 +1426,10 @@ class CfnClusterProps:
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The IP address type for the cluster.
+
+        Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-networktype
         '''
         result = self._values.get("network_type")
@@ -1643,7 +1651,7 @@ class CfnMultiRegionCluster(
         :param engine_version: The version of the engine used by the multi-Region cluster.
         :param multi_region_cluster_name_suffix: A suffix to be added to the Multi-Region cluster name. Amazon MemoryDB automatically applies a prefix to the Multi-Region cluster Name when it is created. Each Amazon Region has its own prefix. For instance, a Multi-Region cluster Name created in the US-West-1 region will begin with "virxk", along with the suffix name you provide. The suffix guarantees uniqueness of the Multi-Region cluster name across multiple regions.
         :param multi_region_parameter_group_name: The name of the multi-Region parameter group associated with the cluster.
-        :param num_shards: TBD.
+        :param num_shards: The number of shards in the multi-Region cluster.
         :param tags: A list of tags to be applied to the multi-Region cluster.
         :param tls_enabled: Indiciates if the multi-Region cluster is TLS enabled.
         :param update_strategy: The strategy to use for the update operation. Supported values are "coordinated" or "uncoordinated".
@@ -1822,7 +1830,7 @@ class CfnMultiRegionCluster(
     @builtins.property
     @jsii.member(jsii_name="numShards")
     def num_shards(self) -> typing.Optional[jsii.Number]:
-        '''TBD.'''
+        '''The number of shards in the multi-Region cluster.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "numShards"))
 
     @num_shards.setter
@@ -1916,7 +1924,7 @@ class CfnMultiRegionClusterProps:
         :param engine_version: The version of the engine used by the multi-Region cluster.
         :param multi_region_cluster_name_suffix: A suffix to be added to the Multi-Region cluster name. Amazon MemoryDB automatically applies a prefix to the Multi-Region cluster Name when it is created. Each Amazon Region has its own prefix. For instance, a Multi-Region cluster Name created in the US-West-1 region will begin with "virxk", along with the suffix name you provide. The suffix guarantees uniqueness of the Multi-Region cluster name across multiple regions.
         :param multi_region_parameter_group_name: The name of the multi-Region parameter group associated with the cluster.
-        :param num_shards: TBD.
+        :param num_shards: The number of shards in the multi-Region cluster.
         :param tags: A list of tags to be applied to the multi-Region cluster.
         :param tls_enabled: Indiciates if the multi-Region cluster is TLS enabled.
         :param update_strategy: The strategy to use for the update operation. Supported values are "coordinated" or "uncoordinated".
@@ -2041,7 +2049,7 @@ class CfnMultiRegionClusterProps:
 
     @builtins.property
     def num_shards(self) -> typing.Optional[jsii.Number]:
-        '''TBD.
+        '''The number of shards in the multi-Region cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-numshards
         '''
@@ -2515,7 +2523,9 @@ class CfnSubnetGroup(
     @builtins.property
     @jsii.member(jsii_name="attrSupportedNetworkTypes")
     def attr_supported_network_types(self) -> typing.List[builtins.str]:
-        '''Supported network types would be a list of network types supported by subnet group and can be either [ipv4] or [ipv4, dual_stack] or [ipv6].
+        '''The network types supported by this subnet.
+
+        Returns an array of strings that can include 'ipv4', 'ipv6', or both, indicating whether the subnet supports IPv4 only, IPv6 only, or dual-stack deployments.
 
         :cloudformationAttribute: SupportedNetworkTypes
         '''

@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "symfc"
+dynamic = ["version"]
+readme = {file = "README.md", content-type = "text/markdown"}
+description = "This is the symfc module."
+authors = [
+    { name = "Atsuto Seko", email = "seko@cms.mtl.kyoto-u.ac.jp" }
+]
+maintainers = [
+    {name = "Atsushi Togo", email = "atztogo@gmail.com"}
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy != 1.11.0, != 1.11.1, != 1.11.2",
+    "spglib",
+]
+license = {file = "LICENSE"}
+
+[project.urls]
+"Homepage" = "https://github.com/symfc/symfc"
+
+[tool.setuptools.dynamic]
+version = { attr = "symfc.version.__version__" }
+
+[tool.ruff]
+line-length = 88
+select = [
+    "F", # Flake8
+    "B", # Black
+    "I", # isort
+    "E", # pycodestyle-errors
+    "D", # pydocstyle
+]
+extend-ignore = [
+    "D417",
+    "D100",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

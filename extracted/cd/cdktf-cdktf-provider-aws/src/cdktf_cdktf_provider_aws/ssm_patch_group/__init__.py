@@ -1,7 +1,7 @@
 r'''
 # `aws_ssm_patch_group`
 
-Refer to the Terraform Registry for docs: [`aws_ssm_patch_group`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group).
+Refer to the Terraform Registry for docs: [`aws_ssm_patch_group`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SsmPatchGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ssmPatchGroup.SsmPatchGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group aws_ssm_patch_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group aws_ssm_patch_group}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class SsmPatchGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group aws_ssm_patch_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group aws_ssm_patch_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param baseline_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#baseline_id SsmPatchGroup#baseline_id}.
-        :param patch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#patch_group SsmPatchGroup#patch_group}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#id SsmPatchGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param baseline_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#baseline_id SsmPatchGroup#baseline_id}.
+        :param patch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#patch_group SsmPatchGroup#patch_group}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#id SsmPatchGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class SsmPatchGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SsmPatchGroup to import.
-        :param import_from_id: The id of the existing SsmPatchGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SsmPatchGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SsmPatchGroup to import is found.
         '''
         if __debug__:
@@ -228,9 +228,9 @@ class SsmPatchGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param baseline_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#baseline_id SsmPatchGroup#baseline_id}.
-        :param patch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#patch_group SsmPatchGroup#patch_group}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#id SsmPatchGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param baseline_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#baseline_id SsmPatchGroup#baseline_id}.
+        :param patch_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#patch_group SsmPatchGroup#patch_group}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#id SsmPatchGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -333,21 +333,21 @@ class SsmPatchGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def baseline_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#baseline_id SsmPatchGroup#baseline_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#baseline_id SsmPatchGroup#baseline_id}.'''
         result = self._values.get("baseline_id")
         assert result is not None, "Required property 'baseline_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def patch_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#patch_group SsmPatchGroup#patch_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#patch_group SsmPatchGroup#patch_group}.'''
         result = self._values.get("patch_group")
         assert result is not None, "Required property 'patch_group' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/ssm_patch_group#id SsmPatchGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/ssm_patch_group#id SsmPatchGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

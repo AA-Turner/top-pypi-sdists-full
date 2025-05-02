@@ -1,0 +1,96 @@
+[project]
+name='CyRK'
+version = '0.13.5'
+description='Runge-Kutta ODE Integrator Implemented in Cython and Numba.'
+authors= [
+    {name = 'Joe P. Renaud', email = 'joe.p.renaud@gmail.com'}
+    ]
+requires-python = ">=3.9,<3.14"
+dependencies = [
+    'numba >= 0.54.1',
+    'numpy >= 1.22, <3',
+    'scipy >= 1.9.3'
+]
+license = "CC-BY-NC-SA-4.0"
+license-files = ["LICEN[CS]E*"]
+readme = "README.md"
+keywords = [
+    'Scientific Computing',
+    'Runge-Kutta',
+    'Numerical Integration',
+    'ODEs',
+    'Ordinary Differential Equations',
+    'cython',
+    'numba',
+    'Integration'
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Cython",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Natural Language :: English",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/jrenaud90/CyRK"
+"Bug Tracker" = "https://github.com/jrenaud90/CyRK/issues"
+
+[project.optional-dependencies]
+# As of August, 2023 - the latest version of line_profiler does not track cython functions. Using older vers.
+dev = [
+    "jupyter",
+    "matplotlib",
+    "pytest",
+    "timeit",
+    "line_profiler==3.5.1"
+]
+
+[build-system]
+requires = [
+    'setuptools>=64.0.0',
+    'numpy >= 1.22, <3',
+    'cython>=3.0.0',
+    'wheel>=0.38'
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["_build_cyrk"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["Tests", "Demos", "Benchmarks", "Documentation", "Performance"]
+
+[tool.setuptools.cmdclass]
+build_py = "_build_cyrk.build_cyrk"
+build_ext = "_build_cyrk.build_ext"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -v"
+testpaths = [
+    "Tests"
+]
+
+[tool.cibuildwheel]
+build = "*"
+# Disable building PyPy wheels on all platforms. Also having issue with musllinux.
+skip = ["pp*", "*musl*"]
+# Having issues with SciPy install during wheel build on 32-bit systems.
+archs = ["auto64"]
+

@@ -439,8 +439,15 @@ def extract_pytest_stats(
 
             if verbosity_level == 0:
                 key: tuple = (filesystempath,)
-            elif verbosity_level >= 1:
+            elif verbosity_level == 1:
                 key = (filesystempath, testfunc)
+            elif verbosity_level >= 2:
+                # extract parameter part if it exists
+                param_str = ""
+                if "[" in value.head_line:
+                    param_str = value.head_line.split("[", 1)[1].rstrip("]")
+
+                key = (filesystempath, testfunc, param_str)
             else:
                 continue
 
@@ -487,10 +494,19 @@ def make_md_report(
         matrix.append(
             ["TOTAL"] + [total_stats.get(key, 0) for key in outcomes] + [sum(total_stats.values())]
         )
-    elif verbosity_level >= 1:
+    elif verbosity_level == 1:
         writer.headers = [Header.FILEPATH, Header.TESTFUNC] + outcomes + [Header.SUBTOTAL]
         matrix.append(
             ["TOTAL", ""]
+            + [total_stats.get(key, 0) for key in outcomes]
+            + [sum(total_stats.values())]
+        )
+    elif verbosity_level >= 2:
+        writer.headers = (
+            [Header.FILEPATH, Header.TESTFUNC, Header.PARAMS] + outcomes + [Header.SUBTOTAL]
+        )
+        matrix.append(
+            ["TOTAL", "", ""]
             + [total_stats.get(key, 0) for key in outcomes]
             + [sum(total_stats.values())]
         )

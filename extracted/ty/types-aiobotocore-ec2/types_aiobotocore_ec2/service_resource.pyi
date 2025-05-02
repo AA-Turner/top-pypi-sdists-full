@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from aioboto3.resources.base import AIOBoto3ServiceResource
 from aioboto3.resources.collection import AIOResourceCollection
@@ -301,10 +301,11 @@ try:
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
 if sys.version_info >= (3, 9):
+    from builtins import dict as Dict
     from builtins import list as List
     from collections.abc import AsyncIterator, Awaitable, Sequence
 else:
-    from typing import AsyncIterator, Awaitable, List, Sequence
+    from typing import AsyncIterator, Awaitable, Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -3187,7 +3188,7 @@ class Image(AIOBoto3ServiceResource):
 
     async def deregister(
         self, **kwargs: Unpack[DeregisterImageRequestImageDeregisterTypeDef]
-    ) -> None:
+    ) -> Dict[str, Any]:
         """
         Deregisters the specified AMI.
 

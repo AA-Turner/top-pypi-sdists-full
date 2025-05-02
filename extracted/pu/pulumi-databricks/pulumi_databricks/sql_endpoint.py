@@ -571,6 +571,9 @@ class _SqlEndpointState:
 
 
 class SqlEndpoint(pulumi.CustomResource):
+
+    pulumi_type = "databricks:index/sqlEndpoint:SqlEndpoint"
+
     @overload
     def __init__(__self__,
                  resource_name: str,
@@ -591,6 +594,8 @@ class SqlEndpoint(pulumi.CustomResource):
                  __props__=None):
         """
         This resource is used to manage [Databricks SQL warehouses](https://docs.databricks.com/sql/admin/sql-endpoints.html). To create [SQL warehouses](https://docs.databricks.com/sql/get-started/concepts.html) you must have `databricks_sql_access` on your Group or databricks_user.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 
@@ -663,6 +668,8 @@ class SqlEndpoint(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         This resource is used to manage [Databricks SQL warehouses](https://docs.databricks.com/sql/admin/sql-endpoints.html). To create [SQL warehouses](https://docs.databricks.com/sql/get-started/concepts.html) you must have `databricks_sql_access` on your Group or databricks_user.
+
+        > This resource can only be used with a workspace-level provider!
 
         ## Example Usage
 

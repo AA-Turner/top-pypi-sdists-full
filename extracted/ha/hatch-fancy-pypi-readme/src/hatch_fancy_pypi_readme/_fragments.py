@@ -5,17 +5,10 @@
 from __future__ import annotations
 
 import re
-import sys
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, Iterable
-
-
-if sys.version_info >= (3, 8):
-    from typing import Protocol
-else:
-    from typing_extensions import Protocol
+from typing import ClassVar, Iterable, Protocol
 
 from .exceptions import ConfigurationError
 
@@ -24,11 +17,9 @@ class Fragment(Protocol):
     key: ClassVar[str]
 
     @classmethod
-    def from_config(cls, cfg: dict[str, str]) -> Fragment:
-        ...
+    def from_config(cls, cfg: dict[str, str]) -> Fragment: ...
 
-    def render(self) -> str:
-        ...
+    def render(self) -> str: ...
 
 
 @dataclass
@@ -120,8 +111,7 @@ class FileFragment:
                     contents = m.group(1)
                 except IndexError:
                     errs.append(
-                        "file fragment: pattern matches, but no group "
-                        "defined."
+                        "file fragment: pattern matches, but no group defined."
                     )
 
         if errs:

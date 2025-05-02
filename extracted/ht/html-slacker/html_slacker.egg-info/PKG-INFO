@@ -1,0 +1,67 @@
+Metadata-Version: 1.2
+Name: html-slacker
+Version: 0.1.6
+Summary: Converts HTML to Slack formatted markdown
+Home-page: https://github.com/codex-team/html-slacker
+Author: CodeX Team
+Author-email: team@ifmo.su
+License: MIT
+Description: html-slacker
+        ============
+        
+        Converts HTML to Slack formatted markdown
+        
+        Usage
+        -----
+        
+        Install HTMLSlacker from pip.
+        
+        .. code:: bash
+        
+            $ pip install html-slacker
+        
+        Import library.
+        
+        .. code:: python
+        
+            >>> from htmlslacker import HTMLSlacker
+        
+        Use it.
+        
+        .. code:: python
+        
+            >>> HTMLSlacker('<b>Hello</b>, <i>Slack</i>!').get_output()
+            '*Hello*, _Slack_!'
+        
+        Test it.
+        
+        .. code:: python
+        
+            $ python setup.py test
+        
+        
+        Requirements
+        ------------
+        
+        - Python >= 2.5
+        - html
+        
+        Links
+        -----
+        
+        Repository: https://github.com/codex-team/html-slacker
+        
+        Report a bug: https://github.com/codex-team/html-slacker/issues
+        
+        PyPI Package: https://pypi.python.org/pypi/html-slacker
+        
+        CodeX Team: https://ifmo.su
+        
+Keywords: slack bot html convert markdown slackbot pythonbot slack html markdown
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Environment :: Console
+Requires-Python: >=2.5

@@ -1,7 +1,7 @@
 r'''
 # `aws_lex_bot_alias`
 
-Refer to the Terraform Registry for docs: [`aws_lex_bot_alias`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias).
+Refer to the Terraform Registry for docs: [`aws_lex_bot_alias`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LexBotAlias(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lexBotAlias.LexBotAlias",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias aws_lex_bot_alias}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias aws_lex_bot_alias}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class LexBotAlias(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias aws_lex_bot_alias} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias aws_lex_bot_alias} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#bot_name LexBotAlias#bot_name}.
-        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#bot_version LexBotAlias#bot_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#name LexBotAlias#name}.
-        :param conversation_logs: conversation_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#conversation_logs LexBotAlias#conversation_logs}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#description LexBotAlias#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#id LexBotAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#timeouts LexBotAlias#timeouts}
+        :param bot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#bot_name LexBotAlias#bot_name}.
+        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#bot_version LexBotAlias#bot_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#name LexBotAlias#name}.
+        :param conversation_logs: conversation_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#conversation_logs LexBotAlias#conversation_logs}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#description LexBotAlias#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#id LexBotAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#timeouts LexBotAlias#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class LexBotAlias(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LexBotAlias to import.
-        :param import_from_id: The id of the existing LexBotAlias that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LexBotAlias that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LexBotAlias to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class LexBotAlias(
         log_settings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LexBotAliasConversationLogsLogSettings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#iam_role_arn LexBotAlias#iam_role_arn}.
-        :param log_settings: log_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#log_settings LexBotAlias#log_settings}
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#iam_role_arn LexBotAlias#iam_role_arn}.
+        :param log_settings: log_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#log_settings LexBotAlias#log_settings}
         '''
         value = LexBotAliasConversationLogs(
             iam_role_arn=iam_role_arn, log_settings=log_settings
@@ -158,9 +158,9 @@ class LexBotAlias(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#create LexBotAlias#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#delete LexBotAlias#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#update LexBotAlias#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#create LexBotAlias#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#delete LexBotAlias#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#update LexBotAlias#update}.
         '''
         value = LexBotAliasTimeouts(create=create, delete=delete, update=update)
 
@@ -370,13 +370,13 @@ class LexBotAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#bot_name LexBotAlias#bot_name}.
-        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#bot_version LexBotAlias#bot_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#name LexBotAlias#name}.
-        :param conversation_logs: conversation_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#conversation_logs LexBotAlias#conversation_logs}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#description LexBotAlias#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#id LexBotAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#timeouts LexBotAlias#timeouts}
+        :param bot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#bot_name LexBotAlias#bot_name}.
+        :param bot_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#bot_version LexBotAlias#bot_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#name LexBotAlias#name}.
+        :param conversation_logs: conversation_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#conversation_logs LexBotAlias#conversation_logs}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#description LexBotAlias#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#id LexBotAlias#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#timeouts LexBotAlias#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -494,21 +494,21 @@ class LexBotAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bot_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#bot_name LexBotAlias#bot_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#bot_name LexBotAlias#bot_name}.'''
         result = self._values.get("bot_name")
         assert result is not None, "Required property 'bot_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bot_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#bot_version LexBotAlias#bot_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#bot_version LexBotAlias#bot_version}.'''
         result = self._values.get("bot_version")
         assert result is not None, "Required property 'bot_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#name LexBotAlias#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#name LexBotAlias#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -517,20 +517,20 @@ class LexBotAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conversation_logs(self) -> typing.Optional["LexBotAliasConversationLogs"]:
         '''conversation_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#conversation_logs LexBotAlias#conversation_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#conversation_logs LexBotAlias#conversation_logs}
         '''
         result = self._values.get("conversation_logs")
         return typing.cast(typing.Optional["LexBotAliasConversationLogs"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#description LexBotAlias#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#description LexBotAlias#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#id LexBotAlias#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#id LexBotAlias#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -542,7 +542,7 @@ class LexBotAliasConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LexBotAliasTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#timeouts LexBotAlias#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#timeouts LexBotAlias#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LexBotAliasTimeouts"], result)
@@ -572,8 +572,8 @@ class LexBotAliasConversationLogs:
         log_settings: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LexBotAliasConversationLogsLogSettings", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#iam_role_arn LexBotAlias#iam_role_arn}.
-        :param log_settings: log_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#log_settings LexBotAlias#log_settings}
+        :param iam_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#iam_role_arn LexBotAlias#iam_role_arn}.
+        :param log_settings: log_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#log_settings LexBotAlias#log_settings}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f867ab3347e2ffb765b7de6907fa95d266e81d4356bd052c8ebcf2a8d33f0e92)
@@ -587,7 +587,7 @@ class LexBotAliasConversationLogs:
 
     @builtins.property
     def iam_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#iam_role_arn LexBotAlias#iam_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#iam_role_arn LexBotAlias#iam_role_arn}.'''
         result = self._values.get("iam_role_arn")
         assert result is not None, "Required property 'iam_role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -598,7 +598,7 @@ class LexBotAliasConversationLogs:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexBotAliasConversationLogsLogSettings"]]]:
         '''log_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#log_settings LexBotAlias#log_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#log_settings LexBotAlias#log_settings}
         '''
         result = self._values.get("log_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LexBotAliasConversationLogsLogSettings"]]], result)
@@ -635,10 +635,10 @@ class LexBotAliasConversationLogsLogSettings:
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#destination LexBotAlias#destination}.
-        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#log_type LexBotAlias#log_type}.
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#resource_arn LexBotAlias#resource_arn}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#kms_key_arn LexBotAlias#kms_key_arn}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#destination LexBotAlias#destination}.
+        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#log_type LexBotAlias#log_type}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#resource_arn LexBotAlias#resource_arn}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#kms_key_arn LexBotAlias#kms_key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01447f0b47a11b1091a3fab853a041a59c1bfcec03d4aa0c5051a9b833c10799)
@@ -656,28 +656,28 @@ class LexBotAliasConversationLogsLogSettings:
 
     @builtins.property
     def destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#destination LexBotAlias#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#destination LexBotAlias#destination}.'''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#log_type LexBotAlias#log_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#log_type LexBotAlias#log_type}.'''
         result = self._values.get("log_type")
         assert result is not None, "Required property 'log_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#resource_arn LexBotAlias#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#resource_arn LexBotAlias#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#kms_key_arn LexBotAlias#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#kms_key_arn LexBotAlias#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1003,9 +1003,9 @@ class LexBotAliasTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#create LexBotAlias#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#delete LexBotAlias#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#update LexBotAlias#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#create LexBotAlias#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#delete LexBotAlias#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#update LexBotAlias#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40ef0d432c1141c239cda5efa5b0cbf9943c8eabc82a42a99218ca05494f617a)
@@ -1022,19 +1022,19 @@ class LexBotAliasTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#create LexBotAlias#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#create LexBotAlias#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#delete LexBotAlias#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#delete LexBotAlias#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/lex_bot_alias#update LexBotAlias#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/lex_bot_alias#update LexBotAlias#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

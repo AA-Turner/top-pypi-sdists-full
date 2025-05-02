@@ -209,6 +209,9 @@ class ReadOnlyDictionary(typing.Generic[System_Collections_ObjectModel_ReadOnlyD
     def count(self) -> int:
         ...
 
+    def __contains__(self, key: System_Collections_ObjectModel_ReadOnlyDictionary_TKey) -> bool:
+        ...
+
     def __getitem__(self, key: System_Collections_ObjectModel_ReadOnlyDictionary_TKey) -> System_Collections_ObjectModel_ReadOnlyDictionary_TValue:
         ...
 
@@ -216,6 +219,9 @@ class ReadOnlyDictionary(typing.Generic[System_Collections_ObjectModel_ReadOnlyD
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_ObjectModel_ReadOnlyDictionary_TKey, System_Collections_ObjectModel_ReadOnlyDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def contains_key(self, key: System_Collections_ObjectModel_ReadOnlyDictionary_TKey) -> bool:

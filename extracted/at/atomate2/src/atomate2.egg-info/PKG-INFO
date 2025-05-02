@@ -1,0 +1,302 @@
+Metadata-Version: 2.4
+Name: atomate2
+Version: 0.0.20
+Summary: atomate2 is a library of materials science workflows
+Author-email: Alex Ganose <alexganose@gmail.com>
+License: modified BSD
+Project-URL: homepage, https://materialsproject.github.io/atomate2/
+Project-URL: repository, https://github.com/materialsproject/atomate2
+Project-URL: documentation, https://materialsproject.github.io/atomate2/
+Project-URL: changelog, https://github.com/materialsproject/atomate2/blob/main/CHANGELOG.md
+Keywords: automated,dft,high-throughput,vasp,workflow
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Other/Nonlisted Topic
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: PyYAML
+Requires-Dist: click
+Requires-Dist: custodian>=2024.4.18
+Requires-Dist: emmet-core>=0.84.3rc3
+Requires-Dist: jobflow>=0.1.11
+Requires-Dist: monty>=2024.12.10
+Requires-Dist: numpy
+Requires-Dist: pydantic-settings>=2.0.3
+Requires-Dist: pydantic>=2.0.1
+Requires-Dist: pymatgen>=2024.11.13
+Requires-Dist: pymongo<=4.10.1
+Provides-Extra: abinit
+Requires-Dist: abipy>=0.9.3; extra == "abinit"
+Provides-Extra: amset
+Requires-Dist: amset>=0.4.15; extra == "amset"
+Requires-Dist: pydash; extra == "amset"
+Provides-Extra: cclib
+Requires-Dist: cclib; extra == "cclib"
+Provides-Extra: mp
+Requires-Dist: mp-api>=0.37.5; extra == "mp"
+Provides-Extra: phonons
+Requires-Dist: phonopy>=1.10.8; extra == "phonons"
+Requires-Dist: seekpath>=2.0.0; extra == "phonons"
+Provides-Extra: lobster
+Requires-Dist: ijson>=3.2.2; extra == "lobster"
+Requires-Dist: lobsterpy>=0.4.0; extra == "lobster"
+Provides-Extra: defects
+Requires-Dist: dscribe>=1.2.0; extra == "defects"
+Requires-Dist: pymatgen-analysis-defects>=2024.5.11; extra == "defects"
+Requires-Dist: python-ulid>=2.7; extra == "defects"
+Provides-Extra: forcefields
+Requires-Dist: ase>=3.23.0; extra == "forcefields"
+Requires-Dist: calorine>=3.0; extra == "forcefields"
+Requires-Dist: chgnet>=0.2.2; extra == "forcefields"
+Requires-Dist: mace-torch>=0.3.3; extra == "forcefields"
+Requires-Dist: matgl>=1.2.1; extra == "forcefields"
+Requires-Dist: torchdata<=0.7.1; extra == "forcefields"
+Requires-Dist: quippy-ase>=0.9.14; python_version < "3.12" and extra == "forcefields"
+Requires-Dist: sevenn>=0.9.3; extra == "forcefields"
+Requires-Dist: torchdata<=0.7.1; extra == "forcefields"
+Provides-Extra: ase
+Requires-Dist: ase>=3.23.0; extra == "ase"
+Provides-Extra: ase-ext
+Requires-Dist: tblite>=0.3.0; platform_system == "Linux" and extra == "ase-ext"
+Provides-Extra: openmm
+Requires-Dist: mdanalysis>=2.8.0; extra == "openmm"
+Requires-Dist: openmm-mdanalysis-reporter>=0.1.0; extra == "openmm"
+Requires-Dist: openmm>=8.1.0; extra == "openmm"
+Provides-Extra: fireworks
+Requires-Dist: FireWorks==2.0.4; extra == "fireworks"
+Provides-Extra: docs
+Requires-Dist: FireWorks==2.0.4; extra == "docs"
+Requires-Dist: autodoc_pydantic==2.2.0; extra == "docs"
+Requires-Dist: furo==2024.8.6; extra == "docs"
+Requires-Dist: ipython==8.34.0; extra == "docs"
+Requires-Dist: jsonschema[format]; extra == "docs"
+Requires-Dist: myst_parser==4.0.1; extra == "docs"
+Requires-Dist: numpydoc==1.8.0; extra == "docs"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
+Requires-Dist: sphinx==8.1.3; extra == "docs"
+Requires-Dist: sphinx_design==0.6.1; extra == "docs"
+Requires-Dist: jupyterlab==4.3.6; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: pre-commit>=2.12.1; extra == "dev"
+Provides-Extra: tests
+Requires-Dist: FireWorks==2.0.4; extra == "tests"
+Requires-Dist: nbmake==1.5.5; extra == "tests"
+Requires-Dist: pytest-cov==6.1.1; extra == "tests"
+Requires-Dist: pytest-mock==3.14.0; extra == "tests"
+Requires-Dist: pytest-split==0.10.0; extra == "tests"
+Requires-Dist: pytest==8.3.5; extra == "tests"
+Provides-Extra: strict
+Requires-Dist: PyYAML==6.0.2; extra == "strict"
+Requires-Dist: ase==3.24.0; extra == "strict"
+Requires-Dist: cclib==1.8.1; extra == "strict"
+Requires-Dist: click==8.1.7; extra == "strict"
+Requires-Dist: custodian==2025.4.14; extra == "strict"
+Requires-Dist: dscribe==2.1.1; extra == "strict"
+Requires-Dist: emmet-core==0.84.5; extra == "strict"
+Requires-Dist: ijson==3.3.0; extra == "strict"
+Requires-Dist: jobflow==0.1.19; extra == "strict"
+Requires-Dist: lobsterpy==0.4.9; extra == "strict"
+Requires-Dist: monty==2025.3.3; extra == "strict"
+Requires-Dist: mp-api==0.45.4; extra == "strict"
+Requires-Dist: numpy; extra == "strict"
+Requires-Dist: phonopy==2.30.1; extra == "strict"
+Requires-Dist: pydantic-settings==2.8.1; extra == "strict"
+Requires-Dist: pydantic==2.11.3; extra == "strict"
+Requires-Dist: pymatgen-analysis-defects==2025.1.18; extra == "strict"
+Requires-Dist: pymatgen==2025.2.18; extra == "strict"
+Requires-Dist: pymongo==4.10.1; extra == "strict"
+Requires-Dist: python-ulid==3.0.0; extra == "strict"
+Requires-Dist: seekpath==2.1.0; extra == "strict"
+Requires-Dist: typing-extensions==4.13.2; extra == "strict"
+Provides-Extra: strict-openff
+Requires-Dist: mdanalysis==2.9.0; extra == "strict-openff"
+Requires-Dist: monty==2025.3.3; extra == "strict-openff"
+Requires-Dist: openmm-mdanalysis-reporter==0.1.0; extra == "strict-openff"
+Requires-Dist: openmm==8.1.1; extra == "strict-openff"
+Requires-Dist: pymatgen==2024.11.13; extra == "strict-openff"
+Provides-Extra: strict-forcefields
+Requires-Dist: calorine==3.0; extra == "strict-forcefields"
+Requires-Dist: chgnet==0.3.8; extra == "strict-forcefields"
+Requires-Dist: mace-torch==0.3.12; extra == "strict-forcefields"
+Requires-Dist: matgl==1.2.6; extra == "strict-forcefields"
+Requires-Dist: quippy-ase==0.9.14; python_version < "3.12" and extra == "strict-forcefields"
+Requires-Dist: sevenn==0.10.3; extra == "strict-forcefields"
+Requires-Dist: torch==2.2.0; extra == "strict-forcefields"
+Requires-Dist: torchdata==0.7.1; extra == "strict-forcefields"
+Dynamic: license-file
+
+# atomate2
+
+[![tests](https://img.shields.io/github/actions/workflow/status/materialsproject/atomate2/testing.yml?branch=main&label=tests)](https://github.com/materialsproject/atomate2/actions?query=workflow%3Atesting)
+[![code coverage](https://img.shields.io/codecov/c/gh/materialsproject/atomate2)](https://codecov.io/gh/materialsproject/atomate2)
+[![pypi version](https://img.shields.io/pypi/v/atomate2?color=blue)](https://pypi.org/project/atomate2)
+![supported python versions](https://img.shields.io/pypi/pyversions/atomate2)
+[![Zenodo](https://img.shields.io/badge/DOI-10.5281/zenodo.10677081-blue?logo=Zenodo&logoColor=white)](https://zenodo.org/records/10677081)
+[![This project supports Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
+
+[Documentation][docs] | [PyPI][pypi] | [GitHub][github]
+
+Atomate2 is a free, open-source software for performing complex materials science
+workflows using simple Python functions. Features of atomate2 include
+
+- It is built on open-source libraries: [pymatgen], [custodian], [jobflow], and
+  [jobflow-remote] or [FireWorks].
+- A library of "standard" workflows to compute a wide variety of desired materials
+  properties.
+- The ability scale from a single material, to 100 materials, or 100,000 materials.
+- Easy routes to modifying and chaining workflows together.
+- It can build large databases of output properties that you can query, analyze, and
+  share in a systematic way.
+- It automatically keeps meticulous records of jobs, their directories, runtime
+  parameters, and more.
+
+## Workflows
+
+Some of the workflows available in atomate2 are:
+
+- electronic band structures
+- elastic, dielectric, and piezoelectric tensors
+- one-shot electron-phonon interactions
+- electronic transport using [AMSET]
+- phonons using [phonopy]
+- defect formation energy diagrams
+- [Lobster] bonding analysis with [lobsterpy]
+
+It is easy to customise and compose any of the above workflows.
+
+## Quick start
+
+Workflows in atomate2 are written using the [jobflow] library. Workflows are generated using
+`Maker` objects which have a consistent API for modifying input settings and chaining
+workflows together. Below, we demonstrate how to run a band structure workflow
+(see the [documentation][RelaxBandStructure] for more details). In total, 4 VASP
+calculations will be performed:
+
+1. A structural optimisation.
+2. A self-consistent static calculation on the relaxed geometry.
+3. A non-self-consistent calculation on a uniform k-point mesh (for the density of
+   states).
+4. A non-self-consistent calculation on a high symmetry k-point path (for the line mode
+   band structure).
+
+```py
+from atomate2.vasp.flows.core import RelaxBandStructureMaker
+from jobflow import run_locally
+from pymatgen.core import Structure
+
+# construct a rock salt MgO structure
+mgo_structure = Structure(
+    lattice=[[0, 2.13, 2.13], [2.13, 0, 2.13], [2.13, 2.13, 0]],
+    species=["Mg", "O"],
+    coords=[[0, 0, 0], [0.5, 0.5, 0.5]],
+)
+
+# make a band structure flow to optimise the structure and obtain the band structure
+bandstructure_flow = RelaxBandStructureMaker().make(mgo_structure)
+
+# run the flow
+run_locally(bandstructure_flow, create_folders=True)
+```
+
+Before the above code can run successfully, you'll need to
+
+- tell pymatgen where to [find your pseudopotential files](https://pymatgen.org/installation.html#potcar-setup)
+- tell atomate2 where to find your VASP binary
+- (optionally) prepare an external database to store the job output
+
+See the [installation] steps for details how to set all of this up.
+
+In this example, we execute the workflow immediately. In many cases, you might want
+to perform calculations on several materials simultaneously. To achieve this, all
+atomate2 workflows can be run using the [jobflow-remote] or [FireWorks] software. See the
+[jobflow-remote-specific documentation][atomate2-jobflow-remote] or [fireworks-specific documentation][atomate2_fireworks] for more details.
+
+## Installation
+
+Atomate2 is a Python 3.10+ library and can be installed using pip. Full installation
+and configuration instructions are provided in the [installation tutorial][installation].
+
+## Tutorials
+
+The documentation includes comprehensive tutorials and reference information to get you
+started:
+
+- [Introduction to running workflows][running-workflows]
+- [Using atomate2 with FireWorks][atomate2_fireworks]
+- [Overview of key concepts][key-concepts]
+- [List of VASP workflows][vasp_workflows]
+
+## Need help?
+
+Ask questions about atomate2 on the [atomate2 support forum][help-forum].
+If you've found an issue with atomate2, please submit a bug report on [GitHub Issues][issues].
+
+## What’s new?
+
+Track changes to atomate2 through the [changelog][changelog].
+
+## Contributing
+
+We greatly appreciate any contributions in the form of a pull request.
+Additional information on contributing to atomate2 can be found [here][contributing].
+We maintain a list of all contributors [here][contributors].
+
+## License
+
+Atomate2 is released under a modified BSD license; the full text can be found [here][license].
+
+## Acknowledgements
+
+The development of atomate2 has benefited from many people across several research groups.
+A full list of contributors can be found [here][contributors].
+
+## Citing atomate2
+
+A journal submission of `atomate2` is undergoing peer review. In the meantime, please cite the [ChemRxiv preprint](https://chemrxiv.org/engage/chemrxiv/article-details/678e76a16dde43c9085c75e9):
+
+```bib
+@article{ganose2025_atomate2,
+    title        = {Atomate2: Modular Workflows for Materials Science},
+    author       = {Ganose, Alex M. and Sahasrabuddhe, Hrushikesh and Asta, Mark and Beck, Kevin and Biswas, Tathagata and Bonkowski, Alexander and Bustamante, Joana and Chen, Xin and Chiang, Yuan and Chrzan, Daryl and Clary, Jacob and Cohen, Orion and Ertural, Christina and Gallant, Max and George, Janine and Gerits, Sophie and Goodall, Rhys and Guha, Rishabh and Hautier, Geoffroy and Horton, Matthew and Kaplan, Aaron and Kingsbury, Ryan and Kuner, Matthew and Li, Bryant and Linn, Xavier and McDermott, Matthew and Mohanakrishnan, Rohith Srinivaas and Naik, Aakash and Neaton, Jeffrey and Persson, Kristin and Petretto, Guido and Purcell, Thomas and Ricci, Francesco and Rich, Benjamin and Riebesell, Janosh and Rignanese, Gian-Marco and Rosen, Andrew and Scheffler, Matthias and Schmidt, Jonathan and Shen, Jimmy-Xuan and Sobolev, Andrei and Sundararaman, Ravishankar and Tezak, Cooper and Trinquet, Victor and Varley, Joel and Vigil-Fowler, Derek and Wang, Duo and Waroquiers, David and Wen, Mingjian and Yang, Han and Zheng, Hui and Zheng, Jiongzhi and Zhu, Zhuoying and Jain, Anubhav},
+    year         = 2025,
+    journal      = {ChemRxiv},
+    url          = {https://chemrxiv.org/engage/chemrxiv/article-details/678e76a16dde43c9085c75e9},
+    urldate      = {2025-01-22},
+}
+```
+
+[pymatgen]: https://pymatgen.org
+[fireworks]: https://materialsproject.github.io/fireworks/
+[jobflow]: https://materialsproject.github.io/jobflow/
+[jobflow-remote]: https://github.com/Matgenix/jobflow-remote
+[custodian]: https://materialsproject.github.io/custodian/
+[VASP]: https://www.vasp.at
+[AMSET]: https://hackingmaterials.lbl.gov/amset/
+[help-forum]: https://matsci.org/c/atomate
+[issues]: https://github.com/materialsproject/atomate2/issues
+[changelog]: https://materialsproject.github.io/atomate2/about/changelog.html
+[installation]: https://materialsproject.github.io/atomate2/user/install.html
+[contributing]: https://materialsproject.github.io/atomate2/about/contributing.html
+[contributors]: https://materialsproject.github.io/atomate2/about/contributors.html
+[license]: https://raw.githubusercontent.com/materialsproject/atomate2/main/LICENSE
+[running-workflows]: https://materialsproject.github.io/atomate2/user/running-workflows.html
+[key-concepts]: https://materialsproject.github.io/atomate2/user/key_concepts_overview.html#key-concepts-in-atomate2-job-flow-makers-inputset-taskdocument-and-builder
+[atomate2_fireworks]: https://materialsproject.github.io/atomate2/user/fireworks.html
+[atomate2-jobflow-remote]: https://materialsproject.github.io/atomate2/user/jobflow-remote.html
+[vasp_workflows]: https://materialsproject.github.io/atomate2/user/codes/vasp.html
+[RelaxBandStructure]: https://materialsproject.github.io/atomate2/user/codes/vasp.html#relax-and-band-structure
+[Lobster]: http://www.cohp.de
+[lobsterpy]: https://github.com/JaGeo/LobsterPy
+[phonopy]: https://github.com/phonopy/phonopy
+[docs]: https://materialsproject.github.io/atomate2/
+[github]: https://github.com/materialsproject/atomate2
+[pypi]: https://pypi.org/project/atomate2

@@ -140,7 +140,7 @@ def export_formats():
         ["MNN", "mnn", ".mnn", True, True, ["batch", "half", "int8"]],
         ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "half"]],
         ["IMX", "imx", "_imx_model", True, True, ["int8", "fraction"]],
-        ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
+        ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name", "int8"]],
     ]
     return dict(zip(["Format", "Argument", "Suffix", "CPU", "GPU", "Arguments"], zip(*x)))
 
@@ -970,8 +970,9 @@ class Exporter:
             output_integer_quantized_tflite=self.args.int8,
             quant_type="per-tensor",  # "per-tensor" (faster) or "per-channel" (slower but more accurate)
             custom_input_op_name_np_data_path=np_data,
-            disable_group_convolution=True,  # for end-to-end model compatibility
-            enable_batchmatmul_unfold=True,  # for end-to-end model compatibility
+            enable_batchmatmul_unfold=True,  # fix lower no. of detected objects on GPU delegate
+            output_signaturedefs=True,  # fix error with Attention block group convolution
+            optimization_for_gpu_delegate=True,
         )
         yaml_save(f / "metadata.yaml", self.metadata)  # add metadata.yaml
 
@@ -1110,8 +1111,8 @@ class Exporter:
         rknn = RKNN(verbose=False)
         rknn.config(mean_values=[[0, 0, 0]], std_values=[[255, 255, 255]], target_platform=self.args.name)
         rknn.load_onnx(model=f)
-        rknn.build(do_quantization=False)  # TODO: Add quantization support
-        f = f.replace(".onnx", f"-{self.args.name}.rknn")
+        rknn.build(do_quantization=self.args.int8)
+        f = f.replace(".onnx", f"-{self.args.name}-int8.rknn" if self.args.int8 else f"-{self.args.name}-fp16.rknn")
         rknn.export_rknn(f"{export_path / f}")
         yaml_save(export_path / "metadata.yaml", self.metadata)
         return export_path, None

@@ -1,7 +1,7 @@
 r'''
 # `aws_customerprofiles_profile`
 
-Refer to the Terraform Registry for docs: [`aws_customerprofiles_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile).
+Refer to the Terraform Registry for docs: [`aws_customerprofiles_profile`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CustomerprofilesProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.customerprofilesProfile.CustomerprofilesProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile aws_customerprofiles_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile aws_customerprofiles_profile}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class CustomerprofilesProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile aws_customerprofiles_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile aws_customerprofiles_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#domain_name CustomerprofilesProfile#domain_name}.
-        :param account_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#account_number CustomerprofilesProfile#account_number}.
-        :param additional_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#additional_information CustomerprofilesProfile#additional_information}.
-        :param address: address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address CustomerprofilesProfile#address}
-        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#attributes CustomerprofilesProfile#attributes}.
-        :param billing_address: billing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#billing_address CustomerprofilesProfile#billing_address}
-        :param birth_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#birth_date CustomerprofilesProfile#birth_date}.
-        :param business_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_email_address CustomerprofilesProfile#business_email_address}.
-        :param business_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_name CustomerprofilesProfile#business_name}.
-        :param business_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_phone_number CustomerprofilesProfile#business_phone_number}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#email_address CustomerprofilesProfile#email_address}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#first_name CustomerprofilesProfile#first_name}.
-        :param gender_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#gender_string CustomerprofilesProfile#gender_string}.
-        :param home_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#home_phone_number CustomerprofilesProfile#home_phone_number}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#id CustomerprofilesProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#last_name CustomerprofilesProfile#last_name}.
-        :param mailing_address: mailing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#mailing_address CustomerprofilesProfile#mailing_address}
-        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#middle_name CustomerprofilesProfile#middle_name}.
-        :param mobile_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#mobile_phone_number CustomerprofilesProfile#mobile_phone_number}.
-        :param party_type_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#party_type_string CustomerprofilesProfile#party_type_string}.
-        :param personal_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#personal_email_address CustomerprofilesProfile#personal_email_address}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#phone_number CustomerprofilesProfile#phone_number}.
-        :param shipping_address: shipping_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#shipping_address CustomerprofilesProfile#shipping_address}
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#domain_name CustomerprofilesProfile#domain_name}.
+        :param account_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#account_number CustomerprofilesProfile#account_number}.
+        :param additional_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#additional_information CustomerprofilesProfile#additional_information}.
+        :param address: address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address CustomerprofilesProfile#address}
+        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#attributes CustomerprofilesProfile#attributes}.
+        :param billing_address: billing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#billing_address CustomerprofilesProfile#billing_address}
+        :param birth_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#birth_date CustomerprofilesProfile#birth_date}.
+        :param business_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_email_address CustomerprofilesProfile#business_email_address}.
+        :param business_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_name CustomerprofilesProfile#business_name}.
+        :param business_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_phone_number CustomerprofilesProfile#business_phone_number}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#email_address CustomerprofilesProfile#email_address}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#first_name CustomerprofilesProfile#first_name}.
+        :param gender_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#gender_string CustomerprofilesProfile#gender_string}.
+        :param home_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#home_phone_number CustomerprofilesProfile#home_phone_number}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#id CustomerprofilesProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#last_name CustomerprofilesProfile#last_name}.
+        :param mailing_address: mailing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#mailing_address CustomerprofilesProfile#mailing_address}
+        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#middle_name CustomerprofilesProfile#middle_name}.
+        :param mobile_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#mobile_phone_number CustomerprofilesProfile#mobile_phone_number}.
+        :param party_type_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#party_type_string CustomerprofilesProfile#party_type_string}.
+        :param personal_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#personal_email_address CustomerprofilesProfile#personal_email_address}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#phone_number CustomerprofilesProfile#phone_number}.
+        :param shipping_address: shipping_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#shipping_address CustomerprofilesProfile#shipping_address}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class CustomerprofilesProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CustomerprofilesProfile to import.
-        :param import_from_id: The id of the existing CustomerprofilesProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CustomerprofilesProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CustomerprofilesProfile to import is found.
         '''
         if __debug__:
@@ -196,16 +196,16 @@ class CustomerprofilesProfile(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         value = CustomerprofilesProfileAddress(
             address1=address1,
@@ -238,16 +238,16 @@ class CustomerprofilesProfile(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         value = CustomerprofilesProfileBillingAddress(
             address1=address1,
@@ -280,16 +280,16 @@ class CustomerprofilesProfile(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         value = CustomerprofilesProfileMailingAddress(
             address1=address1,
@@ -322,16 +322,16 @@ class CustomerprofilesProfile(
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         value = CustomerprofilesProfileShippingAddress(
             address1=address1,
@@ -855,16 +855,16 @@ class CustomerprofilesProfileAddress:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dec09c6e00db9f9a36e25888d30ac526300ecd7cbacb5639b23092da048b1b4e)
@@ -902,61 +902,61 @@ class CustomerprofilesProfileAddress:
 
     @builtins.property
     def address1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
         result = self._values.get("address1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
         result = self._values.get("address2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address3(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
         result = self._values.get("address3")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address4(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
         result = self._values.get("address4")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def county(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
         result = self._values.get("county")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postal_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def province(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
         result = self._values.get("province")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1250,16 +1250,16 @@ class CustomerprofilesProfileBillingAddress:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1de07e7c7d26e1e5debbc550532645495c12f16a894814d3443d42d371f71037)
@@ -1297,61 +1297,61 @@ class CustomerprofilesProfileBillingAddress:
 
     @builtins.property
     def address1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
         result = self._values.get("address1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
         result = self._values.get("address2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address3(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
         result = self._values.get("address3")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address4(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
         result = self._values.get("address4")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def county(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
         result = self._values.get("county")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postal_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def province(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
         result = self._values.get("province")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1692,29 +1692,29 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#domain_name CustomerprofilesProfile#domain_name}.
-        :param account_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#account_number CustomerprofilesProfile#account_number}.
-        :param additional_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#additional_information CustomerprofilesProfile#additional_information}.
-        :param address: address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address CustomerprofilesProfile#address}
-        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#attributes CustomerprofilesProfile#attributes}.
-        :param billing_address: billing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#billing_address CustomerprofilesProfile#billing_address}
-        :param birth_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#birth_date CustomerprofilesProfile#birth_date}.
-        :param business_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_email_address CustomerprofilesProfile#business_email_address}.
-        :param business_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_name CustomerprofilesProfile#business_name}.
-        :param business_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_phone_number CustomerprofilesProfile#business_phone_number}.
-        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#email_address CustomerprofilesProfile#email_address}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#first_name CustomerprofilesProfile#first_name}.
-        :param gender_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#gender_string CustomerprofilesProfile#gender_string}.
-        :param home_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#home_phone_number CustomerprofilesProfile#home_phone_number}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#id CustomerprofilesProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#last_name CustomerprofilesProfile#last_name}.
-        :param mailing_address: mailing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#mailing_address CustomerprofilesProfile#mailing_address}
-        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#middle_name CustomerprofilesProfile#middle_name}.
-        :param mobile_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#mobile_phone_number CustomerprofilesProfile#mobile_phone_number}.
-        :param party_type_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#party_type_string CustomerprofilesProfile#party_type_string}.
-        :param personal_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#personal_email_address CustomerprofilesProfile#personal_email_address}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#phone_number CustomerprofilesProfile#phone_number}.
-        :param shipping_address: shipping_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#shipping_address CustomerprofilesProfile#shipping_address}
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#domain_name CustomerprofilesProfile#domain_name}.
+        :param account_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#account_number CustomerprofilesProfile#account_number}.
+        :param additional_information: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#additional_information CustomerprofilesProfile#additional_information}.
+        :param address: address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address CustomerprofilesProfile#address}
+        :param attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#attributes CustomerprofilesProfile#attributes}.
+        :param billing_address: billing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#billing_address CustomerprofilesProfile#billing_address}
+        :param birth_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#birth_date CustomerprofilesProfile#birth_date}.
+        :param business_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_email_address CustomerprofilesProfile#business_email_address}.
+        :param business_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_name CustomerprofilesProfile#business_name}.
+        :param business_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_phone_number CustomerprofilesProfile#business_phone_number}.
+        :param email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#email_address CustomerprofilesProfile#email_address}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#first_name CustomerprofilesProfile#first_name}.
+        :param gender_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#gender_string CustomerprofilesProfile#gender_string}.
+        :param home_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#home_phone_number CustomerprofilesProfile#home_phone_number}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#id CustomerprofilesProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#last_name CustomerprofilesProfile#last_name}.
+        :param mailing_address: mailing_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#mailing_address CustomerprofilesProfile#mailing_address}
+        :param middle_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#middle_name CustomerprofilesProfile#middle_name}.
+        :param mobile_phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#mobile_phone_number CustomerprofilesProfile#mobile_phone_number}.
+        :param party_type_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#party_type_string CustomerprofilesProfile#party_type_string}.
+        :param personal_email_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#personal_email_address CustomerprofilesProfile#personal_email_address}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#phone_number CustomerprofilesProfile#phone_number}.
+        :param shipping_address: shipping_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#shipping_address CustomerprofilesProfile#shipping_address}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1886,20 +1886,20 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#domain_name CustomerprofilesProfile#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#domain_name CustomerprofilesProfile#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#account_number CustomerprofilesProfile#account_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#account_number CustomerprofilesProfile#account_number}.'''
         result = self._values.get("account_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def additional_information(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#additional_information CustomerprofilesProfile#additional_information}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#additional_information CustomerprofilesProfile#additional_information}.'''
         result = self._values.get("additional_information")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1907,14 +1907,14 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def address(self) -> typing.Optional[CustomerprofilesProfileAddress]:
         '''address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address CustomerprofilesProfile#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address CustomerprofilesProfile#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[CustomerprofilesProfileAddress], result)
 
     @builtins.property
     def attributes(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#attributes CustomerprofilesProfile#attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#attributes CustomerprofilesProfile#attributes}.'''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1922,62 +1922,62 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing_address(self) -> typing.Optional[CustomerprofilesProfileBillingAddress]:
         '''billing_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#billing_address CustomerprofilesProfile#billing_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#billing_address CustomerprofilesProfile#billing_address}
         '''
         result = self._values.get("billing_address")
         return typing.cast(typing.Optional[CustomerprofilesProfileBillingAddress], result)
 
     @builtins.property
     def birth_date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#birth_date CustomerprofilesProfile#birth_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#birth_date CustomerprofilesProfile#birth_date}.'''
         result = self._values.get("birth_date")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def business_email_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_email_address CustomerprofilesProfile#business_email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_email_address CustomerprofilesProfile#business_email_address}.'''
         result = self._values.get("business_email_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def business_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_name CustomerprofilesProfile#business_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_name CustomerprofilesProfile#business_name}.'''
         result = self._values.get("business_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def business_phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#business_phone_number CustomerprofilesProfile#business_phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#business_phone_number CustomerprofilesProfile#business_phone_number}.'''
         result = self._values.get("business_phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def email_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#email_address CustomerprofilesProfile#email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#email_address CustomerprofilesProfile#email_address}.'''
         result = self._values.get("email_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def first_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#first_name CustomerprofilesProfile#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#first_name CustomerprofilesProfile#first_name}.'''
         result = self._values.get("first_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gender_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#gender_string CustomerprofilesProfile#gender_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#gender_string CustomerprofilesProfile#gender_string}.'''
         result = self._values.get("gender_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def home_phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#home_phone_number CustomerprofilesProfile#home_phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#home_phone_number CustomerprofilesProfile#home_phone_number}.'''
         result = self._values.get("home_phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#id CustomerprofilesProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#id CustomerprofilesProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1987,7 +1987,7 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def last_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#last_name CustomerprofilesProfile#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#last_name CustomerprofilesProfile#last_name}.'''
         result = self._values.get("last_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1997,38 +1997,38 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CustomerprofilesProfileMailingAddress"]:
         '''mailing_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#mailing_address CustomerprofilesProfile#mailing_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#mailing_address CustomerprofilesProfile#mailing_address}
         '''
         result = self._values.get("mailing_address")
         return typing.cast(typing.Optional["CustomerprofilesProfileMailingAddress"], result)
 
     @builtins.property
     def middle_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#middle_name CustomerprofilesProfile#middle_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#middle_name CustomerprofilesProfile#middle_name}.'''
         result = self._values.get("middle_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mobile_phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#mobile_phone_number CustomerprofilesProfile#mobile_phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#mobile_phone_number CustomerprofilesProfile#mobile_phone_number}.'''
         result = self._values.get("mobile_phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def party_type_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#party_type_string CustomerprofilesProfile#party_type_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#party_type_string CustomerprofilesProfile#party_type_string}.'''
         result = self._values.get("party_type_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def personal_email_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#personal_email_address CustomerprofilesProfile#personal_email_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#personal_email_address CustomerprofilesProfile#personal_email_address}.'''
         result = self._values.get("personal_email_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#phone_number CustomerprofilesProfile#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#phone_number CustomerprofilesProfile#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2038,7 +2038,7 @@ class CustomerprofilesProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CustomerprofilesProfileShippingAddress"]:
         '''shipping_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#shipping_address CustomerprofilesProfile#shipping_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#shipping_address CustomerprofilesProfile#shipping_address}
         '''
         result = self._values.get("shipping_address")
         return typing.cast(typing.Optional["CustomerprofilesProfileShippingAddress"], result)
@@ -2087,16 +2087,16 @@ class CustomerprofilesProfileMailingAddress:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c50202614f7edad856166a29463c1bf74e3fffa78265644d4e4617ca54ac5930)
@@ -2134,61 +2134,61 @@ class CustomerprofilesProfileMailingAddress:
 
     @builtins.property
     def address1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
         result = self._values.get("address1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
         result = self._values.get("address2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address3(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
         result = self._values.get("address3")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address4(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
         result = self._values.get("address4")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def county(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
         result = self._values.get("county")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postal_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def province(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
         result = self._values.get("province")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2482,16 +2482,16 @@ class CustomerprofilesProfileShippingAddress:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
-        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
-        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
-        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
-        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
-        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
-        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
-        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
-        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
+        :param address1: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.
+        :param address2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.
+        :param address3: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.
+        :param address4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.
+        :param city: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.
+        :param country: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.
+        :param county: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.
+        :param postal_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.
+        :param province: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc3049e11bba7ee51bc36771d3d792425b698727ead300ddb65c625fc4086a8c)
@@ -2529,61 +2529,61 @@ class CustomerprofilesProfileShippingAddress:
 
     @builtins.property
     def address1(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_1 CustomerprofilesProfile#address_1}.'''
         result = self._values.get("address1")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address2(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_2 CustomerprofilesProfile#address_2}.'''
         result = self._values.get("address2")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address3(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_3 CustomerprofilesProfile#address_3}.'''
         result = self._values.get("address3")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address4(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#address_4 CustomerprofilesProfile#address_4}.'''
         result = self._values.get("address4")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def city(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#city CustomerprofilesProfile#city}.'''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def country(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#country CustomerprofilesProfile#country}.'''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def county(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#county CustomerprofilesProfile#county}.'''
         result = self._values.get("county")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postal_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#postal_code CustomerprofilesProfile#postal_code}.'''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def province(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#province CustomerprofilesProfile#province}.'''
         result = self._values.get("province")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/customerprofiles_profile#state CustomerprofilesProfile#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 

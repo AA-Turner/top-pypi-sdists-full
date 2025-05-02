@@ -1,0 +1,49 @@
+[project]
+name = "bar-raiser"
+description = "Bar-Raiser is a cutting-edge framework designed to help engineering teams tackle technical debt, streamline development workflows, and elevate code quality."
+authors = [
+    { name = "Jimmy Lai", email = "jimmy.lai@ziphq.com" },
+]
+dependencies = [
+    "pygithub>=2.2.0",
+    "gitpython>=3.1.41",
+    "cryptography>=42.0.4",
+    "slackclient>=2.7.2",
+]
+requires-python = ">=3.11"
+readme = "README.md"
+dynamic = []
+version = "0.0.5"
+
+[project.license]
+text = "BSD-3-Clause"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[dependency-groups]
+test = [
+    "pytest>=8.3.3",
+    "diff-cover>=9.2.0",
+    "pytest-cov>=6.0.0",
+    "pytest-json-report>=1.5.0",
+]
+lint = [
+    "ruff>=0.8.0",
+    "pyright>=1.1.389",
+    "pre-commit>=4.0.1",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+[tool.pdm]
+distribution = true
+python_requires = ">=3.11"
+
+[tool.pdm.version]
+source = "scm"

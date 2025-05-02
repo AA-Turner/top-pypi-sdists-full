@@ -67,6 +67,7 @@ from .literals import (
     IntervalPeriodType,
     LexVersionType,
     ListFlowAssociationResourceTypeType,
+    MediaStreamTypeType,
     MeetingFeatureStatusType,
     MonitorCapabilityType,
     NumberComparisonTypeType,
@@ -74,7 +75,9 @@ from .literals import (
     OutboundMessageSourceTypeType,
     OverrideDaysType,
     ParticipantRoleType,
+    ParticipantStateType,
     ParticipantTimerTypeType,
+    ParticipantTypeType,
     PhoneNumberCountryCodeType,
     PhoneNumberTypeType,
     PhoneNumberWorkflowStatusType,
@@ -89,6 +92,7 @@ from .literals import (
     RealTimeContactAnalysisSentimentLabelType,
     RealTimeContactAnalysisStatusType,
     RealTimeContactAnalysisSupportedChannelType,
+    RecordingStatusType,
     ReferenceStatusType,
     ReferenceTypeType,
     RehydrationTypeType,
@@ -101,6 +105,7 @@ from .literals import (
     SortOrderType,
     SourceTypeType,
     StatisticType,
+    StatusType,
     StorageTypeType,
     StringComparisonTypeType,
     TaskTemplateFieldTypeType,
@@ -221,6 +226,8 @@ __all__ = (
     "ContactAnalysisTypeDef",
     "ContactConfigurationTypeDef",
     "ContactDataRequestTypeDef",
+    "ContactDetailsTypeDef",
+    "ContactEvaluationTypeDef",
     "ContactFilterTypeDef",
     "ContactFlowModuleSearchCriteriaPaginatorTypeDef",
     "ContactFlowModuleSearchCriteriaTypeDef",
@@ -788,6 +795,7 @@ __all__ = (
     "RealTimeContactAnalysisTranscriptItemWithCharacterOffsetsTypeDef",
     "RealTimeContactAnalysisTranscriptItemWithContentTypeDef",
     "RealtimeContactAnalysisSegmentTypeDef",
+    "RecordingInfoTypeDef",
     "ReferenceSummaryTypeDef",
     "ReferenceTypeDef",
     "ReleasePhoneNumberRequestTypeDef",
@@ -924,6 +932,7 @@ __all__ = (
     "StartTaskContactResponseTypeDef",
     "StartWebRTCContactRequestTypeDef",
     "StartWebRTCContactResponseTypeDef",
+    "StateTransitionTypeDef",
     "StepTypeDef",
     "StopContactRecordingRequestTypeDef",
     "StopContactRequestTypeDef",
@@ -1122,6 +1131,12 @@ class DeviceInfoTypeDef(TypedDict):
 class ParticipantCapabilitiesTypeDef(TypedDict):
     Video: NotRequired[Literal["SEND"]]
     ScreenShare: NotRequired[Literal["SEND"]]
+
+
+class StateTransitionTypeDef(TypedDict):
+    State: NotRequired[ParticipantStateType]
+    StateStartTimestamp: NotRequired[datetime]
+    StateEndTimestamp: NotRequired[datetime]
 
 
 class AudioQualityMetricsInfoTypeDef(TypedDict):
@@ -1488,6 +1503,21 @@ EndpointTypeDef = TypedDict(
 )
 
 
+class ContactDetailsTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+
+
+class ContactEvaluationTypeDef(TypedDict):
+    FormId: NotRequired[str]
+    EvaluationArn: NotRequired[str]
+    Status: NotRequired[StatusType]
+    StartTimestamp: NotRequired[datetime]
+    EndTimestamp: NotRequired[datetime]
+    DeleteTimestamp: NotRequired[datetime]
+    ExportLocation: NotRequired[str]
+
+
 class ContactFilterTypeDef(TypedDict):
     ContactStates: NotRequired[Sequence[ContactStateType]]
 
@@ -1582,6 +1612,19 @@ EndpointInfoTypeDef = TypedDict(
 class QueueInfoTypeDef(TypedDict):
     Id: NotRequired[str]
     EnqueueTimestamp: NotRequired[datetime]
+
+
+class RecordingInfoTypeDef(TypedDict):
+    StorageType: NotRequired[StorageTypeType]
+    Location: NotRequired[str]
+    MediaStreamType: NotRequired[MediaStreamTypeType]
+    ParticipantType: NotRequired[ParticipantTypeType]
+    FragmentStartNumber: NotRequired[str]
+    FragmentStopNumber: NotRequired[str]
+    StartTimestamp: NotRequired[datetime]
+    StopTimestamp: NotRequired[datetime]
+    Status: NotRequired[RecordingStatusType]
+    DeletionReason: NotRequired[str]
 
 
 class SegmentAttributeValueOutputTypeDef(TypedDict):
@@ -5609,6 +5652,11 @@ class AgentInfoTypeDef(TypedDict):
     HierarchyGroups: NotRequired[HierarchyGroupsTypeDef]
     DeviceInfo: NotRequired[DeviceInfoTypeDef]
     Capabilities: NotRequired[ParticipantCapabilitiesTypeDef]
+    AfterContactWorkDuration: NotRequired[int]
+    AfterContactWorkStartTimestamp: NotRequired[datetime]
+    AfterContactWorkEndTimestamp: NotRequired[datetime]
+    AgentInitiatedHoldDuration: NotRequired[int]
+    StateTransitions: NotRequired[List[StateTransitionTypeDef]]
 
 
 class StartWebRTCContactRequestTypeDef(TypedDict):
@@ -7088,6 +7136,11 @@ class ContactTypeDef(TypedDict):
     DisconnectDetails: NotRequired[DisconnectDetailsTypeDef]
     AdditionalEmailRecipients: NotRequired[AdditionalEmailRecipientsTypeDef]
     SegmentAttributes: NotRequired[Dict[str, SegmentAttributeValueOutputTypeDef]]
+    Recordings: NotRequired[List[RecordingInfoTypeDef]]
+    DisconnectReason: NotRequired[str]
+    ContactEvaluations: NotRequired[Dict[str, ContactEvaluationTypeDef]]
+    ContactDetails: NotRequired[ContactDetailsTypeDef]
+    Attributes: NotRequired[Dict[str, str]]
 
 
 class ExpressionTypeDef(TypedDict):

@@ -3861,6 +3861,8 @@ class CfnAccount(
 
     To avoid overwriting other roles, you should only have one ``AWS::ApiGateway::Account`` resource per region per account.
 
+    When you delete a stack containing this resource, API Gateway can still assume the provided IAM role to write API logs to CloudWatch Logs. To deny API Gateway access to write API logs to CloudWatch logs, update the permissions policies or change the IAM role to deny access.
+
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-account.html
     :cloudformationResource: AWS::ApiGateway::Account
     :exampleMetadata: fixture=_generated
@@ -9091,7 +9093,7 @@ class CfnGatewayResponse(
 ):
     '''The ``AWS::ApiGateway::GatewayResponse`` resource creates a gateway response for your API.
 
-    For more information, see `API Gateway Responses <https://docs.aws.amazon.com/apigateway/latest/developerguide/customize-gateway-responses.html#api-gateway-gatewayResponse-definition>`_ in the *API Gateway Developer Guide* .
+    When you delete a stack containing this resource, your custom gateway responses are reset. For more information, see `API Gateway Responses <https://docs.aws.amazon.com/apigateway/latest/developerguide/customize-gateway-responses.html#api-gateway-gatewayResponse-definition>`_ in the *API Gateway Developer Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-gatewayresponse.html
     :cloudformationResource: AWS::ApiGateway::GatewayResponse

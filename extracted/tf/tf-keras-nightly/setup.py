@@ -38,7 +38,7 @@ with open(os.path.abspath(__file__)) as f:
         )
 
 # pin version to that of tensorflow or tf_nightly.
-version = "2.20.0.dev2025043009".lower()
+version = "2.20.0.dev2025050109".lower()
 major_version, minor_version, *_ = version.split(".")
 next_minor_version = int(minor_version) + 1
 if "nightly" in "tf_keras-nightly":
@@ -61,7 +61,7 @@ setuptools.setup(
     name="tf_keras-nightly",
     # Version strings with `-` characters are semver compatible,
     # but incompatible with pip. For pip, we will remove all `-`` characters.
-    version="2.20.0.dev2025043009",
+    version="2.20.0.dev2025050109",
     description="Deep learning for humans.",
     long_description=DESCRIPTION,
     url="https://keras.io/",

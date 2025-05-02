@@ -1,7 +1,7 @@
 r'''
 # `aws_transfer_workflow`
 
-Refer to the Terraform Registry for docs: [`aws_transfer_workflow`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow).
+Refer to the Terraform Registry for docs: [`aws_transfer_workflow`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TransferWorkflow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.transferWorkflow.TransferWorkflow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow aws_transfer_workflow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow aws_transfer_workflow}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class TransferWorkflow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow aws_transfer_workflow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow aws_transfer_workflow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#steps TransferWorkflow#steps}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#description TransferWorkflow#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#id TransferWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param on_exception_steps: on_exception_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#on_exception_steps TransferWorkflow#on_exception_steps}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags_all TransferWorkflow#tags_all}.
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#steps TransferWorkflow#steps}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#description TransferWorkflow#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#id TransferWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param on_exception_steps: on_exception_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#on_exception_steps TransferWorkflow#on_exception_steps}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags_all TransferWorkflow#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class TransferWorkflow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TransferWorkflow to import.
-        :param import_from_id: The id of the existing TransferWorkflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TransferWorkflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TransferWorkflow to import is found.
         '''
         if __debug__:
@@ -333,12 +333,12 @@ class TransferWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#steps TransferWorkflow#steps}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#description TransferWorkflow#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#id TransferWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param on_exception_steps: on_exception_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#on_exception_steps TransferWorkflow#on_exception_steps}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags_all TransferWorkflow#tags_all}.
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#steps TransferWorkflow#steps}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#description TransferWorkflow#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#id TransferWorkflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param on_exception_steps: on_exception_steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#on_exception_steps TransferWorkflow#on_exception_steps}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags_all TransferWorkflow#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -455,7 +455,7 @@ class TransferWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowSteps"]]:
         '''steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#steps TransferWorkflow#steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#steps TransferWorkflow#steps}
         '''
         result = self._values.get("steps")
         assert result is not None, "Required property 'steps' is missing"
@@ -463,13 +463,13 @@ class TransferWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#description TransferWorkflow#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#description TransferWorkflow#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#id TransferWorkflow#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#id TransferWorkflow#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -483,20 +483,20 @@ class TransferWorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowOnExceptionSteps"]]]:
         '''on_exception_steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#on_exception_steps TransferWorkflow#on_exception_steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#on_exception_steps TransferWorkflow#on_exception_steps}
         '''
         result = self._values.get("on_exception_steps")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowOnExceptionSteps"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags_all TransferWorkflow#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags_all TransferWorkflow#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -536,12 +536,12 @@ class TransferWorkflowOnExceptionSteps:
         tag_step_details: typing.Optional[typing.Union["TransferWorkflowOnExceptionStepsTagStepDetails", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
-        :param copy_step_details: copy_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
-        :param custom_step_details: custom_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
-        :param decrypt_step_details: decrypt_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
-        :param delete_step_details: delete_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
-        :param tag_step_details: tag_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
+        :param copy_step_details: copy_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
+        :param custom_step_details: custom_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
+        :param decrypt_step_details: decrypt_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
+        :param delete_step_details: delete_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
+        :param tag_step_details: tag_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
         '''
         if isinstance(copy_step_details, dict):
             copy_step_details = TransferWorkflowOnExceptionStepsCopyStepDetails(**copy_step_details)
@@ -577,7 +577,7 @@ class TransferWorkflowOnExceptionSteps:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -588,7 +588,7 @@ class TransferWorkflowOnExceptionSteps:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetails"]:
         '''copy_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
         '''
         result = self._values.get("copy_step_details")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetails"], result)
@@ -599,7 +599,7 @@ class TransferWorkflowOnExceptionSteps:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsCustomStepDetails"]:
         '''custom_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
         '''
         result = self._values.get("custom_step_details")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsCustomStepDetails"], result)
@@ -610,7 +610,7 @@ class TransferWorkflowOnExceptionSteps:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetails"]:
         '''decrypt_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
         '''
         result = self._values.get("decrypt_step_details")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetails"], result)
@@ -621,7 +621,7 @@ class TransferWorkflowOnExceptionSteps:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsDeleteStepDetails"]:
         '''delete_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
         '''
         result = self._values.get("delete_step_details")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsDeleteStepDetails"], result)
@@ -632,7 +632,7 @@ class TransferWorkflowOnExceptionSteps:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsTagStepDetails"]:
         '''tag_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
         '''
         result = self._values.get("tag_step_details")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsTagStepDetails"], result)
@@ -669,10 +669,10 @@ class TransferWorkflowOnExceptionStepsCopyStepDetails:
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         if isinstance(destination_file_location, dict):
             destination_file_location = TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation(**destination_file_location)
@@ -698,26 +698,26 @@ class TransferWorkflowOnExceptionStepsCopyStepDetails:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation"]:
         '''destination_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
         '''
         result = self._values.get("destination_file_location")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def overwrite_existing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
         result = self._values.get("overwrite_existing")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -749,8 +749,8 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation:
         s3_file_location: typing.Optional[typing.Union["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3FileLocation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         if isinstance(efs_file_location, dict):
             efs_file_location = TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationEfsFileLocation(**efs_file_location)
@@ -772,7 +772,7 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationEfsFileLocation"]:
         '''efs_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
         '''
         result = self._values.get("efs_file_location")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationEfsFileLocation"], result)
@@ -783,7 +783,7 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3FileLocation"]:
         '''s3_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         result = self._values.get("s3_file_location")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3FileLocation"], result)
@@ -813,8 +813,8 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationEfsF
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a0518a71b7b2d31d62489c923b407c55c596deb7f0eefdaff77040cc047c0a9)
@@ -828,13 +828,13 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationEfsF
 
     @builtins.property
     def file_system_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
         result = self._values.get("file_system_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -958,8 +958,8 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationOutp
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         value = TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationEfsFileLocation(
             file_system_id=file_system_id, path=path
@@ -975,8 +975,8 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationOutp
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         value = TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3FileLocation(
             bucket=bucket, key=key
@@ -1051,8 +1051,8 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3Fi
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c56f25b0bd36ec30a8e5d06a6722c440bbc2472b383e1c7b8ca8b58aad3965a)
@@ -1066,13 +1066,13 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3Fi
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1196,8 +1196,8 @@ class TransferWorkflowOnExceptionStepsCopyStepDetailsOutputReference(
         s3_file_location: typing.Optional[typing.Union[TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocationS3FileLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         value = TransferWorkflowOnExceptionStepsCopyStepDetailsDestinationFileLocation(
             efs_file_location=efs_file_location, s3_file_location=s3_file_location
@@ -1324,10 +1324,10 @@ class TransferWorkflowOnExceptionStepsCustomStepDetails:
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f979013c04656d16b24b5c662d1296109814357fc9abd12e070e82f0891d1997)
@@ -1347,25 +1347,25 @@ class TransferWorkflowOnExceptionStepsCustomStepDetails:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.'''
         result = self._values.get("timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1525,11 +1525,11 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetails:
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         if isinstance(destination_file_location, dict):
             destination_file_location = TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation(**destination_file_location)
@@ -1554,7 +1554,7 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetails:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1565,26 +1565,26 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetails:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation"]:
         '''destination_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
         '''
         result = self._values.get("destination_file_location")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def overwrite_existing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
         result = self._values.get("overwrite_existing")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1616,8 +1616,8 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation:
         s3_file_location: typing.Optional[typing.Union["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS3FileLocation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         if isinstance(efs_file_location, dict):
             efs_file_location = TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation(**efs_file_location)
@@ -1639,7 +1639,7 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation"]:
         '''efs_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
         '''
         result = self._values.get("efs_file_location")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation"], result)
@@ -1650,7 +1650,7 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS3FileLocation"]:
         '''s3_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         result = self._values.get("s3_file_location")
         return typing.cast(typing.Optional["TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS3FileLocation"], result)
@@ -1680,8 +1680,8 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationE
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d22efb7629f0765320e5c2bdeecc31b90d5ab165d4f56432dd308c521cc50c12)
@@ -1695,13 +1695,13 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationE
 
     @builtins.property
     def file_system_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
         result = self._values.get("file_system_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1825,8 +1825,8 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationO
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         value = TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation(
             file_system_id=file_system_id, path=path
@@ -1842,8 +1842,8 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationO
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         value = TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS3FileLocation(
             bucket=bucket, key=key
@@ -1918,8 +1918,8 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58dc3afb9a1cb3fbeca94f16537171c6f742a660858f5877a350c52e41614c54)
@@ -1933,13 +1933,13 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2063,8 +2063,8 @@ class TransferWorkflowOnExceptionStepsDecryptStepDetailsOutputReference(
         s3_file_location: typing.Optional[typing.Union[TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocationS3FileLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         value = TransferWorkflowOnExceptionStepsDecryptStepDetailsDestinationFileLocation(
             efs_file_location=efs_file_location, s3_file_location=s3_file_location
@@ -2201,8 +2201,8 @@ class TransferWorkflowOnExceptionStepsDeleteStepDetails:
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79e149cbc6c8c5c41376fb5e0a1e0ae571949c4dbb994bd392154973dc1219fb)
@@ -2216,13 +2216,13 @@ class TransferWorkflowOnExceptionStepsDeleteStepDetails:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2447,10 +2447,10 @@ class TransferWorkflowOnExceptionStepsOutputReference(
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         value = TransferWorkflowOnExceptionStepsCopyStepDetails(
             destination_file_location=destination_file_location,
@@ -2471,10 +2471,10 @@ class TransferWorkflowOnExceptionStepsOutputReference(
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
         '''
         value = TransferWorkflowOnExceptionStepsCustomStepDetails(
             name=name,
@@ -2496,11 +2496,11 @@ class TransferWorkflowOnExceptionStepsOutputReference(
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         value = TransferWorkflowOnExceptionStepsDecryptStepDetails(
             type=type,
@@ -2520,8 +2520,8 @@ class TransferWorkflowOnExceptionStepsOutputReference(
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         value = TransferWorkflowOnExceptionStepsDeleteStepDetails(
             name=name, source_file_location=source_file_location
@@ -2538,9 +2538,9 @@ class TransferWorkflowOnExceptionStepsOutputReference(
         tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["TransferWorkflowOnExceptionStepsTagStepDetailsTags", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
         '''
         value = TransferWorkflowOnExceptionStepsTagStepDetails(
             name=name, source_file_location=source_file_location, tags=tags
@@ -2691,9 +2691,9 @@ class TransferWorkflowOnExceptionStepsTagStepDetails:
         tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["TransferWorkflowOnExceptionStepsTagStepDetailsTags", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e691da317af2588af6b15f3b0bbe7531b5dc87056212d6b9680569199f75f757)
@@ -2710,13 +2710,13 @@ class TransferWorkflowOnExceptionStepsTagStepDetails:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2726,7 +2726,7 @@ class TransferWorkflowOnExceptionStepsTagStepDetails:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowOnExceptionStepsTagStepDetailsTags"]]]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowOnExceptionStepsTagStepDetailsTags"]]], result)
@@ -2860,8 +2860,8 @@ class TransferWorkflowOnExceptionStepsTagStepDetailsOutputReference(
 class TransferWorkflowOnExceptionStepsTagStepDetailsTags:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__977ada6a9782d96f793d04ac4252ac3630d4827f32f83a33116a386d0ae37285)
@@ -2874,14 +2874,14 @@ class TransferWorkflowOnExceptionStepsTagStepDetailsTags:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3093,12 +3093,12 @@ class TransferWorkflowSteps:
         tag_step_details: typing.Optional[typing.Union["TransferWorkflowStepsTagStepDetails", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
-        :param copy_step_details: copy_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
-        :param custom_step_details: custom_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
-        :param decrypt_step_details: decrypt_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
-        :param delete_step_details: delete_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
-        :param tag_step_details: tag_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
+        :param copy_step_details: copy_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
+        :param custom_step_details: custom_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
+        :param decrypt_step_details: decrypt_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
+        :param delete_step_details: delete_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
+        :param tag_step_details: tag_step_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
         '''
         if isinstance(copy_step_details, dict):
             copy_step_details = TransferWorkflowStepsCopyStepDetails(**copy_step_details)
@@ -3134,7 +3134,7 @@ class TransferWorkflowSteps:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -3145,7 +3145,7 @@ class TransferWorkflowSteps:
     ) -> typing.Optional["TransferWorkflowStepsCopyStepDetails"]:
         '''copy_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#copy_step_details TransferWorkflow#copy_step_details}
         '''
         result = self._values.get("copy_step_details")
         return typing.cast(typing.Optional["TransferWorkflowStepsCopyStepDetails"], result)
@@ -3156,7 +3156,7 @@ class TransferWorkflowSteps:
     ) -> typing.Optional["TransferWorkflowStepsCustomStepDetails"]:
         '''custom_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#custom_step_details TransferWorkflow#custom_step_details}
         '''
         result = self._values.get("custom_step_details")
         return typing.cast(typing.Optional["TransferWorkflowStepsCustomStepDetails"], result)
@@ -3167,7 +3167,7 @@ class TransferWorkflowSteps:
     ) -> typing.Optional["TransferWorkflowStepsDecryptStepDetails"]:
         '''decrypt_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#decrypt_step_details TransferWorkflow#decrypt_step_details}
         '''
         result = self._values.get("decrypt_step_details")
         return typing.cast(typing.Optional["TransferWorkflowStepsDecryptStepDetails"], result)
@@ -3178,7 +3178,7 @@ class TransferWorkflowSteps:
     ) -> typing.Optional["TransferWorkflowStepsDeleteStepDetails"]:
         '''delete_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#delete_step_details TransferWorkflow#delete_step_details}
         '''
         result = self._values.get("delete_step_details")
         return typing.cast(typing.Optional["TransferWorkflowStepsDeleteStepDetails"], result)
@@ -3189,7 +3189,7 @@ class TransferWorkflowSteps:
     ) -> typing.Optional["TransferWorkflowStepsTagStepDetails"]:
         '''tag_step_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tag_step_details TransferWorkflow#tag_step_details}
         '''
         result = self._values.get("tag_step_details")
         return typing.cast(typing.Optional["TransferWorkflowStepsTagStepDetails"], result)
@@ -3226,10 +3226,10 @@ class TransferWorkflowStepsCopyStepDetails:
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         if isinstance(destination_file_location, dict):
             destination_file_location = TransferWorkflowStepsCopyStepDetailsDestinationFileLocation(**destination_file_location)
@@ -3255,26 +3255,26 @@ class TransferWorkflowStepsCopyStepDetails:
     ) -> typing.Optional["TransferWorkflowStepsCopyStepDetailsDestinationFileLocation"]:
         '''destination_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
         '''
         result = self._values.get("destination_file_location")
         return typing.cast(typing.Optional["TransferWorkflowStepsCopyStepDetailsDestinationFileLocation"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def overwrite_existing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
         result = self._values.get("overwrite_existing")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3306,8 +3306,8 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocation:
         s3_file_location: typing.Optional[typing.Union["TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         if isinstance(efs_file_location, dict):
             efs_file_location = TransferWorkflowStepsCopyStepDetailsDestinationFileLocationEfsFileLocation(**efs_file_location)
@@ -3329,7 +3329,7 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowStepsCopyStepDetailsDestinationFileLocationEfsFileLocation"]:
         '''efs_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
         '''
         result = self._values.get("efs_file_location")
         return typing.cast(typing.Optional["TransferWorkflowStepsCopyStepDetailsDestinationFileLocationEfsFileLocation"], result)
@@ -3340,7 +3340,7 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation"]:
         '''s3_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         result = self._values.get("s3_file_location")
         return typing.cast(typing.Optional["TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation"], result)
@@ -3370,8 +3370,8 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocationEfsFileLocation
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc7bafde0b27a819a784cd1b5d19d5303f5814580a246fd843229dc45d05b0e4)
@@ -3385,13 +3385,13 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocationEfsFileLocation
 
     @builtins.property
     def file_system_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
         result = self._values.get("file_system_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3515,8 +3515,8 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocationOutputReference
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         value = TransferWorkflowStepsCopyStepDetailsDestinationFileLocationEfsFileLocation(
             file_system_id=file_system_id, path=path
@@ -3532,8 +3532,8 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocationOutputReference
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         value = TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation(
             bucket=bucket, key=key
@@ -3608,8 +3608,8 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation:
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34dec55713271fb1c00b3a0badf258e273e3c33f6d0700092b82dc85807ccb32)
@@ -3623,13 +3623,13 @@ class TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation:
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3753,8 +3753,8 @@ class TransferWorkflowStepsCopyStepDetailsOutputReference(
         s3_file_location: typing.Optional[typing.Union[TransferWorkflowStepsCopyStepDetailsDestinationFileLocationS3FileLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         value = TransferWorkflowStepsCopyStepDetailsDestinationFileLocation(
             efs_file_location=efs_file_location, s3_file_location=s3_file_location
@@ -3879,10 +3879,10 @@ class TransferWorkflowStepsCustomStepDetails:
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a977692bf11fa84613a493fc46e8b1cfad0acb94d3220b22a1233f41ec65de5)
@@ -3902,25 +3902,25 @@ class TransferWorkflowStepsCustomStepDetails:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.'''
         result = self._values.get("timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4078,11 +4078,11 @@ class TransferWorkflowStepsDecryptStepDetails:
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         if isinstance(destination_file_location, dict):
             destination_file_location = TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation(**destination_file_location)
@@ -4107,7 +4107,7 @@ class TransferWorkflowStepsDecryptStepDetails:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -4118,26 +4118,26 @@ class TransferWorkflowStepsDecryptStepDetails:
     ) -> typing.Optional["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation"]:
         '''destination_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
         '''
         result = self._values.get("destination_file_location")
         return typing.cast(typing.Optional["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def overwrite_existing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.'''
         result = self._values.get("overwrite_existing")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4169,8 +4169,8 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation:
         s3_file_location: typing.Optional[typing.Union["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         if isinstance(efs_file_location, dict):
             efs_file_location = TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation(**efs_file_location)
@@ -4192,7 +4192,7 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation"]:
         '''efs_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
         '''
         result = self._values.get("efs_file_location")
         return typing.cast(typing.Optional["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation"], result)
@@ -4203,7 +4203,7 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation:
     ) -> typing.Optional["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocation"]:
         '''s3_file_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         result = self._values.get("s3_file_location")
         return typing.cast(typing.Optional["TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocation"], result)
@@ -4233,8 +4233,8 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationEfsFileLocat
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8534f067d312ee704132bcaaa179f1a990b85378ba31b6d920d47af5dc1c30e)
@@ -4248,13 +4248,13 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationEfsFileLocat
 
     @builtins.property
     def file_system_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.'''
         result = self._values.get("file_system_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4378,8 +4378,8 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationOutputRefere
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
+        :param file_system_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#file_system_id TransferWorkflow#file_system_id}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#path TransferWorkflow#path}.
         '''
         value = TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationEfsFileLocation(
             file_system_id=file_system_id, path=path
@@ -4395,8 +4395,8 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationOutputRefere
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         value = TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocation(
             bucket=bucket, key=key
@@ -4471,8 +4471,8 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocati
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a0da44bdc43422d89e15c62ee405dc35bcdd46b7de8561d256ea5771331bc58)
@@ -4486,13 +4486,13 @@ class TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocati
 
     @builtins.property
     def bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#bucket TransferWorkflow#bucket}.'''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4616,8 +4616,8 @@ class TransferWorkflowStepsDecryptStepDetailsOutputReference(
         s3_file_location: typing.Optional[typing.Union[TransferWorkflowStepsDecryptStepDetailsDestinationFileLocationS3FileLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
-        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
+        :param efs_file_location: efs_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#efs_file_location TransferWorkflow#efs_file_location}
+        :param s3_file_location: s3_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#s3_file_location TransferWorkflow#s3_file_location}
         '''
         value = TransferWorkflowStepsDecryptStepDetailsDestinationFileLocation(
             efs_file_location=efs_file_location, s3_file_location=s3_file_location
@@ -4754,8 +4754,8 @@ class TransferWorkflowStepsDeleteStepDetails:
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e02df061b51fcb1c871f57b1ce903ae7375040cf8c99b74b118f55eb2b05b8a)
@@ -4769,13 +4769,13 @@ class TransferWorkflowStepsDeleteStepDetails:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4995,10 +4995,10 @@ class TransferWorkflowStepsOutputReference(
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         value = TransferWorkflowStepsCopyStepDetails(
             destination_file_location=destination_file_location,
@@ -5019,10 +5019,10 @@ class TransferWorkflowStepsOutputReference(
         timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
-        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#target TransferWorkflow#target}.
+        :param timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#timeout_seconds TransferWorkflow#timeout_seconds}.
         '''
         value = TransferWorkflowStepsCustomStepDetails(
             name=name,
@@ -5044,11 +5044,11 @@ class TransferWorkflowStepsOutputReference(
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
-        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#type TransferWorkflow#type}.
+        :param destination_file_location: destination_file_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#destination_file_location TransferWorkflow#destination_file_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param overwrite_existing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#overwrite_existing TransferWorkflow#overwrite_existing}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         value = TransferWorkflowStepsDecryptStepDetails(
             type=type,
@@ -5068,8 +5068,8 @@ class TransferWorkflowStepsOutputReference(
         source_file_location: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
         '''
         value = TransferWorkflowStepsDeleteStepDetails(
             name=name, source_file_location=source_file_location
@@ -5086,9 +5086,9 @@ class TransferWorkflowStepsOutputReference(
         tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["TransferWorkflowStepsTagStepDetailsTags", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
         '''
         value = TransferWorkflowStepsTagStepDetails(
             name=name, source_file_location=source_file_location, tags=tags
@@ -5235,9 +5235,9 @@ class TransferWorkflowStepsTagStepDetails:
         tags: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["TransferWorkflowStepsTagStepDetailsTags", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
-        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
-        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.
+        :param source_file_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.
+        :param tags: tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e254c9d04a7e4d532a9cbd6f07cfeeec5e9c876275ff0c1f53647e11c7f11e96)
@@ -5254,13 +5254,13 @@ class TransferWorkflowStepsTagStepDetails:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#name TransferWorkflow#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_file_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#source_file_location TransferWorkflow#source_file_location}.'''
         result = self._values.get("source_file_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5270,7 +5270,7 @@ class TransferWorkflowStepsTagStepDetails:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowStepsTagStepDetailsTags"]]]:
         '''tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#tags TransferWorkflow#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TransferWorkflowStepsTagStepDetailsTags"]]], result)
@@ -5402,8 +5402,8 @@ class TransferWorkflowStepsTagStepDetailsOutputReference(
 class TransferWorkflowStepsTagStepDetailsTags:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8344424a651d10f74e363650bd4f9d3015d5c388acdab2ecc28d4c6d38a1c97d)
@@ -5416,14 +5416,14 @@ class TransferWorkflowStepsTagStepDetailsTags:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#key TransferWorkflow#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/transfer_workflow#value TransferWorkflow#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

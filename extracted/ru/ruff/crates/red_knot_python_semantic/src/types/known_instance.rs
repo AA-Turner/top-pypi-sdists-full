@@ -1,6 +1,6 @@
 //! The `KnownInstance` type.
 //!
-//! Despite its name, this is quite a different type from [`super::InstanceType`].
+//! Despite its name, this is quite a different type from [`super::NominalInstanceType`].
 //! For the vast majority of instance-types in Python, we cannot say how many possible
 //! inhabitants there are or could be of that type at runtime. Each variant of the
 //! [`KnownInstanceType`] enum, however, represents a specific runtime symbol
@@ -95,6 +95,7 @@ pub enum KnownInstanceType<'db> {
     NotRequired,
     TypeAlias,
     TypeGuard,
+    TypedDict,
     TypeIs,
     ReadOnly,
     // TODO: fill this enum out with more special forms, etc.
@@ -108,6 +109,10 @@ impl<'db> KnownInstanceType<'db> {
             | Self::Literal
             | Self::LiteralString
             | Self::Optional
+            // This is a legacy `TypeVar` _outside_ of any generic class or function, so it's
+            // AlwaysTrue. The truthiness of a typevar inside of a generic class or function
+            // depends on its bounds and constraints; but that's represented by `Type::TypeVar` and
+            // handled in elsewhere.
             | Self::TypeVar(_)
             | Self::Union
             | Self::NoReturn
@@ -125,6 +130,7 @@ impl<'db> KnownInstanceType<'db> {
             | Self::NotRequired
             | Self::TypeAlias
             | Self::TypeGuard
+            | Self::TypedDict
             | Self::TypeIs
             | Self::List
             | Self::Dict
@@ -150,7 +156,7 @@ impl<'db> KnownInstanceType<'db> {
     }
 
     /// Return the repr of the symbol at runtime
-    pub(crate) fn repr(self, db: &'db dyn Db) -> &'db str {
+    pub(crate) fn repr(self) -> &'db str {
         match self {
             Self::Annotated => "typing.Annotated",
             Self::Literal => "typing.Literal",
@@ -172,6 +178,7 @@ impl<'db> KnownInstanceType<'db> {
             Self::NotRequired => "typing.NotRequired",
             Self::TypeAlias => "typing.TypeAlias",
             Self::TypeGuard => "typing.TypeGuard",
+            Self::TypedDict => "typing.TypedDict",
             Self::TypeIs => "typing.TypeIs",
             Self::List => "typing.List",
             Self::Dict => "typing.Dict",
@@ -185,7 +192,10 @@ impl<'db> KnownInstanceType<'db> {
             Self::Protocol => "typing.Protocol",
             Self::Generic => "typing.Generic",
             Self::ReadOnly => "typing.ReadOnly",
-            Self::TypeVar(typevar) => typevar.name(db),
+            // This is a legacy `TypeVar` _outside_ of any generic class or function, so we render
+            // it as an instance of `typing.TypeVar`. Inside of a generic class or function, we'll
+            // have a `Type::TypeVar(_)`, which is rendered as the typevar's name.
+            Self::TypeVar(_) => "typing.TypeVar",
             Self::TypeAliasType(_) => "typing.TypeAliasType",
             Self::Unknown => "knot_extensions.Unknown",
             Self::AlwaysTruthy => "knot_extensions.AlwaysTruthy",
@@ -220,6 +230,7 @@ impl<'db> KnownInstanceType<'db> {
             Self::NotRequired => KnownClass::SpecialForm,
             Self::TypeAlias => KnownClass::SpecialForm,
             Self::TypeGuard => KnownClass::SpecialForm,
+            Self::TypedDict => KnownClass::SpecialForm,
             Self::TypeIs => KnownClass::SpecialForm,
             Self::ReadOnly => KnownClass::SpecialForm,
             Self::List => KnownClass::StdlibAlias,
@@ -249,7 +260,7 @@ impl<'db> KnownInstanceType<'db> {
     ///
     /// For example, the symbol `typing.Literal` is an instance of `typing._SpecialForm`,
     /// so `KnownInstanceType::Literal.instance_fallback(db)`
-    /// returns `Type::Instance(InstanceType { class: <typing._SpecialForm> })`.
+    /// returns `Type::NominalInstance(NominalInstanceType { class: <typing._SpecialForm> })`.
     pub(super) fn instance_fallback(self, db: &dyn Db) -> Type {
         self.class().to_instance(db)
     }
@@ -293,6 +304,7 @@ impl<'db> KnownInstanceType<'db> {
             "Required" => Self::Required,
             "TypeAlias" => Self::TypeAlias,
             "TypeGuard" => Self::TypeGuard,
+            "TypedDict" => Self::TypedDict,
             "TypeIs" => Self::TypeIs,
             "ReadOnly" => Self::ReadOnly,
             "Concatenate" => Self::Concatenate,
@@ -350,6 +362,7 @@ impl<'db> KnownInstanceType<'db> {
             | Self::NotRequired
             | Self::TypeAlias
             | Self::TypeGuard
+            | Self::TypedDict
             | Self::TypeIs
             | Self::ReadOnly
             | Self::TypeAliasType(_)

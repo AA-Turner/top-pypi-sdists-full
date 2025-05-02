@@ -1,7 +1,7 @@
 r'''
 # `aws_media_convert_queue`
 
-Refer to the Terraform Registry for docs: [`aws_media_convert_queue`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue).
+Refer to the Terraform Registry for docs: [`aws_media_convert_queue`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MediaConvertQueue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.mediaConvertQueue.MediaConvertQueue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue aws_media_convert_queue}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue aws_media_convert_queue}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class MediaConvertQueue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue aws_media_convert_queue} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue aws_media_convert_queue} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#name MediaConvertQueue#name}.
-        :param concurrent_jobs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#concurrent_jobs MediaConvertQueue#concurrent_jobs}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#description MediaConvertQueue#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#id MediaConvertQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pricing_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#pricing_plan MediaConvertQueue#pricing_plan}.
-        :param reservation_plan_settings: reservation_plan_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#reservation_plan_settings MediaConvertQueue#reservation_plan_settings}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#status MediaConvertQueue#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#tags MediaConvertQueue#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#tags_all MediaConvertQueue#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#name MediaConvertQueue#name}.
+        :param concurrent_jobs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#concurrent_jobs MediaConvertQueue#concurrent_jobs}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#description MediaConvertQueue#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#id MediaConvertQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pricing_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#pricing_plan MediaConvertQueue#pricing_plan}.
+        :param reservation_plan_settings: reservation_plan_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#reservation_plan_settings MediaConvertQueue#reservation_plan_settings}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#status MediaConvertQueue#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#tags MediaConvertQueue#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#tags_all MediaConvertQueue#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class MediaConvertQueue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MediaConvertQueue to import.
-        :param import_from_id: The id of the existing MediaConvertQueue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MediaConvertQueue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MediaConvertQueue to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class MediaConvertQueue(
         reserved_slots: jsii.Number,
     ) -> None:
         '''
-        :param commitment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#commitment MediaConvertQueue#commitment}.
-        :param renewal_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#renewal_type MediaConvertQueue#renewal_type}.
-        :param reserved_slots: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#reserved_slots MediaConvertQueue#reserved_slots}.
+        :param commitment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#commitment MediaConvertQueue#commitment}.
+        :param renewal_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#renewal_type MediaConvertQueue#renewal_type}.
+        :param reserved_slots: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#reserved_slots MediaConvertQueue#reserved_slots}.
         '''
         value = MediaConvertQueueReservationPlanSettings(
             commitment=commitment,
@@ -413,15 +413,15 @@ class MediaConvertQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#name MediaConvertQueue#name}.
-        :param concurrent_jobs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#concurrent_jobs MediaConvertQueue#concurrent_jobs}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#description MediaConvertQueue#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#id MediaConvertQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pricing_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#pricing_plan MediaConvertQueue#pricing_plan}.
-        :param reservation_plan_settings: reservation_plan_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#reservation_plan_settings MediaConvertQueue#reservation_plan_settings}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#status MediaConvertQueue#status}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#tags MediaConvertQueue#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#tags_all MediaConvertQueue#tags_all}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#name MediaConvertQueue#name}.
+        :param concurrent_jobs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#concurrent_jobs MediaConvertQueue#concurrent_jobs}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#description MediaConvertQueue#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#id MediaConvertQueue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pricing_plan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#pricing_plan MediaConvertQueue#pricing_plan}.
+        :param reservation_plan_settings: reservation_plan_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#reservation_plan_settings MediaConvertQueue#reservation_plan_settings}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#status MediaConvertQueue#status}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#tags MediaConvertQueue#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#tags_all MediaConvertQueue#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -545,26 +545,26 @@ class MediaConvertQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#name MediaConvertQueue#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#name MediaConvertQueue#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def concurrent_jobs(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#concurrent_jobs MediaConvertQueue#concurrent_jobs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#concurrent_jobs MediaConvertQueue#concurrent_jobs}.'''
         result = self._values.get("concurrent_jobs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#description MediaConvertQueue#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#description MediaConvertQueue#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#id MediaConvertQueue#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#id MediaConvertQueue#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -574,7 +574,7 @@ class MediaConvertQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#pricing_plan MediaConvertQueue#pricing_plan}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#pricing_plan MediaConvertQueue#pricing_plan}.'''
         result = self._values.get("pricing_plan")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -584,26 +584,26 @@ class MediaConvertQueueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MediaConvertQueueReservationPlanSettings"]:
         '''reservation_plan_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#reservation_plan_settings MediaConvertQueue#reservation_plan_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#reservation_plan_settings MediaConvertQueue#reservation_plan_settings}
         '''
         result = self._values.get("reservation_plan_settings")
         return typing.cast(typing.Optional["MediaConvertQueueReservationPlanSettings"], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#status MediaConvertQueue#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#status MediaConvertQueue#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#tags MediaConvertQueue#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#tags MediaConvertQueue#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#tags_all MediaConvertQueue#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#tags_all MediaConvertQueue#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -637,9 +637,9 @@ class MediaConvertQueueReservationPlanSettings:
         reserved_slots: jsii.Number,
     ) -> None:
         '''
-        :param commitment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#commitment MediaConvertQueue#commitment}.
-        :param renewal_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#renewal_type MediaConvertQueue#renewal_type}.
-        :param reserved_slots: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#reserved_slots MediaConvertQueue#reserved_slots}.
+        :param commitment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#commitment MediaConvertQueue#commitment}.
+        :param renewal_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#renewal_type MediaConvertQueue#renewal_type}.
+        :param reserved_slots: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#reserved_slots MediaConvertQueue#reserved_slots}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17f50d93792933f75b4e4a80501a6984d6fb81c5b6365aca72a7425e5cf06f0d)
@@ -654,21 +654,21 @@ class MediaConvertQueueReservationPlanSettings:
 
     @builtins.property
     def commitment(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#commitment MediaConvertQueue#commitment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#commitment MediaConvertQueue#commitment}.'''
         result = self._values.get("commitment")
         assert result is not None, "Required property 'commitment' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def renewal_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#renewal_type MediaConvertQueue#renewal_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#renewal_type MediaConvertQueue#renewal_type}.'''
         result = self._values.get("renewal_type")
         assert result is not None, "Required property 'renewal_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def reserved_slots(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/resources/media_convert_queue#reserved_slots MediaConvertQueue#reserved_slots}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/media_convert_queue#reserved_slots MediaConvertQueue#reserved_slots}.'''
         result = self._values.get("reserved_slots")
         assert result is not None, "Required property 'reserved_slots' is missing"
         return typing.cast(jsii.Number, result)

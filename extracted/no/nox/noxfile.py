@@ -74,6 +74,9 @@ def conda_tests(session: nox.Session) -> None:
         "--file", "requirements-conda-test.txt", channel="conda-forge"
     )
     session.install("-e.", "--no-deps")
+    # Currently, this doesn't work on Windows either with or without quoting
+    if not sys.platform.startswith("win32"):
+        session.conda_install("requests<99")
     session.run("pytest", *session.posargs)
 
 
@@ -84,6 +87,8 @@ def mamba_tests(session: nox.Session) -> None:
         "--file", "requirements-conda-test.txt", channel="conda-forge"
     )
     session.install("-e.", "--no-deps")
+    if not sys.platform.startswith("win32"):
+        session.conda_install("requests<99")
     session.run("pytest", *session.posargs)
 
 
@@ -93,7 +98,10 @@ def micromamba_tests(session: nox.Session) -> None:
     session.conda_install(
         "--file", "requirements-conda-test.txt", channel="conda-forge"
     )
+    # Currently, this doesn't work on Windows either with or without quoting
     session.install("-e.", "--no-deps")
+    if not sys.platform.startswith("win32"):
+        session.conda_install("requests<99")
     session.run("pytest", *session.posargs)
 
 
@@ -177,7 +185,7 @@ def _check_python_version(session: nox.Session) -> None:
 )
 def github_actions_default_tests(session: nox.Session) -> None:
     """Check default versions installed by the nox GHA Action"""
-    assert sys.version_info[:2] == (3, 11)
+    assert sys.version_info[:2] == (3, 12)
     _check_python_version(session)
 
 

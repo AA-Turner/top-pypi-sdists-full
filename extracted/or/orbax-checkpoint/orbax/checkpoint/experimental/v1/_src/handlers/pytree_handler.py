@@ -16,11 +16,10 @@
 
 from __future__ import annotations
 
-import contextlib
+import asyncio
 import dataclasses
 from typing import Any, Awaitable, Sequence
 
-from etils import epath
 import jax
 import numpy as np
 from orbax.checkpoint import checkpoint_utils
@@ -29,17 +28,16 @@ from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.handlers import base_pytree_checkpoint_handler
 from orbax.checkpoint._src.metadata import array_metadata_store as array_metadata_store_lib
-from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.serialization import type_handlers
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.context import options as options_lib
-from orbax.checkpoint.experimental.v1._src.handlers import registration
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
+from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
-PathLike = path_types.PathLike
+Path = path_types.Path
 CheckpointableHandler = handler_types.CheckpointableHandler
 PyTree = tree_types.PyTree
 
@@ -136,6 +134,10 @@ def create_v0_restore_args(
   )
 
 
+async def _async_futures(commit_futures: Sequence[future.Future]):
+  await asyncio.gather(*[asyncio.to_thread(f.result) for f in commit_futures])
+
+
 class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
   """An implementation of `CheckpointableHandler` for PyTrees."""
 
@@ -163,33 +165,36 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
 
   async def _background_save(
       self,
-      directory: path_types.Path,
+      directory: path_types.PathAwaitingCreation,
       *,
       commit_futures: Sequence[future.Future],
       operation_id: str,
   ):
+    directory = await directory.await_creation()
     active_processes = self._multiprocessing_options.active_processes or set(
         range(multihost.process_count())
     )
-    for f in commit_futures:
-      f.result()
+    await _async_futures(commit_futures)
     # Global sync to ensure all participating processes have completed their
     # save operations before proceeding to finalize.
     barrier_name = f'save_and_finalize_{operation_id}_commit_complete'
-    multihost.sync_global_processes(barrier_name, processes=active_processes)
+    await multihost.sync_global_processes(
+        barrier_name, processes=active_processes
+    )
     # Finalize.
     await self._finalize(directory)
     # Global sync to ensure all hosts are aware that the finalize operation
     # has completed before returning to the user.
     barrier_name = f'save_and_finalize_{operation_id}_finalize_complete'
-    multihost.sync_global_processes(barrier_name, processes=active_processes)
+    await multihost.sync_global_processes(
+        barrier_name, processes=active_processes
+    )
 
   async def save(
-      self, directory: path_types.PathLike, checkpointable: PyTree
+      self, directory: path_types.PathAwaitingCreation, checkpointable: PyTree
   ) -> Awaitable[None]:
-    directory = epath.Path(directory)
     commit_futures = await self._handler_impl.async_save(
-        directory,
+        directory.path,
         args=create_v0_save_args(self._context, checkpointable),
     )
     assert commit_futures
@@ -200,7 +205,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     )
     # Needed to differentiate between different handlers when we have multiple
     # PyTreeHandlers performing a save.
-    operation_id = f'{operation_id}.{directory.name}'
+    operation_id = f'{operation_id}.{directory.path.name}'
     return self._background_save(
         directory, commit_futures=commit_futures, operation_id=operation_id
     )
@@ -217,17 +222,15 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
 
   async def load(
       self,
-      directory: path_types.PathLike,
+      directory: path_types.Path,
       abstract_checkpointable: PyTree | None = None,
   ) -> Awaitable[PyTree]:
-    directory = epath.Path(directory)
     # TODO(b/406252214): Add validation for PyTrees and abstract PyTrees.
     return self._background_load(directory, abstract_checkpointable)
 
   async def metadata(
-      self, directory: path_types.PathLike
+      self, directory: path_types.Path
   ) -> metadata_types.PyTreeMetadata:
-    directory = epath.Path(directory)
     return self._handler_impl.metadata(directory).tree
 
   def _is_handleable_leaf(self, leaf: Any) -> bool:
@@ -248,7 +251,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
         or isinstance(leaf, str)
     )
 
-  def is_handleable(self, checkpointable: PyTree) -> bool:
+  def is_handleable(self, checkpointable: Any) -> bool:
     try:
       return jax.tree.reduce(
           lambda a, b: self._is_handleable_leaf(a)
@@ -259,7 +262,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     except Exception:  # pylint: disable=broad-exception-caught
       return False
 
-  def is_abstract_handleable(self, abstract_checkpointable: PyTree) -> bool:
+  def is_abstract_handleable(self, abstract_checkpointable: Any) -> bool:
     try:
       return jax.tree.reduce(
           lambda a, b: self._is_handleable_abstract_leaf(a)
@@ -269,19 +272,3 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
       )
     except Exception:  # pylint: disable=broad-exception-caught
       return False
-
-
-@contextlib.contextmanager
-def pytree_handler_context():
-  """Creates a local context where only `PyTreeHandler` is registered."""
-  # TODO(b/398310070): Verify behavior with nested Contexts.
-  checkpointables_options = options_lib.CheckpointablesOptions(
-      registry=registration.local_registry(include_global_registry=True).add(
-          PyTreeHandler,
-          PYTREE_CHECKPOINTABLE_KEY,
-      )
-  )
-  with context_lib.Context(
-      context_lib.get_context(), checkpointables_options=checkpointables_options
-  ) as new_context:
-    yield new_context

@@ -2633,6 +2633,13 @@ def slice(arr: Underscore | list[Any], offset: Underscore | int, length: Undersc
     return UnderscoreFunction("slice", arr, start, length)
 
 
+def concat(first: Underscore | Any, second: Underscore | Any):
+    """
+    Concatenate two arrays into a single array.
+    """
+    return UnderscoreFunction("concat", first, second)
+
+
 def array_sort(expr: Underscore | Any, descending: bool = False):
     """
     Returns an array which has the sorted order of the input

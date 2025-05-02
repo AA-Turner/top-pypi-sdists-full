@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: getdaft
-Version: 0.4.12
+Version: 0.4.13
 Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: fsspec
 Requires-Dist: tqdm

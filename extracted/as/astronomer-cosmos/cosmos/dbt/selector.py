@@ -21,7 +21,9 @@ PATH_SELECTOR = "path:"
 TAG_SELECTOR = "tag:"
 CONFIG_SELECTOR = "config."
 SOURCE_SELECTOR = "source:"
+EXPOSURE_SELECTOR = "exposure:"
 RESOURCE_TYPE_SELECTOR = "resource_type:"
+EXCLUDE_RESOURCE_TYPE_SELECTOR = "exclude_resource_type:"
 PLUS_SELECTOR = "+"
 AT_SELECTOR = "@"
 GRAPH_SELECTOR_REGEX = r"^(@|[0-9]*\+)?([^\+]+)(\+[0-9]*)?$|"
@@ -80,6 +82,8 @@ class GraphSelector:
         +config.materialized:view
         resource_type:resource_name
         source:source_name
+        exclude_resource_type:resource_name
+        exposure:exposure_name
 
     https://docs.getdbt.com/reference/node-selection/graph-operators
     """
@@ -195,7 +199,7 @@ class GraphSelector:
                 previous_generation = new_generation
                 depth -= 1
 
-    def filter_nodes(self, nodes: dict[str, DbtNode]) -> set[str]:
+    def filter_nodes(self, nodes: dict[str, DbtNode]) -> set[str]:  # noqa: C901
         """
         Given a dictionary with the original dbt project nodes, applies the current graph selector to
         identify the subset of nodes that matches the selection criteria.
@@ -224,6 +228,18 @@ class GraphSelector:
                     node_id
                     for node_id, node in nodes.items()
                     if node.resource_type == DbtResourceType.SOURCE and node.resource_name == source_selection
+                }
+            )
+
+        elif EXPOSURE_SELECTOR in self.node_name:
+            exposure_selection = self.node_name[len(EXPOSURE_SELECTOR) :]
+
+            # match node.resource_type == EXPOSURE, node.resource_name == exposure_selection
+            root_nodes.update(
+                {
+                    node_id
+                    for node_id, node in nodes.items()
+                    if node.resource_type == DbtResourceType.EXPOSURE and node.resource_name == exposure_selection
                 }
             )
 
@@ -330,7 +346,9 @@ class SelectorConfig:
         self.other: list[str] = []
         self.graph_selectors: list[GraphSelector] = []
         self.sources: list[str] = []
+        self.exposures: list[str] = []
         self.resource_types: list[str] = []
+        self.exclude_resource_types: list[str] = []
         self.load_from_statement(statement)
 
     @property
@@ -342,7 +360,9 @@ class SelectorConfig:
             or self.graph_selectors
             or self.other
             or self.sources
+            or self.exposures
             or self.resource_types
+            or self.exclude_resource_types
         )
 
     def load_from_statement(self, statement: str) -> None:
@@ -380,8 +400,12 @@ class SelectorConfig:
             self._parse_config_selector(item)
         elif node_name.startswith(SOURCE_SELECTOR):
             self._parse_source_selector(item)
+        elif node_name.startswith(EXPOSURE_SELECTOR):
+            self._parse_exposure_selector(item)
         elif node_name.startswith(RESOURCE_TYPE_SELECTOR):
             self._parse_resource_type_selector(item)
+        elif node_name.startswith(EXCLUDE_RESOURCE_TYPE_SELECTOR):
+            self._parse_exclude_resource_type_selector(item)
         else:
             self._parse_unknown_selector(item)
 
@@ -417,13 +441,34 @@ class SelectorConfig:
         resource_type_value = item[index:].strip()
         self.resource_types.append(resource_type_value)
 
+    def _parse_exclude_resource_type_selector(self, item: str) -> None:
+        index = len(EXCLUDE_RESOURCE_TYPE_SELECTOR)
+        resource_type_value = item[index:].strip()
+        self.exclude_resource_types.append(resource_type_value)
+
     def _parse_source_selector(self, item: str) -> None:
         index = len(SOURCE_SELECTOR)
         source_name = item[index:].strip()
         self.sources.append(source_name)
 
+    def _parse_exposure_selector(self, item: str) -> None:
+        index = len(EXPOSURE_SELECTOR)
+        exposure_name = item[index:].strip()
+        self.exposures.append(exposure_name)
+
     def __repr__(self) -> str:
-        return f"SelectorConfig(paths={self.paths}, tags={self.tags}, config={self.config}, sources={self.sources}, resource={self.resource_types}, other={self.other}, graph_selectors={self.graph_selectors})"
+        return (
+            "SelectorConfig("
+            + f"paths={self.paths}, "
+            + f"tags={self.tags}, "
+            + f"config={self.config}, "
+            + f"sources={self.sources}, "
+            + f"resource={self.resource_types}, "
+            + f"exposures={self.exposures}, "
+            + f"exclude_resource={self.exclude_resource_types}, "
+            + f"other={self.other}, "
+            + f"graph_selectors={self.graph_selectors})"
+        )
 
 
 class NodeSelector:
@@ -538,7 +583,13 @@ class NodeSelector:
         if self.config.resource_types and not self._is_resource_type_matching(node):
             return False
 
+        if self.config.exclude_resource_types and self._is_exclude_resource_type_matching(node):
+            return False
+
         if self.config.sources and not self._is_source_matching(node):
+            return False
+
+        if self.config.exposures and not self._is_exposure_matching(node):
             return False
 
         return True
@@ -549,11 +600,23 @@ class NodeSelector:
             return False
         return True
 
+    def _is_exclude_resource_type_matching(self, node: DbtNode) -> bool:
+        """Checks if the node's resource type is a subset of the config's exclude resource type."""
+        return node.resource_type.value in self.config.exclude_resource_types
+
     def _is_source_matching(self, node: DbtNode) -> bool:
         """Checks if the node's source is a subset of the config's source."""
         if node.resource_type != DbtResourceType.SOURCE:
             return False
         if node.resource_name not in self.config.sources:
+            return False
+        return True
+
+    def _is_exposure_matching(self, node: DbtNode) -> bool:
+        """Checks if the node's exposure is a subset of the config's exposure."""
+        if node.resource_type != DbtResourceType.EXPOSURE:
+            return False
+        if node.resource_name not in self.config.exposures:
             return False
         return True
 
@@ -683,7 +746,9 @@ def validate_filters(exclude: list[str], select: list[str]) -> None:
                 filter_parameter.startswith(PATH_SELECTOR)
                 or filter_parameter.startswith(TAG_SELECTOR)
                 or filter_parameter.startswith(RESOURCE_TYPE_SELECTOR)
+                or filter_parameter.startswith(EXCLUDE_RESOURCE_TYPE_SELECTOR)
                 or filter_parameter.startswith(SOURCE_SELECTOR)
+                or filter_parameter.startswith(EXPOSURE_SELECTOR)
                 or PLUS_SELECTOR in filter_parameter
                 or any([filter_parameter.startswith(CONFIG_SELECTOR + config) for config in SUPPORTED_CONFIG])
             ):

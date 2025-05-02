@@ -1,0 +1,203 @@
+[build-system]
+requires = ["packaging", "setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "pywikibot"
+
+##############################################################
+# Keep this file readable for all entries above this comment #
+##############################################################
+
+authors = [
+    {name = "xqt", email = "info@gno.de"},
+]
+maintainers = [
+    {name = "The Pywikibot team", email = "pywikibot@lists.wikimedia.org"},
+]
+description = "Python MediaWiki Bot Framework"
+requires-python = ">=3.8.0"
+keywords = [
+    "API", "bot", "client", "framework", "mediawiki", "pwb", "pybot", "python",
+    "pywiki", "pywikibase", "pywikibot", "pywikipedia", "pywikipediabot",
+    "wiki", "wikibase", "wikidata", "wikimedia", "wikipedia",
+]
+license = {text = "MIT License"}
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Afrikaans",
+    "Natural Language :: Arabic",
+    "Natural Language :: Basque",
+    "Natural Language :: Bengali",
+    "Natural Language :: Bosnian",
+    "Natural Language :: Bulgarian",
+    "Natural Language :: Cantonese",
+    "Natural Language :: Catalan",
+    "Natural Language :: Chinese (Simplified)",
+    "Natural Language :: Chinese (Traditional)",
+    "Natural Language :: Croatian",
+    "Natural Language :: Czech",
+    "Natural Language :: Danish",
+    "Natural Language :: Dutch",
+    "Natural Language :: English",
+    "Natural Language :: Esperanto",
+    "Natural Language :: Finnish",
+    "Natural Language :: French",
+    "Natural Language :: Galician",
+    "Natural Language :: German",
+    "Natural Language :: Greek",
+    "Natural Language :: Hebrew",
+    "Natural Language :: Hindi",
+    "Natural Language :: Hungarian",
+    "Natural Language :: Icelandic",
+    "Natural Language :: Indonesian",
+    "Natural Language :: Irish",
+    "Natural Language :: Italian",
+    "Natural Language :: Japanese",
+    "Natural Language :: Javanese",
+    "Natural Language :: Korean",
+    "Natural Language :: Latin",
+    "Natural Language :: Latvian",
+    "Natural Language :: Lithuanian",
+    "Natural Language :: Macedonian",
+    "Natural Language :: Malay",
+    "Natural Language :: Marathi",
+    "Natural Language :: Nepali",
+    "Natural Language :: Norwegian",
+    "Natural Language :: Panjabi",
+    "Natural Language :: Persian",
+    "Natural Language :: Polish",
+    "Natural Language :: Portuguese",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Natural Language :: Romanian",
+    "Natural Language :: Russian",
+    "Natural Language :: Serbian",
+    "Natural Language :: Slovak",
+    "Natural Language :: Slovenian",
+    "Natural Language :: Spanish",
+    "Natural Language :: Swedish",
+    "Natural Language :: Tamil",
+    "Natural Language :: Telugu",
+    "Natural Language :: Thai",
+    "Natural Language :: Tibetan",
+    "Natural Language :: Turkish",
+    "Natural Language :: Ukrainian",
+    "Natural Language :: Urdu",
+    "Natural Language :: Vietnamese",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content :: Wiki",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+dynamic = [
+    "dependencies",
+    "optional-dependencies",
+    "readme",
+    "version",
+]
+
+
+[project.scripts]
+pwb = "pywikibot.scripts.wrapper:run"
+
+[project.urls]
+Homepage = "https://www.mediawiki.org/wiki/Manual:Pywikibot"
+Documentation = "https://doc.wikimedia.org/pywikibot/stable/"
+Repository = "https://gerrit.wikimedia.org/r/plugins/gitiles/pywikibot/core/"
+"GitHub Mirror" = "https://github.com/wikimedia/pywikibot"
+Download = "https://www.pywikibot.org"
+Changelog = "https://doc.wikimedia.org/pywikibot/master/changelog.html"
+Tracker = "https://phabricator.wikimedia.org/tag/pywikibot/"
+
+
+[tool.coverage.report]
+ignore_errors = true
+skip_empty = true
+
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    "except ImportError",
+    "except KeyboardInterrupt",
+    "except OSError",
+    "except \\w*ServerError",
+    "except SyntaxError",
+    "raise ImportError",
+    "raise NotImplementedError",
+    "raise unittest\\.SkipTest",
+    "self\\.skipTest",
+    "if __name__ == '__main__':",
+    "if .+PYWIKIBOT_TEST_\\w+.+:",
+    "if self\\.mw_version < .+:",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    "@deprecated\\([^\\)]+\\)",
+    "@unittest\\.skip",
+]
+
+exclude_also = [
+    # Comments to turn coverage on and off:
+    "no cover: start(?s:.)*?no cover: stop",
+]
+
+
+[tool.docsig]
+disable = [
+    "SIG101",
+    "SIG202",
+    "SIG203",
+    "SIG301",
+    "SIG302",
+    "SIG401",
+    "SIG402",
+    "SIG404",
+    "SIG501",
+    "SIG502",
+    "SIG503",
+    "SIG505",
+]
+
+
+[tool.isort]
+py_version = 38
+add_imports = ["from __future__ import annotations"]
+atomic = true
+ensure_newline_before_comments = true
+force_grid_wrap = 0
+include_trailing_comma = true
+lines_after_imports = 2
+multi_line_output = 3
+use_parentheses = true
+
+
+[tool.mypy]
+python_version = 3.8
+enable_error_code = [
+    "ignore-without-code",
+]
+ignore_missing_imports = true
+
+
+[tool.rstcheck]
+ignore_directives = ["automodule", "autoclass", "autofunction", "tabs"]
+ignore_messages = '(Undefined substitution referenced: "(release|today|version)")'
+ignore_roles = ["api", "phab", "pylib", "source", "wiki"]
+
+
+[tool.ruff.lint]
+select = ["C4", "D", "RSE"]
+ignore = ["D105", "D211", "D213", "D214", "D401", "D404", "D406", "D407", "D412", "D413", "D416", "D417"]
+
+[tool.ruff.lint.per-file-ignores]
+"pywikibot/families/*" = ["D102"]
+"scripts/dataextend.py" = ["D101", "D102"]
+"tests/ui_tests.py" = ["D102", "D103"]

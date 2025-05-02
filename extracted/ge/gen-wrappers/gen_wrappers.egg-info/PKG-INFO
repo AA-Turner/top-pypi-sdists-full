@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: gen-wrappers
+Version: 0.7.1
+Summary: A set of wrapper classes for various generative API projects
+Home-page: https://github.com/d8ahazard/gen_wrappers
+Author: d8ahazard
+Author-email: d8ahazard@gmail.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: httpx
+Requires-Dist: requests
+Requires-Dist: pydantic
+Requires-Dist: fastapi

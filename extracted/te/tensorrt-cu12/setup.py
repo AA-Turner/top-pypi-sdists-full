@@ -26,7 +26,7 @@ from setuptools.command.install import install
 
 distribution_package_name = "tensorrt_cu12"
 import_package_name = "tensorrt"
-tensorrt_version = "10.9.0.34"
+tensorrt_version = "10.10.0.31"
 tensorrt_submodules = [
     "{}_libs=={}".format(distribution_package_name, tensorrt_version),
     "{}_bindings=={}".format(distribution_package_name, tensorrt_version),

@@ -1,0 +1,80 @@
+[tool.poetry]
+name = "django-fsm-2"
+version = "4.0.0"
+description = "Django friendly finite state machine support."
+authors = [
+    "Mikhail Podgurskiy <kmmbvnr@gmail.com>",
+]
+license = "MIT License"
+readme = "README.md"
+homepage = "http://github.com/django-commons/django-fsm-2"
+repository = "http://github.com/django-commons/django-fsm-2"
+documentation = "http://github.com/django-commons/django-fsm-2"
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Web Environment',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+]
+packages = [{ include = "django_fsm" }]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+django = ">=4.2"
+
+[tool.poetry.group.graphviz.dependencies]
+graphviz = "*"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "*"
+django-guardian = "*"
+graphviz = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-cov = "^4.1.0"
+pytest-django = "*"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+
+[tool.ruff]
+line-length = 130
+target-version = "py38"
+fix = true
+
+[tool.ruff.lint]
+# select = ["ALL"]
+extend-select = [
+    "F",  # Pyflakes
+    "E",  # pycodestyle
+    "W",  # pycodestyle
+    "UP",  # pyupgrade
+    "I",  # isort
+    "PERF",
+    "RET",
+    "C",
+    # "B",
+]
+fixable = ["I"]
+
+
+[tool.ruff.lint.isort]
+force-single-line = true
+required-imports = ["from __future__ import annotations"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

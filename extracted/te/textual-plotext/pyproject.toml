@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "textual-plotext"
+version = "1.0.1"
+description = "A Textual widget wrapper for the Plotext plotting library"
+homepage = "https://github.com/Textualize/textual-plotext"
+repository = "https://github.com/Textualize/textual-plotext"
+authors = ["Dave Pearson <dave@textualize.io>"]
+license = "MIT"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Typing :: Typed",
+]
+include = [
+    "src/textual_plotext/py.typed",
+    "src/textual_plotext/**/*.pyi",
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/Textualize/textual-plotext/issues"
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+plotext = "^5.2.8"
+textual = ">=0.86.2"
+
+[tool.poetry.group.dev.dependencies]
+textual-dev = "*"
+mypy = "^1.1.1"
+pylint = "^2.17.1"
+pre-commit = "^2.13.0"
+black = "^23.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

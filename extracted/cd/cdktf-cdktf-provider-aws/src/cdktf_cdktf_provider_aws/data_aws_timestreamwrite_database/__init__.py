@@ -1,7 +1,7 @@
 r'''
 # `data_aws_timestreamwrite_database`
 
-Refer to the Terraform Registry for docs: [`data_aws_timestreamwrite_database`](https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database).
+Refer to the Terraform Registry for docs: [`data_aws_timestreamwrite_database`](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsTimestreamwriteDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsTimestreamwriteDatabase.DataAwsTimestreamwriteDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database aws_timestreamwrite_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database aws_timestreamwrite_database}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsTimestreamwriteDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database aws_timestreamwrite_database} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database aws_timestreamwrite_database} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database#name DataAwsTimestreamwriteDatabase#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database#name DataAwsTimestreamwriteDatabase#name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsTimestreamwriteDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsTimestreamwriteDatabase to import.
-        :param import_from_id: The id of the existing DataAwsTimestreamwriteDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsTimestreamwriteDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsTimestreamwriteDatabase to import is found.
         '''
         if __debug__:
@@ -205,7 +205,7 @@ class DataAwsTimestreamwriteDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database#name DataAwsTimestreamwriteDatabase#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database#name DataAwsTimestreamwriteDatabase#name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -303,7 +303,7 @@ class DataAwsTimestreamwriteDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.96.0/docs/data-sources/timestreamwrite_database#name DataAwsTimestreamwriteDatabase#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/timestreamwrite_database#name DataAwsTimestreamwriteDatabase#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
